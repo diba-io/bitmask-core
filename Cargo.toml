@@ -1,0 +1,41 @@
+[package]
+name = "bitmask-core"
+version = "0.1.0"
+authors = [
+    "Jose D Robles <jd.robles@gmail.com>",
+    "Hunter Trujillo <cryptoquick@pm.me>",
+]
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+anyhow = "1.0.44"
+base64 = "0.13.0"
+bdk = { version = "0.16", features = [
+    "use-esplora-reqwest",
+    "key-value-db",
+], default-features = false }
+bip39 = "1.0.1"
+bitcoin = "0.27.0"
+console_error_panic_hook = "0.1.6"
+futures = "0.3.17"
+getrandom = { version = "0.2.3", features = ["js"] }
+gloo-console = "0.2.1"
+gloo-storage = "0.2.0"
+js-sys = "0.3.55"
+once_cell = "1.9.0"
+reqwasm = "0.4.1"
+serde = "1.0.130"
+serde_json = "1.0.68"
+serde-encrypt = "0.6.0"
+sha2 = "0.10.1"
+wasm-bindgen = { version = "0.2.77", features = ["serde-serialize"] }
+wasm-bindgen-futures = "0.4.27"
+web-sys = "0.3.55"
+wee_alloc = "0.4.5"
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3.13"

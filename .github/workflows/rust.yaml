@@ -1,0 +1,34 @@
+name: Rust
+
+on:
+  - push
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+
+      - uses: Swatinem/rust-cache@v1
+      - uses: jetli/wasm-pack-action@v0.3.0
+
+      - name: Add wasm32 target
+        run: rustup target add wasm32-unknown-unknown
+
+      - name: Copy .env file
+        run: cp .env.example .env
+
+      - name: Lint (wasm32)
+        run: cargo clippy --target wasm32-unknown-unknown --lib -- -D warnings
+
+      - name: Test
+        run: wasm-pack test --headless --chrome
