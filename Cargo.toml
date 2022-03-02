@@ -5,8 +5,9 @@ authors = [
     "Jose D Robles <jd.robles@gmail.com>",
     "Hunter Trujillo <cryptoquick@pm.me>",
 ]
+description = "Core functionality for the BitMask wallet"
 edition = "2021"
-publish = false
+exclude = [".github", ".vscode"]
 
 [lib]
 crate-type = ["cdylib", "rlib"]
