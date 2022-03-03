@@ -18,6 +18,6 @@ pub async fn validate_transfer(consignment: String) -> Result<()> {
     // parse into generic JSON value
     let js: String = response.json().await?;
 
-    log!(format!("aaa {:?}", js));
+    log!(format!("validate_transfer result {js:?}"));
     Ok(())
 }

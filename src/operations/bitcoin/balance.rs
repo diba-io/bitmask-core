@@ -27,8 +27,8 @@ pub async fn get_wallet(
 ) -> Result<Wallet<EsploraBlockchain, MemoryDatabase>> {
     let blockchain = EsploraBlockchain::new(&BITCOIN_EXPLORER_API.read().unwrap(), 20);
     let wallet = Wallet::new(
-        &descriptor[..],
-        Some(&change_descriptor[..]),
+        &descriptor,
+        Some(&change_descriptor),
         *NETWORK.read().unwrap(),
         MemoryDatabase::default(),
         blockchain,

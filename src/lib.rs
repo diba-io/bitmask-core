@@ -45,7 +45,7 @@ trait FromString {
 
 impl FromString for JsValue {
     fn from_string(str: String) -> JsValue {
-        JsValue::from_str(&str[..])
+        JsValue::from_str(&str)
     }
 }
 
@@ -208,7 +208,7 @@ pub fn get_wallet_data(descriptor: String, change_descriptor: String) -> Promise
             .into_iter()
             .map(|x| x.outpoint.to_string())
             .collect();
-        log!(format!("{:#?}", &unspent));
+        log!(format!("unspent: {unspent:#?}"));
         LocalStorage::set(STORAGE_KEY_UNSPENTS, unspent).unwrap_or_else(|_| {
             log!("failed at saving unspents to local");
         });
@@ -217,7 +217,7 @@ pub fn get_wallet_data(descriptor: String, change_descriptor: String) -> Promise
             .unwrap()
             .list_transactions(false)
             .unwrap_or_default();
-        log!(format!("{:#?}", &transactions));
+        log!(format!("transactions: {transactions:#?}"));
         LocalStorage::set(STORAGE_KEY_TRANSACTIONS, &transactions).unwrap_or_else(|_| {
             log!("failed at saving unspents to local");
         });
@@ -237,7 +237,7 @@ pub fn import_list_assets() -> Promise {
     log!("import_list_assets");
     future_to_promise(async {
         let assets = get_assets().await;
-        log!(format!("get {:#?}", &assets));
+        log!(format!("get assets: {assets:#?}"));
         let assets = serde_json::to_string(&assets.unwrap());
         match assets {
             Ok(assets) => {
@@ -260,11 +260,11 @@ pub fn import_asset(
     future_to_promise(async {
         let wallet = get_wallet(descriptor, change_descriptor).await;
         let unspent = wallet.as_ref().unwrap().list_unspent().unwrap_or_default();
-        log!(format!("a {:#?} g {:#?}", &asset, &genesis));
+        log!(format!("asset: {asset:#?}\tgenesis: {genesis:#?}"));
         match asset {
             Some(asset) => {
                 let asset = get_asset(Some(asset), None, unspent).await;
-                log!(format!("get {:#?}", &asset));
+                log!(format!("get asset {asset:#?}"));
                 let asset = match asset {
                     Ok(asset) => asset,
                     Err(e) => return Ok(JsValue::from_string(format!("Server error: {} ", e))),
@@ -311,7 +311,7 @@ pub fn set_blinded_utxos() -> Promise {
     future_to_promise(async {
         let unspent: Result<Vec<String>, gloo_storage::errors::StorageError> =
             LocalStorage::get(STORAGE_KEY_UNSPENTS);
-        log!(format!("{:#?}", unspent));
+        log!(format!("blinded unspent: {unspent:#?}"));
         let unspent = unspent.unwrap();
         let mut blinded_unspents: HashMap<String, BlindingUtxo> = HashMap::new();
         let blinded_unspents_try: Result<
@@ -323,7 +323,6 @@ pub fn set_blinded_utxos() -> Promise {
             Err(_e) => (),
         }
         for utxo_string in unspent.iter() {
-            let utxo_string = &utxo_string[..];
             match blinded_unspents.get(utxo_string) {
                 Some(_blinding_utxo) => (),
                 _ => {
@@ -343,7 +342,7 @@ pub fn set_blinded_utxos() -> Promise {
                 }
             };
         }
-        log!("come on");
+        log!("inserted");
         LocalStorage::set(STORAGE_KEY_BLINDED_UNSPENTS, &blinded_unspents).unwrap_or_else(|_| {
             log!("failed at saving blinding_utxo to local");
         });
@@ -381,9 +380,8 @@ pub fn send_tokens(
 ) -> Promise {
     set_panic_hook();
     log!("in rust");
-    log!(&asset);
-    let asset: ThinAsset = serde_json::from_str(&asset[..]).unwrap();
-    log!(format!("{:#?}", &asset));
+    let asset: ThinAsset = serde_json::from_str(&asset).unwrap();
+    log!(format!("asset: {asset:#?}"));
     future_to_promise(async move {
         let wallet = get_wallet(descriptor, change_descriptor).await.unwrap();
         log!("to the library");
@@ -406,9 +404,8 @@ pub fn send_tokens_full(
 ) -> Promise {
     set_panic_hook();
     log!("in rust");
-    log!(&asset);
-    let asset: ThinAsset = serde_json::from_str(&asset[..]).unwrap();
-    log!(format!("{:#?}", &asset));
+    let asset: ThinAsset = serde_json::from_str(&asset).unwrap();
+    log!(format!("asset: {asset:#?}"));
     future_to_promise(async move {
         let wallet = get_wallet(descriptor, change_descriptor).await.unwrap();
         log!("to the library");
@@ -420,7 +417,7 @@ pub fn send_tokens_full(
             txid: split.next().unwrap().to_string(),
             vout: split.next().unwrap().to_string().parse::<u32>().unwrap(),
         };
-        log!(format!("{:#?}", utxo));
+        log!(format!("{utxo:#?}"));
         let (blind, utxo) = blind_utxo(utxo).await.unwrap();
         // let blinding_utxo = BlindingUtxo {
         //     conceal: blind.conceal.clone(),

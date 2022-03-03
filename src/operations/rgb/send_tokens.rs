@@ -39,9 +39,8 @@ pub async fn transfer_asset(
             }
         })
         .collect();
-    log!("utxos");
-    log!(format!("utxos {:#?}", &utxos));
-    log!(format!("unspents {:#?}", &unspents));
+    log!(format!("utxos {utxos:#?}"));
+    log!(format!("unspents {unspents:#?}"));
 
     let to_be_consumed_utxos = utxos.clone();
     let seal_coins: Vec<SealCoins> = unspents
@@ -49,11 +48,11 @@ pub async fn transfer_asset(
         .filter(move |x| {
             let mut pass = true;
             for local_utxo in to_be_consumed_utxos.iter() {
-                log!(format!("local {:#?}", &local_utxo));
+                log!(format!("local_utxo {local_utxo:#?}"));
                 if (local_utxo.txid == x.outpoint.txid.to_string())
                     && (local_utxo.vout == x.outpoint.vout)
                 {
-                    log!(format!("local ah {:#?}", &x.outpoint));
+                    log!(format!("local outpoint {:#?}", &x.outpoint));
                     pass = false;
                     break;
                 }
@@ -85,8 +84,8 @@ pub async fn transfer_asset(
         builder.finish()?
     };
 
-    log!("pdbt");
-    log!(&psbt.to_string());
+    log!("psbt");
+    log!(psbt.to_string());
     log!("to the server");
     let transfer_request = TransferRequest {
         inputs: utxos,
@@ -110,6 +109,6 @@ pub async fn transfer_asset(
     log!("deserialized");
     let psbt: PartiallySignedTransaction = deserialize(&base64::decode(js.witness.clone())?)?;
     sign_psbt(wallet, psbt).await?;
-    log!(format!("Transfer made: {:?}", js));
+    log!(format!("Transfer made: {js:?}"));
     Ok(js.consignment)
 }

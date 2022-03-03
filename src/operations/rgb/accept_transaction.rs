@@ -34,6 +34,6 @@ pub async fn accept_transfer(
     log!("json");
     log!(&js);
 
-    log!(format!("aaa {:?}", js));
-    Ok(format!("{:?}", js))
+    log!(format!("accept transfer result: {js:?}"));
+    Ok(js)
 }

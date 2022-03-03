@@ -16,7 +16,7 @@ trait FromString {
 
 impl FromString for serde_json::Value {
     fn from_string(str: String) -> serde_json::Value {
-        serde_json::Value::from_str(&str[..]).unwrap()
+        serde_json::Value::from_str(&str).unwrap()
     }
 }
 
@@ -46,7 +46,7 @@ pub async fn get_asset(
         asset: asset.clone().unwrap(),
     };
     let url = format!("{}getasset", *NODE_SERVER_BASE_URL);
-    log!(format!("{:#?}", &url));
+    log!(format!("url: {url:#?}"));
     let response = match Request::post(&url)
         .body(serde_json::to_string(&asset_data)?)
         .header("Content-Type", "application/json")
@@ -56,7 +56,7 @@ pub async fn get_asset(
         Ok(response) => response,
         Err(e) => return Err(Error::msg(e)),
     };
-    log!(format!("{:#?}", &response));
+    log!(format!("response: {response:#?}"));
     let assets: Vec<Asset> = response.json().await?;
     if assets.is_empty() {
         return Err(Error::msg("Incorrect rgb id".to_string()));
@@ -72,13 +72,13 @@ pub async fn get_asset(
                 .any(|y| y.outpoint.to_string().eq(&a.outpoint))
         })
         .collect();
-    log!(format!("{:#?}", &allocations));
+    log!(format!("allocations: {allocations:#?}"));
     let amount = allocations
         .clone()
         .into_iter()
         .map(|a| a.revealed_amount.value)
         .reduce(|a, b| a + b);
-    log!(format!("{:#?}", &amount));
+    log!(format!("amount: {amount:#?}"));
     let thin_assets = ThinAsset {
         id: asset.unwrap(),
         ticker: assets[0].ticker.clone(),
@@ -89,15 +89,15 @@ pub async fn get_asset(
         dolar_balance: None,
     };
 
-    log!(format!("{:?}", thin_assets));
+    log!(format!("thin_assets: {thin_assets:?}"));
     Ok(thin_assets)
 }
 
 pub async fn get_assets() -> Result<Vec<Asset>> {
     let url = format!("{}list", *NODE_SERVER_BASE_URL);
-    log!(format!("urllistassets: {:#?}", &url));
+    log!(format!("url list assets: {url:#?}"));
     let response = Request::get(&url).send().await?;
-    log!(format!("listassets: {:#?}", &response));
+    log!(format!("listassets: {response:#?}"));
     let assets: Vec<Asset> = response.json().await?;
     Ok(assets)
 }
