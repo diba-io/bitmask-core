@@ -44,7 +44,7 @@ pub fn get_mnemonic(seed_password: &str) -> (String, String, String, String) {
     let seed = mnemonic_phrase.to_seed_normalized(seed_password);
 
     let network = NETWORK.read().unwrap();
-    let xprv = ExtendedPrivKey::new_master(*network, &seed[..]).expect("New xprivkey from seed");
+    let xprv = ExtendedPrivKey::new_master(*network, &seed).expect("New xprivkey from seed");
 
     let descriptor = format!(
         "wpkh({})",
@@ -67,12 +67,12 @@ pub fn get_mnemonic(seed_password: &str) -> (String, String, String, String) {
 }
 
 pub fn save_mnemonic(seed_password: &str, mnemonic: String) -> (String, String, String) {
-    let mnemonic_phrase = Mnemonic::from_str(&mnemonic[..]).expect("Parse mnemonic seed phrase");
+    let mnemonic_phrase = Mnemonic::from_str(&mnemonic).expect("Parse mnemonic seed phrase");
 
     let seed = mnemonic_phrase.to_seed_normalized(seed_password);
 
     let network = NETWORK.read().unwrap();
-    let xprv = ExtendedPrivKey::new_master(*network, &seed[..]).expect("New xprivkey from seed");
+    let xprv = ExtendedPrivKey::new_master(*network, &seed).expect("New xprivkey from seed");
 
     let descriptor = format!(
         "wpkh({})",

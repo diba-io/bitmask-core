@@ -17,6 +17,6 @@ pub async fn create_psbt(
         builder.finish().unwrap()
     };
 
-    log!(format!("Transaction details: {:#?}", details));
+    log!(format!("Transaction details: {details:#?}"));
     log!("Unsigned PSBT: {}", base64::encode(&serialize(&psbt)));
 }

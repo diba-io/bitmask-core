@@ -13,7 +13,7 @@ pub async fn create_transaction(
     wallet: &Wallet<EsploraBlockchain, MemoryDatabase>,
 ) -> Result<String> {
     synchronize_wallet(wallet).await?;
-    let address = Address::from_str(&address[..]);
+    let address = Address::from_str(&address);
 
     let address = match address {
         Ok(address) => address,
@@ -29,7 +29,7 @@ pub async fn create_transaction(
         builder.finish()?
     };
 
-    log!(format!("Transaction details: {:#?}", details));
+    log!(format!("Transaction details: {details:#?}"));
     log!("Unsigned PSBT: {}", base64::encode(&serialize(&psbt)));
     let signing = sign_psbt(wallet, psbt).await;
     match signing {
