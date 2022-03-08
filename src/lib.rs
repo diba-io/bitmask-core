@@ -32,7 +32,7 @@ use operations::{
     rgb::{accept_transfer, blind_utxo, get_asset, get_assets, transfer_asset, validate_transfer},
 };
 
-pub use utils::{resolve, set_panic_hook, to_string};
+pub use utils::{json_parse, resolve, set_panic_hook, to_string};
 
 // When the `wee_alloc` feature is enabled, use `wee_alloc` as the global
 // allocator.

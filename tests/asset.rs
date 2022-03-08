@@ -4,7 +4,7 @@ use wasm_bindgen::prelude::*;
 use wasm_bindgen_test::*;
 
 use bitmask_core::{
-    get_vault, get_wallet_data, import_asset, resolve, save_mnemonic_seed, to_string, VaultData,
+    get_vault, get_wallet_data, import_asset, json_parse, resolve, save_mnemonic_seed, VaultData,
     WalletData,
 };
 
@@ -30,7 +30,7 @@ async fn asset_import() {
 
     // Get vault properties
     let vault_str: JsValue = resolve(get_vault(ENCRYPTION_PASSWORD.to_owned())).await;
-    let vault_data: VaultData = serde_json::from_str(&to_string(&vault_str)).unwrap();
+    let vault_data: VaultData = json_parse(&vault_str);
 
     resolve(import_asset(
         vault_data.descriptor.clone(),
@@ -48,7 +48,7 @@ async fn asset_import() {
     .await;
 
     // Parse wallet data
-    let wallet_data: WalletData = serde_json::from_str(&to_string(&wallet_str)).unwrap();
+    let wallet_data: WalletData = json_parse(&wallet_str);
 
     assert_eq!(wallet_data.transactions, vec![]);
 }
