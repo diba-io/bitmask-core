@@ -33,7 +33,7 @@ pub async fn create_transaction(
     log!("Unsigned PSBT: {}", base64::encode(&serialize(&psbt)));
     let signing = sign_psbt(wallet, psbt).await;
     match signing {
-        Ok(_signing) => Ok("Ok".to_string()),
+        Ok(_signing) => Ok(serde_json::to_string(&details)?),
         Err(_e) => Ok("Server error".to_string()),
     }
 }

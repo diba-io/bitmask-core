@@ -1,7 +1,8 @@
 #![allow(clippy::unused_unit)]
 use std::collections::HashMap;
 
-use bdk::{wallet::AddressIndex::New, TransactionDetails};
+use bdk::{wallet::AddressIndex::New, BlockTime};
+use bitcoin::Txid;
 use gloo_console::log;
 use gloo_storage::{LocalStorage, Storage};
 use js_sys::Promise;
@@ -31,7 +32,7 @@ use operations::{
     rgb::{accept_transfer, blind_utxo, get_asset, get_assets, transfer_asset, validate_transfer},
 };
 
-pub use utils::{resolve, set_panic_hook, to_string};
+pub use utils::{json_parse, resolve, set_panic_hook, to_string};
 
 // When the `wee_alloc` feature is enabled, use `wee_alloc` as the global
 // allocator.
@@ -186,7 +187,18 @@ pub fn save_mnemonic_seed(
 pub struct WalletData {
     pub address: String,
     pub balance: String,
-    pub transactions: Vec<TransactionDetails>,
+    pub transactions: Vec<WalletTransaction>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Default)]
+pub struct WalletTransaction {
+    pub txid: Txid,
+    pub received: u64,
+    pub sent: u64,
+    pub fee: Option<u64>,
+    pub confirmed: bool,
+    pub confirmation_time: Option<BlockTime>,
+    pub verified: bool,
 }
 
 #[wasm_bindgen]
@@ -221,6 +233,20 @@ pub fn get_wallet_data(descriptor: String, change_descriptor: String) -> Promise
         LocalStorage::set(STORAGE_KEY_TRANSACTIONS, &transactions).unwrap_or_else(|_| {
             log!("failed at saving unspents to local");
         });
+
+        let transactions: Vec<WalletTransaction> = transactions
+            .into_iter()
+            .map(|tx| WalletTransaction {
+                txid: tx.txid,
+                received: tx.received,
+                sent: tx.sent,
+                fee: tx.fee,
+                confirmed: tx.confirmation_time.is_some(),
+                confirmation_time: tx.confirmation_time,
+                verified: tx.verified,
+            })
+            .collect();
+
         let wallet_data = WalletData {
             address,
             balance,

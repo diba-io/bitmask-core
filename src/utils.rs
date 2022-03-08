@@ -1,4 +1,5 @@
 use js_sys::Promise;
+use serde::de::DeserializeOwned;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
 
@@ -19,4 +20,8 @@ pub async fn resolve(promise: Promise) -> JsValue {
 
 pub fn to_string(js_str: &JsValue) -> String {
     js_str.as_string().unwrap()
+}
+
+pub fn json_parse<T: DeserializeOwned>(js_str: &JsValue) -> T {
+    serde_json::from_str(&js_str.as_string().unwrap()).expect("parsed json")
 }

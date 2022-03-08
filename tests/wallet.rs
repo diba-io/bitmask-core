@@ -1,11 +1,15 @@
 #![cfg(target_arch = "wasm32")]
 
+use std::env;
+
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_test::*;
 
+use bdk::TransactionDetails;
+
 use bitmask_core::{
-    get_mnemonic_seed, get_vault, get_wallet_data, resolve, save_mnemonic_seed, set_blinded_utxos,
-    to_string, VaultData, WalletData,
+    get_mnemonic_seed, get_vault, get_wallet_data, json_parse, resolve, save_mnemonic_seed,
+    send_sats, set_blinded_utxos, to_string, VaultData, WalletData,
 };
 
 wasm_bindgen_test_configure!(run_in_browser);
@@ -48,7 +52,7 @@ async fn import_and_open_wallet() {
 
     // Get vault properties
     let vault_str: JsValue = resolve(get_vault(ENCRYPTION_PASSWORD.to_owned())).await;
-    let vault_data: VaultData = serde_json::from_str(&to_string(&vault_str)).unwrap();
+    let vault_data: VaultData = json_parse(&vault_str);
 
     assert_eq!(vault_data.descriptor, DESCRIPTOR);
     assert_eq!(vault_data.change_descriptor, CHANGE_DESCRIPTOR);
@@ -62,7 +66,7 @@ async fn import_and_open_wallet() {
     .await;
 
     // Parse wallet data
-    let wallet_data: WalletData = serde_json::from_str(&to_string(&wallet_str)).unwrap();
+    let wallet_data: WalletData = json_parse(&wallet_str);
 
     assert_eq!(
         wallet_data.address,
@@ -74,4 +78,67 @@ async fn import_and_open_wallet() {
 
     // Set blinded UTXOs
     resolve(set_blinded_utxos()).await;
+}
+
+/// Can import the testing mnemonic
+/// Can open a wallet and view address and balance
+#[wasm_bindgen_test]
+async fn import_test_wallet() {
+    let mnemonic = env!("TEST_WALLET_SEED", "TEST_WALLET_SEED variable not set");
+
+    // Import wallet
+    resolve(save_mnemonic_seed(
+        mnemonic.to_owned(),
+        ENCRYPTION_PASSWORD.to_owned(),
+        SEED_PASSWORD.to_owned(),
+    ))
+    .await;
+
+    // Get vault properties
+    let vault_str: JsValue = resolve(get_vault(ENCRYPTION_PASSWORD.to_owned())).await;
+    let vault_data: VaultData = json_parse(&vault_str);
+
+    // Get wallet data
+    let wallet_str: JsValue = resolve(get_wallet_data(
+        vault_data.descriptor.clone(),
+        vault_data.change_descriptor.clone(),
+    ))
+    .await;
+
+    // Parse wallet data
+    let wallet_data: WalletData = json_parse(&wallet_str);
+
+    assert!(
+        wallet_data
+            .balance
+            .parse::<f64>()
+            .expect("parsed wallet balance")
+            > 0.0,
+        "test wallet balance is greater than zero"
+    );
+    assert!(
+        wallet_data
+            .transactions
+            .last()
+            .expect("transactions already in wallet")
+            .confirmed,
+        "last transaction is confirmed"
+    );
+
+    // Test sending a transaction back to itself for a thousand sats
+    let tx_details = resolve(send_sats(
+        vault_data.descriptor,
+        vault_data.change_descriptor,
+        wallet_data.address,
+        1_000,
+    ))
+    .await;
+
+    // Parse tx_details
+    let tx_data: TransactionDetails = json_parse(&tx_details);
+
+    assert!(
+        tx_data.confirmation_time.is_none(),
+        "latest transaction hasn't been confirmed yet"
+    );
 }
