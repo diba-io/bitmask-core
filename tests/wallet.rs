@@ -1,5 +1,7 @@
 #![cfg(target_arch = "wasm32")]
 
+use std::env;
+
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_test::*;
 
@@ -74,4 +76,50 @@ async fn import_and_open_wallet() {
 
     // Set blinded UTXOs
     resolve(set_blinded_utxos()).await;
+}
+
+/// Can import the testing mnemonic
+/// Can open a wallet and view address and balance
+#[wasm_bindgen_test]
+async fn import_test_wallet() {
+    let mnemonic = env!("TEST_WALLET_SEED", "TEST_WALLET_SEED variable not set");
+
+    // Import wallet
+    resolve(save_mnemonic_seed(
+        mnemonic.to_owned(),
+        ENCRYPTION_PASSWORD.to_owned(),
+        SEED_PASSWORD.to_owned(),
+    ))
+    .await;
+
+    // Get vault properties
+    let vault_str: JsValue = resolve(get_vault(ENCRYPTION_PASSWORD.to_owned())).await;
+    let vault_data: VaultData = serde_json::from_str(&to_string(&vault_str)).unwrap();
+
+    // Get wallet data
+    let wallet_str: JsValue = resolve(get_wallet_data(
+        vault_data.descriptor,
+        vault_data.change_descriptor,
+    ))
+    .await;
+
+    // Parse wallet data
+    let wallet_data: WalletData = serde_json::from_str(&to_string(&wallet_str)).unwrap();
+
+    assert!(
+        wallet_data
+            .balance
+            .parse::<f64>()
+            .expect("parsed wallet balance")
+            > 0.0,
+        "test wallet balance is greater than zero"
+    );
+    assert!(
+        wallet_data
+            .transactions
+            .last()
+            .expect("transactions already in wallet")
+            .confirmed,
+        "last transaction is confirmed"
+    );
 }
