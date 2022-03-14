@@ -8,7 +8,7 @@ use bitcoin::{
     util::psbt::PartiallySignedTransaction,
 };
 use gloo_console::log;
-use reqwasm::http::Request;
+use gloo_net::http::Request;
 
 use crate::{
     data::{

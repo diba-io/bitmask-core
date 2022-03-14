@@ -1,6 +1,6 @@
 [package]
 name = "bitmask-core"
-version = "0.1.0"
+version = "0.1.1"
 authors = [
     "Jose D Robles <jd.robles@gmail.com>",
     "Hunter Trujillo <cryptoquick@pm.me>",
@@ -29,10 +29,10 @@ console_error_panic_hook = "0.1.6"
 futures = "0.3.17"
 getrandom = { version = "0.2.3", features = ["js"] }
 gloo-console = "0.2.1"
+gloo-net = "0.1.0"
 gloo-storage = "0.2.0"
 js-sys = "0.3.55"
 once_cell = "1.9.0"
-reqwasm = "0.4.1"
 serde = "1.0.130"
 serde_json = "1.0.68"
 serde-encrypt = "0.6.0"
