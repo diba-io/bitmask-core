@@ -1,13 +1,9 @@
-use bdk::{blockchain::esplora::EsploraBlockchain, database::MemoryDatabase, FeeRate, Wallet};
+use bdk::{database::MemoryDatabase, FeeRate, Wallet};
 use bitcoin::{consensus::serialize, util::address::Address};
 use gloo_console::log;
 
 #[allow(dead_code)] // TODO: Is this needed?
-pub async fn create_psbt(
-    address: Address,
-    amount: u64,
-    wallet: &Wallet<EsploraBlockchain, MemoryDatabase>,
-) {
+pub async fn create_psbt(address: Address, amount: u64, wallet: &Wallet<MemoryDatabase>) {
     let (psbt, details) = {
         let mut builder = wallet.build_tx();
         builder

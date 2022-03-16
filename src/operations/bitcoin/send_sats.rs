@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use anyhow::Result;
-use bdk::{blockchain::esplora::EsploraBlockchain, database::MemoryDatabase, FeeRate, Wallet};
+use bdk::{database::MemoryDatabase, FeeRate, Wallet};
 use bitcoin::{consensus::serialize, util::address::Address};
 use gloo_console::log;
 
@@ -10,7 +10,7 @@ use crate::operations::bitcoin::{balance::synchronize_wallet, sign_psbt::sign_ps
 pub async fn create_transaction(
     address: String,
     amount: u64,
-    wallet: &Wallet<EsploraBlockchain, MemoryDatabase>,
+    wallet: &Wallet<MemoryDatabase>,
 ) -> Result<String> {
     synchronize_wallet(wallet).await?;
     let address = Address::from_str(&address);

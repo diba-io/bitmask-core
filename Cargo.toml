@@ -19,7 +19,8 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 anyhow = "1.0.44"
 base64 = "0.13.0"
-bdk = { version = "0.16", features = [
+bdk = { git = "https://github.com/LLFourn/bdk.git", branch = "fix-570", features = [
+    "async-interface",
     "use-esplora-reqwest",
     "key-value-db",
 ], default-features = false }

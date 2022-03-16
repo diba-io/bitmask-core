@@ -52,9 +52,8 @@ dependencies = [
 
 [[package]]
 name = "bdk"
-version = "0.16.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3face7de38293a2f7e2a9f69a48b442f28e864da0fc7a6a977388e31bdc367d7"
+version = "0.16.2-dev"
+source = "git+https://github.com/LLFourn/bdk.git?branch=fix-570#52bc63e48f5d16cb03c8a58f7b0bd07cbb058dde"
 dependencies = [
  "async-trait",
  "bdk-macros",

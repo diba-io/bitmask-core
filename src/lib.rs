@@ -198,7 +198,6 @@ pub struct WalletTransaction {
     pub fee: Option<u64>,
     pub confirmed: bool,
     pub confirmation_time: Option<BlockTime>,
-    pub verified: bool,
 }
 
 #[wasm_bindgen]
@@ -243,7 +242,6 @@ pub fn get_wallet_data(descriptor: String, change_descriptor: String) -> Promise
                 fee: tx.fee,
                 confirmed: tx.confirmation_time.is_some(),
                 confirmation_time: tx.confirmation_time,
-                verified: tx.verified,
             })
             .collect();
 
