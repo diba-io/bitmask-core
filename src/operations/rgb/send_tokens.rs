@@ -1,14 +1,11 @@
 use anyhow::Result;
-use bdk::{
-    blockchain::esplora::EsploraBlockchain, database::MemoryDatabase, wallet::AddressIndex::New,
-    FeeRate, Wallet,
-};
+use bdk::{database::MemoryDatabase, wallet::AddressIndex::New, FeeRate, Wallet};
 use bitcoin::{
     consensus::{deserialize, serialize},
     util::psbt::PartiallySignedTransaction,
 };
 use gloo_console::log;
-use reqwasm::http::Request;
+use gloo_net::http::Request;
 
 use crate::{
     data::{
@@ -22,7 +19,7 @@ pub async fn transfer_asset(
     blinded_utxo: String,
     amount: u64,
     asset: ThinAsset,
-    wallet: &Wallet<EsploraBlockchain, MemoryDatabase>,
+    wallet: &Wallet<MemoryDatabase>,
 ) -> Result<String> {
     synchronize_wallet(wallet).await?;
     log!("sync");

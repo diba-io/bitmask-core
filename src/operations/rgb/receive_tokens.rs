@@ -1,6 +1,6 @@
 use anyhow::Result;
 use gloo_console::log;
-use reqwasm::http::Request;
+use gloo_net::http::Request;
 
 use crate::data::{
     constants::NODE_SERVER_BASE_URL,
