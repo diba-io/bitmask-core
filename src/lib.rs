@@ -346,6 +346,7 @@ pub fn set_blinded_utxos() -> Promise {
             Ok(blinded_unspents_try) => blinded_unspents = blinded_unspents_try,
             Err(_e) => (),
         }
+        // TODO: Find a way to parallelize or do clientside (ideally)
         for utxo_string in unspent.iter() {
             match blinded_unspents.get(utxo_string) {
                 Some(_blinding_utxo) => (),
@@ -355,7 +356,7 @@ pub fn set_blinded_utxos() -> Promise {
                         txid: split.next().unwrap().to_string(),
                         vout: split.next().unwrap().to_string().parse::<u32>().unwrap(),
                     };
-                    let (blind, utxo) = blind_utxo(utxo).await.unwrap();
+                    let (blind, utxo) = blind_utxo(utxo).await.unwrap(); // TODO: Error handling
                     let blinding_utxo = BlindingUtxo {
                         conceal: blind.conceal,
                         blinding: blind.blinding.to_string(),
