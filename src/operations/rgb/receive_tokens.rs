@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{format_err, Result};
 use gloo_console::log;
 use gloo_net::http::Request;
 
@@ -10,7 +10,7 @@ use crate::data::{
 pub async fn blind_utxo(utxo: OutPoint) -> Result<(BlindResponse, OutPoint)> {
     log!("in blind_utxo");
     log!(format!("utxo {utxo:?}"));
-    let url = format!("server: {}", *NODE_SERVER_BASE_URL);
+    let url = format!("{}blind", *NODE_SERVER_BASE_URL);
     let response = Request::post(&url)
         .body(serde_json::to_string(&utxo)?)
         .header("Content-Type", "application/json")
@@ -18,10 +18,18 @@ pub async fn blind_utxo(utxo: OutPoint) -> Result<(BlindResponse, OutPoint)> {
         .await?;
     log!("made");
 
-    // parse into generic JSON value
-    let js: BlindResponse = response.json().await?;
+    let status = response.status();
 
-    //let person: Person = serde_json::from_str(&js.data)?;
-    log!(format!("blind utxo result {:?}", js));
-    Ok((js, utxo))
+    if status == 200 {
+        // parse into generic JSON value
+        let js: BlindResponse = response.json().await?;
+
+        //let person: Person = serde_json::from_str(&js.data)?;
+        log!(format!("blind utxo result {js:?}"));
+        Ok((js, utxo))
+    } else {
+        Err(format_err!(
+            "Error from blind utxo response. Status: {status}"
+        ))
+    }
 }
