@@ -7,8 +7,6 @@ authors = [
 ]
 description = "Core functionality for the BitMask wallet"
 edition = "2021"
-exclude = [".github", ".vscode"]
-include = ["src", ".env"]
 license = "MIT"
 homepage = "https://bitmask.app"
 repository = "https://github.com/rgb-products/bitmask-core"
