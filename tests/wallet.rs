@@ -9,7 +9,7 @@ use bdk::TransactionDetails;
 
 use bitmask_core::{
     get_mnemonic_seed, get_vault, get_wallet_data, json_parse, resolve, save_mnemonic_seed,
-    send_sats, set_blinded_utxos, to_string, VaultData, WalletData,
+    send_sats, set_blinded_utxos, set_panic_hook, to_string, VaultData, WalletData,
 };
 
 wasm_bindgen_test_configure!(run_in_browser);
@@ -27,6 +27,8 @@ const ADDRESS: &str = "tb1q6phj46ulkrxzht5se7huxc2gk7t8dsl6uasg36";
 /// Create wallet
 #[wasm_bindgen_test]
 async fn create_wallet() {
+    set_panic_hook();
+
     // Mnemonic string is 12 words long
     let mnemonic: JsValue = resolve(get_mnemonic_seed(
         ENCRYPTION_PASSWORD.to_owned(),
@@ -42,6 +44,8 @@ async fn create_wallet() {
 /// Can open a wallet and view address and balance
 #[wasm_bindgen_test]
 async fn import_and_open_wallet() {
+    set_panic_hook();
+
     // Import wallet
     resolve(save_mnemonic_seed(
         MNEMONIC.to_owned(),
@@ -84,6 +88,8 @@ async fn import_and_open_wallet() {
 /// Can open a wallet and view address and balance
 #[wasm_bindgen_test]
 async fn import_test_wallet() {
+    set_panic_hook();
+
     let mnemonic = env!("TEST_WALLET_SEED", "TEST_WALLET_SEED variable not set");
 
     // Import wallet

@@ -4,8 +4,8 @@ use wasm_bindgen::prelude::*;
 use wasm_bindgen_test::*;
 
 use bitmask_core::{
-    get_vault, get_wallet_data, import_asset, json_parse, resolve, save_mnemonic_seed, VaultData,
-    WalletData,
+    get_vault, get_wallet_data, import_asset, json_parse, resolve, save_mnemonic_seed,
+    set_panic_hook, VaultData, WalletData,
 };
 
 wasm_bindgen_test_configure!(run_in_browser);
@@ -20,6 +20,8 @@ const GENESIS: &str = "genesis1qyfe883hey6jrgj2xvk5g3dfmfqfzm7a4wez4pd2krf7ltsxf
 /// Test asset import
 #[wasm_bindgen_test]
 async fn asset_import() {
+    set_panic_hook();
+
     // Import wallet
     resolve(save_mnemonic_seed(
         MNEMONIC.to_owned(),
