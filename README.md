@@ -2,6 +2,13 @@
 
 Core functionality for the BitMask wallet - <https://bitmask.app>
 
+[![Build Status](https://img.shields.io/github/workflow/status/diba-io/bitmask-core/Rust?style=flat-square)](https://github.com/diba-io/bitmask-core/actions/workflows/Rust.yml)
+[![Crates.io](https://img.shields.io/crates/v/bitmask-core?style=flat-square)](https://docs.rs/bitmask-core/latest/bitmask-core/)
+[![npm: bitmask-core](https://img.shields.io/npm/v/bitmask-core?style=flat-square)](https://www.npmjs.com/package/bitmask-core)
+[![License: MIT+APACHE](https://img.shields.io/crates/l/bitmask-core?style=flat-square)](https://mit-license.org)
+![Lines of code](https://img.shields.io/tokei/lines/github/diba-io/bitmask-core?style=flat-square)
+[![Telegram: rust_in_bitcoin](https://img.shields.io/badge/telegram-rust_in_bitcoin-blue?style=flat-square)](https://t.me/rust_in_bitcoin)
+
 ## Uses
 
 - [bdk](https://github.com/bitcoindevkit/bdk) - Bitcoin Dev Kit
@@ -19,4 +26,4 @@ If there are issues compiling, be sure to check you're compiling with the latest
 ## Test
 
 1. Lint against wasm32: `cargo clippy --target wasm32-unknown-unknown`
-2. Run tests in browser: `wasm-pack test --headless --chrome`
+2. Run tests in browser: `TEST_WALLET_SEED="replace with a 12 word mnemonic for a wallet containing testnet sats" wasm-pack test --headless --chrome`

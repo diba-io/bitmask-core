@@ -1,6 +1,6 @@
 [package]
 name = "bitmask-core"
-version = "0.1.1"
+version = "0.1.2"
 authors = [
     "Jose D Robles <jd.robles@gmail.com>",
     "Hunter Trujillo <cryptoquick@pm.me>",
@@ -17,7 +17,7 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 anyhow = "1.0.44"
 base64 = "0.13.0"
-bdk = { git = "https://github.com/LLFourn/bdk.git", branch = "fix-570", features = [
+bdk = { version = "0.17.0", features = [
     "use-esplora-reqwest",
     "key-value-db",
 ], default-features = false }
