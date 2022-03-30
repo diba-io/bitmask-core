@@ -13,7 +13,10 @@ pub async fn blind_utxo(utxo: OutPoint) -> Result<(BlindResponse, OutPoint)> {
     let url = format!("{}blind", *NODE_SERVER_BASE_URL);
     let response = Request::post(&url)
         .body(serde_json::to_string(&utxo)?)
-        .header("Content-Type", "application/json")
+        .header(
+            "Content-Type",
+            "application/x-www-form-urlencoded; charset=UTF-8",
+        )
         .send()
         .await?;
     log!("made");
