@@ -38,7 +38,6 @@ wasm-bindgen = { version = "0.2.77", features = ["serde-serialize"] }
 wasm-bindgen-futures = "0.4.27"
 web-sys = "0.3.55"
 wee_alloc = "0.4.5"
-cfg-if = "1.0.0"
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3.13"
