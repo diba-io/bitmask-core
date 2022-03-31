@@ -24,12 +24,6 @@ pub static BITCOIN_EXPLORER_API: Lazy<RwLock<String>> = Lazy::new(|| {
 });
 pub static NODE_SERVER_BASE_URL: Lazy<String> = Lazy::new(|| dot_env("NODE_SERVER_BASE_URL"));
 
-// Keys local storage
-pub const STORAGE_KEY_DESCRIPTOR_ENCRYPTED: &str = "descriptor";
-pub const STORAGE_KEY_UNSPENTS: &str = "unspents";
-pub const STORAGE_KEY_TRANSACTIONS: &str = "transactions";
-pub const STORAGE_KEY_BLINDED_UNSPENTS: &str = "blinded_unspents";
-
 // Descriptor strings
 pub const STRING_DESCRIPTOR: &str = "m/84h/1h/0h/0";
 pub const STRING_CHANGE_DESCRIPTOR: &str = "m/84h/1h/0h/1";

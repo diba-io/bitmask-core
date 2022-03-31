@@ -20,10 +20,7 @@ mod operations;
 mod utils;
 
 use data::{
-    constants::{
-        self, STORAGE_KEY_BLINDED_UNSPENTS, STORAGE_KEY_DESCRIPTOR_ENCRYPTED,
-        STORAGE_KEY_TRANSACTIONS, STORAGE_KEY_UNSPENTS,
-    },
+    constants,
     structs::{OutPoint, ThinAsset},
 };
 
