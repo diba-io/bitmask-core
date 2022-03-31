@@ -152,12 +152,12 @@ dependencies = [
  "bdk",
  "bip39",
  "bitcoin",
+ "cfg-if 1.0.0",
  "console_error_panic_hook",
  "futures",
  "getrandom 0.2.5",
  "gloo-console",
  "gloo-net",
- "gloo-storage",
  "js-sys",
  "once_cell",
  "serde",
@@ -563,21 +563,6 @@ dependencies = [
  "thiserror",
  "wasm-bindgen",
  "wasm-bindgen-futures",
- "web-sys",
-]
-
-[[package]]
-name = "gloo-storage"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1b5057761927af1b1929d02b1f49cf83553dd347a473ee7c8bb08420f2673ffc"
-dependencies = [
- "gloo-utils",
- "js-sys",
- "serde",
- "serde_json",
- "thiserror",
- "wasm-bindgen",
  "web-sys",
 ]
 

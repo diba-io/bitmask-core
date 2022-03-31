@@ -1,10 +1,10 @@
 #![allow(clippy::unused_unit)]
 use std::collections::HashMap;
 
-use bdk::{wallet::AddressIndex::New, BlockTime};
-use bitcoin::Txid;
+use bdk::wallet::AddressIndex::New;
+use bdk::TransactionDetails;
+
 use gloo_console::log;
-use gloo_storage::{LocalStorage, Storage};
 use js_sys::Promise;
 use serde::{Deserialize, Serialize};
 use serde_encrypt::{
@@ -63,7 +63,7 @@ impl SerdeEncryptSharedKey for VaultData {
 }
 
 #[wasm_bindgen]
-pub fn get_vault(password: String) -> Promise {
+pub fn get_vault(password: String, encrypted_descriptors: String) -> Promise {
     set_panic_hook();
     let mut hasher = Sha256::new();
 
@@ -76,11 +76,9 @@ pub fn get_vault(password: String) -> Promise {
         .as_slice()
         .try_into()
         .expect("slice with incorrect length");
-
-    let encrypted_descriptors: Result<Vec<u8>, gloo_storage::errors::StorageError> =
-        LocalStorage::get(STORAGE_KEY_DESCRIPTOR_ENCRYPTED);
-    let encrypted_message =
-        EncryptedMessage::deserialize(encrypted_descriptors.unwrap_or_default());
+    let encrypted_descriptors: Vec<u8> = serde_json::from_str(&encrypted_descriptors).unwrap();
+    // STORAGE_KEY_DESCRIPTOR_ENCRYPTED
+    let encrypted_message = EncryptedMessage::deserialize(encrypted_descriptors);
     match encrypted_message {
         Ok(encrypted_message) => {
             let vault_data =
@@ -102,6 +100,13 @@ pub fn get_vault(password: String) -> Promise {
             future_to_promise(async move { Ok(JsValue::from_string(format!("Error: {} ", e))) })
         }
     }
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MnemonicSeedData {
+    pub mnemonic: String,
+    pub serialized_encrypted_message: Vec<u8>,
 }
 
 #[wasm_bindgen]
@@ -130,14 +135,14 @@ pub fn get_mnemonic_seed(encryption_password: String, seed_password: String) -> 
             .encrypt(&SharedKey::from_array(shared_key))
             .unwrap();
         let serialized_encrypted_message: Vec<u8> = encrypted_message.serialize();
-        LocalStorage::set(
-            STORAGE_KEY_DESCRIPTOR_ENCRYPTED,
+        let mnemonic_seed_data = MnemonicSeedData {
+            mnemonic,
             serialized_encrypted_message,
-        )
-        .unwrap_or_else(|_| {
-            log!("failed at saving STORAGE_KEY_DESCRIPTOR_ENCRYPTED to local");
-        });
-        Ok(JsValue::from_string(mnemonic))
+        };
+
+        Ok(JsValue::from_string(
+            serde_json::to_string(&mnemonic_seed_data).unwrap(),
+        ))
     })
 }
 
@@ -172,14 +177,14 @@ pub fn save_mnemonic_seed(
             .encrypt(&SharedKey::from_array(shared_key))
             .unwrap();
         let serialized_encrypted_message: Vec<u8> = encrypted_message.serialize();
-        LocalStorage::set(
-            STORAGE_KEY_DESCRIPTOR_ENCRYPTED,
+        let mnemonic_seed_data = MnemonicSeedData {
+            mnemonic,
             serialized_encrypted_message,
-        )
-        .unwrap_or_else(|_| {
-            log!("failed at saving STORAGE_KEY_DESCRIPTOR_ENCRYPTED to local");
-        });
-        Ok(JsValue::from_string(mnemonic))
+        };
+
+        Ok(JsValue::from_string(
+            serde_json::to_string(&mnemonic_seed_data).unwrap(),
+        ))
     })
 }
 
@@ -187,17 +192,8 @@ pub fn save_mnemonic_seed(
 pub struct WalletData {
     pub address: String,
     pub balance: String,
-    pub transactions: Vec<WalletTransaction>,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Default)]
-pub struct WalletTransaction {
-    pub txid: Txid,
-    pub received: u64,
-    pub sent: u64,
-    pub fee: Option<u64>,
-    pub confirmed: bool,
-    pub confirmation_time: Option<BlockTime>,
+    pub transactions: Vec<TransactionDetails>,
+    pub unspent: Vec<String>,
 }
 
 #[wasm_bindgen]
@@ -220,35 +216,19 @@ pub fn get_wallet_data(descriptor: String, change_descriptor: String) -> Promise
             .map(|x| x.outpoint.to_string())
             .collect();
         log!(format!("unspent: {unspent:#?}"));
-        LocalStorage::set(STORAGE_KEY_UNSPENTS, unspent).unwrap_or_else(|_| {
-            log!("failed at saving unspents to local");
-        });
+
         let transactions = wallet
             .as_ref()
             .unwrap()
             .list_transactions(false)
             .unwrap_or_default();
         log!(format!("transactions: {transactions:#?}"));
-        LocalStorage::set(STORAGE_KEY_TRANSACTIONS, &transactions).unwrap_or_else(|_| {
-            log!("failed at saving unspents to local");
-        });
-
-        let transactions: Vec<WalletTransaction> = transactions
-            .into_iter()
-            .map(|tx| WalletTransaction {
-                txid: tx.txid,
-                received: tx.received,
-                sent: tx.sent,
-                fee: tx.fee,
-                confirmed: tx.confirmation_time.is_some(),
-                confirmation_time: tx.confirmation_time,
-            })
-            .collect();
 
         let wallet_data = WalletData {
             address,
             balance,
             transactions,
+            unspent,
         };
         let wallet_data = serde_json::to_string(&wallet_data).unwrap();
         Ok(JsValue::from_string(wallet_data))
@@ -330,22 +310,13 @@ struct BlindingUtxo {
 }
 
 #[wasm_bindgen]
-pub fn set_blinded_utxos() -> Promise {
+pub fn set_blinded_utxos(unspent: String, blinded_unspents: String) -> Promise {
     set_panic_hook();
-    future_to_promise(async {
-        let unspent: Result<Vec<String>, gloo_storage::errors::StorageError> =
-            LocalStorage::get(STORAGE_KEY_UNSPENTS);
+    future_to_promise(async move {
+        let unspent: Vec<String> = serde_json::from_str(&unspent).unwrap();
         log!(format!("blinded unspent: {unspent:#?}"));
-        let unspent = unspent.unwrap();
-        let mut blinded_unspents: HashMap<String, BlindingUtxo> = HashMap::new();
-        let blinded_unspents_try: Result<
-            HashMap<String, BlindingUtxo>,
-            gloo_storage::errors::StorageError,
-        > = LocalStorage::get(STORAGE_KEY_BLINDED_UNSPENTS);
-        match blinded_unspents_try {
-            Ok(blinded_unspents_try) => blinded_unspents = blinded_unspents_try,
-            Err(_e) => (),
-        }
+        let mut blinded_unspents: HashMap<String, BlindingUtxo> =
+            serde_json::from_str(&blinded_unspents).unwrap();
         // TODO: Find a way to parallelize or do clientside (ideally)
         for utxo_string in unspent.iter() {
             match blinded_unspents.get(utxo_string) {
@@ -368,9 +339,7 @@ pub fn set_blinded_utxos() -> Promise {
             };
         }
         log!("inserted");
-        LocalStorage::set(STORAGE_KEY_BLINDED_UNSPENTS, &blinded_unspents).unwrap_or_else(|_| {
-            log!("failed at saving blinding_utxo to local");
-        });
+
         Ok(JsValue::from_string(
             serde_json::to_string(&blinded_unspents).unwrap(),
         ))
