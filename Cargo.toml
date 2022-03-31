@@ -42,7 +42,3 @@ cfg-if = "1.0.0"
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3.13"
-
-[features]
-web = []
-extension = []
