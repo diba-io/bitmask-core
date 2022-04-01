@@ -49,7 +49,10 @@ pub async fn get_asset(
     log!(format!("url: {url:#?}"));
     let response = match Request::post(&url)
         .body(serde_json::to_string(&asset_data)?)
-        .header("Content-Type", "application/json")
+        .header(
+            "Content-Type",
+            "application/x-www-form-urlencoded; charset=UTF-8",
+        )
         .send()
         .await
     {
