@@ -47,7 +47,7 @@ impl FromString for JsValue {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct VaultData {
     pub descriptor: String,
@@ -99,7 +99,7 @@ pub fn get_vault(password: String, encrypted_descriptors: String) -> Promise {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct MnemonicSeedData {
     pub mnemonic: String,
