@@ -21,7 +21,10 @@ pub async fn accept_transfer(
     let url = format!("{}accept", *NODE_SERVER_BASE_URL);
     let response = Request::post(&url)
         .body(serde_json::to_string(&accept_request)?)
-        .header("Content-Type", "application/json")
+        .header(
+            "Content-Type",
+            "application/x-www-form-urlencoded; charset=UTF-8",
+        )
         .send()
         .await
         .context("Problem at receiving request")?;
