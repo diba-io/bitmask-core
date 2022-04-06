@@ -65,10 +65,13 @@ pub async fn transfer_asset(
     log!("seal_coins");
     log!(format!("{:#?}", &seal_coins));
 
-    let seal_coins = if seal_coins.is_empty() {
-        vec![seal_coins[0].clone()]
-    } else {
-        vec![]
+    let seal_coins = match seal_coins.get(0) {
+        Some(seal_coin) => {
+            vec![seal_coin.clone()]
+        }
+        None => {
+            vec![]
+        }
     };
 
     let send_to = wallet.get_address(New).unwrap();
