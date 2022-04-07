@@ -370,14 +370,10 @@ pub fn send_tokens(
     asset: String,
 ) -> Promise {
     set_panic_hook();
-    log!("in rust");
     let asset: ThinAsset = serde_json::from_str(&asset).unwrap();
-    log!(format!("asset: {asset:#?}"));
     future_to_promise(async move {
         let wallet = get_wallet(descriptor, change_descriptor).await.unwrap();
-        log!("to the library");
         let consignment = transfer_asset(blinded_utxo, amount, asset, &wallet).await;
-        log!("it's made");
         match consignment {
             Ok(consignment) => Ok(JsValue::from_string(consignment)),
             Err(e) => Ok(JsValue::from_string(format!("Error: {} ", e))),
@@ -394,36 +390,25 @@ pub fn send_tokens_full(
     asset: String,
 ) -> Promise {
     set_panic_hook();
-    log!("in rust");
     let asset: ThinAsset = serde_json::from_str(&asset).unwrap();
-    log!(format!("asset: {asset:#?}"));
     future_to_promise(async move {
         let wallet = get_wallet(descriptor, change_descriptor).await.unwrap();
-        log!("to the library");
         let utxo = &utxo[5..];
-        log!(utxo);
-        //let utxo: &str = &utxo[5..];
         let mut split = utxo.split(':');
         let utxo = OutPoint {
             txid: split.next().unwrap().to_string(),
             vout: split.next().unwrap().to_string().parse::<u32>().unwrap(),
         };
-        log!(format!("{utxo:#?}"));
         let (blind, utxo) = blind_utxo(utxo).await.unwrap();
-        // let blinding_utxo = BlindingUtxo {
-        //     conceal: blind.conceal.clone(),
-        //     blinding: blind.blinding.to_string(),
-        //     utxo: utxo.clone(),
-        // };
-        let consignment: String = transfer_asset(blind.conceal, amount, asset, &wallet)
+        let consignment: String = transfer_asset(blind.conceal.clone(), amount, asset, &wallet)
             .await
             .unwrap_or_default();
-        log!("it's made");
         log!(&consignment);
         let accept = accept_transfer(consignment.clone(), utxo, blind.blinding).await;
-        log!("hola denueveo 3");
         match accept {
-            Ok(_accept) => Ok(JsValue::from_string(consignment)),
+            Ok(_accept) => Ok(JsValue::from_string(
+                serde_json::to_string(&(blind, consignment)).unwrap(),
+            )),
             Err(e) => Err(JsValue::from_string(format!("Error: {} ", e))),
         }
     })
