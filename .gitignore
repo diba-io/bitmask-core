@@ -1,4 +1,5 @@
 /target
 /pkg
 .DS_Store
+.env
 wasm-pack.log
