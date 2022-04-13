@@ -344,6 +344,27 @@ pub fn set_blinded_utxos(unspent: String, blinded_unspents: String) -> Promise {
 }
 
 #[wasm_bindgen]
+pub fn set_blinded_utxo(utxo_string: String) -> Promise {
+    set_panic_hook();
+    future_to_promise(async move {
+        let mut split = utxo_string.split(':');
+        let utxo = OutPoint {
+            txid: split.next().unwrap().to_string(),
+            vout: split.next().unwrap().to_string().parse::<u32>().unwrap(),
+        };
+        let (blind, utxo) = blind_utxo(utxo).await.unwrap(); // TODO: Error handling
+        let blinding_utxo = BlindingUtxo {
+            conceal: blind.conceal,
+            blinding: blind.blinding.to_string(),
+            utxo,
+        };
+        Ok(JsValue::from_string(
+            serde_json::to_string(&blinding_utxo).unwrap(),
+        ))
+    })
+}
+
+#[wasm_bindgen]
 pub fn send_sats(
     descriptor: String,
     change_descriptor: String,
