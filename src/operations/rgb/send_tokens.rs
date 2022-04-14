@@ -90,7 +90,7 @@ pub async fn transfer_asset(
     let transfer_request = TransferRequest {
         inputs: utxos,
         allocate: seal_coins,
-        receiver: blinded_utxo.to_string(),
+        receiver: blinded_utxo,
         amount,
         asset: asset.id,
         witness: base64::encode(&serialize(&psbt)),
