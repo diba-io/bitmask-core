@@ -414,7 +414,7 @@ pub fn send_tokens_full(
     let asset: ThinAsset = serde_json::from_str(&asset).unwrap();
     future_to_promise(async move {
         let wallet = get_wallet(descriptor, change_descriptor).await.unwrap();
-        let utxo = &utxo[5..];
+        let utxo = &utxo;
         let mut split = utxo.split(':');
         let utxo = OutPoint {
             txid: split.next().unwrap().to_string(),
