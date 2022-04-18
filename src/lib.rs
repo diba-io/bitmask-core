@@ -26,7 +26,10 @@ use data::{
 
 use operations::{
     bitcoin::{create_transaction, get_mnemonic, get_wallet, save_mnemonic},
-    rgb::{accept_transfer, blind_utxo, get_asset, get_assets, transfer_asset, validate_transfer},
+    rgb::{
+        accept_transfer, blind_utxo, full_transfer_asset, get_asset, get_assets, transfer_asset,
+        validate_transfer,
+    },
 };
 
 pub use utils::{json_parse, resolve, set_panic_hook, to_string};
@@ -344,6 +347,27 @@ pub fn set_blinded_utxos(unspent: String, blinded_unspents: String) -> Promise {
 }
 
 #[wasm_bindgen]
+pub fn set_blinded_utxo(utxo_string: String) -> Promise {
+    set_panic_hook();
+    future_to_promise(async move {
+        let mut split = utxo_string.split(':');
+        let utxo = OutPoint {
+            txid: split.next().unwrap().to_string(),
+            vout: split.next().unwrap().to_string().parse::<u32>().unwrap(),
+        };
+        let (blind, utxo) = blind_utxo(utxo).await.unwrap(); // TODO: Error handling
+        let blinding_utxo = BlindingUtxo {
+            conceal: blind.conceal,
+            blinding: blind.blinding.to_string(),
+            utxo,
+        };
+        Ok(JsValue::from_string(
+            serde_json::to_string(&blinding_utxo).unwrap(),
+        ))
+    })
+}
+
+#[wasm_bindgen]
 pub fn send_sats(
     descriptor: String,
     change_descriptor: String,
@@ -393,21 +417,21 @@ pub fn send_tokens_full(
     let asset: ThinAsset = serde_json::from_str(&asset).unwrap();
     future_to_promise(async move {
         let wallet = get_wallet(descriptor, change_descriptor).await.unwrap();
-        let utxo = &utxo[5..];
+        let utxo = &utxo;
         let mut split = utxo.split(':');
         let utxo = OutPoint {
             txid: split.next().unwrap().to_string(),
             vout: split.next().unwrap().to_string().parse::<u32>().unwrap(),
         };
-        let (blind, utxo) = blind_utxo(utxo).await.unwrap();
-        let consignment: String = transfer_asset(blind.conceal.clone(), amount, asset, &wallet)
+        let response = full_transfer_asset(utxo.clone(), amount, asset, &wallet)
             .await
-            .unwrap_or_default();
-        log!(&consignment);
-        let accept = accept_transfer(consignment.clone(), utxo, blind.blinding).await;
+            .unwrap();
+        log!(&response.consignment);
+        let accept = accept_transfer(response.consignment.clone(), utxo, response.blinding).await;
         match accept {
             Ok(_accept) => Ok(JsValue::from_string(
-                serde_json::to_string(&(blind, consignment)).unwrap(),
+                serde_json::to_string(&(response.blinding, response.conceal, response.consignment))
+                    .unwrap(),
             )),
             Err(e) => Err(JsValue::from_string(format!("Error: {} ", e))),
         }
