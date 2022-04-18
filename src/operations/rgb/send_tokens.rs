@@ -11,8 +11,8 @@ use crate::{
     data::{
         constants::NODE_SERVER_BASE_URL,
         structs::{
-            BlindResponse, OutPoint, SealCoins, ThinAsset, TransferFullReq, TransferFullResponse,
-            TransferRequest, TransferResponse,
+            OutPoint, SealCoins, ThinAsset, TransferFullReq, TransferFullResponse, TransferRequest,
+            TransferResponse,
         },
     },
     operations::bitcoin::{sign_psbt, synchronize_wallet},
