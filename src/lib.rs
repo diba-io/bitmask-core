@@ -26,7 +26,10 @@ use data::{
 
 use operations::{
     bitcoin::{create_transaction, get_mnemonic, get_wallet, save_mnemonic},
-    rgb::{accept_transfer, blind_utxo, get_asset, get_assets, transfer_asset, validate_transfer},
+    rgb::{
+        accept_transfer, blind_utxo, full_transfer_asset, get_asset, get_assets, transfer_asset,
+        validate_transfer,
+    },
 };
 
 pub use utils::{json_parse, resolve, set_panic_hook, to_string};
@@ -420,15 +423,15 @@ pub fn send_tokens_full(
             txid: split.next().unwrap().to_string(),
             vout: split.next().unwrap().to_string().parse::<u32>().unwrap(),
         };
-        let (blind, utxo) = blind_utxo(utxo).await.unwrap();
-        let consignment: String = transfer_asset(blind.conceal.clone(), amount, asset, &wallet)
+        let response = full_transfer_asset(utxo.clone(), amount, asset, &wallet)
             .await
-            .unwrap_or_default();
-        log!(&consignment);
-        let accept = accept_transfer(consignment.clone(), utxo, blind.blinding).await;
+            .unwrap();
+        log!(&response.consignment);
+        let accept = accept_transfer(response.consignment.clone(), utxo, response.blinding).await;
         match accept {
             Ok(_accept) => Ok(JsValue::from_string(
-                serde_json::to_string(&(blind, consignment)).unwrap(),
+                serde_json::to_string(&(response.blinding, response.conceal, response.consignment))
+                    .unwrap(),
             )),
             Err(e) => Err(JsValue::from_string(format!("Error: {} ", e))),
         }
