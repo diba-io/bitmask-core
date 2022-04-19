@@ -330,7 +330,7 @@ pub fn set_blinded_utxos(unspent: String, blinded_unspents: String) -> Promise {
                     let (blind, utxo) = blind_utxo(utxo).await.unwrap(); // TODO: Error handling
                     let blinding_utxo = BlindingUtxo {
                         conceal: blind.conceal,
-                        blinding: blind.blinding.to_string(),
+                        blinding: blind.blinding,
                         utxo,
                     };
                     blinded_unspents.insert(utxo_string.to_string(), blinding_utxo.clone());
@@ -358,7 +358,7 @@ pub fn set_blinded_utxo(utxo_string: String) -> Promise {
         let (blind, utxo) = blind_utxo(utxo).await.unwrap(); // TODO: Error handling
         let blinding_utxo = BlindingUtxo {
             conceal: blind.conceal,
-            blinding: blind.blinding.to_string(),
+            blinding: blind.blinding,
             utxo,
         };
         Ok(JsValue::from_string(
