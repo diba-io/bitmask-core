@@ -5,12 +5,13 @@ use wasm_bindgen_test::*;
 
 use bitmask_core::{
     get_vault, get_wallet_data, import_asset, json_parse, resolve, save_mnemonic_seed,
-    set_panic_hook, VaultData, WalletData,
+    set_panic_hook, MnemonicSeedData, VaultData, WalletData,
 };
 
 wasm_bindgen_test_configure!(run_in_browser);
 
-const MNEMONIC: &str = "then kidney town pair iron agent assault put oven erosion like govern";
+const MNEMONIC: &str =
+    "swing rose forest coral approve giggle public liar brave piano sound spirit";
 const ENCRYPTION_PASSWORD: &str = "hunter2";
 const SEED_PASSWORD: &str = "";
 
@@ -23,15 +24,23 @@ async fn asset_import() {
     set_panic_hook();
 
     // Import wallet
-    resolve(save_mnemonic_seed(
+    let mnemonic_data_str = resolve(save_mnemonic_seed(
         MNEMONIC.to_owned(),
         ENCRYPTION_PASSWORD.to_owned(),
         SEED_PASSWORD.to_owned(),
     ))
     .await;
 
+    let mnemonic_data: MnemonicSeedData = json_parse(&mnemonic_data_str);
+    let encrypted_descriptors =
+        serde_json::to_string(&mnemonic_data.serialized_encrypted_message).unwrap();
+
     // Get vault properties
-    let vault_str: JsValue = resolve(get_vault(ENCRYPTION_PASSWORD.to_owned())).await;
+    let vault_str: JsValue = resolve(get_vault(
+        ENCRYPTION_PASSWORD.to_owned(),
+        encrypted_descriptors,
+    ))
+    .await;
     let vault_data: VaultData = json_parse(&vault_str);
 
     resolve(import_asset(

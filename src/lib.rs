@@ -1,10 +1,10 @@
 #![allow(clippy::unused_unit)]
 use std::collections::HashMap;
 
-use bdk::{wallet::AddressIndex::New, BlockTime};
-use bitcoin::Txid;
+use bdk::wallet::AddressIndex::New;
+use bdk::TransactionDetails;
+
 use gloo_console::log;
-use gloo_storage::{LocalStorage, Storage};
 use js_sys::Promise;
 use serde::{Deserialize, Serialize};
 use serde_encrypt::{
@@ -20,16 +20,16 @@ mod operations;
 mod utils;
 
 use data::{
-    constants::{
-        self, STORAGE_KEY_BLINDED_UNSPENTS, STORAGE_KEY_DESCRIPTOR_ENCRYPTED,
-        STORAGE_KEY_TRANSACTIONS, STORAGE_KEY_UNSPENTS,
-    },
+    constants,
     structs::{OutPoint, ThinAsset},
 };
 
 use operations::{
     bitcoin::{create_transaction, get_mnemonic, get_wallet, save_mnemonic},
-    rgb::{accept_transfer, blind_utxo, get_asset, get_assets, transfer_asset, validate_transfer},
+    rgb::{
+        accept_transfer, blind_utxo, full_transfer_asset, get_asset, get_assets, transfer_asset,
+        validate_transfer,
+    },
 };
 
 pub use utils::{json_parse, resolve, set_panic_hook, to_string};
@@ -50,7 +50,7 @@ impl FromString for JsValue {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct VaultData {
     pub descriptor: String,
@@ -63,7 +63,7 @@ impl SerdeEncryptSharedKey for VaultData {
 }
 
 #[wasm_bindgen]
-pub fn get_vault(password: String) -> Promise {
+pub fn get_vault(password: String, encrypted_descriptors: String) -> Promise {
     set_panic_hook();
     let mut hasher = Sha256::new();
 
@@ -76,11 +76,9 @@ pub fn get_vault(password: String) -> Promise {
         .as_slice()
         .try_into()
         .expect("slice with incorrect length");
-
-    let encrypted_descriptors: Result<Vec<u8>, gloo_storage::errors::StorageError> =
-        LocalStorage::get(STORAGE_KEY_DESCRIPTOR_ENCRYPTED);
-    let encrypted_message =
-        EncryptedMessage::deserialize(encrypted_descriptors.unwrap_or_default());
+    let encrypted_descriptors: Vec<u8> = serde_json::from_str(&encrypted_descriptors).unwrap();
+    // STORAGE_KEY_DESCRIPTOR_ENCRYPTED
+    let encrypted_message = EncryptedMessage::deserialize(encrypted_descriptors);
     match encrypted_message {
         Ok(encrypted_message) => {
             let vault_data =
@@ -102,6 +100,13 @@ pub fn get_vault(password: String) -> Promise {
             future_to_promise(async move { Ok(JsValue::from_string(format!("Error: {} ", e))) })
         }
     }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct MnemonicSeedData {
+    pub mnemonic: String,
+    pub serialized_encrypted_message: Vec<u8>,
 }
 
 #[wasm_bindgen]
@@ -130,14 +135,14 @@ pub fn get_mnemonic_seed(encryption_password: String, seed_password: String) -> 
             .encrypt(&SharedKey::from_array(shared_key))
             .unwrap();
         let serialized_encrypted_message: Vec<u8> = encrypted_message.serialize();
-        LocalStorage::set(
-            STORAGE_KEY_DESCRIPTOR_ENCRYPTED,
+        let mnemonic_seed_data = MnemonicSeedData {
+            mnemonic,
             serialized_encrypted_message,
-        )
-        .unwrap_or_else(|_| {
-            log!("failed at saving STORAGE_KEY_DESCRIPTOR_ENCRYPTED to local");
-        });
-        Ok(JsValue::from_string(mnemonic))
+        };
+
+        Ok(JsValue::from_string(
+            serde_json::to_string(&mnemonic_seed_data).unwrap(),
+        ))
     })
 }
 
@@ -172,14 +177,14 @@ pub fn save_mnemonic_seed(
             .encrypt(&SharedKey::from_array(shared_key))
             .unwrap();
         let serialized_encrypted_message: Vec<u8> = encrypted_message.serialize();
-        LocalStorage::set(
-            STORAGE_KEY_DESCRIPTOR_ENCRYPTED,
+        let mnemonic_seed_data = MnemonicSeedData {
+            mnemonic,
             serialized_encrypted_message,
-        )
-        .unwrap_or_else(|_| {
-            log!("failed at saving STORAGE_KEY_DESCRIPTOR_ENCRYPTED to local");
-        });
-        Ok(JsValue::from_string(mnemonic))
+        };
+
+        Ok(JsValue::from_string(
+            serde_json::to_string(&mnemonic_seed_data).unwrap(),
+        ))
     })
 }
 
@@ -187,17 +192,8 @@ pub fn save_mnemonic_seed(
 pub struct WalletData {
     pub address: String,
     pub balance: String,
-    pub transactions: Vec<WalletTransaction>,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Default)]
-pub struct WalletTransaction {
-    pub txid: Txid,
-    pub received: u64,
-    pub sent: u64,
-    pub fee: Option<u64>,
-    pub confirmed: bool,
-    pub confirmation_time: Option<BlockTime>,
+    pub transactions: Vec<TransactionDetails>,
+    pub unspent: Vec<String>,
 }
 
 #[wasm_bindgen]
@@ -220,35 +216,19 @@ pub fn get_wallet_data(descriptor: String, change_descriptor: String) -> Promise
             .map(|x| x.outpoint.to_string())
             .collect();
         log!(format!("unspent: {unspent:#?}"));
-        LocalStorage::set(STORAGE_KEY_UNSPENTS, unspent).unwrap_or_else(|_| {
-            log!("failed at saving unspents to local");
-        });
+
         let transactions = wallet
             .as_ref()
             .unwrap()
             .list_transactions(false)
             .unwrap_or_default();
         log!(format!("transactions: {transactions:#?}"));
-        LocalStorage::set(STORAGE_KEY_TRANSACTIONS, &transactions).unwrap_or_else(|_| {
-            log!("failed at saving unspents to local");
-        });
-
-        let transactions: Vec<WalletTransaction> = transactions
-            .into_iter()
-            .map(|tx| WalletTransaction {
-                txid: tx.txid,
-                received: tx.received,
-                sent: tx.sent,
-                fee: tx.fee,
-                confirmed: tx.confirmation_time.is_some(),
-                confirmation_time: tx.confirmation_time,
-            })
-            .collect();
 
         let wallet_data = WalletData {
             address,
             balance,
             transactions,
+            unspent,
         };
         let wallet_data = serde_json::to_string(&wallet_data).unwrap();
         Ok(JsValue::from_string(wallet_data))
@@ -318,7 +298,7 @@ pub fn import_asset(
 
 #[derive(Serialize, Deserialize)]
 struct TransactionData {
-    blinding: u64,
+    blinding: String,
     utxo: OutPoint,
 }
 
@@ -330,22 +310,13 @@ struct BlindingUtxo {
 }
 
 #[wasm_bindgen]
-pub fn set_blinded_utxos() -> Promise {
+pub fn set_blinded_utxos(unspent: String, blinded_unspents: String) -> Promise {
     set_panic_hook();
-    future_to_promise(async {
-        let unspent: Result<Vec<String>, gloo_storage::errors::StorageError> =
-            LocalStorage::get(STORAGE_KEY_UNSPENTS);
+    future_to_promise(async move {
+        let unspent: Vec<String> = serde_json::from_str(&unspent).unwrap();
         log!(format!("blinded unspent: {unspent:#?}"));
-        let unspent = unspent.unwrap();
-        let mut blinded_unspents: HashMap<String, BlindingUtxo> = HashMap::new();
-        let blinded_unspents_try: Result<
-            HashMap<String, BlindingUtxo>,
-            gloo_storage::errors::StorageError,
-        > = LocalStorage::get(STORAGE_KEY_BLINDED_UNSPENTS);
-        match blinded_unspents_try {
-            Ok(blinded_unspents_try) => blinded_unspents = blinded_unspents_try,
-            Err(_e) => (),
-        }
+        let mut blinded_unspents: HashMap<String, BlindingUtxo> =
+            serde_json::from_str(&blinded_unspents).unwrap();
         // TODO: Find a way to parallelize or do clientside (ideally)
         for utxo_string in unspent.iter() {
             match blinded_unspents.get(utxo_string) {
@@ -359,7 +330,7 @@ pub fn set_blinded_utxos() -> Promise {
                     let (blind, utxo) = blind_utxo(utxo).await.unwrap(); // TODO: Error handling
                     let blinding_utxo = BlindingUtxo {
                         conceal: blind.conceal,
-                        blinding: blind.blinding.to_string(),
+                        blinding: blind.blinding,
                         utxo,
                     };
                     blinded_unspents.insert(utxo_string.to_string(), blinding_utxo.clone());
@@ -368,11 +339,30 @@ pub fn set_blinded_utxos() -> Promise {
             };
         }
         log!("inserted");
-        LocalStorage::set(STORAGE_KEY_BLINDED_UNSPENTS, &blinded_unspents).unwrap_or_else(|_| {
-            log!("failed at saving blinding_utxo to local");
-        });
+
         Ok(JsValue::from_string(
             serde_json::to_string(&blinded_unspents).unwrap(),
+        ))
+    })
+}
+
+#[wasm_bindgen]
+pub fn set_blinded_utxo(utxo_string: String) -> Promise {
+    set_panic_hook();
+    future_to_promise(async move {
+        let mut split = utxo_string.split(':');
+        let utxo = OutPoint {
+            txid: split.next().unwrap().to_string(),
+            vout: split.next().unwrap().to_string().parse::<u32>().unwrap(),
+        };
+        let (blind, utxo) = blind_utxo(utxo).await.unwrap(); // TODO: Error handling
+        let blinding_utxo = BlindingUtxo {
+            conceal: blind.conceal,
+            blinding: blind.blinding,
+            utxo,
+        };
+        Ok(JsValue::from_string(
+            serde_json::to_string(&blinding_utxo).unwrap(),
         ))
     })
 }
@@ -404,14 +394,10 @@ pub fn send_tokens(
     asset: String,
 ) -> Promise {
     set_panic_hook();
-    log!("in rust");
     let asset: ThinAsset = serde_json::from_str(&asset).unwrap();
-    log!(format!("asset: {asset:#?}"));
     future_to_promise(async move {
         let wallet = get_wallet(descriptor, change_descriptor).await.unwrap();
-        log!("to the library");
         let consignment = transfer_asset(blinded_utxo, amount, asset, &wallet).await;
-        log!("it's made");
         match consignment {
             Ok(consignment) => Ok(JsValue::from_string(consignment)),
             Err(e) => Ok(JsValue::from_string(format!("Error: {} ", e))),
@@ -428,36 +414,30 @@ pub fn send_tokens_full(
     asset: String,
 ) -> Promise {
     set_panic_hook();
-    log!("in rust");
     let asset: ThinAsset = serde_json::from_str(&asset).unwrap();
-    log!(format!("asset: {asset:#?}"));
     future_to_promise(async move {
         let wallet = get_wallet(descriptor, change_descriptor).await.unwrap();
-        log!("to the library");
-        let utxo = &utxo[5..];
-        log!(utxo);
-        //let utxo: &str = &utxo[5..];
+        let utxo = &utxo;
         let mut split = utxo.split(':');
         let utxo = OutPoint {
             txid: split.next().unwrap().to_string(),
             vout: split.next().unwrap().to_string().parse::<u32>().unwrap(),
         };
-        log!(format!("{utxo:#?}"));
-        let (blind, utxo) = blind_utxo(utxo).await.unwrap();
-        // let blinding_utxo = BlindingUtxo {
-        //     conceal: blind.conceal.clone(),
-        //     blinding: blind.blinding.to_string(),
-        //     utxo: utxo.clone(),
-        // };
-        let consignment: String = transfer_asset(blind.conceal, amount, asset, &wallet)
+        let response = full_transfer_asset(utxo.clone(), amount, asset, &wallet)
             .await
-            .unwrap_or_default();
-        log!("it's made");
-        log!(&consignment);
-        let accept = accept_transfer(consignment.clone(), utxo, blind.blinding).await;
-        log!("hola denueveo 3");
+            .unwrap();
+        log!(&response.consignment);
+        let accept = accept_transfer(
+            response.consignment.clone(),
+            utxo,
+            response.blinding.clone(),
+        )
+        .await;
         match accept {
-            Ok(_accept) => Ok(JsValue::from_string(consignment)),
+            Ok(_accept) => Ok(JsValue::from_string(
+                serde_json::to_string(&(response.blinding, response.conceal, response.consignment))
+                    .unwrap(),
+            )),
             Err(e) => Err(JsValue::from_string(format!("Error: {} ", e))),
         }
     })
@@ -475,7 +455,12 @@ pub fn validate_transaction(consignment: String) -> Promise {
 }
 
 #[wasm_bindgen]
-pub fn accept_transaction(consignment: String, txid: String, vout: u32, blinding: u64) -> Promise {
+pub fn accept_transaction(
+    consignment: String,
+    txid: String,
+    vout: u32,
+    blinding: String,
+) -> Promise {
     set_panic_hook();
     log!("hola accept");
     let transaction_data = TransactionData {

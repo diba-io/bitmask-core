@@ -9,18 +9,21 @@ use bdk::TransactionDetails;
 
 use bitmask_core::{
     get_mnemonic_seed, get_vault, get_wallet_data, json_parse, resolve, save_mnemonic_seed,
-    send_sats, set_blinded_utxos, set_panic_hook, to_string, VaultData, WalletData,
+    send_sats, set_blinded_utxos, set_panic_hook, to_string, MnemonicSeedData, VaultData,
+    WalletData,
 };
 
 wasm_bindgen_test_configure!(run_in_browser);
 
-const MNEMONIC: &str = "then kidney town pair iron agent assault put oven erosion like govern";
+const MNEMONIC: &str =
+    "swing rose forest coral approve giggle public liar brave piano sound spirit";
 const ENCRYPTION_PASSWORD: &str = "hunter2";
 const SEED_PASSWORD: &str = "";
-const DESCRIPTOR: &str = "wpkh([0c45fbf7/84'/1'/0'/0]tprv8hk1wQ9P3PCqjxN9WwcDmDni8FPcXD5wFbPiDGVVutQMaXjwm4iMRWyuvVXpWWn61M2DX3a1JquTXEGmVYi4P7Ep2zvtt2JAcSSaYkgZYHG/*)";
-const CHANGE_DESCRIPTOR: &str = "wpkh([0c45fbf7/84'/1'/0'/1]tprv8hk1wQ9P3PCqopBdG2rcVfWCZ2cVmF759KAVk6eFj68v52vQVbNT5PiN4bVwgtyUQzYWs3kM9m7Pe6HmoeVbEnPrww2smcVkqe3qFLJt3wx/*)";
-const PUBKEY_HASH: &str = "0c45fbf798037b051ac501ac3f56e8b4656f930a";
-const ADDRESS: &str = "tb1q6phj46ulkrxzht5se7huxc2gk7t8dsl6uasg36";
+
+const DESCRIPTOR: &str = "wpkh([a4a469b0/84'/1'/0'/0]tprv8haHNLCCjhGAdYZinundP58hLrv6325kQGpv2mdE2wfb9WkvqXGVj5fFuqfpJSDS1AQCBGLvjrLszHPHUqewVQeYCiecySr4FSHqzStedLM/*)";
+const CHANGE_DESCRIPTOR: &str = "wpkh([a4a469b0/84'/1'/0'/1]tprv8haHNLCCjhGAiUUDixqL9yMdZMTi8a9pNdLSBg92QkZUHCKEc4Uo2Rg4uZPHGtDheJvpLvwLm8hXErKbCXe96kD453jHYtBJkmLNGNYV9Yx/*)";
+const PUBKEY_HASH: &str = "a4a469b0a03e479500ad438b44a45c8ba3246482";
+const ADDRESS: &str = "tb1qh89unmzv905qpm8c3u84wa42jr290mjkxyc5an";
 
 /// Tests for Wallet Creation Workflow
 
@@ -47,15 +50,23 @@ async fn import_and_open_wallet() {
     set_panic_hook();
 
     // Import wallet
-    resolve(save_mnemonic_seed(
+    let mnemonic_data_str = resolve(save_mnemonic_seed(
         MNEMONIC.to_owned(),
         ENCRYPTION_PASSWORD.to_owned(),
         SEED_PASSWORD.to_owned(),
     ))
     .await;
 
+    let mnemonic_data: MnemonicSeedData = json_parse(&mnemonic_data_str);
+    let encrypted_descriptors =
+        serde_json::to_string(&mnemonic_data.serialized_encrypted_message).unwrap();
+
     // Get vault properties
-    let vault_str: JsValue = resolve(get_vault(ENCRYPTION_PASSWORD.to_owned())).await;
+    let vault_str: JsValue = resolve(get_vault(
+        ENCRYPTION_PASSWORD.to_owned(),
+        encrypted_descriptors,
+    ))
+    .await;
     let vault_data: VaultData = json_parse(&vault_str);
 
     assert_eq!(vault_data.descriptor, DESCRIPTOR);
@@ -81,7 +92,7 @@ async fn import_and_open_wallet() {
     assert_eq!(wallet_data.transactions, vec![]);
 
     // Set blinded UTXOs
-    resolve(set_blinded_utxos()).await;
+    resolve(set_blinded_utxos("[]".to_owned(), "{}".to_owned())).await;
 }
 
 /// Can import the testing mnemonic
@@ -93,15 +104,23 @@ async fn import_test_wallet() {
     let mnemonic = env!("TEST_WALLET_SEED", "TEST_WALLET_SEED variable not set");
 
     // Import wallet
-    resolve(save_mnemonic_seed(
+    let mnemonic_data_str = resolve(save_mnemonic_seed(
         mnemonic.to_owned(),
         ENCRYPTION_PASSWORD.to_owned(),
         SEED_PASSWORD.to_owned(),
     ))
     .await;
 
+    let mnemonic_data: MnemonicSeedData = json_parse(&mnemonic_data_str);
+    let encrypted_descriptors =
+        serde_json::to_string(&mnemonic_data.serialized_encrypted_message).unwrap();
+
     // Get vault properties
-    let vault_str: JsValue = resolve(get_vault(ENCRYPTION_PASSWORD.to_owned())).await;
+    let vault_str: JsValue = resolve(get_vault(
+        ENCRYPTION_PASSWORD.to_owned(),
+        encrypted_descriptors,
+    ))
+    .await;
     let vault_data: VaultData = json_parse(&vault_str);
 
     // Get wallet data
@@ -127,7 +146,8 @@ async fn import_test_wallet() {
             .transactions
             .last()
             .expect("transactions already in wallet")
-            .confirmed,
+            .confirmation_time
+            != None,
         "last transaction is confirmed"
     );
 
