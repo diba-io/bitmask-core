@@ -77,7 +77,7 @@ pub struct OutPoint {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BlindResponse {
-    pub blinding: u64,
+    pub blinding: String,
     pub conceal: String,
 }
 
@@ -120,7 +120,7 @@ pub struct TransferFullResponse {
     pub consignment: String,
     pub disclosure: String,
     pub witness: String,
-    pub blinding: u64,
+    pub blinding: String,
     pub conceal: String,
 }
 
@@ -133,5 +133,5 @@ pub struct ValidateRequest {
 pub struct AcceptRequest {
     pub consignment: String,
     pub outpoint: OutPoint,
-    pub blinding_factor: u64,
+    pub blinding_factor: String,
 }

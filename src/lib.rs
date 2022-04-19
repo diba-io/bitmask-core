@@ -298,7 +298,7 @@ pub fn import_asset(
 
 #[derive(Serialize, Deserialize)]
 struct TransactionData {
-    blinding: u64,
+    blinding: String,
     utxo: OutPoint,
 }
 
@@ -427,7 +427,12 @@ pub fn send_tokens_full(
             .await
             .unwrap();
         log!(&response.consignment);
-        let accept = accept_transfer(response.consignment.clone(), utxo, response.blinding).await;
+        let accept = accept_transfer(
+            response.consignment.clone(),
+            utxo,
+            response.blinding.clone(),
+        )
+        .await;
         match accept {
             Ok(_accept) => Ok(JsValue::from_string(
                 serde_json::to_string(&(response.blinding, response.conceal, response.consignment))
@@ -450,7 +455,12 @@ pub fn validate_transaction(consignment: String) -> Promise {
 }
 
 #[wasm_bindgen]
-pub fn accept_transaction(consignment: String, txid: String, vout: u32, blinding: u64) -> Promise {
+pub fn accept_transaction(
+    consignment: String,
+    txid: String,
+    vout: u32,
+    blinding: String,
+) -> Promise {
     set_panic_hook();
     log!("hola accept");
     let transaction_data = TransactionData {

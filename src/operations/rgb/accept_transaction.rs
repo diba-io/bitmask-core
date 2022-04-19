@@ -10,7 +10,7 @@ use crate::{
 pub async fn accept_transfer(
     consignment: String,
     outpoint: OutPoint,
-    blinding_factor: u64,
+    blinding_factor: String,
 ) -> Result<String> {
     let accept_request = AcceptRequest {
         consignment,
@@ -29,9 +29,8 @@ pub async fn accept_transfer(
         .await
         .context("Problem at receiving request")?;
     log!("response");
-    // parse into generic JSON value
     let js: String = response
-        .json()
+        .text()
         .await
         .context("Problem at serdering servor response")?; //TODO: not working
     log!("json");

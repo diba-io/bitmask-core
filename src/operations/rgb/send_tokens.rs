@@ -126,7 +126,7 @@ pub async fn full_transfer_asset(
     wallet: &Wallet<MemoryDatabase>,
 ) -> Result<TransferFullResponse> {
     synchronize_wallet(wallet).await?;
-    log!("sync");
+    log!("full sync");
     let unspents = wallet.list_unspent()?;
     let utxos: Vec<OutPoint> = asset
         .allocations
