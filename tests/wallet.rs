@@ -147,8 +147,16 @@ async fn import_test_wallet() {
             .last()
             .expect("transactions already in wallet")
             .confirmation_time
-            != None,
+            .is_some(),
         "last transaction is confirmed"
+    );
+    assert!(
+        wallet_data
+            .transactions
+            .last()
+            .expect("transactions already in wallet")
+            .confirmed,
+        "last transaction has the confirmed property and is true"
     );
 
     // Test sending a transaction back to itself for a thousand sats
