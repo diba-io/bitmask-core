@@ -139,13 +139,13 @@ pub async fn transfer_asset(
         log!(format!("forget utxo error"));
     }
 
-    let validate_request = EncloseRequest {
+    let enclose_request = EncloseRequest {
         disclosure: js.disclosure.clone(),
     };
 
     let url = format!("{}enclose", *NODE_SERVER_BASE_URL);
     let response = Request::post(&url)
-        .body(serde_json::to_string(&validate_request)?)
+        .body(serde_json::to_string(&enclose_request)?)
         .header(
             "Content-Type",
             "application/x-www-form-urlencoded; charset=UTF-8",
@@ -154,8 +154,8 @@ pub async fn transfer_asset(
         .await?;
 
     // parse into generic JSON value
-    let _: String = response.json().await?;
+    let _answer: String = response.json().await?;
 
     log!(format!("Transfer made: {js:?}"));
-    Ok(js.consignment)
+    Ok(serde_json::to_string(&js).unwrap())
 }
