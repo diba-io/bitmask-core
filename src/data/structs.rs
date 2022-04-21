@@ -135,3 +135,8 @@ pub struct AcceptRequest {
     pub outpoint: OutPoint,
     pub blinding_factor: String,
 }
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct EncloseRequest {
+    pub disclosure: String,
+}

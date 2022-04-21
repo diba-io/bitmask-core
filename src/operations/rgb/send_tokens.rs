@@ -11,8 +11,8 @@ use crate::{
     data::{
         constants::NODE_SERVER_BASE_URL,
         structs::{
-            OutPoint, SealCoins, ThinAsset, TransferFullReq, TransferFullResponse, TransferRequest,
-            TransferResponse,
+            EncloseRequest, OutPoint, SealCoins, ThinAsset, TransferFullReq, TransferFullResponse,
+            TransferRequest, TransferResponse,
         },
     },
     operations::bitcoin::{sign_psbt, synchronize_wallet},
@@ -138,6 +138,23 @@ pub async fn transfer_asset(
     } else {
         log!(format!("forget utxo error"));
     }
+
+    let validate_request = EncloseRequest {
+        disclosure: js.disclosure.clone(),
+    };
+
+    let url = format!("{}enclose", *NODE_SERVER_BASE_URL);
+    let response = Request::post(&url)
+        .body(serde_json::to_string(&validate_request)?)
+        .header(
+            "Content-Type",
+            "application/x-www-form-urlencoded; charset=UTF-8",
+        )
+        .send()
+        .await?;
+
+    // parse into generic JSON value
+    let _: String = response.json().await?;
 
     log!(format!("Transfer made: {js:?}"));
     Ok(js.consignment)
