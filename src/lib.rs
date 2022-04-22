@@ -1,9 +1,8 @@
 #![allow(clippy::unused_unit)]
 use std::collections::HashMap;
 
-use bdk::wallet::AddressIndex::New;
-use bdk::TransactionDetails;
-
+use bdk::{wallet::AddressIndex::New, BlockTime};
+use bitcoin::Txid;
 use gloo_console::log;
 use js_sys::Promise;
 use serde::{Deserialize, Serialize};
@@ -189,8 +188,18 @@ pub fn save_mnemonic_seed(
 pub struct WalletData {
     pub address: String,
     pub balance: String,
-    pub transactions: Vec<TransactionDetails>,
+    pub transactions: Vec<WalletTransaction>,
     pub unspent: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Default)]
+pub struct WalletTransaction {
+    pub txid: Txid,
+    pub received: u64,
+    pub sent: u64,
+    pub fee: Option<u64>,
+    pub confirmed: bool,
+    pub confirmation_time: Option<BlockTime>,
 }
 
 #[wasm_bindgen]
@@ -220,6 +229,18 @@ pub fn get_wallet_data(descriptor: String, change_descriptor: String) -> Promise
             .list_transactions(false)
             .unwrap_or_default();
         log!(format!("transactions: {transactions:#?}"));
+
+        let transactions: Vec<WalletTransaction> = transactions
+            .into_iter()
+            .map(|tx| WalletTransaction {
+                txid: tx.txid,
+                received: tx.received,
+                sent: tx.sent,
+                fee: tx.fee,
+                confirmed: tx.confirmation_time.is_some(),
+                confirmation_time: tx.confirmation_time,
+            })
+            .collect();
 
         let wallet_data = WalletData {
             address,
