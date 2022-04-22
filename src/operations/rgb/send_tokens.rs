@@ -165,5 +165,5 @@ pub async fn transfer_asset(
     log!(format!("enclose result {response:?}"));
 
     log!(format!("Transfer made: {js:?}"));
-    Ok(js.consignment)
+    Ok(serde_json::to_string(&js).unwrap())
 }
