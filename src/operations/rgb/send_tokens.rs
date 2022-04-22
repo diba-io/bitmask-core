@@ -42,7 +42,7 @@ pub async fn transfer_asset(
     log!(format!("unspents {unspents:#?}"));
 
     let to_be_consumed_utxos = utxos.clone();
-    let seal_coins: Vec<SealCoins> = unspents
+    let unspendable_outputs: Vec<bitcoin::OutPoint> = unspents
         .into_iter()
         .filter(move |x| {
             let mut pass = true;
@@ -58,10 +58,19 @@ pub async fn transfer_asset(
             }
             pass
         })
+        .map(|x| bitcoin::OutPoint {
+            txid: x.outpoint.txid,
+            vout: x.outpoint.vout,
+        })
+        .collect();
+
+    let seal_coins: Vec<SealCoins> = unspendable_outputs
+        .clone()
+        .into_iter()
         .map(|x| SealCoins {
             coins: asset.balance.unwrap() - amount,
-            txid: Some(x.outpoint.txid.to_string()),
-            vout: x.outpoint.vout,
+            txid: Some(x.txid.to_string()),
+            vout: x.vout,
         })
         .collect();
     log!("seal_coins");
@@ -75,12 +84,14 @@ pub async fn transfer_asset(
             vec![]
         }
     };
-
+    //TODO: gastar solos los utxos rgb y que vaya todo menos la fee a mi wallet
     let send_to = wallet.get_address(New).unwrap();
     let (psbt, _details) = {
         let mut builder = wallet.build_tx();
         builder
-            .add_recipient(send_to.script_pubkey(), 1000)
+            .unspendable(unspendable_outputs)
+            .drain_wallet()
+            .drain_to(send_to.script_pubkey())
             .enable_rbf()
             .fee_rate(FeeRate::from_sat_per_vb(1.0));
         builder.finish()?
@@ -129,22 +140,19 @@ pub async fn transfer_asset(
     let status = response.status();
 
     if status == 200 {
-        // parse into generic JSON value
-        let js: Vec<OutPoint> = response.json().await?;
-
-        //let person: Person = serde_json::from_str(&js.data)?;
-        log!(format!("forget utxo result {js:?}"));
+        log!(format!("forget utxo success"));
     } else {
         log!(format!("forget utxo error"));
     }
 
-    let validate_request = EncloseRequest {
+    let enclose_request = EncloseRequest {
         disclosure: js.disclosure.clone(),
     };
 
     let url = format!("{}enclose", *NODE_SERVER_BASE_URL);
+    log!(format!("{}", url));
     let response = Request::post(&url)
-        .body(serde_json::to_string(&validate_request)?)
+        .body(serde_json::to_string(&enclose_request)?)
         .header(
             "Content-Type",
             "application/x-www-form-urlencoded; charset=UTF-8",
@@ -153,7 +161,8 @@ pub async fn transfer_asset(
         .await?;
 
     // parse into generic JSON value
-    let _: String = response.json().await?;
+    let response = response.text().await?;
+    log!(format!("enclose result {response:?}"));
 
     log!(format!("Transfer made: {js:?}"));
     Ok(js.consignment)

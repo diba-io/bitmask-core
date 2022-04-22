@@ -25,7 +25,7 @@ pub async fn create_transaction(
         builder
             .add_recipient(address.script_pubkey(), amount)
             .enable_rbf()
-            .fee_rate(FeeRate::from_sat_per_vb(5.0));
+            .fee_rate(FeeRate::from_sat_per_vb(1.0));
         builder.finish()?
     };
 
