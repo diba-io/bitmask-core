@@ -1,5 +1,5 @@
 use anyhow::Result;
-use bdk::{database::MemoryDatabase, wallet::AddressIndex::New, FeeRate, Wallet};
+use bdk::{database::MemoryDatabase, wallet::AddressIndex::LastUnused, FeeRate, Wallet};
 use bitcoin::{
     consensus::{deserialize, serialize},
     util::psbt::PartiallySignedTransaction,
@@ -76,7 +76,7 @@ pub async fn transfer_asset(
         }
     };
 
-    let send_to = wallet.get_address(New).unwrap();
+    let send_to = wallet.get_address(LastUnused).unwrap();
     let (psbt, _details) = {
         let mut builder = wallet.build_tx();
         builder
