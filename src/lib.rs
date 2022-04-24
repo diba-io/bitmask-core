@@ -1,7 +1,7 @@
 #![allow(clippy::unused_unit)]
 use std::collections::HashMap;
 
-use bdk::{wallet::AddressIndex::New, BlockTime};
+use bdk::{wallet::AddressIndex::LastUnused, BlockTime};
 use bitcoin::Txid;
 use gloo_console::log;
 use js_sys::Promise;
@@ -210,7 +210,7 @@ pub fn get_wallet_data(descriptor: String, change_descriptor: String) -> Promise
         let address = wallet
             .as_ref()
             .unwrap()
-            .get_address(New)
+            .get_address(LastUnused)
             .unwrap()
             .to_string();
         log!(&address);
