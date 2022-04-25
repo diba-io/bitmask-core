@@ -1,5 +1,5 @@
 use anyhow::Result;
-use bdk::{database::MemoryDatabase, wallet::AddressIndex::LastUnused, FeeRate, Wallet};
+use bdk::{database::MemoryDatabase, wallet::AddressIndex::New, FeeRate, Wallet};
 use bitcoin::{
     consensus::{deserialize, serialize},
     util::psbt::PartiallySignedTransaction,
@@ -85,13 +85,12 @@ pub async fn transfer_asset(
         }
     };
 
-    let send_to = wallet.get_address(LastUnused).unwrap();
+    let send_to = wallet.get_address(New).unwrap(); // TODO: that has to be corrected before release because this sats are lost! Bdk don't get the tweak key utxos!
     let (psbt, _details) = {
         let mut builder = wallet.build_tx();
         builder
             .unspendable(unspendable_outputs)
-            .drain_wallet()
-            .drain_to(send_to.script_pubkey())
+            .add_recipient(send_to.script_pubkey(), 546)
             .enable_rbf()
             .fee_rate(FeeRate::from_sat_per_vb(1.0));
         builder.finish()?
@@ -138,9 +137,11 @@ pub async fn transfer_asset(
     log!("forget made");
 
     let status = response.status();
+    log!(format!("{:?}", status));
 
     if status == 200 {
-        log!(format!("forget utxo success"));
+        let response = response.text().await?;
+        log!(format!("forget utxo success: {:#?}", response));
     } else {
         log!(format!("forget utxo error"));
     }
