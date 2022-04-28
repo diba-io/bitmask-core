@@ -99,29 +99,10 @@ pub struct TransferRequest {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TransferFullReq {
-    pub inputs: Vec<OutPoint>,
-    pub allocate: Vec<SealCoins>,
-    pub receiver: OutPoint,
-    pub amount: u64,
-    pub asset: String,
-    pub witness: String,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TransferResponse {
     pub consignment: String,
     pub disclosure: String,
     pub witness: String,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TransferFullResponse {
-    pub consignment: String,
-    pub disclosure: String,
-    pub witness: String,
-    pub blinding: String,
-    pub conceal: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -134,4 +115,9 @@ pub struct AcceptRequest {
     pub consignment: String,
     pub outpoint: OutPoint,
     pub blinding_factor: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct EncloseRequest {
+    pub disclosure: String,
 }

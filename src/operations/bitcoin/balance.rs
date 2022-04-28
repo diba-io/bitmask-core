@@ -32,7 +32,7 @@ pub async fn get_wallet(
 }
 
 pub fn get_blockchain() -> EsploraBlockchain {
-    EsploraBlockchain::new(&BITCOIN_EXPLORER_API.read().unwrap(), 20)
+    EsploraBlockchain::new(&BITCOIN_EXPLORER_API.read().unwrap(), 100)
 }
 
 pub async fn synchronize_wallet(wallet: &Wallet<MemoryDatabase>) -> Result<()> {
