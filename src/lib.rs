@@ -25,9 +25,7 @@ use data::{
 
 use operations::{
     bitcoin::{create_transaction, get_mnemonic, get_wallet, save_mnemonic},
-    rgb::{
-        self, accept_transfer, blind_utxo, get_asset, get_assets, transfer_asset, validate_transfer,
-    },
+    rgb::{accept_transfer, blind_utxo, get_asset, get_assets, transfer_asset, validate_transfer},
 };
 
 pub use utils::{json_parse, resolve, set_panic_hook, to_string};
