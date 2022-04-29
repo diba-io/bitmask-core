@@ -391,6 +391,7 @@ pub fn send_sats(
     change_descriptor: String,
     address: String,
     amount: u64,
+    rgb_unspents: String,
 ) -> Promise {
     set_panic_hook();
     future_to_promise(async move {
@@ -410,6 +411,7 @@ pub fn send_tokens(
     blinded_utxo: String,
     amount: u64,
     asset: String,
+    rgb_unspents: String,
 ) -> Promise {
     set_panic_hook();
     let asset: ThinAsset = serde_json::from_str(&asset).unwrap();
