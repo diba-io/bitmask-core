@@ -22,6 +22,7 @@ pub async fn transfer_asset(
     amount: u64,
     asset: ThinAsset,
     wallet: &Wallet<MemoryDatabase>,
+    rgb_unspents: Vec<OutPoint>, //TODO: If not empty, then we have to transfer the rgb tokens to another utxo
 ) -> Result<String> {
     synchronize_wallet(wallet).await?;
     log!("sync");

@@ -25,7 +25,9 @@ use data::{
 
 use operations::{
     bitcoin::{create_transaction, get_mnemonic, get_wallet, save_mnemonic},
-    rgb::{accept_transfer, blind_utxo, get_asset, get_assets, transfer_asset, validate_transfer},
+    rgb::{
+        self, accept_transfer, blind_utxo, get_asset, get_assets, transfer_asset, validate_transfer,
+    },
 };
 
 pub use utils::{json_parse, resolve, set_panic_hook, to_string};
@@ -396,7 +398,18 @@ pub fn send_sats(
     set_panic_hook();
     future_to_promise(async move {
         let wallet = get_wallet(descriptor, change_descriptor).await.unwrap();
-        let transaction = create_transaction(address, amount, &wallet).await;
+        let rgb_unspents: Vec<String> = serde_json::from_str(&rgb_unspents).unwrap();
+        let rgb_unspents: Vec<OutPoint> = rgb_unspents
+            .iter()
+            .map(|utxo_string| {
+                let mut split = utxo_string.split(':');
+                OutPoint {
+                    txid: split.next().unwrap().to_string(),
+                    vout: split.next().unwrap().to_string().parse::<u32>().unwrap(),
+                }
+            })
+            .collect();
+        let transaction = create_transaction(address, amount, &wallet, rgb_unspents).await;
         match transaction {
             Ok(transaction) => Ok(JsValue::from_string(transaction)),
             Err(e) => Ok(JsValue::from_string(format!("{} ", e))),
@@ -417,7 +430,18 @@ pub fn send_tokens(
     let asset: ThinAsset = serde_json::from_str(&asset).unwrap();
     future_to_promise(async move {
         let wallet = get_wallet(descriptor, change_descriptor).await.unwrap();
-        let consignment = transfer_asset(blinded_utxo, amount, asset, &wallet).await;
+        let rgb_unspents: Vec<String> = serde_json::from_str(&rgb_unspents).unwrap();
+        let rgb_unspents: Vec<OutPoint> = rgb_unspents
+            .iter()
+            .map(|utxo_string| {
+                let mut split = utxo_string.split(':');
+                OutPoint {
+                    txid: split.next().unwrap().to_string(),
+                    vout: split.next().unwrap().to_string().parse::<u32>().unwrap(),
+                }
+            })
+            .collect();
+        let consignment = transfer_asset(blinded_utxo, amount, asset, &wallet, rgb_unspents).await;
         match consignment {
             Ok(consignment) => Ok(JsValue::from_string(consignment)),
             Err(e) => Ok(JsValue::from_string(format!("Error: {} ", e))),

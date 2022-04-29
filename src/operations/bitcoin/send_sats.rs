@@ -1,5 +1,6 @@
 use std::str::FromStr;
 
+use crate::data::structs::OutPoint;
 use anyhow::Result;
 use bdk::{database::MemoryDatabase, FeeRate, Wallet};
 use bitcoin::{consensus::serialize, util::address::Address};
@@ -11,6 +12,7 @@ pub async fn create_transaction(
     address: String,
     amount: u64,
     wallet: &Wallet<MemoryDatabase>,
+    rgb_unspents: Vec<OutPoint>, //TODO: If not empty, then we have to transfer the rgb tokens to another utxo
 ) -> Result<String> {
     synchronize_wallet(wallet).await?;
     let address = Address::from_str(&address);
