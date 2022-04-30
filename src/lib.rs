@@ -25,7 +25,10 @@ use data::{
 
 use operations::{
     bitcoin::{create_transaction, get_mnemonic, get_wallet, save_mnemonic},
-    rgb::{accept_transfer, blind_utxo, get_asset, get_assets, transfer_asset, validate_transfer},
+    rgb::{
+        accept_transfer, blind_utxo, create_transaction_with_assets, get_asset, get_assets,
+        transfer_asset, validate_transfer,
+    },
 };
 
 pub use utils::{json_parse, resolve, set_panic_hook, to_string};
@@ -392,6 +395,7 @@ pub fn send_sats(
     address: String,
     amount: u64,
     rgb_unspents: String,
+    asset: Option<String>,
 ) -> Promise {
     set_panic_hook();
     future_to_promise(async move {
@@ -407,7 +411,13 @@ pub fn send_sats(
                 }
             })
             .collect();
-        let transaction = create_transaction(address, amount, &wallet, rgb_unspents).await;
+        let transaction = if rgb_unspents.is_empty() {
+            create_transaction(address, amount, &wallet).await
+        } else {
+            let asset = asset.unwrap();
+            let asset: ThinAsset = serde_json::from_str(&asset).unwrap();
+            create_transaction_with_assets(address, amount, &wallet, rgb_unspents, asset).await
+        };
         match transaction {
             Ok(transaction) => Ok(JsValue::from_string(transaction)),
             Err(e) => Ok(JsValue::from_string(format!("{} ", e))),
