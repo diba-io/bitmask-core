@@ -49,7 +49,9 @@ impl FromString for JsValue {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct VaultData {
+    #[serde(rename = "descriptor")]
     pub btc_descriptor: String,
+    #[serde(rename = "changeDescriptor")]
     pub btc_change_descriptor: String,
     pub rgb_tokens_descriptor: String,
     pub rgb_nfts_descriptor: String,
