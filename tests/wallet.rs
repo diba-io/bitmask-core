@@ -69,8 +69,8 @@ async fn import_and_open_wallet() {
     .await;
     let vault_data: VaultData = json_parse(&vault_str);
 
-    assert_eq!(vault_data.descriptor, DESCRIPTOR);
-    assert_eq!(vault_data.change_descriptor, CHANGE_DESCRIPTOR);
+    assert_eq!(vault_data.btc_descriptor, DESCRIPTOR);
+    assert_eq!(vault_data.btc_change_descriptor, CHANGE_DESCRIPTOR);
     assert_eq!(vault_data.pubkey_hash, PUBKEY_HASH);
 
     // Get wallet data
@@ -125,8 +125,8 @@ async fn import_test_wallet() {
 
     // Get wallet data
     let wallet_str: JsValue = resolve(get_wallet_data(
-        vault_data.descriptor.clone(),
-        vault_data.change_descriptor.clone(),
+        vault_data.btc_descriptor.clone(),
+        vault_data.btc_change_descriptor.clone(),
     ))
     .await;
 
@@ -161,8 +161,8 @@ async fn import_test_wallet() {
 
     // Test sending a transaction back to itself for a thousand sats
     let tx_details = resolve(send_sats(
-        vault_data.descriptor,
-        vault_data.change_descriptor,
+        vault_data.btc_descriptor,
+        vault_data.btc_change_descriptor,
         wallet_data.address,
         1_000,
     ))

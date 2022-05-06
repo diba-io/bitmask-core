@@ -49,8 +49,10 @@ impl FromString for JsValue {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct VaultData {
-    pub descriptor: String,
-    pub change_descriptor: String,
+    pub btc_descriptor: String,
+    pub btc_change_descriptor: String,
+    pub rgb_tokens_descriptor: String,
+    pub rgb_nfts_descriptor: String,
     pub pubkey_hash: String,
 }
 
@@ -121,10 +123,19 @@ pub fn get_mnemonic_seed(encryption_password: String, seed_password: String) -> 
             .try_into()
             .expect("slice with incorrect length");
 
-        let (mnemonic, descriptor, change_descriptor, pubkey_hash) = get_mnemonic(&seed_password);
+        let (
+            mnemonic,
+            btc_descriptor,
+            btc_change_descriptor,
+            rgb_tokens_descriptor,
+            rgb_nfts_descriptor,
+            pubkey_hash,
+        ) = get_mnemonic(&seed_password);
         let vault_data = VaultData {
-            descriptor,
-            change_descriptor,
+            btc_descriptor,
+            btc_change_descriptor,
+            rgb_tokens_descriptor,
+            rgb_nfts_descriptor,
             pubkey_hash,
         };
         let encrypted_message = vault_data
@@ -162,11 +173,18 @@ pub fn save_mnemonic_seed(
             .try_into()
             .expect("slice with incorrect length");
 
-        let (descriptor, change_descriptor, pubkey_hash) =
-            save_mnemonic(&seed_password, mnemonic.clone());
+        let (
+            btc_descriptor,
+            btc_change_descriptor,
+            rgb_tokens_descriptor,
+            rgb_nfts_descriptor,
+            pubkey_hash,
+        ) = save_mnemonic(&seed_password, mnemonic.clone());
         let vault_data = VaultData {
-            descriptor,
-            change_descriptor,
+            btc_descriptor,
+            btc_change_descriptor,
+            rgb_tokens_descriptor,
+            rgb_nfts_descriptor,
             pubkey_hash,
         };
         let encrypted_message = vault_data
@@ -203,10 +221,10 @@ pub struct WalletTransaction {
 }
 
 #[wasm_bindgen]
-pub fn get_wallet_data(descriptor: String, change_descriptor: String) -> Promise {
+pub fn get_wallet_data(btc_descriptor: String, btc_change_descriptor: String) -> Promise {
     set_panic_hook();
     future_to_promise(async {
-        let wallet = get_wallet(descriptor, change_descriptor).await;
+        let wallet = get_wallet(btc_descriptor, Some(btc_change_descriptor)).await;
         let address = wallet
             .as_ref()
             .unwrap()
@@ -273,14 +291,13 @@ pub fn import_list_assets() -> Promise {
 
 #[wasm_bindgen]
 pub fn import_asset(
-    descriptor: String,
-    change_descriptor: String,
+    rgb_tokens_descriptor: String,
     asset: Option<String>,
     genesis: Option<String>,
 ) -> Promise {
     set_panic_hook();
     future_to_promise(async {
-        let wallet = get_wallet(descriptor, change_descriptor).await;
+        let wallet = get_wallet(rgb_tokens_descriptor, None).await;
         let unspent = wallet.as_ref().unwrap().list_unspent().unwrap_or_default();
         log!(format!("asset: {asset:#?}\tgenesis: {genesis:#?}"));
         match asset {
@@ -394,7 +411,9 @@ pub fn send_sats(
 ) -> Promise {
     set_panic_hook();
     future_to_promise(async move {
-        let wallet = get_wallet(descriptor, change_descriptor).await.unwrap();
+        let wallet = get_wallet(descriptor, Some(change_descriptor))
+            .await
+            .unwrap();
         let transaction = create_transaction(address, amount, &wallet).await;
         match transaction {
             Ok(transaction) => Ok(JsValue::from_string(transaction)),
@@ -405,8 +424,7 @@ pub fn send_sats(
 
 #[wasm_bindgen]
 pub fn send_tokens(
-    descriptor: String,
-    change_descriptor: String,
+    rgb_tokens_descriptor: String,
     blinded_utxo: String,
     amount: u64,
     asset: String,
@@ -414,7 +432,7 @@ pub fn send_tokens(
     set_panic_hook();
     let asset: ThinAsset = serde_json::from_str(&asset).unwrap();
     future_to_promise(async move {
-        let wallet = get_wallet(descriptor, change_descriptor).await.unwrap();
+        let wallet = get_wallet(rgb_tokens_descriptor, None).await.unwrap();
         let consignment = transfer_asset(blinded_utxo, amount, asset, &wallet).await;
         match consignment {
             Ok(consignment) => Ok(JsValue::from_string(consignment)),

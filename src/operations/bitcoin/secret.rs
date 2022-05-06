@@ -9,7 +9,7 @@ use bdk::{
 use bip39::Mnemonic;
 use bitcoin::secp256k1::Secp256k1;
 
-use crate::data::constants::{NETWORK, STRING_CHANGE_DESCRIPTOR, STRING_DESCRIPTOR};
+use crate::data::constants::{BTC_CHANGE_PATH, BTC_PATH, NETWORK, RGB_NFTS_PATH, RGB_TOKENS_PATH};
 
 fn get_random_buf() -> Result<[u8; 16], getrandom::Error> {
     let mut buf = [0u8; 16];
@@ -19,10 +19,10 @@ fn get_random_buf() -> Result<[u8; 16], getrandom::Error> {
 
 fn get_descriptor(xprv: ExtendedPrivKey, path: String) -> String {
     let secp = Secp256k1::new();
-    let deriv_path: DerivationPath = DerivationPath::from_str(path.as_str()).unwrap();
-    let derived_xprv = &xprv.derive_priv(&secp, &deriv_path).unwrap();
+    let deriv_descriptor: DerivationPath = DerivationPath::from_str(path.as_str()).unwrap();
+    let derived_xprv = &xprv.derive_priv(&secp, &deriv_descriptor).unwrap();
 
-    let origin: KeySource = (xprv.fingerprint(&secp), deriv_path);
+    let origin: KeySource = (xprv.fingerprint(&secp), deriv_descriptor);
 
     let derived_xprv_desc_key: DescriptorKey<Segwitv0> = derived_xprv
         .into_descriptor_key(Some(origin), DerivationPath::default())
@@ -36,7 +36,7 @@ fn get_descriptor(xprv: ExtendedPrivKey, path: String) -> String {
     }
 }
 
-pub fn get_mnemonic(seed_password: &str) -> (String, String, String, String) {
+pub fn get_mnemonic(seed_password: &str) -> (String, String, String, String, String, String) {
     let entropy = get_random_buf().expect("Get browser entropy");
     let mnemonic_phrase =
         Mnemonic::from_entropy(&entropy).expect("New mnemonic from browser entropy");
@@ -46,27 +46,34 @@ pub fn get_mnemonic(seed_password: &str) -> (String, String, String, String) {
     let network = NETWORK.read().unwrap();
     let xprv = ExtendedPrivKey::new_master(*network, &seed).expect("New xprivkey from seed");
 
-    let descriptor = format!(
+    let btc_descriptor = format!("wpkh({})", get_descriptor(xprv, BTC_PATH.to_string()));
+    let btc_change_descriptor = format!(
         "wpkh({})",
-        get_descriptor(xprv, STRING_DESCRIPTOR.to_string())
+        get_descriptor(xprv, BTC_CHANGE_PATH.to_string())
     );
-    let change_descriptor = format!(
+    let rgb_tokens_descriptor = format!(
         "wpkh({})",
-        get_descriptor(xprv, STRING_CHANGE_DESCRIPTOR.to_string())
+        get_descriptor(xprv, RGB_TOKENS_PATH.to_string())
     );
+    let rgb_nfts_descriptor = format!("wpkh({})", get_descriptor(xprv, RGB_NFTS_PATH.to_string()));
 
     let secp = Secp256k1::new();
     let xpub = ExtendedPubKey::from_private(&secp, &xprv);
 
     (
         mnemonic_phrase.to_string(),
-        descriptor,
-        change_descriptor,
+        btc_descriptor,
+        btc_change_descriptor,
+        rgb_tokens_descriptor,
+        rgb_nfts_descriptor,
         xpub.public_key.pubkey_hash().to_string(),
     )
 }
 
-pub fn save_mnemonic(seed_password: &str, mnemonic: String) -> (String, String, String) {
+pub fn save_mnemonic(
+    seed_password: &str,
+    mnemonic: String,
+) -> (String, String, String, String, String) {
     let mnemonic_phrase = Mnemonic::from_str(&mnemonic).expect("Parse mnemonic seed phrase");
 
     let seed = mnemonic_phrase.to_seed_normalized(seed_password);
@@ -74,21 +81,25 @@ pub fn save_mnemonic(seed_password: &str, mnemonic: String) -> (String, String, 
     let network = NETWORK.read().unwrap();
     let xprv = ExtendedPrivKey::new_master(*network, &seed).expect("New xprivkey from seed");
 
-    let descriptor = format!(
+    let btc_descriptor = format!("wpkh({})", get_descriptor(xprv, BTC_PATH.to_string()));
+    let btc_change_descriptor = format!(
         "wpkh({})",
-        get_descriptor(xprv, STRING_DESCRIPTOR.to_string())
+        get_descriptor(xprv, BTC_CHANGE_PATH.to_string())
     );
-    let change_descriptor = format!(
+    let rgb_tokens_descriptor = format!(
         "wpkh({})",
-        get_descriptor(xprv, STRING_CHANGE_DESCRIPTOR.to_string())
+        get_descriptor(xprv, RGB_TOKENS_PATH.to_string())
     );
+    let rgb_nfts_descriptor = format!("wpkh({})", get_descriptor(xprv, RGB_NFTS_PATH.to_string()));
 
     let secp = Secp256k1::new();
     let xpub = ExtendedPubKey::from_private(&secp, &xprv);
 
     (
-        descriptor,
-        change_descriptor,
+        btc_descriptor,
+        btc_change_descriptor,
+        rgb_tokens_descriptor,
+        rgb_nfts_descriptor,
         xpub.public_key.pubkey_hash().to_string(),
     )
 }
