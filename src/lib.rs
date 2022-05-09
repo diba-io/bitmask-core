@@ -347,43 +347,6 @@ struct BlindingUtxo {
 }
 
 #[wasm_bindgen]
-pub fn set_blinded_utxos(unspent: String, blinded_unspents: String) -> Promise {
-    set_panic_hook();
-    future_to_promise(async move {
-        let unspent: Vec<String> = serde_json::from_str(&unspent).unwrap();
-        log!(format!("blinded unspent: {unspent:#?}"));
-        let mut blinded_unspents: HashMap<String, BlindingUtxo> =
-            serde_json::from_str(&blinded_unspents).unwrap();
-        // TODO: Find a way to parallelize or do clientside (ideally)
-        for utxo_string in unspent.iter() {
-            match blinded_unspents.get(utxo_string) {
-                Some(_blinding_utxo) => (),
-                _ => {
-                    let mut split = utxo_string.split(':');
-                    let utxo = OutPoint {
-                        txid: split.next().unwrap().to_string(),
-                        vout: split.next().unwrap().to_string().parse::<u32>().unwrap(),
-                    };
-                    let (blind, utxo) = blind_utxo(utxo).await.unwrap(); // TODO: Error handling
-                    let blinding_utxo = BlindingUtxo {
-                        conceal: blind.conceal,
-                        blinding: blind.blinding,
-                        utxo,
-                    };
-                    blinded_unspents.insert(utxo_string.to_string(), blinding_utxo.clone());
-                    log!("insert");
-                }
-            };
-        }
-        log!("inserted");
-
-        Ok(JsValue::from_string(
-            serde_json::to_string(&blinded_unspents).unwrap(),
-        ))
-    })
-}
-
-#[wasm_bindgen]
 pub fn set_blinded_utxo(utxo_string: String) -> Promise {
     set_panic_hook();
     future_to_promise(async move {
