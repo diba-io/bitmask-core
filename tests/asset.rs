@@ -52,8 +52,8 @@ async fn asset_import() {
 
     // Get wallet data
     let wallet_str: JsValue = resolve(get_wallet_data(
-        vault_data.btc_descriptor,
-        vault_data.btc_change_descriptor,
+        vault_data.rgb_tokens_descriptor.clone(),
+        None,
     ))
     .await;
 
