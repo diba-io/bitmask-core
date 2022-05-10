@@ -91,7 +91,7 @@ async fn import_and_open_wallet() {
     assert_eq!(wallet_data.transactions, vec![]);
 
     // Set blinded UTXOs
-    todo!("Same but with blinded_utxo?");
+    // todo!("Same but with blinded_utxo?");
     // resolve(set_blinded_utxos("[]".to_owned(), "{}".to_owned())).await;
 }
 
