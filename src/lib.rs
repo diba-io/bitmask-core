@@ -1,6 +1,4 @@
 #![allow(clippy::unused_unit)]
-use std::collections::HashMap;
-
 use bdk::{wallet::AddressIndex::LastUnused, BlockTime};
 use bitcoin::Txid;
 use gloo_console::log;
