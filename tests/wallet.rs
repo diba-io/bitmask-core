@@ -75,7 +75,7 @@ async fn import_and_open_wallet() {
     // Get wallet data
     let wallet_str: JsValue = resolve(get_wallet_data(
         DESCRIPTOR.to_owned(),
-        CHANGE_DESCRIPTOR.to_owned(),
+        Some(CHANGE_DESCRIPTOR.to_owned()),
     ))
     .await;
 
