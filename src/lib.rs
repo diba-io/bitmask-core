@@ -49,9 +49,7 @@ impl FromString for JsValue {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct VaultData {
-    #[serde(rename = "descriptor")]
     pub btc_descriptor: String,
-    #[serde(rename = "changeDescriptor")]
     pub btc_change_descriptor: String,
     pub rgb_tokens_descriptor: String,
     pub rgb_nfts_descriptor: String,
@@ -223,10 +221,12 @@ pub struct WalletTransaction {
 }
 
 #[wasm_bindgen]
-pub fn get_wallet_data(btc_descriptor: String, btc_change_descriptor: String) -> Promise {
+pub fn get_wallet_data(descriptor: String, change_descriptor: Option<String>) -> Promise {
+    log!("get_wallet_data");
+    log!(&descriptor, change_descriptor.as_ref());
     set_panic_hook();
     future_to_promise(async {
-        let wallet = get_wallet(btc_descriptor, Some(btc_change_descriptor)).await;
+        let wallet = get_wallet(descriptor, change_descriptor).await;
         let address = wallet
             .as_ref()
             .unwrap()
