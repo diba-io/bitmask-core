@@ -118,6 +118,7 @@ pub struct AcceptRequest {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct EncloseRequest {
+pub struct EncloseForgetRequest {
+    pub outpoints: Vec<OutPoint>,
     pub disclosure: String,
 }
