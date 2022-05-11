@@ -25,8 +25,13 @@ pub static BITCOIN_EXPLORER_API: Lazy<RwLock<String>> = Lazy::new(|| {
 pub static NODE_SERVER_BASE_URL: Lazy<String> = Lazy::new(|| dot_env("NODE_SERVER_BASE_URL"));
 
 // Descriptor strings
-pub const STRING_DESCRIPTOR: &str = "m/84h/1h/0h/0";
-pub const STRING_CHANGE_DESCRIPTOR: &str = "m/84h/1h/0h/1";
+// For SATS
+pub const BTC_PATH: &str = "m/84h/1h/0h/0";
+pub const BTC_CHANGE_PATH: &str = "m/84h/1h/0h/1";
+// For TOKENS ---> that's provisional, it will be replace for RGB final guidelines
+pub const RGB_TOKENS_PATH: &str = "m/168h/20h/0h/0";
+// For UDAS ---> that's provisional, it will be replace for RGB final guidelines
+pub const RGB_NFTS_PATH: &str = "m/168h/21h/0h/0";
 
 pub static NETWORK: Lazy<RwLock<Network>> = Lazy::new(|| {
     RwLock::new(Network::Testnet) // TODO: Change default to mainnet

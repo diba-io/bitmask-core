@@ -11,7 +11,7 @@ use crate::{
     data::{
         constants::NODE_SERVER_BASE_URL,
         structs::{
-            EncloseRequest, OutPoint, SealCoins, ThinAsset, TransferRequest, TransferResponse,
+            EncloseForgetRequest, OutPoint, SealCoins, ThinAsset, TransferRequest, TransferResponse,
         },
     },
     operations::bitcoin::{sign_psbt, synchronize_wallet},
@@ -125,16 +125,20 @@ pub async fn transfer_asset(
     let psbt: PartiallySignedTransaction = deserialize(&base64::decode(js.witness.clone())?)?;
     sign_psbt(wallet, psbt).await?;
 
-    let url = format!("{}forget", *NODE_SERVER_BASE_URL);
+    let url = format!("{}enclose_forget", *NODE_SERVER_BASE_URL);
+    let enclose_request = EncloseForgetRequest {
+        outpoints: utxos,
+        disclosure: js.disclosure.clone(),
+    };
     let response = Request::post(&url)
-        .body(serde_json::to_string(&utxos)?)
+        .body(serde_json::to_string(&enclose_request)?)
         .header(
             "Content-Type",
             "application/x-www-form-urlencoded; charset=UTF-8",
         )
         .send()
         .await?;
-    log!("forget made");
+    log!("enclose and forget made");
 
     let status = response.status();
     log!(format!("{:?}", status));
@@ -145,25 +149,6 @@ pub async fn transfer_asset(
     } else {
         log!(format!("forget utxo error"));
     }
-
-    let enclose_request = EncloseRequest {
-        disclosure: js.disclosure.clone(),
-    };
-
-    let url = format!("{}enclose", *NODE_SERVER_BASE_URL);
-    log!(format!("{}", url));
-    let response = Request::post(&url)
-        .body(serde_json::to_string(&enclose_request)?)
-        .header(
-            "Content-Type",
-            "application/x-www-form-urlencoded; charset=UTF-8",
-        )
-        .send()
-        .await?;
-
-    // parse into generic JSON value
-    let response = response.text().await?;
-    log!(format!("enclose result {response:?}"));
 
     log!(format!("Transfer made: {js:?}"));
     Ok(serde_json::to_string(&js).unwrap())

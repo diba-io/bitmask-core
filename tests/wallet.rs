@@ -9,8 +9,7 @@ use bdk::TransactionDetails;
 
 use bitmask_core::{
     get_mnemonic_seed, get_vault, get_wallet_data, json_parse, resolve, save_mnemonic_seed,
-    send_sats, set_blinded_utxos, set_panic_hook, to_string, MnemonicSeedData, VaultData,
-    WalletData,
+    send_sats, set_panic_hook, to_string, MnemonicSeedData, VaultData, WalletData,
 };
 
 wasm_bindgen_test_configure!(run_in_browser);
@@ -69,14 +68,14 @@ async fn import_and_open_wallet() {
     .await;
     let vault_data: VaultData = json_parse(&vault_str);
 
-    assert_eq!(vault_data.descriptor, DESCRIPTOR);
-    assert_eq!(vault_data.change_descriptor, CHANGE_DESCRIPTOR);
+    assert_eq!(vault_data.btc_descriptor, DESCRIPTOR);
+    assert_eq!(vault_data.btc_change_descriptor, CHANGE_DESCRIPTOR);
     assert_eq!(vault_data.pubkey_hash, PUBKEY_HASH);
 
     // Get wallet data
     let wallet_str: JsValue = resolve(get_wallet_data(
         DESCRIPTOR.to_owned(),
-        CHANGE_DESCRIPTOR.to_owned(),
+        Some(CHANGE_DESCRIPTOR.to_owned()),
     ))
     .await;
 
@@ -92,7 +91,8 @@ async fn import_and_open_wallet() {
     assert_eq!(wallet_data.transactions, vec![]);
 
     // Set blinded UTXOs
-    resolve(set_blinded_utxos("[]".to_owned(), "{}".to_owned())).await;
+    // todo!("Same but with blinded_utxo?");
+    // resolve(set_blinded_utxos("[]".to_owned(), "{}".to_owned())).await;
 }
 
 /// Can import the testing mnemonic
@@ -125,8 +125,8 @@ async fn import_test_wallet() {
 
     // Get wallet data
     let wallet_str: JsValue = resolve(get_wallet_data(
-        vault_data.descriptor.clone(),
-        vault_data.change_descriptor.clone(),
+        vault_data.btc_descriptor.clone(),
+        Some(vault_data.btc_change_descriptor.clone()),
     ))
     .await;
 
@@ -161,8 +161,8 @@ async fn import_test_wallet() {
 
     // Test sending a transaction back to itself for a thousand sats
     let tx_details = resolve(send_sats(
-        vault_data.descriptor,
-        vault_data.change_descriptor,
+        vault_data.btc_descriptor,
+        vault_data.btc_change_descriptor,
         wallet_data.address,
         1_000,
     ))
