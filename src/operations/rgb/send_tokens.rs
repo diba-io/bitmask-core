@@ -22,10 +22,11 @@ pub async fn transfer_asset(
     amount: u64,
     asset: ThinAsset,
     wallet: &Wallet<MemoryDatabase>,
+    assetsWallet: &Wallet<MemoryDatabase>,
 ) -> Result<String> {
-    synchronize_wallet(wallet).await?;
+    synchronize_wallet(assetsWallet).await?;
     log!("sync");
-    let unspents = wallet.list_unspent()?;
+    let unspents = assetsWallet.list_unspent()?;
     let utxos: Vec<OutPoint> = asset
         .allocations
         .clone()
@@ -72,6 +73,7 @@ pub async fn transfer_asset(
             txid: Some(x.txid.to_string()),
             vout: x.vout,
         })
+        .filter(|x| (x.coins > 0))
         .collect();
     log!("seal_coins");
     log!(format!("{:#?}", &seal_coins));
@@ -86,10 +88,11 @@ pub async fn transfer_asset(
     };
 
     let send_to = wallet.get_address(New).unwrap(); // TODO: that has to be corrected before release because this sats are lost! Bdk don't get the tweak key utxos!
+    synchronize_wallet(wallet).await?;
     let (psbt, _details) = {
         let mut builder = wallet.build_tx();
         builder
-            .unspendable(unspendable_outputs)
+            // .unspendable(unspendable_outputs)
             .add_recipient(send_to.script_pubkey(), 546)
             .enable_rbf()
             .fee_rate(FeeRate::from_sat_per_vb(1.0));

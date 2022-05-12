@@ -387,6 +387,7 @@ pub fn send_sats(
 
 #[wasm_bindgen]
 pub fn send_tokens(
+    btc_descriptor: String,
     rgb_tokens_descriptor: String,
     blinded_utxo: String,
     amount: u64,
@@ -395,8 +396,13 @@ pub fn send_tokens(
     set_panic_hook();
     let asset: ThinAsset = serde_json::from_str(&asset).unwrap();
     future_to_promise(async move {
-        let wallet = get_wallet(rgb_tokens_descriptor, None).await.unwrap();
-        let consignment = transfer_asset(blinded_utxo, amount, asset, &wallet).await;
+        let wallet = get_wallet(rgb_tokens_descriptor.clone(), None)
+            .await
+            .unwrap();
+        let assetsWallet = get_wallet(rgb_tokens_descriptor, Some(btc_descriptor))
+            .await
+            .unwrap();
+        let consignment = transfer_asset(blinded_utxo, amount, asset, &wallet, &assetsWallet).await;
         match consignment {
             Ok(consignment) => Ok(JsValue::from_string(consignment)),
             Err(e) => Ok(JsValue::from_string(format!("Error: {} ", e))),
