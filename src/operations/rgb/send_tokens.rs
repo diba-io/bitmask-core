@@ -21,11 +21,13 @@ pub async fn transfer_asset(
     blinded_utxo: String,
     amount: u64,
     asset: ThinAsset,
-    wallet: &Wallet<MemoryDatabase>,
+    full_wallet: &Wallet<MemoryDatabase>,
+    full_change_wallet: &Wallet<MemoryDatabase>,
+    assets_wallet: &Wallet<MemoryDatabase>,
 ) -> Result<String> {
-    synchronize_wallet(wallet).await?;
+    synchronize_wallet(assets_wallet).await?;
     log!("sync");
-    let unspents = wallet.list_unspent()?;
+    let unspents = assets_wallet.list_unspent()?;
     let utxos: Vec<OutPoint> = asset
         .allocations
         .clone()
@@ -72,6 +74,7 @@ pub async fn transfer_asset(
             txid: Some(x.txid.to_string()),
             vout: x.vout,
         })
+        .filter(|x| (x.coins > 0)) // TODO: if we have only one asset it's all well but if we have several it will fail. Problem is we need allocate if we have serveral but if you put it 0 it will fail, so maybe is a rgb-node problem
         .collect();
     log!("seal_coins");
     log!(format!("{:#?}", &seal_coins));
@@ -85,20 +88,33 @@ pub async fn transfer_asset(
         }
     };
 
-    let send_to = wallet.get_address(New).unwrap(); // TODO: that has to be corrected before release because this sats are lost! Bdk don't get the tweak key utxos!
+    let send_to_one = assets_wallet.get_address(New).unwrap(); // TODO: that has to be corrected before release because this sats are lost! Bdk don't get the tweak key utxos!
+    let send_to_two = assets_wallet.get_address(New).unwrap();
+    synchronize_wallet(full_wallet).await?;
     let (psbt, _details) = {
-        let mut builder = wallet.build_tx();
+        let mut builder = full_wallet.build_tx();
         builder
-            .unspendable(unspendable_outputs)
-            .add_recipient(send_to.script_pubkey(), 546)
+            .unspendable(unspendable_outputs.clone())
+            .add_recipient(send_to_one.script_pubkey(), 546)
+            .add_recipient(send_to_two.script_pubkey(), 546)
             .enable_rbf()
             .fee_rate(FeeRate::from_sat_per_vb(1.0));
-        builder.finish()?
+        match builder.finish() {
+            Ok((psbt, details)) => (psbt, details),
+            Err(e) => {
+                log!(format!("{:#?}", e));
+                builder = full_change_wallet.build_tx();
+                builder
+                    .unspendable(unspendable_outputs)
+                    .add_recipient(send_to_one.script_pubkey(), 546)
+                    .add_recipient(send_to_two.script_pubkey(), 546)
+                    .fee_rate(FeeRate::from_sat_per_vb(1.0));
+                builder.finish()?
+            }
+        }
     };
 
-    log!("psbt");
-    log!(psbt.to_string());
-    log!("to the server");
+    log!(format!("psbt to server {:#?}", psbt.to_string()));
     let transfer_request = TransferRequest {
         inputs: utxos.clone(),
         allocate: seal_coins,
@@ -117,13 +133,18 @@ pub async fn transfer_asset(
             "application/x-www-form-urlencoded; charset=UTF-8",
         )
         .send()
-        .await?;
-    log!("made");
+        .await
+        .unwrap_or_else(|e| {
+            log!(format!("error from server {:#?}", e));
+            panic!("{:#?}", e);
+        });
     // parse into generic JSON value
     let js: TransferResponse = response.json().await?;
-    log!("deserialized");
     let psbt: PartiallySignedTransaction = deserialize(&base64::decode(js.witness.clone())?)?;
-    sign_psbt(wallet, psbt).await?;
+    log!(format!("psbt from server {:#?}", psbt.to_string()));
+    sign_psbt(full_wallet, psbt).await.unwrap_or_else(|e| {
+        log!(format!("error at signing: {:#?}", e));
+    });
 
     let url = format!("{}enclose_forget", *NODE_SERVER_BASE_URL);
     let enclose_request = EncloseForgetRequest {
@@ -138,10 +159,9 @@ pub async fn transfer_asset(
         )
         .send()
         .await?;
-    log!("enclose and forget made");
 
     let status = response.status();
-    log!(format!("{:?}", status));
+    log!(format!("enclose and forget made {:?}", status));
 
     if status == 200 {
         let response = response.text().await?;
