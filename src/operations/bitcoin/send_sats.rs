@@ -1,8 +1,6 @@
-use std::str::FromStr;
-
 use anyhow::Result;
 use bdk::{database::MemoryDatabase, FeeRate, Wallet};
-use bitcoin::{consensus::serialize, util::address::Address};
+use bitcoin::consensus::serialize;
 use gloo_console::log;
 
 use crate::{
