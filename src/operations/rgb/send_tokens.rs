@@ -74,7 +74,7 @@ pub async fn transfer_asset(
             txid: Some(x.txid.to_string()),
             vout: x.vout,
         })
-        //.filter(|x| (x.coins > 0))
+        .filter(|x| (x.coins > 0)) // TODO: if we have only one asset it's all well but if we have several it will fail. Problem is we need allocate if we have serveral but if you put it 0 it will fail, so maybe is a rgb-node problem
         .collect();
     log!("seal_coins");
     log!(format!("{:#?}", &seal_coins));
@@ -88,13 +88,15 @@ pub async fn transfer_asset(
         }
     };
 
-    let send_to = assets_wallet.get_address(New).unwrap(); // TODO: that has to be corrected before release because this sats are lost! Bdk don't get the tweak key utxos!
+    let send_to_one = assets_wallet.get_address(New).unwrap(); // TODO: that has to be corrected before release because this sats are lost! Bdk don't get the tweak key utxos!
+    let send_to_two = assets_wallet.get_address(New).unwrap();
     synchronize_wallet(full_wallet).await?;
     let (psbt, _details) = {
         let mut builder = full_wallet.build_tx();
         builder
             .unspendable(unspendable_outputs.clone())
-            .add_recipient(send_to.script_pubkey(), 546)
+            .add_recipient(send_to_one.script_pubkey(), 546)
+            .add_recipient(send_to_two.script_pubkey(), 546)
             .enable_rbf()
             .fee_rate(FeeRate::from_sat_per_vb(1.0));
         match builder.finish() {
@@ -104,8 +106,8 @@ pub async fn transfer_asset(
                 builder = full_change_wallet.build_tx();
                 builder
                     .unspendable(unspendable_outputs)
-                    .add_recipient(send_to.script_pubkey(), 546)
-                    .enable_rbf()
+                    .add_recipient(send_to_one.script_pubkey(), 546)
+                    .add_recipient(send_to_two.script_pubkey(), 546)
                     .fee_rate(FeeRate::from_sat_per_vb(1.0));
                 builder.finish()?
             }
