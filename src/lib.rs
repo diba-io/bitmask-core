@@ -1,5 +1,8 @@
 #![allow(clippy::unused_unit)]
+use std::str::FromStr;
+
 use bdk::{wallet::AddressIndex::LastUnused, BlockTime};
+use bitcoin::util::address::Address;
 use bitcoin::Txid;
 use gloo_console::log;
 use js_sys::Promise;
@@ -18,7 +21,7 @@ mod utils;
 
 use data::{
     constants,
-    structs::{OutPoint, ThinAsset},
+    structs::{OutPoint, SatsInvoice, ThinAsset},
 };
 
 use operations::{
@@ -373,11 +376,20 @@ pub fn send_sats(
     amount: u64,
 ) -> Promise {
     set_panic_hook();
+    let address = Address::from_str(&(address));
+
     future_to_promise(async move {
         let wallet = get_wallet(descriptor, Some(change_descriptor))
             .await
             .unwrap();
-        let transaction = create_transaction(address, amount, &wallet).await;
+        let transaction = create_transaction(
+            vec![SatsInvoice {
+                address: address.unwrap(),
+                amount,
+            }],
+            &wallet,
+        )
+        .await;
         match transaction {
             Ok(transaction) => Ok(JsValue::from_string(transaction)),
             Err(e) => Ok(JsValue::from_string(format!("{} ", e))),
@@ -385,6 +397,26 @@ pub fn send_sats(
     })
 }
 
+#[wasm_bindgen]
+pub fn fund_wallet(descriptor: String, change_descriptor: String, address: String) -> Promise {
+    set_panic_hook();
+    let address = Address::from_str(&(address));
+
+    future_to_promise(async move {
+        let wallet = get_wallet(descriptor, Some(change_descriptor))
+            .await
+            .unwrap();
+        let invoice = SatsInvoice {
+            address: address.unwrap(),
+            amount: 2000,
+        };
+        let transaction = create_transaction(vec![invoice.clone(), invoice], &wallet).await;
+        match transaction {
+            Ok(transaction) => Ok(JsValue::from_string(transaction)),
+            Err(e) => Ok(JsValue::from_string(format!("{} ", e))),
+        }
+    })
+}
 #[wasm_bindgen]
 pub fn send_tokens(
     btc_descriptor: String,

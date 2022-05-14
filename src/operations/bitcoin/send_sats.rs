@@ -5,27 +5,22 @@ use bdk::{database::MemoryDatabase, FeeRate, Wallet};
 use bitcoin::{consensus::serialize, util::address::Address};
 use gloo_console::log;
 
-use crate::operations::bitcoin::{balance::synchronize_wallet, sign_psbt::sign_psbt};
+use crate::{
+    data::structs::SatsInvoice,
+    operations::bitcoin::{balance::synchronize_wallet, sign_psbt::sign_psbt},
+};
 
 pub async fn create_transaction(
-    address: String,
-    amount: u64,
+    invoices: Vec<SatsInvoice>,
     wallet: &Wallet<MemoryDatabase>,
 ) -> Result<String> {
     synchronize_wallet(wallet).await?;
-    let address = Address::from_str(&address);
-
-    let address = match address {
-        Ok(address) => address,
-        Err(_e) => return Ok("Error on address".to_string()),
-    };
-
     let (psbt, details) = {
         let mut builder = wallet.build_tx();
-        builder
-            .add_recipient(address.script_pubkey(), amount)
-            .enable_rbf()
-            .fee_rate(FeeRate::from_sat_per_vb(1.0));
+        for invoice in invoices {
+            builder.add_recipient(invoice.address.script_pubkey(), invoice.amount);
+        }
+        builder.enable_rbf().fee_rate(FeeRate::from_sat_per_vb(1.0));
         builder.finish()?
     };
 

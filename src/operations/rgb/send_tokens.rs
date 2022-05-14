@@ -114,9 +114,7 @@ pub async fn transfer_asset(
         }
     };
 
-    log!("psbt");
-    log!(psbt.to_string());
-    log!("to the server");
+    log!(format!("psbt to server {:#?}", psbt.to_string()));
     let transfer_request = TransferRequest {
         inputs: utxos.clone(),
         allocate: seal_coins,
@@ -135,13 +133,18 @@ pub async fn transfer_asset(
             "application/x-www-form-urlencoded; charset=UTF-8",
         )
         .send()
-        .await?;
-    log!("made");
+        .await
+        .unwrap_or_else(|e| {
+            log!(format!("error from server {:#?}", e));
+            panic!("{:#?}", e);
+        });
     // parse into generic JSON value
     let js: TransferResponse = response.json().await?;
-    log!("deserialized");
     let psbt: PartiallySignedTransaction = deserialize(&base64::decode(js.witness.clone())?)?;
-    sign_psbt(full_wallet, psbt).await?;
+    log!(format!("psbt from server {:#?}", psbt.to_string()));
+    sign_psbt(full_wallet, psbt).await.unwrap_or_else(|e| {
+        log!(format!("error at signing: {:#?}", e));
+    });
 
     let url = format!("{}enclose_forget", *NODE_SERVER_BASE_URL);
     let enclose_request = EncloseForgetRequest {
@@ -156,10 +159,9 @@ pub async fn transfer_asset(
         )
         .send()
         .await?;
-    log!("enclose and forget made");
 
     let status = response.status();
-    log!(format!("{:?}", status));
+    log!(format!("enclose and forget made {:?}", status));
 
     if status == 200 {
         let response = response.text().await?;
