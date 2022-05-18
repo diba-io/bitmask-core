@@ -398,9 +398,15 @@ pub fn send_sats(
 }
 
 #[wasm_bindgen]
-pub fn fund_wallet(descriptor: String, change_descriptor: String, address: String) -> Promise {
+pub fn fund_wallet(
+    descriptor: String,
+    change_descriptor: String,
+    address: String,
+    uda_address: String,
+) -> Promise {
     set_panic_hook();
     let address = Address::from_str(&(address));
+    let uda_address = Address::from_str(&(uda_address));
 
     future_to_promise(async move {
         let wallet = get_wallet(descriptor, Some(change_descriptor))
@@ -410,7 +416,15 @@ pub fn fund_wallet(descriptor: String, change_descriptor: String, address: Strin
             address: address.unwrap(),
             amount: 2000,
         };
-        let transaction = create_transaction(vec![invoice.clone(), invoice], &wallet).await;
+        let uda_invoice = SatsInvoice {
+            address: uda_address.unwrap(),
+            amount: 2000,
+        };
+        let transaction = create_transaction(
+            vec![invoice.clone(), invoice, uda_invoice.clone(), uda_invoice],
+            &wallet,
+        )
+        .await;
         match transaction {
             Ok(transaction) => Ok(JsValue::from_string(transaction)),
             Err(e) => Ok(JsValue::from_string(format!("{} ", e))),
