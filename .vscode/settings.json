@@ -1,5 +1,5 @@
 {
-  "editor.defaultFormatter": "matklad.rust-analyzer",
+  "editor.defaultFormatter": "rust-lang.rust-analyzer",
   "editor.formatOnSave": true,
   "editor.tabSize": 4,
   "files.autoSave": "onFocusChange",
