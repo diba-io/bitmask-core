@@ -24,6 +24,7 @@ pub async fn transfer_asset(
     full_wallet: &Wallet<MemoryDatabase>,
     full_change_wallet: &Wallet<MemoryDatabase>,
     assets_wallet: &Wallet<MemoryDatabase>,
+    node_url: Option<String>,
 ) -> Result<String> {
     synchronize_wallet(assets_wallet).await?;
     log!("sync");
@@ -125,7 +126,8 @@ pub async fn transfer_asset(
     };
     log!(format!("{:?}", transfer_request));
 
-    let url = format!("{}transfer", *NODE_SERVER_BASE_URL);
+    let node_url = node_url.unwrap_or(NODE_SERVER_BASE_URL.to_string());
+    let url = format!("{}transfer", node_url);
     let response = Request::post(&url)
         .body(serde_json::to_string(&transfer_request)?)
         .header(
@@ -146,7 +148,7 @@ pub async fn transfer_asset(
         log!(format!("error at signing: {:#?}", e));
     });
 
-    let url = format!("{}enclose_forget", *NODE_SERVER_BASE_URL);
+    let url = format!("{}enclose_forget", node_url);
     let enclose_request = EncloseForgetRequest {
         outpoints: utxos,
         disclosure: js.disclosure.clone(),

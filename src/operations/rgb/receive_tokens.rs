@@ -7,10 +7,14 @@ use crate::data::{
     structs::{BlindResponse, OutPoint},
 };
 
-pub async fn blind_utxo(utxo: OutPoint) -> Result<(BlindResponse, OutPoint)> {
+pub async fn blind_utxo(
+    utxo: OutPoint,
+    node_url: Option<String>,
+) -> Result<(BlindResponse, OutPoint)> {
     log!("in blind_utxo");
     log!(format!("utxo {utxo:?}"));
-    let url = format!("{}blind", *NODE_SERVER_BASE_URL);
+    let node_url = node_url.unwrap_or(NODE_SERVER_BASE_URL.to_string());
+    let url = format!("{}blind", node_url);
     let response = Request::post(&url)
         .body(serde_json::to_string(&utxo)?)
         .header(

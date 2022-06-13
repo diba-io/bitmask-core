@@ -348,7 +348,7 @@ struct BlindingUtxo {
 }
 
 #[wasm_bindgen]
-pub fn set_blinded_utxo(utxo_string: String) -> Promise {
+pub fn set_blinded_utxo(utxo_string: String, node_url: Option<String>) -> Promise {
     set_panic_hook();
     future_to_promise(async move {
         let mut split = utxo_string.split(':');
@@ -356,7 +356,7 @@ pub fn set_blinded_utxo(utxo_string: String) -> Promise {
             txid: split.next().unwrap().to_string(),
             vout: split.next().unwrap().to_string().parse::<u32>().unwrap(),
         };
-        let (blind, utxo) = blind_utxo(utxo).await.unwrap(); // TODO: Error handling
+        let (blind, utxo) = blind_utxo(utxo, node_url).await.unwrap(); // TODO: Error handling
         let blinding_utxo = BlindingUtxo {
             conceal: blind.conceal,
             blinding: blind.blinding,
@@ -439,6 +439,7 @@ pub fn send_tokens(
     blinded_utxo: String,
     amount: u64,
     asset: String,
+    node_url: Option<String>,
 ) -> Promise {
     set_panic_hook();
     let asset: ThinAsset = serde_json::from_str(&asset).unwrap();
@@ -459,6 +460,7 @@ pub fn send_tokens(
             &full_wallet,
             &full_change_wallet,
             &assets_wallet,
+            node_url,
         )
         .await;
         match consignment {
@@ -469,10 +471,10 @@ pub fn send_tokens(
 }
 
 #[wasm_bindgen]
-pub fn validate_transaction(consignment: String) -> Promise {
+pub fn validate_transaction(consignment: String, node_url: Option<String>) -> Promise {
     set_panic_hook();
     future_to_promise(async {
-        let validate = validate_transfer(consignment).await.unwrap();
+        let validate = validate_transfer(consignment, node_url).await.unwrap();
         Ok(JsValue::from_string(
             serde_json::to_string(&validate).unwrap(),
         ))
@@ -485,6 +487,7 @@ pub fn accept_transaction(
     txid: String,
     vout: u32,
     blinding: String,
+    node_url: Option<String>,
 ) -> Promise {
     set_panic_hook();
     log!("hola accept");
@@ -499,6 +502,7 @@ pub fn accept_transaction(
             consignment,
             transaction_data.utxo,
             transaction_data.blinding,
+            node_url,
         )
         .await;
         log!("hola denueveo 3");
