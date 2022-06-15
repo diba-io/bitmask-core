@@ -392,7 +392,7 @@ pub fn send_sats(
         .await;
         match transaction {
             Ok(transaction) => Ok(JsValue::from_string(transaction)),
-            Err(e) => Ok(JsValue::from_string(format!("{} ", e))),
+            Err(e) => Ok(JsValue::from_string(format!("Error: {} ", e))),
         }
     })
 }
@@ -427,7 +427,7 @@ pub fn fund_wallet(
         .await;
         match transaction {
             Ok(transaction) => Ok(JsValue::from_string(transaction)),
-            Err(e) => Ok(JsValue::from_string(format!("{} ", e))),
+            Err(e) => Ok(JsValue::from_string(format!("Error: {} ", e))),
         }
     })
 }
