@@ -287,7 +287,7 @@ pub fn import_list_assets() -> Promise {
                 log!(&assets);
                 Ok(JsValue::from_string(assets))
             }
-            Err(e) => Ok(JsValue::from_string(format!("Error: {} ", e))),
+            Err(e) => Err(JsValue::from_string(format!("Error: {} ", e))),
         }
     })
 }
@@ -317,7 +317,7 @@ pub fn import_asset(
                         log!(&asset);
                         Ok(JsValue::from_string(asset))
                     }
-                    Err(e) => Ok(JsValue::from_string(format!("Error: {} ", e))),
+                    Err(e) => Err(JsValue::from_string(format!("Error: {} ", e))),
                 }
             }
             None => {
@@ -392,7 +392,7 @@ pub fn send_sats(
         .await;
         match transaction {
             Ok(transaction) => Ok(JsValue::from_string(transaction)),
-            Err(e) => Ok(JsValue::from_string(format!("Error: {} ", e))),
+            Err(e) => Err(JsValue::from_string(format!("Error: {} ", e))),
         }
     })
 }
@@ -427,7 +427,7 @@ pub fn fund_wallet(
         .await;
         match transaction {
             Ok(transaction) => Ok(JsValue::from_string(transaction)),
-            Err(e) => Ok(JsValue::from_string(format!("Error: {} ", e))),
+            Err(e) => Err(JsValue::from_string(format!("Error: {} ", e))),
         }
     })
 }
@@ -463,7 +463,7 @@ pub fn send_tokens(
         .await;
         match consignment {
             Ok(consignment) => Ok(JsValue::from_string(consignment)),
-            Err(e) => Ok(JsValue::from_string(format!("Error: {} ", e))),
+            Err(e) => Err(JsValue::from_string(format!("Error: {} ", e))),
         }
     })
 }
@@ -506,7 +506,7 @@ pub fn accept_transaction(
             Ok(accept) => Ok(JsValue::from_string(
                 serde_json::to_string(&accept).unwrap(),
             )),
-            Err(e) => Ok(JsValue::from_string(format!("Error: {} ", e))),
+            Err(e) => Err(JsValue::from_string(format!("Error: {} ", e))),
         }
     })
 }
