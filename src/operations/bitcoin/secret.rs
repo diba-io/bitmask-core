@@ -58,7 +58,7 @@ pub fn get_mnemonic(seed_password: &str) -> (String, String, String, String, Str
     let rgb_nfts_descriptor = format!("wpkh({})", get_descriptor(xprv, RGB_NFTS_PATH.to_string()));
 
     let secp = Secp256k1::new();
-    let xpub = ExtendedPubKey::from_private(&secp, &xprv);
+    let xpub = ExtendedPubKey::from_priv(&secp, &xprv);
 
     (
         mnemonic_phrase.to_string(),
@@ -66,7 +66,7 @@ pub fn get_mnemonic(seed_password: &str) -> (String, String, String, String, Str
         btc_change_descriptor,
         rgb_tokens_descriptor,
         rgb_nfts_descriptor,
-        xpub.public_key.pubkey_hash().to_string(),
+        xpub.identifier().to_string(),
     )
 }
 
@@ -93,13 +93,13 @@ pub fn save_mnemonic(
     let rgb_nfts_descriptor = format!("wpkh({})", get_descriptor(xprv, RGB_NFTS_PATH.to_string()));
 
     let secp = Secp256k1::new();
-    let xpub = ExtendedPubKey::from_private(&secp, &xprv);
+    let xpub = ExtendedPubKey::from_priv(&secp, &xprv);
 
     (
         btc_descriptor,
         btc_change_descriptor,
         rgb_tokens_descriptor,
         rgb_nfts_descriptor,
-        xpub.public_key.pubkey_hash().to_string(),
+        xpub.identifier().to_string(),
     )
 }
