@@ -1,5 +1,6 @@
 use anyhow::Result;
 use bdk::{database::MemoryDatabase, wallet::AddressIndex::New, FeeRate, Wallet};
+use bdk_macros::maybe_await;
 use bitcoin::{
     consensus::{deserialize, serialize},
     util::psbt::PartiallySignedTransaction,
@@ -24,8 +25,8 @@ pub async fn transfer_asset(
     full_wallet: &Wallet<MemoryDatabase>,
     full_change_wallet: &Wallet<MemoryDatabase>,
     assets_wallet: &Wallet<MemoryDatabase>,
-) -> Result<String> {
-    synchronize_wallet(assets_wallet).await?;
+) -> Result<TransferResponse> {
+    maybe_await!(synchronize_wallet(assets_wallet))?;
     log!("sync");
     let unspents = assets_wallet.list_unspent()?;
     let utxos: Vec<OutPoint> = asset
@@ -90,7 +91,7 @@ pub async fn transfer_asset(
 
     let send_to_one = assets_wallet.get_address(New).unwrap(); // TODO: that has to be corrected before release because this sats are lost! Bdk don't get the tweak key utxos!
     let send_to_two = assets_wallet.get_address(New).unwrap();
-    synchronize_wallet(full_wallet).await?;
+    maybe_await!(synchronize_wallet(full_wallet))?;
     let (psbt, _details) = {
         let mut builder = full_wallet.build_tx();
         builder
@@ -139,17 +140,19 @@ pub async fn transfer_asset(
             panic!("{:#?}", e);
         });
     // parse into generic JSON value
-    let js: TransferResponse = response.json().await?;
-    let psbt: PartiallySignedTransaction = deserialize(&base64::decode(js.witness.clone())?)?;
+    let transfer_response: TransferResponse = response.json().await?;
+    log!(format!("Transfer made: {transfer_response:?}"));
+    let psbt: PartiallySignedTransaction =
+        deserialize(&base64::decode(transfer_response.witness.clone())?)?;
     log!(format!("psbt from server {:#?}", psbt.to_string()));
     sign_psbt(full_wallet, psbt).await.unwrap_or_else(|e| {
-        log!(format!("error at signing: {:#?}", e));
+        log!(format!("error at signing: {e:#?}"));
     });
 
     let url = format!("{}enclose_forget", *NODE_SERVER_BASE_URL);
     let enclose_request = EncloseForgetRequest {
         outpoints: utxos,
-        disclosure: js.disclosure.clone(),
+        disclosure: transfer_response.disclosure.clone(),
     };
     let response = Request::post(&url)
         .body(serde_json::to_string(&enclose_request)?)
@@ -170,6 +173,5 @@ pub async fn transfer_asset(
         log!(format!("forget utxo error"));
     }
 
-    log!(format!("Transfer made: {js:?}"));
-    Ok(serde_json::to_string(&js).unwrap())
+    Ok(transfer_response)
 }

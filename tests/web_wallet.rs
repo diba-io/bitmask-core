@@ -8,8 +8,11 @@ use wasm_bindgen_test::*;
 use bdk::TransactionDetails;
 
 use bitmask_core::{
-    get_mnemonic_seed, get_vault, get_wallet_data, json_parse, resolve, save_mnemonic_seed,
-    send_sats, set_panic_hook, to_string, MnemonicSeedData, VaultData, WalletData,
+    web::{
+        get_mnemonic_seed, get_vault, get_wallet_data, json_parse, resolve, save_mnemonic_seed,
+        send_sats, set_panic_hook, to_string,
+    },
+    MnemonicSeedData, VaultData, WalletData,
 };
 
 wasm_bindgen_test_configure!(run_in_browser);

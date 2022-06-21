@@ -21,6 +21,7 @@ bdk = { version = "0.18.0", features = [
     "use-esplora-reqwest",
     "key-value-db",
 ], default-features = false }
+bdk-macros = "0.6.0"
 bip39 = "1.0.1"
 bitcoin = "0.27.1"
 console_error_panic_hook = "0.1.6"

@@ -4,8 +4,11 @@ use wasm_bindgen::prelude::*;
 use wasm_bindgen_test::*;
 
 use bitmask_core::{
-    get_vault, get_wallet_data, import_asset, json_parse, resolve, save_mnemonic_seed,
-    set_panic_hook, MnemonicSeedData, VaultData, WalletData,
+    web::{
+        get_vault, get_wallet_data, import_asset, json_parse, resolve, save_mnemonic_seed,
+        set_panic_hook,
+    },
+    MnemonicSeedData, VaultData, WalletData,
 };
 
 wasm_bindgen_test_configure!(run_in_browser);
@@ -15,8 +18,7 @@ const MNEMONIC: &str =
 const ENCRYPTION_PASSWORD: &str = "hunter2";
 const SEED_PASSWORD: &str = "";
 
-const ASSET: &str = "rgb1g2antx89ypjuat7jdth35d8xgqserckrhj9elkrhxhjhxch8sxqqguzmh6"; // STC, StableCoin
-const GENESIS: &str = "genesis1qyfe883hey6jrgj2xvk5g3dfmfqfzm7a4wez4pd2krf7ltsxffd6u6nrvjvvnc8vt9llmp7663pgututl9heuwaudet72ay9j6thc6cetuvhxvsqqya5xjt2w9y4u6sfkuszwwctnrpug5yjxnthmr3mydg05rdrpspcxysnqvvqpfvag2w8jxzzsz9pf8pjfwf0xvln5z7w93yjln3gcnyxsa04jsf2p8vu4sxgeqrzyxg5nyvcysuur9qjct5xuzfvffyu23n6p22vaqpvcryvvqrnqvnswv7r3xqgxf3qryxransvgre33asjzqerx0vpe9lff02guztd6xyd5hwq0w37e0cqmutvm428mnmaayhlhfj4nh0zaalutdrurrnlets8axpxkfcqgpmrxqqqxsu7qc";
+const ASSET: &str = "rgb1p28yk36mq6l3ee6ewmrs4gmvanlfzx82l7sdwk9ryuydpssm5kusvlk9mn"; // BUX
 
 /// Test asset import
 #[wasm_bindgen_test]
@@ -46,7 +48,7 @@ async fn asset_import() {
     resolve(import_asset(
         vault_data.rgb_tokens_descriptor.clone(),
         Some(ASSET.to_owned()),
-        Some(GENESIS.to_owned()),
+        None,
     ))
     .await;
 

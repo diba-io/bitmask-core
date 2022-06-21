@@ -150,6 +150,7 @@ dependencies = [
  "anyhow",
  "base64",
  "bdk",
+ "bdk-macros",
  "bip39",
  "bitcoin",
  "console_error_panic_hook",

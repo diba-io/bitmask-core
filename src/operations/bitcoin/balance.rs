@@ -2,6 +2,7 @@ use std::rc::Rc;
 
 use anyhow::Result;
 use bdk::{blockchain::esplora::EsploraBlockchain, database::MemoryDatabase, SyncOptions, Wallet};
+use bdk_macros::{maybe_async, maybe_await};
 
 use crate::data::{
     constants::{BITCOIN_EXPLORER_API, NETWORK},
@@ -27,7 +28,7 @@ pub async fn get_wallet(
         *NETWORK.read().unwrap(),
         MemoryDatabase::default(),
     )?;
-    synchronize_wallet(&wallet).await?;
+    maybe_await!(synchronize_wallet(&wallet))?;
     Ok(wallet)
 }
 
@@ -35,8 +36,9 @@ pub fn get_blockchain() -> EsploraBlockchain {
     EsploraBlockchain::new(&BITCOIN_EXPLORER_API.read().unwrap(), 100)
 }
 
-pub async fn synchronize_wallet(wallet: &Wallet<MemoryDatabase>) -> Result<()> {
+#[maybe_async]
+pub fn synchronize_wallet(wallet: &Wallet<MemoryDatabase>) -> Result<()> {
     let blockchain = get_blockchain();
-    wallet.sync(&blockchain, SyncOptions::default()).await?;
+    maybe_await!(wallet.sync(&blockchain, SyncOptions::default()))?;
     Ok(())
 }
