@@ -41,11 +41,13 @@ pub async fn get_asset(
     asset: Option<String>,
     _genesis: Option<String>,
     unspent: Vec<bdk::LocalUtxo>,
+    node_url: Option<String>,
 ) -> Result<ThinAsset> {
     let asset_data = ExportRequestMini {
         asset: asset.clone().unwrap(),
     };
-    let url = format!("{}getasset", *NODE_SERVER_BASE_URL);
+    let node_url = node_url.unwrap_or(NODE_SERVER_BASE_URL.to_string());
+    let url = format!("{}getasset", node_url);
     log!(format!("url: {url:#?}"));
     let response = match Request::post(&url)
         .body(serde_json::to_string(&asset_data)?)

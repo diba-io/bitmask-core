@@ -297,6 +297,7 @@ pub fn import_asset(
     rgb_tokens_descriptor: String,
     asset: Option<String>,
     genesis: Option<String>,
+    node_url: Option<String>,
 ) -> Promise {
     set_panic_hook();
     future_to_promise(async {
@@ -305,7 +306,7 @@ pub fn import_asset(
         log!(format!("asset: {asset:#?}\tgenesis: {genesis:#?}"));
         match asset {
             Some(asset) => {
-                let asset = get_asset(Some(asset), None, unspent).await;
+                let asset = get_asset(Some(asset), None, unspent, node_url).await;
                 log!(format!("get asset {asset:#?}"));
                 let asset = match asset {
                     Ok(asset) => asset,
@@ -531,14 +532,14 @@ pub fn import_accept(
             consignment,
             transaction_data.utxo,
             transaction_data.blinding,
-            node_url,
+            node_url.clone(),
         )
         .await;
         match accept {
             Ok(_accept) => {
                 let wallet = get_wallet(rgb_tokens_descriptor, None).await;
                 let unspent = wallet.as_ref().unwrap().list_unspent().unwrap_or_default();
-                let asset = get_asset(Some(asset), None, unspent).await;
+                let asset = get_asset(Some(asset), None, unspent, node_url).await;
                 log!(format!("get asset {asset:#?}"));
                 let asset = match asset {
                     Ok(asset) => asset,
