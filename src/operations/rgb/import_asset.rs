@@ -6,7 +6,7 @@ use gloo_net::http::Request;
 use serde::{Deserialize, Serialize};
 
 use crate::data::{
-    constants::NODE_SERVER_BASE_URL,
+    constants::url,
     structs::{Allocation, Asset, ExportRequestMini, ThinAsset},
 };
 
@@ -46,10 +46,7 @@ pub async fn get_asset(
     let asset_data = ExportRequestMini {
         asset: asset.clone().unwrap(),
     };
-    let node_url = node_url.unwrap_or(NODE_SERVER_BASE_URL.to_string());
-    let url = format!("{}getasset", node_url);
-    log!(format!("url: {url:#?}"));
-    let response = match Request::post(&url)
+    let response = match Request::post(&url("getasset", &node_url))
         .body(serde_json::to_string(&asset_data)?)
         .header(
             "Content-Type",
@@ -98,10 +95,8 @@ pub async fn get_asset(
     Ok(thin_assets)
 }
 
-pub async fn get_assets() -> Result<Vec<Asset>> {
-    let url = format!("{}list", *NODE_SERVER_BASE_URL);
-    log!(format!("url list assets: {url:#?}"));
-    let response = Request::get(&url).send().await?;
+pub async fn get_assets(node_url: Option<String>) -> Result<Vec<Asset>> {
+    let response = Request::get(&url("list", &node_url)).send().await?;
     log!(format!("listassets: {response:#?}"));
     let assets: Vec<Asset> = response.json().await?;
     Ok(assets)
