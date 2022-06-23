@@ -275,11 +275,11 @@ pub fn get_wallet_data(descriptor: String, change_descriptor: Option<String>) ->
 }
 
 #[wasm_bindgen]
-pub fn import_list_assets() -> Promise {
+pub fn import_list_assets(node_url: Option<String>) -> Promise {
     set_panic_hook();
     log!("import_list_assets");
     future_to_promise(async {
-        let assets = get_assets().await;
+        let assets = get_assets(node_url).await;
         log!(format!("get assets: {assets:#?}"));
         let assets = serde_json::to_string(&assets.unwrap());
         match assets {

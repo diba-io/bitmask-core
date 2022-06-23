@@ -9,7 +9,7 @@ use gloo_net::http::Request;
 
 use crate::{
     data::{
-        constants::NODE_SERVER_BASE_URL,
+        constants::url,
         structs::{
             EncloseForgetRequest, OutPoint, SealCoins, ThinAsset, TransferRequest, TransferResponse,
         },
@@ -126,9 +126,7 @@ pub async fn transfer_asset(
     };
     log!(format!("{:?}", transfer_request));
 
-    let node_url = node_url.unwrap_or(NODE_SERVER_BASE_URL.to_string());
-    let url = format!("{}transfer", node_url);
-    let response = Request::post(&url)
+    let response = Request::post(&url("transfer", &node_url))
         .body(serde_json::to_string(&transfer_request)?)
         .header(
             "Content-Type",
@@ -148,12 +146,11 @@ pub async fn transfer_asset(
         log!(format!("error at signing: {:#?}", e));
     });
 
-    let url = format!("{}enclose_forget", node_url);
     let enclose_request = EncloseForgetRequest {
         outpoints: utxos,
         disclosure: js.disclosure.clone(),
     };
-    let response = Request::post(&url)
+    let response = Request::post(&url("enclose_forget", &node_url))
         .body(serde_json::to_string(&enclose_request)?)
         .header(
             "Content-Type",
