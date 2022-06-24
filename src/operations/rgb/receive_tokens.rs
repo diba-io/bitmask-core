@@ -3,15 +3,17 @@ use gloo_console::log;
 use gloo_net::http::Request;
 
 use crate::data::{
-    constants::NODE_SERVER_BASE_URL,
+    constants::url,
     structs::{BlindResponse, OutPoint},
 };
 
-pub async fn blind_utxo(utxo: OutPoint) -> Result<(BlindResponse, OutPoint)> {
+pub async fn blind_utxo(
+    utxo: OutPoint,
+    node_url: Option<String>,
+) -> Result<(BlindResponse, OutPoint)> {
     log!("in blind_utxo");
     log!(format!("utxo {utxo:?}"));
-    let url = format!("{}blind", *NODE_SERVER_BASE_URL);
-    let response = Request::post(&url)
+    let response = Request::post(&url("blind", &node_url))
         .body(serde_json::to_string(&utxo)?)
         .header(
             "Content-Type",
