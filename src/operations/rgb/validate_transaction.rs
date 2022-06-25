@@ -2,14 +2,13 @@ use anyhow::Result;
 use gloo_console::log;
 use gloo_net::http::Request;
 
-use crate::data::{constants::NODE_SERVER_BASE_URL, structs::ValidateRequest};
+use crate::data::{constants::url, structs::ValidateRequest};
 
-pub async fn validate_transfer(consignment: String) -> Result<()> {
+pub async fn validate_transfer(consignment: String, node_url: Option<String>) -> Result<()> {
     //TODO: review
     let validate_request = ValidateRequest { consignment };
 
-    let url = format!("{}validate", *NODE_SERVER_BASE_URL);
-    let response = Request::post(&url)
+    let response = Request::post(&url("validate", &node_url))
         .body(serde_json::to_string(&validate_request)?)
         .header(
             "Content-Type",

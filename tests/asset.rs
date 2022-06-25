@@ -17,6 +17,7 @@ const SEED_PASSWORD: &str = "";
 
 const ASSET: &str = "rgb1g2antx89ypjuat7jdth35d8xgqserckrhj9elkrhxhjhxch8sxqqguzmh6"; // STC, StableCoin
 const GENESIS: &str = "genesis1qyfe883hey6jrgj2xvk5g3dfmfqfzm7a4wez4pd2krf7ltsxffd6u6nrvjvvnc8vt9llmp7663pgututl9heuwaudet72ay9j6thc6cetuvhxvsqqya5xjt2w9y4u6sfkuszwwctnrpug5yjxnthmr3mydg05rdrpspcxysnqvvqpfvag2w8jxzzsz9pf8pjfwf0xvln5z7w93yjln3gcnyxsa04jsf2p8vu4sxgeqrzyxg5nyvcysuur9qjct5xuzfvffyu23n6p22vaqpvcryvvqrnqvnswv7r3xqgxf3qryxransvgre33asjzqerx0vpe9lff02guztd6xyd5hwq0w37e0cqmutvm428mnmaayhlhfj4nh0zaalutdrurrnlets8axpxkfcqgpmrxqqqxsu7qc";
+const SERVER: &str = "https://REPLACE-ME/test-server"; // TODO: Replace with a separate test RGB node server
 
 /// Test asset import
 #[wasm_bindgen_test]
@@ -47,6 +48,7 @@ async fn asset_import() {
         vault_data.rgb_tokens_descriptor.clone(),
         Some(ASSET.to_owned()),
         Some(GENESIS.to_owned()),
+        Some(SERVER.to_owned()),
     ))
     .await;
 
