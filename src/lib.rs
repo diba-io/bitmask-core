@@ -275,11 +275,11 @@ pub fn get_wallet_data(descriptor: String, change_descriptor: Option<String>) ->
 }
 
 #[wasm_bindgen]
-pub fn import_list_assets() -> Promise {
+pub fn import_list_assets(node_url: Option<String>) -> Promise {
     set_panic_hook();
     log!("import_list_assets");
     future_to_promise(async {
-        let assets = get_assets().await;
+        let assets = get_assets(node_url).await;
         log!(format!("get assets: {assets:#?}"));
         let assets = serde_json::to_string(&assets.unwrap());
         match assets {
@@ -297,6 +297,7 @@ pub fn import_asset(
     rgb_tokens_descriptor: String,
     asset: Option<String>,
     genesis: Option<String>,
+    node_url: Option<String>,
 ) -> Promise {
     set_panic_hook();
     future_to_promise(async {
@@ -305,7 +306,7 @@ pub fn import_asset(
         log!(format!("asset: {asset:#?}\tgenesis: {genesis:#?}"));
         match asset {
             Some(asset) => {
-                let asset = get_asset(Some(asset), None, unspent).await;
+                let asset = get_asset(Some(asset), None, unspent, node_url).await;
                 log!(format!("get asset {asset:#?}"));
                 let asset = match asset {
                     Ok(asset) => asset,
@@ -348,7 +349,7 @@ struct BlindingUtxo {
 }
 
 #[wasm_bindgen]
-pub fn set_blinded_utxo(utxo_string: String) -> Promise {
+pub fn set_blinded_utxo(utxo_string: String, node_url: Option<String>) -> Promise {
     set_panic_hook();
     future_to_promise(async move {
         let mut split = utxo_string.split(':');
@@ -356,7 +357,7 @@ pub fn set_blinded_utxo(utxo_string: String) -> Promise {
             txid: split.next().unwrap().to_string(),
             vout: split.next().unwrap().to_string().parse::<u32>().unwrap(),
         };
-        let (blind, utxo) = blind_utxo(utxo).await.unwrap(); // TODO: Error handling
+        let (blind, utxo) = blind_utxo(utxo, node_url).await.unwrap(); // TODO: Error handling
         let blinding_utxo = BlindingUtxo {
             conceal: blind.conceal,
             blinding: blind.blinding,
@@ -439,6 +440,7 @@ pub fn send_tokens(
     blinded_utxo: String,
     amount: u64,
     asset: String,
+    node_url: Option<String>,
 ) -> Promise {
     set_panic_hook();
     let asset: ThinAsset = serde_json::from_str(&asset).unwrap();
@@ -459,6 +461,7 @@ pub fn send_tokens(
             &full_wallet,
             &full_change_wallet,
             &assets_wallet,
+            node_url,
         )
         .await;
         match consignment {
@@ -469,10 +472,10 @@ pub fn send_tokens(
 }
 
 #[wasm_bindgen]
-pub fn validate_transaction(consignment: String) -> Promise {
+pub fn validate_transaction(consignment: String, node_url: Option<String>) -> Promise {
     set_panic_hook();
     future_to_promise(async {
-        let validate = validate_transfer(consignment).await.unwrap();
+        let validate = validate_transfer(consignment, node_url).await.unwrap();
         Ok(JsValue::from_string(
             serde_json::to_string(&validate).unwrap(),
         ))
@@ -485,28 +488,78 @@ pub fn accept_transaction(
     txid: String,
     vout: u32,
     blinding: String,
+    node_url: Option<String>,
 ) -> Promise {
     set_panic_hook();
-    log!("hola accept");
     let transaction_data = TransactionData {
         blinding,
         utxo: OutPoint { txid, vout },
     };
-    log!("hola denueveo");
     future_to_promise(async move {
-        log!("hola denueveo 2");
         let accept = accept_transfer(
             consignment,
             transaction_data.utxo,
             transaction_data.blinding,
+            node_url,
         )
         .await;
-        log!("hola denueveo 3");
         match accept {
             Ok(accept) => Ok(JsValue::from_string(
                 serde_json::to_string(&accept).unwrap(),
             )),
             Err(e) => Err(JsValue::from_string(format!("Error: {} ", e))),
+        }
+    })
+}
+
+#[wasm_bindgen]
+pub fn import_accept(
+    rgb_tokens_descriptor: String,
+    asset: String,
+    consignment: String,
+    txid: String,
+    vout: u32,
+    blinding: String,
+    node_url: Option<String>,
+) -> Promise {
+    set_panic_hook();
+    let transaction_data = TransactionData {
+        blinding,
+        utxo: OutPoint { txid, vout },
+    };
+    future_to_promise(async move {
+        let accept = accept_transfer(
+            consignment,
+            transaction_data.utxo,
+            transaction_data.blinding,
+            node_url.clone(),
+        )
+        .await;
+        match accept {
+            Ok(_accept) => {
+                let wallet = get_wallet(rgb_tokens_descriptor, None).await;
+                let unspent = wallet.as_ref().unwrap().list_unspent().unwrap_or_default();
+                let asset = get_asset(Some(asset), None, unspent, node_url).await;
+                log!(format!("get asset {asset:#?}"));
+                let asset = match asset {
+                    Ok(asset) => asset,
+                    Err(e) => {
+                        return Ok(JsValue::from_string(format!(
+                            "Server error importing: {} ",
+                            e
+                        )))
+                    }
+                };
+                let asset = serde_json::to_string(&asset);
+                match asset {
+                    Ok(asset) => {
+                        log!(&asset);
+                        Ok(JsValue::from_string(asset))
+                    }
+                    Err(e) => Ok(JsValue::from_string(format!("Error importing: {} ", e))),
+                }
+            }
+            Err(e) => Ok(JsValue::from_string(format!("Error accepting: {} ", e))),
         }
     })
 }
