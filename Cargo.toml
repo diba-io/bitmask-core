@@ -41,4 +41,5 @@ web-sys = "0.3.55"
 wee_alloc = "0.4.5"
 
 [dev-dependencies]
+tokio = { version = "1.14.1", features = ["full"] }
 wasm-bindgen-test = "0.3.13"
