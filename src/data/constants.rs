@@ -50,3 +50,11 @@ pub fn switch_network(network_str: &str) {
 
     *NETWORK.write().unwrap() = network;
 }
+
+pub fn url(path: &str, node_url: &Option<String>) -> String {
+    let node_url = match node_url {
+        Some(url) => url,
+        None => &NODE_SERVER_BASE_URL,
+    };
+    format!("{node_url}{path}")
+}

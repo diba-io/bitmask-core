@@ -3,7 +3,7 @@ use gloo_console::log;
 use gloo_net::http::Request;
 
 use crate::{
-    data::{constants::NODE_SERVER_BASE_URL, structs::AcceptRequest},
+    data::{constants::url, structs::AcceptRequest},
     OutPoint,
 };
 
@@ -11,6 +11,7 @@ pub async fn accept_transfer(
     consignment: String,
     outpoint: OutPoint,
     blinding_factor: String,
+    node_url: Option<String>,
 ) -> Result<String> {
     let accept_request = AcceptRequest {
         consignment,
@@ -18,8 +19,7 @@ pub async fn accept_transfer(
         blinding_factor,
     };
     log!("here);");
-    let url = format!("{}accept", *NODE_SERVER_BASE_URL);
-    let response = Request::post(&url)
+    let response = Request::post(&url("accept", &node_url))
         .body(serde_json::to_string(&accept_request)?)
         .header(
             "Content-Type",

@@ -18,7 +18,7 @@ const MNEMONIC: &str =
 const ENCRYPTION_PASSWORD: &str = "hunter2";
 const SEED_PASSWORD: &str = "";
 
-const ASSET: &str = "rgb1p28yk36mq6l3ee6ewmrs4gmvanlfzx82l7sdwk9ryuydpssm5kusvlk9mn"; // BUX
+const ASSET: &str = "rgb1g2antx89ypjuat7jdth35d8xgqserckrhj9elkrhxhjhxch8sxqqguzmh6"; // BUX
 
 /// Test asset import
 #[wasm_bindgen_test]
@@ -48,6 +48,7 @@ async fn asset_import() {
     resolve(import_asset(
         vault_data.rgb_tokens_descriptor.clone(),
         Some(ASSET.to_owned()),
+        None,
         None,
     ))
     .await;

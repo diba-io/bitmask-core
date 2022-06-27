@@ -76,11 +76,11 @@ pub fn get_wallet_data(descriptor: String, change_descriptor: Option<String>) ->
 }
 
 #[wasm_bindgen]
-pub fn import_list_assets() -> Promise {
+pub fn import_list_assets(node_url: Option<String>) -> Promise {
     set_panic_hook();
 
     future_to_promise(async move {
-        match crate::import_list_assets().await {
+        match crate::import_list_assets(node_url).await {
             Ok(result) => Ok(JsValue::from_string(
                 serde_json::to_string(&result).unwrap(),
             )),
@@ -94,11 +94,12 @@ pub fn import_asset(
     rgb_tokens_descriptor: String,
     asset: Option<String>,
     genesis: Option<String>,
+    node_url: Option<String>,
 ) -> Promise {
     set_panic_hook();
 
     future_to_promise(async move {
-        match crate::import_asset(rgb_tokens_descriptor, asset, genesis).await {
+        match crate::import_asset(rgb_tokens_descriptor, asset, genesis, node_url).await {
             Ok(result) => Ok(JsValue::from_string(
                 serde_json::to_string(&result).unwrap(),
             )),
@@ -108,11 +109,11 @@ pub fn import_asset(
 }
 
 #[wasm_bindgen]
-pub fn set_blinded_utxo(utxo_string: String) -> Promise {
+pub fn set_blinded_utxo(utxo_string: String, node_url: Option<String>) -> Promise {
     set_panic_hook();
 
     future_to_promise(async move {
-        match crate::set_blinded_utxo(utxo_string).await {
+        match crate::set_blinded_utxo(utxo_string, node_url).await {
             Ok(result) => Ok(JsValue::from_string(
                 serde_json::to_string(&result).unwrap(),
             )),
@@ -167,6 +168,7 @@ pub fn send_tokens(
     blinded_utxo: String,
     amount: u64,
     asset: String,
+    node_url: Option<String>,
 ) -> Promise {
     set_panic_hook();
 
@@ -180,6 +182,7 @@ pub fn send_tokens(
             blinded_utxo,
             amount,
             asset,
+            node_url,
         )
         .await
         {
@@ -192,11 +195,11 @@ pub fn send_tokens(
 }
 
 #[wasm_bindgen]
-pub fn validate_transaction(utxo_string: String) -> Promise {
+pub fn validate_transaction(utxo_string: String, node_url: Option<String>) -> Promise {
     set_panic_hook();
 
     future_to_promise(async move {
-        match crate::validate_transaction(utxo_string).await {
+        match crate::validate_transaction(utxo_string, node_url).await {
             Ok(result) => Ok(JsValue::from_string(
                 serde_json::to_string(&result).unwrap(),
             )),

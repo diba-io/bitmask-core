@@ -10,7 +10,7 @@ use gloo_net::http::Request;
 
 use crate::{
     data::{
-        constants::NODE_SERVER_BASE_URL,
+        constants::url,
         structs::{
             EncloseForgetRequest, OutPoint, SealCoins, ThinAsset, TransferRequest, TransferResponse,
         },
@@ -25,6 +25,7 @@ pub async fn transfer_asset(
     full_wallet: &Wallet<MemoryDatabase>,
     full_change_wallet: &Wallet<MemoryDatabase>,
     assets_wallet: &Wallet<MemoryDatabase>,
+    node_url: Option<String>,
 ) -> Result<TransferResponse> {
     maybe_await!(synchronize_wallet(assets_wallet))?;
     log!("sync");
@@ -126,8 +127,7 @@ pub async fn transfer_asset(
     };
     log!(format!("{:?}", transfer_request));
 
-    let url = format!("{}transfer", *NODE_SERVER_BASE_URL);
-    let response = Request::post(&url)
+    let response = Request::post(&url("transfer", &node_url))
         .body(serde_json::to_string(&transfer_request)?)
         .header(
             "Content-Type",
@@ -149,12 +149,11 @@ pub async fn transfer_asset(
         log!(format!("error at signing: {e:#?}"));
     });
 
-    let url = format!("{}enclose_forget", *NODE_SERVER_BASE_URL);
     let enclose_request = EncloseForgetRequest {
         outpoints: utxos,
         disclosure: transfer_response.disclosure.clone(),
     };
-    let response = Request::post(&url)
+    let response = Request::post(&url("enclose_forget", &node_url))
         .body(serde_json::to_string(&enclose_request)?)
         .header(
             "Content-Type",

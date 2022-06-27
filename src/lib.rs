@@ -232,9 +232,9 @@ pub async fn get_wallet_data(
     })
 }
 
-pub async fn import_list_assets() -> Result<Vec<Asset>> {
+pub async fn import_list_assets(node_url: Option<String>) -> Result<Vec<Asset>> {
     log!("import_list_assets");
-    let assets = get_assets().await?;
+    let assets = get_assets(node_url).await?;
     log!(format!("get assets: {assets:#?}"));
     Ok(assets)
 }
@@ -243,13 +243,14 @@ pub async fn import_asset(
     rgb_tokens_descriptor: String,
     asset: Option<String>,
     genesis: Option<String>,
+    node_url: Option<String>,
 ) -> Result<ThinAsset> {
     let wallet = get_wallet(rgb_tokens_descriptor, None).await;
     let unspent = wallet.as_ref().unwrap().list_unspent().unwrap_or_default();
     log!(format!("asset: {asset:#?}\tgenesis: {genesis:#?}"));
     match asset {
         Some(asset) => {
-            let asset = get_asset(Some(asset), None, unspent).await;
+            let asset = get_asset(Some(asset), None, unspent, node_url).await;
             log!(format!("get asset {asset:#?}"));
             match asset {
                 Ok(asset) => Ok(asset),
@@ -279,13 +280,16 @@ pub struct BlindingUtxo {
     utxo: OutPoint,
 }
 
-pub async fn set_blinded_utxo(utxo_string: String) -> Result<BlindingUtxo> {
+pub async fn set_blinded_utxo(
+    utxo_string: String,
+    node_url: Option<String>,
+) -> Result<BlindingUtxo> {
     let mut split = utxo_string.split(':');
     let utxo = OutPoint {
         txid: split.next().unwrap().to_string(),
         vout: split.next().unwrap().to_string().parse::<u32>().unwrap(),
     };
-    let (blind, utxo) = blind_utxo(utxo).await?;
+    let (blind, utxo) = blind_utxo(utxo, node_url).await?;
 
     let blinding_utxo = BlindingUtxo {
         conceal: blind.conceal,
@@ -356,6 +360,7 @@ pub async fn send_tokens(
     blinded_utxo: String,
     amount: u64,
     asset: ThinAsset,
+    node_url: Option<String>,
 ) -> Result<TransferResponse> {
     let assets_wallet = get_wallet(rgb_tokens_descriptor.clone(), None)
         .await
@@ -373,14 +378,15 @@ pub async fn send_tokens(
         &full_wallet,
         &full_change_wallet,
         &assets_wallet,
+        node_url,
     )
     .await?;
 
     Ok(consignment)
 }
 
-pub async fn validate_transaction(consignment: String) -> Result<()> {
-    validate_transfer(consignment).await
+pub async fn validate_transaction(consignment: String, node_url: Option<String>) -> Result<()> {
+    validate_transfer(consignment, node_url).await
 }
 
 pub async fn accept_transaction(
@@ -388,6 +394,7 @@ pub async fn accept_transaction(
     txid: String,
     vout: u32,
     blinding: String,
+    node_url: Option<String>,
 ) -> Result<String> {
     log!("hola accept");
     let transaction_data = TransactionData {
@@ -400,6 +407,7 @@ pub async fn accept_transaction(
         consignment,
         transaction_data.utxo,
         transaction_data.blinding,
+        node_url,
     )
     .await?;
     log!("hola denueveo 3");
