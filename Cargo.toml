@@ -20,8 +20,9 @@ base64 = "0.13.0"
 bdk = { version = "0.19.0", features = [
     "use-esplora-reqwest",
     "key-value-db",
+    "async-interface",
+    "reqwest-default-tls",
 ], default-features = false }
-bdk-macros = "0.6.0"
 bip39 = "1.0.1"
 bitcoin = "0.28.1"
 console_error_panic_hook = "0.1.6"
@@ -39,7 +40,8 @@ wasm-bindgen = { version = "0.2.77", features = ["serde-serialize"] }
 wasm-bindgen-futures = "0.4.27"
 web-sys = "0.3.55"
 wee_alloc = "0.4.5"
+log = "0.4.17"
 
 [dev-dependencies]
-tokio = { version = "1.14.1", features = ["full"] }
+tokio = { version = "1", features = ["full"] }
 wasm-bindgen-test = "0.3.13"

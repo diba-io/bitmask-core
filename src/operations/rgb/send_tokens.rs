@@ -1,6 +1,5 @@
 use anyhow::Result;
 use bdk::{database::MemoryDatabase, wallet::AddressIndex::New, FeeRate, Wallet};
-use bdk_macros::maybe_await;
 use bitcoin::{
     consensus::{deserialize, serialize},
     util::psbt::PartiallySignedTransaction,
@@ -27,8 +26,9 @@ pub async fn transfer_asset(
     assets_wallet: &Wallet<MemoryDatabase>,
     node_url: Option<String>,
 ) -> Result<TransferResponse> {
-    maybe_await!(synchronize_wallet(assets_wallet))?;
     log!("sync");
+    synchronize_wallet(assets_wallet).await?;
+    log!("synced");
     let unspents = assets_wallet.list_unspent()?;
     let utxos: Vec<OutPoint> = asset
         .allocations
@@ -92,7 +92,7 @@ pub async fn transfer_asset(
 
     let send_to_one = assets_wallet.get_address(New).unwrap(); // TODO: that has to be corrected before release because this sats are lost! Bdk don't get the tweak key utxos!
     let send_to_two = assets_wallet.get_address(New).unwrap();
-    maybe_await!(synchronize_wallet(full_wallet))?;
+    synchronize_wallet(full_wallet).await?;
     let (psbt, _details) = {
         let mut builder = full_wallet.build_tx();
         builder

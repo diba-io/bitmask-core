@@ -5,7 +5,6 @@ use anyhow::{format_err, Result};
 use bdk::{wallet::AddressIndex::LastUnused, BlockTime, TransactionDetails};
 use bitcoin::util::address::Address;
 use bitcoin::Txid;
-use gloo_console::log;
 use serde::{Deserialize, Serialize};
 use serde_encrypt::{
     serialize::impls::BincodeSerializer, shared_key::SharedKey, traits::SerdeEncryptSharedKey,
@@ -15,7 +14,8 @@ use sha2::{Digest, Sha256};
 
 mod data;
 mod operations;
-mod utils;
+mod util;
+#[cfg(target_arch = "wasm32")]
 pub mod web;
 
 use data::{
@@ -186,7 +186,7 @@ pub async fn get_wallet_data(
     change_descriptor: Option<String>,
 ) -> Result<WalletData> {
     log!("get_wallet_data");
-    log!(&descriptor, change_descriptor.as_ref());
+    log!(&descriptor, format!("{:?}", &change_descriptor));
 
     let wallet = get_wallet(descriptor, change_descriptor).await;
     let address = wallet

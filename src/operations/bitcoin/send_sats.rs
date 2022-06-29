@@ -1,6 +1,5 @@
 use anyhow::Result;
 use bdk::{database::MemoryDatabase, FeeRate, TransactionDetails, Wallet};
-use bdk_macros::maybe_await;
 use bitcoin::consensus::serialize;
 use gloo_console::log;
 
@@ -13,7 +12,7 @@ pub async fn create_transaction(
     invoices: Vec<SatsInvoice>,
     wallet: &Wallet<MemoryDatabase>,
 ) -> Result<TransactionDetails> {
-    maybe_await!(synchronize_wallet(wallet))?;
+    synchronize_wallet(wallet).await?;
     let (psbt, details) = {
         let mut builder = wallet.build_tx();
         for invoice in invoices {
