@@ -6,10 +6,11 @@ use serde::Serialize;
 #[macro_export]
 macro_rules! log {
     ($($arg:expr),+) => {
+        let output = vec![$(String::from($arg),)+].join(" ");
         #[cfg(target_arch = "wasm32")]
-        gloo_console::log!([$($arg,)+]);
+        gloo_console::log!(format!("{}", output));
         #[cfg(not(target_arch = "wasm32"))]
-        log::info!("{}", vec![$(String::from($arg),)+].join(" "));
+        log::info!("{}", output);
     };
 }
 
@@ -36,16 +37,11 @@ pub async fn post_json<T: Serialize>(url: String, body: &T) -> Result<(String, u
 }
 
 #[cfg(target_arch = "wasm32")]
-pub async fn post_json<T: Serialize>(url: String, body: &T) -> Result<(String, u16)> {
-    let response = Request::post(&url)
-        .body(serde_json::to_string(body)?)
-        .header(
-            "Content-Type",
-            "application/x-www-form-urlencoded; charset=UTF-8",
-        )
+pub async fn get(url: String) -> Result<(String, u16)> {
+    let response = Request::get(&url)
         .send()
         .await
-        .context(format!("Error sending JSON POST request to {}", url))?;
+        .context(format!("Error sending GET request to {}", url))?;
 
     let status_code = response.status();
 
