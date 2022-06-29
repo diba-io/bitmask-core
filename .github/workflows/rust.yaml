@@ -7,7 +7,7 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
+  web:
     runs-on: ubuntu-latest
 
     steps:
@@ -31,3 +31,26 @@ jobs:
         run: wasm-pack test --headless --chrome
         env:
           TEST_WALLET_SEED: ${{ secrets.TEST_WALLET_SEED }}
+
+  isomorphic:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+
+      - uses: Swatinem/rust-cache@v1
+      - uses: jetli/wasm-pack-action@v0.3.0
+
+      - name: Lint
+        run: cargo clippy --lib -- -D warnings
+
+      - name: Test
+        run: cargo test -- --nocapture
+        env:
+          TEST_WALLET_SEED: ${{ secrets.TEST_WALLET_SEED }}
+          RUST_BACKTRACE: 1
