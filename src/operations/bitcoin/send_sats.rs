@@ -1,10 +1,10 @@
 use anyhow::Result;
 use bdk::{database::MemoryDatabase, FeeRate, TransactionDetails, Wallet};
 use bitcoin::consensus::serialize;
-use gloo_console::log;
 
 use crate::{
     data::structs::SatsInvoice,
+    log,
     operations::bitcoin::{balance::synchronize_wallet, sign_psbt::sign_psbt},
 };
 

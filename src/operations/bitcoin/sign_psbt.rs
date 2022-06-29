@@ -1,9 +1,8 @@
 use anyhow::{Error, Result};
 use bdk::{blockchain::Blockchain, database::MemoryDatabase, SignOptions, Wallet};
 use bitcoin::{consensus::serialize, util::psbt::PartiallySignedTransaction};
-use gloo_console::log;
 
-use crate::operations::bitcoin::balance::get_blockchain;
+use crate::{log, operations::bitcoin::balance::get_blockchain};
 
 pub async fn sign_psbt(
     wallet: &Wallet<MemoryDatabase>,

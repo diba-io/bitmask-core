@@ -1,25 +1,20 @@
 use anyhow::Result;
-use gloo_console::log;
-use gloo_net::http::Request;
 
-use crate::data::{constants::url, structs::ValidateRequest};
+use crate::{
+    data::{constants::url, structs::ValidateRequest},
+    log,
+    util::post_json,
+};
 
 pub async fn validate_transfer(consignment: String, node_url: Option<String>) -> Result<()> {
     //TODO: review
     let validate_request = ValidateRequest { consignment };
 
-    let response = Request::post(&url("validate", &node_url))
-        .body(serde_json::to_string(&validate_request)?)
-        .header(
-            "Content-Type",
-            "application/x-www-form-urlencoded; charset=UTF-8",
-        )
-        .send()
-        .await?;
+    let (response, _) = post_json(url("validate", &node_url), &validate_request).await?;
 
     // parse into generic JSON value
-    let js: String = response.json().await?;
+    let result = serde_json::from_str(&response)?;
 
-    log!(format!("validate_transfer result {js:?}"));
+    log!(format!("validate_transfer result {result:?}"));
     Ok(())
 }

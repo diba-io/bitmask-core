@@ -1,9 +1,9 @@
-use anyhow::{Context, Result};
-use gloo_console::log;
-use gloo_net::http::Request;
+use anyhow::Result;
 
 use crate::{
     data::{constants::url, structs::AcceptRequest},
+    log,
+    util::post_json,
     OutPoint,
 };
 
@@ -19,23 +19,7 @@ pub async fn accept_transfer(
         blinding_factor,
     };
     log!("here);");
-    let response = Request::post(&url("accept", &node_url))
-        .body(serde_json::to_string(&accept_request)?)
-        .header(
-            "Content-Type",
-            "application/x-www-form-urlencoded; charset=UTF-8",
-        )
-        .send()
-        .await
-        .context("Problem at receiving request")?;
-    log!("response");
-    let js: String = response
-        .text()
-        .await
-        .context("Problem at serdering servor response")?; //TODO: not working
-    log!("json");
-    log!(&js);
-
-    log!(format!("accept transfer result: {js:?}"));
-    Ok(js)
+    let (response, _) = post_json(url("accept", &node_url), &accept_request).await?;
+    log!(format!("accept transfer result: {response:?}"));
+    Ok(response)
 }
