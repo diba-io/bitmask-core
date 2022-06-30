@@ -37,6 +37,9 @@ jobs:
       - uses: Swatinem/rust-cache@v1
       - uses: jetli/wasm-pack-action@v0.3.0
 
+      - name: Add wasm32 target
+        run: rustup target add wasm32-unknown-unknown
+
       - name: Lint (wasm32)
         run: cargo clippy --target wasm32-unknown-unknown --lib -- -D warnings
 
