@@ -396,13 +396,10 @@ pub async fn accept_transaction(
     blinding: String,
     node_url: Option<String>,
 ) -> Result<String> {
-    log!("hola accept");
     let transaction_data = TransactionData {
         blinding,
         utxo: OutPoint { txid, vout },
     };
-    log!("hola denueveo");
-    log!("hola denueveo 2");
     let accept = accept_transfer(
         consignment,
         transaction_data.utxo,
@@ -412,6 +409,39 @@ pub async fn accept_transaction(
     .await?;
     log!("hola denueveo 3");
     Ok(accept)
+}
+
+pub async fn import_accept(
+    rgb_tokens_descriptor: String,
+    asset: String,
+    consignment: String,
+    txid: String,
+    vout: u32,
+    blinding: String,
+    node_url: Option<String>,
+) -> Result<ThinAsset> {
+    let transaction_data = TransactionData {
+        blinding,
+        utxo: OutPoint { txid, vout },
+    };
+
+    let accept = accept_transfer(
+        consignment,
+        transaction_data.utxo,
+        transaction_data.blinding,
+        node_url.clone(),
+    )
+    .await;
+    match accept {
+        Ok(_accept) => {
+            let wallet = get_wallet(rgb_tokens_descriptor, None).await;
+            let unspent = wallet.as_ref().unwrap().list_unspent().unwrap_or_default();
+            let asset = get_asset(Some(asset), None, unspent, node_url).await;
+            log!(format!("get asset {asset:#?}"));
+            asset
+        }
+        Err(e) => Err(e),
+    }
 }
 
 pub fn switch_network(network_str: &str) {

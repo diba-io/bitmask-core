@@ -230,3 +230,61 @@ pub fn validate_transaction(utxo_string: String, node_url: Option<String>) -> Pr
         }
     })
 }
+
+#[wasm_bindgen]
+pub fn accept_transaction(
+    consignment: String,
+    txid: String,
+    vout: u32,
+    blinding: String,
+    node_url: Option<String>,
+) -> Promise {
+    set_panic_hook();
+    future_to_promise(async move {
+        match crate::accept_transaction(
+            consignment,
+            txid,
+            vout,
+            blinding,
+            node_url,
+        )
+        .await
+        {
+            Ok(result) => Ok(JsValue::from_string(
+                serde_json::to_string(&result).unwrap(),
+            )),
+            Err(err) => Err(JsValue::from_string(err.to_string())),
+        }
+    })
+}
+
+#[wasm_bindgen]
+pub fn import_accept(
+    rgb_tokens_descriptor: String,
+    asset: String,
+    consignment: String,
+    txid: String,
+    vout: u32,
+    blinding: String,
+    node_url: Option<String>,
+) -> Promise {
+    set_panic_hook();
+    future_to_promise(async move {
+        match crate::import_accept(
+            rgb_tokens_descriptor,
+            asset,
+            consignment,
+            txid,
+            vout,
+            blinding,
+            node_url,
+        )
+        .await
+        {
+            Ok(result) => Ok(JsValue::from_string(
+                serde_json::to_string(&result).unwrap(),
+            )),
+            Err(err) => Err(JsValue::from_string(err.to_string())),
+        }
+    })
+}
