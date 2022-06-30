@@ -1,3 +1,5 @@
+#![cfg(not(target_arch = "wasm32"))]
+
 use anyhow::Result;
 use bitmask_core::{get_vault, get_wallet_data, import_asset, save_mnemonic_seed};
 use std::env;
