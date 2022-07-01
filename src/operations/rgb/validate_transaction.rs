@@ -13,8 +13,8 @@ pub async fn validate_transfer(consignment: String, node_url: Option<String>) ->
     let (response, _) = post_json(url("validate", &node_url), &validate_request).await?;
 
     // parse into generic JSON value
-    let result = serde_json::from_str(&response)?;
+    // let result = serde_json::from_str(&response)?;
 
-    log!(format!("validate_transfer result {result:?}"));
+    log!(format!("validate_transfer result {response:?}"));
     Ok(())
 }
