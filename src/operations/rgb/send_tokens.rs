@@ -4,8 +4,6 @@ use bitcoin::{
     consensus::{deserialize, serialize},
     util::psbt::PartiallySignedTransaction,
 };
-use gloo_console::log;
-use gloo_net::http::Request;
 
 use crate::{
     data::{
@@ -14,7 +12,9 @@ use crate::{
             EncloseForgetRequest, OutPoint, SealCoins, ThinAsset, TransferRequest, TransferResponse,
         },
     },
+    log,
     operations::bitcoin::{sign_psbt, synchronize_wallet},
+    util::post_json,
 };
 
 pub async fn transfer_asset(
@@ -25,9 +25,10 @@ pub async fn transfer_asset(
     full_change_wallet: &Wallet<MemoryDatabase>,
     assets_wallet: &Wallet<MemoryDatabase>,
     node_url: Option<String>,
-) -> Result<String> {
-    synchronize_wallet(assets_wallet).await?;
+) -> Result<TransferResponse> {
     log!("sync");
+    synchronize_wallet(assets_wallet).await?;
+    log!("synced");
     let unspents = assets_wallet.list_unspent()?;
     let utxos: Vec<OutPoint> = asset
         .allocations
@@ -126,49 +127,35 @@ pub async fn transfer_asset(
     };
     log!(format!("{:?}", transfer_request));
 
-    let response = Request::post(&url("transfer", &node_url))
-        .body(serde_json::to_string(&transfer_request)?)
-        .header(
-            "Content-Type",
-            "application/x-www-form-urlencoded; charset=UTF-8",
-        )
-        .send()
+    let (response, _) = post_json(url("transfer", &node_url), &transfer_request)
         .await
         .unwrap_or_else(|e| {
             log!(format!("error from server {:#?}", e));
             panic!("{:#?}", e);
         });
     // parse into generic JSON value
-    let js: TransferResponse = response.json().await?;
-    let psbt: PartiallySignedTransaction = deserialize(&base64::decode(js.witness.clone())?)?;
+    let transfer_response: TransferResponse = serde_json::from_str(&response)?;
+    log!(format!("Transfer made: {transfer_response:?}"));
+    let psbt: PartiallySignedTransaction =
+        deserialize(&base64::decode(transfer_response.witness.clone())?)?;
     log!(format!("psbt from server {:#?}", psbt.to_string()));
     sign_psbt(full_wallet, psbt).await.unwrap_or_else(|e| {
-        log!(format!("error at signing: {:#?}", e));
+        log!(format!("error at signing: {e:#?}"));
     });
 
     let enclose_request = EncloseForgetRequest {
         outpoints: utxos,
-        disclosure: js.disclosure.clone(),
+        disclosure: transfer_response.disclosure.clone(),
     };
-    let response = Request::post(&url("enclose_forget", &node_url))
-        .body(serde_json::to_string(&enclose_request)?)
-        .header(
-            "Content-Type",
-            "application/x-www-form-urlencoded; charset=UTF-8",
-        )
-        .send()
-        .await?;
+    let (response, status) = post_json(url("enclose_forget", &node_url), &enclose_request).await?;
 
-    let status = response.status();
     log!(format!("enclose and forget made {:?}", status));
 
     if status == 200 {
-        let response = response.text().await?;
         log!(format!("forget utxo success: {:#?}", response));
     } else {
         log!(format!("forget utxo error"));
     }
 
-    log!(format!("Transfer made: {js:?}"));
-    Ok(serde_json::to_string(&js).unwrap())
+    Ok(transfer_response)
 }

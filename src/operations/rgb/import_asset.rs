@@ -1,13 +1,15 @@
 use std::{collections::HashMap, str::FromStr};
 
 use anyhow::{Error, Result};
-use gloo_console::log;
-use gloo_net::http::Request;
 use serde::{Deserialize, Serialize};
 
-use crate::data::{
-    constants::url,
-    structs::{Allocation, Asset, ExportRequestMini, ThinAsset},
+use crate::{
+    data::{
+        constants::url,
+        structs::{Allocation, Asset, ExportRequestMini, ThinAsset},
+    },
+    log,
+    util::{get, post_json},
 };
 
 trait FromString {
@@ -46,20 +48,12 @@ pub async fn get_asset(
     let asset_data = ExportRequestMini {
         asset: asset.clone().unwrap(),
     };
-    let response = match Request::post(&url("getasset", &node_url))
-        .body(serde_json::to_string(&asset_data)?)
-        .header(
-            "Content-Type",
-            "application/x-www-form-urlencoded; charset=UTF-8",
-        )
-        .send()
-        .await
-    {
+    let (response, _) = match post_json(url("getasset", &node_url), &asset_data).await {
         Ok(response) => response,
         Err(e) => return Err(Error::msg(e)),
     };
     log!(format!("response: {response:#?}"));
-    let assets: Vec<Asset> = response.json().await?;
+    let assets: Vec<Asset> = serde_json::from_str(&response)?;
     if assets.is_empty() {
         return Err(Error::msg("Incorrect rgb id".to_string()));
     }
@@ -96,8 +90,8 @@ pub async fn get_asset(
 }
 
 pub async fn get_assets(node_url: Option<String>) -> Result<Vec<Asset>> {
-    let response = Request::get(&url("list", &node_url)).send().await?;
+    let (response, _) = get(url("list", &node_url)).await?;
     log!(format!("listassets: {response:#?}"));
-    let assets: Vec<Asset> = response.json().await?;
+    let assets: Vec<Asset> = serde_json::from_str(&response)?;
     Ok(assets)
 }

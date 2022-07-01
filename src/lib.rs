@@ -1,51 +1,32 @@
 #![allow(clippy::unused_unit)]
 use std::str::FromStr;
 
-use bdk::{wallet::AddressIndex::LastUnused, BlockTime};
+use anyhow::{format_err, Result};
+use bdk::{wallet::AddressIndex::LastUnused, BlockTime, TransactionDetails};
 use bitcoin::util::address::Address;
 use bitcoin::Txid;
-use gloo_console::log;
-use js_sys::Promise;
 use serde::{Deserialize, Serialize};
 use serde_encrypt::{
     serialize::impls::BincodeSerializer, shared_key::SharedKey, traits::SerdeEncryptSharedKey,
     AsSharedKey, EncryptedMessage,
 };
 use sha2::{Digest, Sha256};
-use wasm_bindgen::prelude::*;
-use wasm_bindgen_futures::future_to_promise;
 
 mod data;
 mod operations;
-mod utils;
+mod util;
+#[cfg(target_arch = "wasm32")]
+pub mod web;
 
 use data::{
     constants,
-    structs::{OutPoint, SatsInvoice, ThinAsset},
+    structs::{Asset, OutPoint, SatsInvoice, ThinAsset, TransferResponse},
 };
 
 use operations::{
     bitcoin::{create_transaction, get_mnemonic, get_wallet, save_mnemonic},
     rgb::{accept_transfer, blind_utxo, get_asset, get_assets, transfer_asset, validate_transfer},
 };
-
-pub use utils::{json_parse, resolve, set_panic_hook, to_string};
-
-// When the `wee_alloc` feature is enabled, use `wee_alloc` as the global
-// allocator.
-#[cfg(feature = "wee_alloc")]
-#[global_allocator]
-static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
-
-trait FromString {
-    fn from_string(str: String) -> JsValue;
-}
-
-impl FromString for JsValue {
-    fn from_string(str: String) -> JsValue {
-        JsValue::from_str(&str)
-    }
-}
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
@@ -61,9 +42,7 @@ impl SerdeEncryptSharedKey for VaultData {
     type S = BincodeSerializer<Self>; // you can specify serializer implementation (or implement it by yourself).
 }
 
-#[wasm_bindgen]
-pub fn get_vault(password: String, encrypted_descriptors: String) -> Promise {
-    set_panic_hook();
+pub fn get_vault(password: String, encrypted_descriptors: String) -> Result<VaultData> {
     let mut hasher = Sha256::new();
 
     // write input message
@@ -83,21 +62,11 @@ pub fn get_vault(password: String, encrypted_descriptors: String) -> Promise {
             let vault_data =
                 VaultData::decrypt_owned(&encrypted_message, &SharedKey::from_array(shared_key));
             match vault_data {
-                Ok(vault_data) => future_to_promise(async move {
-                    Ok(JsValue::from_string(
-                        serde_json::to_string(&vault_data).unwrap(),
-                    ))
-                }),
-                Err(e) => {
-                    future_to_promise(
-                        async move { Ok(JsValue::from_string(format!("Error: {} ", e))) },
-                    )
-                }
+                Ok(vault_data) => Ok(vault_data),
+                Err(e) => Err(format_err!("Error: {e}")),
             }
         }
-        Err(e) => {
-            future_to_promise(async move { Ok(JsValue::from_string(format!("Error: {} ", e))) })
-        }
+        Err(e) => Err(format_err!("Error: {e}")),
     }
 }
 
@@ -108,99 +77,90 @@ pub struct MnemonicSeedData {
     pub serialized_encrypted_message: Vec<u8>,
 }
 
-#[wasm_bindgen]
-pub fn get_mnemonic_seed(encryption_password: String, seed_password: String) -> Promise {
-    set_panic_hook();
-    future_to_promise(async move {
-        let mut hasher = Sha256::new();
+pub fn get_mnemonic_seed(
+    encryption_password: String,
+    seed_password: String,
+) -> Result<MnemonicSeedData> {
+    let mut hasher = Sha256::new();
 
-        // write input message
-        hasher.update(encryption_password.as_bytes());
+    // write input message
+    hasher.update(encryption_password.as_bytes());
 
-        // read hash digest and consume hasher
-        let hash = hasher.finalize();
-        let shared_key: [u8; 32] = hash
-            .as_slice()
-            .try_into()
-            .expect("slice with incorrect length");
+    // read hash digest and consume hasher
+    let hash = hasher.finalize();
+    let shared_key: [u8; 32] = hash
+        .as_slice()
+        .try_into()
+        .expect("slice with incorrect length");
 
-        let (
-            mnemonic,
-            btc_descriptor,
-            btc_change_descriptor,
-            rgb_tokens_descriptor,
-            rgb_nfts_descriptor,
-            pubkey_hash,
-        ) = get_mnemonic(&seed_password);
-        let vault_data = VaultData {
-            btc_descriptor,
-            btc_change_descriptor,
-            rgb_tokens_descriptor,
-            rgb_nfts_descriptor,
-            pubkey_hash,
-        };
-        let encrypted_message = vault_data
-            .encrypt(&SharedKey::from_array(shared_key))
-            .unwrap();
-        let serialized_encrypted_message: Vec<u8> = encrypted_message.serialize();
-        let mnemonic_seed_data = MnemonicSeedData {
-            mnemonic,
-            serialized_encrypted_message,
-        };
+    let (
+        mnemonic,
+        btc_descriptor,
+        btc_change_descriptor,
+        rgb_tokens_descriptor,
+        rgb_nfts_descriptor,
+        pubkey_hash,
+    ) = get_mnemonic(&seed_password);
+    let vault_data = VaultData {
+        btc_descriptor,
+        btc_change_descriptor,
+        rgb_tokens_descriptor,
+        rgb_nfts_descriptor,
+        pubkey_hash,
+    };
+    let encrypted_message = vault_data
+        .encrypt(&SharedKey::from_array(shared_key))
+        .unwrap();
+    let serialized_encrypted_message: Vec<u8> = encrypted_message.serialize();
+    let mnemonic_seed_data = MnemonicSeedData {
+        mnemonic,
+        serialized_encrypted_message,
+    };
 
-        Ok(JsValue::from_string(
-            serde_json::to_string(&mnemonic_seed_data).unwrap(),
-        ))
-    })
+    Ok(mnemonic_seed_data)
 }
 
-#[wasm_bindgen]
 pub fn save_mnemonic_seed(
     mnemonic: String,
     encryption_password: String,
     seed_password: String,
-) -> Promise {
-    set_panic_hook();
-    future_to_promise(async move {
-        let mut hasher = Sha256::new();
+) -> Result<MnemonicSeedData> {
+    let mut hasher = Sha256::new();
 
-        // write input message
-        hasher.update(encryption_password.as_bytes());
+    // write input message
+    hasher.update(encryption_password.as_bytes());
 
-        // read hash digest and consume hasher
-        let hash = hasher.finalize();
-        let shared_key: [u8; 32] = hash
-            .as_slice()
-            .try_into()
-            .expect("slice with incorrect length");
+    // read hash digest and consume hasher
+    let hash = hasher.finalize();
+    let shared_key: [u8; 32] = hash
+        .as_slice()
+        .try_into()
+        .expect("slice with incorrect length");
 
-        let (
-            btc_descriptor,
-            btc_change_descriptor,
-            rgb_tokens_descriptor,
-            rgb_nfts_descriptor,
-            pubkey_hash,
-        ) = save_mnemonic(&seed_password, mnemonic.clone());
-        let vault_data = VaultData {
-            btc_descriptor,
-            btc_change_descriptor,
-            rgb_tokens_descriptor,
-            rgb_nfts_descriptor,
-            pubkey_hash,
-        };
-        let encrypted_message = vault_data
-            .encrypt(&SharedKey::from_array(shared_key))
-            .unwrap();
-        let serialized_encrypted_message: Vec<u8> = encrypted_message.serialize();
-        let mnemonic_seed_data = MnemonicSeedData {
-            mnemonic,
-            serialized_encrypted_message,
-        };
+    let (
+        btc_descriptor,
+        btc_change_descriptor,
+        rgb_tokens_descriptor,
+        rgb_nfts_descriptor,
+        pubkey_hash,
+    ) = save_mnemonic(&seed_password, mnemonic.clone());
+    let vault_data = VaultData {
+        btc_descriptor,
+        btc_change_descriptor,
+        rgb_tokens_descriptor,
+        rgb_nfts_descriptor,
+        pubkey_hash,
+    };
+    let encrypted_message = vault_data
+        .encrypt(&SharedKey::from_array(shared_key))
+        .unwrap();
+    let serialized_encrypted_message: Vec<u8> = encrypted_message.serialize();
+    let mnemonic_seed_data = MnemonicSeedData {
+        mnemonic,
+        serialized_encrypted_message,
+    };
 
-        Ok(JsValue::from_string(
-            serde_json::to_string(&mnemonic_seed_data).unwrap(),
-        ))
-    })
+    Ok(mnemonic_seed_data)
 }
 
 #[derive(Serialize, Deserialize)]
@@ -221,118 +181,90 @@ pub struct WalletTransaction {
     pub confirmation_time: Option<BlockTime>,
 }
 
-#[wasm_bindgen]
-pub fn get_wallet_data(descriptor: String, change_descriptor: Option<String>) -> Promise {
+pub async fn get_wallet_data(
+    descriptor: String,
+    change_descriptor: Option<String>,
+) -> Result<WalletData> {
     log!("get_wallet_data");
-    log!(&descriptor, change_descriptor.as_ref());
-    set_panic_hook();
-    future_to_promise(async {
-        let wallet = get_wallet(descriptor, change_descriptor).await;
-        let address = wallet
-            .as_ref()
-            .unwrap()
-            .get_address(LastUnused)
-            .unwrap()
-            .to_string();
-        log!(&address);
-        let balance = wallet.as_ref().unwrap().get_balance().unwrap().to_string();
-        log!(&balance);
-        let unspent = wallet.as_ref().unwrap().list_unspent().unwrap_or_default();
-        let unspent: Vec<String> = unspent
-            .into_iter()
-            .map(|x| x.outpoint.to_string())
-            .collect();
-        log!(format!("unspent: {unspent:#?}"));
+    log!(&descriptor, format!("{:?}", &change_descriptor));
 
-        let transactions = wallet
-            .as_ref()
-            .unwrap()
-            .list_transactions(false)
-            .unwrap_or_default();
-        log!(format!("transactions: {transactions:#?}"));
+    let wallet = get_wallet(descriptor, change_descriptor).await;
+    let address = wallet
+        .as_ref()
+        .unwrap()
+        .get_address(LastUnused)
+        .unwrap()
+        .to_string();
+    log!(&address);
+    let balance = wallet.as_ref().unwrap().get_balance().unwrap().to_string();
+    log!(&balance);
+    let unspent = wallet.as_ref().unwrap().list_unspent().unwrap_or_default();
+    let unspent: Vec<String> = unspent
+        .into_iter()
+        .map(|x| x.outpoint.to_string())
+        .collect();
+    log!(format!("unspent: {unspent:#?}"));
 
-        let transactions: Vec<WalletTransaction> = transactions
-            .into_iter()
-            .map(|tx| WalletTransaction {
-                txid: tx.txid,
-                received: tx.received,
-                sent: tx.sent,
-                fee: tx.fee,
-                confirmed: tx.confirmation_time.is_some(),
-                confirmation_time: tx.confirmation_time,
-            })
-            .collect();
+    let transactions = wallet
+        .as_ref()
+        .unwrap()
+        .list_transactions(false)
+        .unwrap_or_default();
+    log!(format!("transactions: {transactions:#?}"));
 
-        let wallet_data = WalletData {
-            address,
-            balance,
-            transactions,
-            unspent,
-        };
-        let wallet_data = serde_json::to_string(&wallet_data).unwrap();
-        Ok(JsValue::from_string(wallet_data))
+    let transactions: Vec<WalletTransaction> = transactions
+        .into_iter()
+        .map(|tx| WalletTransaction {
+            txid: tx.txid,
+            received: tx.received,
+            sent: tx.sent,
+            fee: tx.fee,
+            confirmed: tx.confirmation_time.is_some(),
+            confirmation_time: tx.confirmation_time,
+        })
+        .collect();
+
+    Ok(WalletData {
+        address,
+        balance,
+        transactions,
+        unspent,
     })
 }
 
-#[wasm_bindgen]
-pub fn import_list_assets(node_url: Option<String>) -> Promise {
-    set_panic_hook();
+pub async fn import_list_assets(node_url: Option<String>) -> Result<Vec<Asset>> {
     log!("import_list_assets");
-    future_to_promise(async {
-        let assets = get_assets(node_url).await;
-        log!(format!("get assets: {assets:#?}"));
-        let assets = serde_json::to_string(&assets.unwrap());
-        match assets {
-            Ok(assets) => {
-                log!(&assets);
-                Ok(JsValue::from_string(assets))
-            }
-            Err(e) => Err(JsValue::from_string(format!("Error: {} ", e))),
-        }
-    })
+    let assets = get_assets(node_url).await?;
+    log!(format!("get assets: {assets:#?}"));
+    Ok(assets)
 }
 
-#[wasm_bindgen]
-pub fn import_asset(
+pub async fn import_asset(
     rgb_tokens_descriptor: String,
     asset: Option<String>,
     genesis: Option<String>,
     node_url: Option<String>,
-) -> Promise {
-    set_panic_hook();
-    future_to_promise(async {
-        let wallet = get_wallet(rgb_tokens_descriptor, None).await;
-        let unspent = wallet.as_ref().unwrap().list_unspent().unwrap_or_default();
-        log!(format!("asset: {asset:#?}\tgenesis: {genesis:#?}"));
-        match asset {
-            Some(asset) => {
-                let asset = get_asset(Some(asset), None, unspent, node_url).await;
-                log!(format!("get asset {asset:#?}"));
-                let asset = match asset {
-                    Ok(asset) => asset,
-                    Err(e) => return Ok(JsValue::from_string(format!("Server error: {} ", e))),
-                };
-                let asset = serde_json::to_string(&asset);
-                match asset {
-                    Ok(asset) => {
-                        log!(&asset);
-                        Ok(JsValue::from_string(asset))
-                    }
-                    Err(e) => Err(JsValue::from_string(format!("Error: {} ", e))),
-                }
-            }
-            None => {
-                log!("genesis....");
-                match genesis {
-                    Some(genesis) => Ok(JsValue::from_string(format!(
-                        "Error: genesis {} gives error ",
-                        genesis
-                    ))),
-                    None => Ok(JsValue::from_str("Error generic")),
-                }
+) -> Result<ThinAsset> {
+    let wallet = get_wallet(rgb_tokens_descriptor, None).await;
+    let unspent = wallet.as_ref().unwrap().list_unspent().unwrap_or_default();
+    log!(format!("asset: {asset:#?}\tgenesis: {genesis:#?}"));
+    match asset {
+        Some(asset) => {
+            let asset = get_asset(Some(asset), None, unspent, node_url).await;
+            log!(format!("get asset {asset:#?}"));
+            match asset {
+                Ok(asset) => Ok(asset),
+                Err(e) => Err(format_err!("Server error: {e}")),
             }
         }
-    })
+        None => {
+            log!("genesis....");
+            match genesis {
+                Some(_genesis) => todo!("Import asset from genesis not yet implemented"),
+                None => Err(format_err!("Error: Unknown error in import_asset")),
+            }
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -342,178 +274,144 @@ struct TransactionData {
 }
 
 #[derive(Serialize, Deserialize, Clone)]
-struct BlindingUtxo {
+pub struct BlindingUtxo {
     conceal: String,
     blinding: String,
     utxo: OutPoint,
 }
 
-#[wasm_bindgen]
-pub fn set_blinded_utxo(utxo_string: String, node_url: Option<String>) -> Promise {
-    set_panic_hook();
-    future_to_promise(async move {
-        let mut split = utxo_string.split(':');
-        let utxo = OutPoint {
-            txid: split.next().unwrap().to_string(),
-            vout: split.next().unwrap().to_string().parse::<u32>().unwrap(),
-        };
-        let (blind, utxo) = blind_utxo(utxo, node_url).await.unwrap(); // TODO: Error handling
-        let blinding_utxo = BlindingUtxo {
-            conceal: blind.conceal,
-            blinding: blind.blinding,
-            utxo,
-        };
-        Ok(JsValue::from_string(
-            serde_json::to_string(&blinding_utxo).unwrap(),
-        ))
-    })
+pub async fn set_blinded_utxo(
+    utxo_string: String,
+    node_url: Option<String>,
+) -> Result<BlindingUtxo> {
+    let mut split = utxo_string.split(':');
+    let utxo = OutPoint {
+        txid: split.next().unwrap().to_string(),
+        vout: split.next().unwrap().to_string().parse::<u32>().unwrap(),
+    };
+    let (blind, utxo) = blind_utxo(utxo, node_url).await?;
+
+    let blinding_utxo = BlindingUtxo {
+        conceal: blind.conceal,
+        blinding: blind.blinding,
+        utxo,
+    };
+
+    Ok(blinding_utxo)
 }
 
-#[wasm_bindgen]
-pub fn send_sats(
+pub async fn send_sats(
     descriptor: String,
     change_descriptor: String,
     address: String,
     amount: u64,
-) -> Promise {
-    set_panic_hook();
+) -> Result<TransactionDetails> {
     let address = Address::from_str(&(address));
 
-    future_to_promise(async move {
-        let wallet = get_wallet(descriptor, Some(change_descriptor))
-            .await
-            .unwrap();
-        let transaction = create_transaction(
-            vec![SatsInvoice {
-                address: address.unwrap(),
-                amount,
-            }],
-            &wallet,
-        )
-        .await;
-        match transaction {
-            Ok(transaction) => Ok(JsValue::from_string(transaction)),
-            Err(e) => Err(JsValue::from_string(format!("Error: {} ", e))),
-        }
-    })
+    let wallet = get_wallet(descriptor, Some(change_descriptor))
+        .await
+        .unwrap();
+
+    let transaction = create_transaction(
+        vec![SatsInvoice {
+            address: address.unwrap(),
+            amount,
+        }],
+        &wallet,
+    )
+    .await?;
+
+    Ok(transaction)
 }
 
-#[wasm_bindgen]
-pub fn fund_wallet(
+pub async fn fund_wallet(
     descriptor: String,
     change_descriptor: String,
     address: String,
     uda_address: String,
-) -> Promise {
-    set_panic_hook();
+) -> Result<TransactionDetails> {
     let address = Address::from_str(&(address));
     let uda_address = Address::from_str(&(uda_address));
 
-    future_to_promise(async move {
-        let wallet = get_wallet(descriptor, Some(change_descriptor))
-            .await
-            .unwrap();
-        let invoice = SatsInvoice {
-            address: address.unwrap(),
-            amount: 2000,
-        };
-        let uda_invoice = SatsInvoice {
-            address: uda_address.unwrap(),
-            amount: 2000,
-        };
-        let transaction = create_transaction(
-            vec![invoice.clone(), invoice, uda_invoice.clone(), uda_invoice],
-            &wallet,
-        )
-        .await;
-        match transaction {
-            Ok(transaction) => Ok(JsValue::from_string(transaction)),
-            Err(e) => Err(JsValue::from_string(format!("Error: {} ", e))),
-        }
-    })
+    let wallet = get_wallet(descriptor, Some(change_descriptor))
+        .await
+        .unwrap();
+    let invoice = SatsInvoice {
+        address: address.unwrap(),
+        amount: 2000,
+    };
+    let uda_invoice = SatsInvoice {
+        address: uda_address.unwrap(),
+        amount: 2000,
+    };
+    let transaction = create_transaction(
+        vec![invoice.clone(), invoice, uda_invoice.clone(), uda_invoice],
+        &wallet,
+    )
+    .await?;
+
+    Ok(transaction)
 }
-#[wasm_bindgen]
-pub fn send_tokens(
+
+pub async fn send_tokens(
     btc_descriptor: String,
     btc_change_descriptor: String,
     rgb_tokens_descriptor: String,
     blinded_utxo: String,
     amount: u64,
-    asset: String,
+    asset: ThinAsset,
     node_url: Option<String>,
-) -> Promise {
-    set_panic_hook();
-    let asset: ThinAsset = serde_json::from_str(&asset).unwrap();
-    future_to_promise(async move {
-        let assets_wallet = get_wallet(rgb_tokens_descriptor.clone(), None)
-            .await
-            .unwrap();
-        let full_wallet = get_wallet(rgb_tokens_descriptor.clone(), Some(btc_descriptor))
-            .await
-            .unwrap();
-        let full_change_wallet = get_wallet(rgb_tokens_descriptor, Some(btc_change_descriptor))
-            .await
-            .unwrap();
-        let consignment = transfer_asset(
-            blinded_utxo,
-            amount,
-            asset,
-            &full_wallet,
-            &full_change_wallet,
-            &assets_wallet,
-            node_url,
-        )
-        .await;
-        match consignment {
-            Ok(consignment) => Ok(JsValue::from_string(consignment)),
-            Err(e) => Err(JsValue::from_string(format!("Error: {} ", e))),
-        }
-    })
+) -> Result<TransferResponse> {
+    let assets_wallet = get_wallet(rgb_tokens_descriptor.clone(), None)
+        .await
+        .unwrap();
+    let full_wallet = get_wallet(rgb_tokens_descriptor.clone(), Some(btc_descriptor))
+        .await
+        .unwrap();
+    let full_change_wallet = get_wallet(rgb_tokens_descriptor, Some(btc_change_descriptor))
+        .await
+        .unwrap();
+    let consignment = transfer_asset(
+        blinded_utxo,
+        amount,
+        asset,
+        &full_wallet,
+        &full_change_wallet,
+        &assets_wallet,
+        node_url,
+    )
+    .await?;
+
+    Ok(consignment)
 }
 
-#[wasm_bindgen]
-pub fn validate_transaction(consignment: String, node_url: Option<String>) -> Promise {
-    set_panic_hook();
-    future_to_promise(async {
-        let validate = validate_transfer(consignment, node_url).await.unwrap();
-        Ok(JsValue::from_string(
-            serde_json::to_string(&validate).unwrap(),
-        ))
-    })
+pub async fn validate_transaction(consignment: String, node_url: Option<String>) -> Result<()> {
+    validate_transfer(consignment, node_url).await
 }
 
-#[wasm_bindgen]
-pub fn accept_transaction(
+pub async fn accept_transaction(
     consignment: String,
     txid: String,
     vout: u32,
     blinding: String,
     node_url: Option<String>,
-) -> Promise {
-    set_panic_hook();
+) -> Result<String> {
     let transaction_data = TransactionData {
         blinding,
         utxo: OutPoint { txid, vout },
     };
-    future_to_promise(async move {
-        let accept = accept_transfer(
-            consignment,
-            transaction_data.utxo,
-            transaction_data.blinding,
-            node_url,
-        )
-        .await;
-        match accept {
-            Ok(accept) => Ok(JsValue::from_string(
-                serde_json::to_string(&accept).unwrap(),
-            )),
-            Err(e) => Err(JsValue::from_string(format!("Error: {} ", e))),
-        }
-    })
+    let accept = accept_transfer(
+        consignment,
+        transaction_data.utxo,
+        transaction_data.blinding,
+        node_url,
+    )
+    .await?;
+    log!("hola denueveo 3");
+    Ok(accept)
 }
 
-#[wasm_bindgen]
-pub fn import_accept(
+pub async fn import_accept(
     rgb_tokens_descriptor: String,
     asset: String,
     consignment: String,
@@ -521,50 +419,31 @@ pub fn import_accept(
     vout: u32,
     blinding: String,
     node_url: Option<String>,
-) -> Promise {
-    set_panic_hook();
+) -> Result<ThinAsset> {
     let transaction_data = TransactionData {
         blinding,
         utxo: OutPoint { txid, vout },
     };
-    future_to_promise(async move {
-        let accept = accept_transfer(
-            consignment,
-            transaction_data.utxo,
-            transaction_data.blinding,
-            node_url.clone(),
-        )
-        .await;
-        match accept {
-            Ok(_accept) => {
-                let wallet = get_wallet(rgb_tokens_descriptor, None).await;
-                let unspent = wallet.as_ref().unwrap().list_unspent().unwrap_or_default();
-                let asset = get_asset(Some(asset), None, unspent, node_url).await;
-                log!(format!("get asset {asset:#?}"));
-                let asset = match asset {
-                    Ok(asset) => asset,
-                    Err(e) => {
-                        return Ok(JsValue::from_string(format!(
-                            "Server error importing: {} ",
-                            e
-                        )))
-                    }
-                };
-                let asset = serde_json::to_string(&asset);
-                match asset {
-                    Ok(asset) => {
-                        log!(&asset);
-                        Ok(JsValue::from_string(asset))
-                    }
-                    Err(e) => Ok(JsValue::from_string(format!("Error importing: {} ", e))),
-                }
-            }
-            Err(e) => Ok(JsValue::from_string(format!("Error accepting: {} ", e))),
+
+    let accept = accept_transfer(
+        consignment,
+        transaction_data.utxo,
+        transaction_data.blinding,
+        node_url.clone(),
+    )
+    .await;
+    match accept {
+        Ok(_accept) => {
+            let wallet = get_wallet(rgb_tokens_descriptor, None).await;
+            let unspent = wallet.as_ref().unwrap().list_unspent().unwrap_or_default();
+            let asset = get_asset(Some(asset), None, unspent, node_url).await;
+            log!(format!("get asset {asset:#?}"));
+            asset
         }
-    })
+        Err(e) => Err(e),
+    }
 }
 
-#[wasm_bindgen]
 pub fn switch_network(network_str: &str) {
     constants::switch_network(network_str);
 }

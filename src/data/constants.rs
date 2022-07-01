@@ -51,6 +51,7 @@ pub fn switch_network(network_str: &str) {
     *NETWORK.write().unwrap() = network;
 }
 
+/// Get an Esplora RPC node URL, using the default node URL is none is provided
 pub fn url(path: &str, node_url: &Option<String>) -> String {
     let node_url = match node_url {
         Some(url) => url,
