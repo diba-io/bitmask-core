@@ -3,8 +3,8 @@ use std::str::FromStr;
 
 use anyhow::{format_err, Result};
 use bdk::{wallet::AddressIndex::LastUnused, BlockTime, TransactionDetails};
-use bitcoin::util::address::Address;
 use bitcoin::Txid;
+use bitcoin::{util::address::Address, OutPoint};
 use serde::{Deserialize, Serialize};
 use serde_encrypt::{
     serialize::impls::BincodeSerializer, shared_key::SharedKey, traits::SerdeEncryptSharedKey,
@@ -20,7 +20,7 @@ pub mod web;
 
 use data::{
     constants,
-    structs::{Asset, OutPoint, SatsInvoice, ThinAsset, TransferResponse},
+    structs::{Asset, SatsInvoice, ThinAsset, TransferResponse},
 };
 
 use operations::{
@@ -273,23 +273,20 @@ struct TransactionData {
     utxo: OutPoint,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BlindingUtxo {
     conceal: String,
     blinding: String,
     utxo: OutPoint,
 }
 
-pub async fn set_blinded_utxo(
-    utxo_string: String,
-    node_url: Option<String>,
-) -> Result<BlindingUtxo> {
+pub fn set_blinded_utxo(utxo_string: &str) -> Result<BlindingUtxo> {
     let mut split = utxo_string.split(':');
     let utxo = OutPoint {
-        txid: split.next().unwrap().to_string(),
-        vout: split.next().unwrap().to_string().parse::<u32>().unwrap(),
+        txid: Txid::from_str(split.next().unwrap())?,
+        vout: split.next().unwrap().to_string().parse::<u32>()?,
     };
-    let (blind, utxo) = blind_utxo(utxo, node_url).await?;
+    let (blind, utxo) = blind_utxo(utxo)?;
 
     let blinding_utxo = BlindingUtxo {
         conceal: blind.conceal,
@@ -396,6 +393,8 @@ pub async fn accept_transaction(
     blinding: String,
     node_url: Option<String>,
 ) -> Result<String> {
+    let txid = Txid::from_str(&txid)?;
+
     let transaction_data = TransactionData {
         blinding,
         utxo: OutPoint { txid, vout },
@@ -420,6 +419,8 @@ pub async fn import_accept(
     blinding: String,
     node_url: Option<String>,
 ) -> Result<ThinAsset> {
+    let txid = Txid::from_str(&txid)?;
+
     let transaction_data = TransactionData {
         blinding,
         utxo: OutPoint { txid, vout },

@@ -17,14 +17,18 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 anyhow = "1.0.44"
 base64 = "0.13.0"
-bdk = { version = "0.18.0", features = [
+bdk = { version = "0.19.0", features = [
     "use-esplora-reqwest",
     "key-value-db",
     "async-interface",
     "reqwest-default-tls",
 ], default-features = false }
 bip39 = "1.0.1"
-bitcoin = "0.27.1"
+bitcoin = "0.28.1"
+# bp-core = { version = "0.8.0-alpha.1", git = "https://github.com/BP-WG/bp-core.git", features = [
+#     "wallet",
+# ] }
+commit_verify = { version = "0.8.0", features = ["rand"] }
 console_error_panic_hook = "0.1.6"
 futures = "0.3.17"
 getrandom = { version = "0.2.3", features = ["js"] }

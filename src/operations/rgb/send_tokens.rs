@@ -1,16 +1,17 @@
+use std::str::FromStr;
+
 use anyhow::Result;
 use bdk::{database::MemoryDatabase, wallet::AddressIndex::New, FeeRate, Wallet};
 use bitcoin::{
     consensus::{deserialize, serialize},
     util::psbt::PartiallySignedTransaction,
+    OutPoint, Txid,
 };
 
 use crate::{
     data::{
         constants::url,
-        structs::{
-            EncloseForgetRequest, OutPoint, SealCoins, ThinAsset, TransferRequest, TransferResponse,
-        },
+        structs::{EncloseForgetRequest, SealCoins, ThinAsset, TransferRequest, TransferResponse},
     },
     log,
     operations::bitcoin::{sign_psbt, synchronize_wallet},
@@ -37,7 +38,7 @@ pub async fn transfer_asset(
         .map(|x| {
             let mut split = x.outpoint.split(':');
             OutPoint {
-                txid: split.next().unwrap().to_string(),
+                txid: Txid::from_str(split.next().unwrap()).unwrap(),
                 vout: split.next().unwrap().to_string().parse::<u32>().unwrap(),
             }
         })
@@ -52,9 +53,7 @@ pub async fn transfer_asset(
             let mut pass = true;
             for local_utxo in to_be_consumed_utxos.iter() {
                 log!(format!("local_utxo {local_utxo:#?}"));
-                if (local_utxo.txid == x.outpoint.txid.to_string())
-                    && (local_utxo.vout == x.outpoint.vout)
-                {
+                if (local_utxo.txid == x.outpoint.txid) && (local_utxo.vout == x.outpoint.vout) {
                     log!(format!("local outpoint {:#?}", &x.outpoint));
                     pass = false;
                     break;

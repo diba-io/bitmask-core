@@ -1,4 +1,4 @@
-use bitcoin::util::address::Address;
+use bitcoin::{util::address::Address, OutPoint};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -74,12 +74,6 @@ pub struct ThinAsset {
     pub allocations: Vec<Allocation>,
     pub balance: Option<u64>,
     pub dolar_balance: Option<u32>,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct OutPoint {
-    pub txid: String,
-    pub vout: u32,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
