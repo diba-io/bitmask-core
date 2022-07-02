@@ -15,7 +15,8 @@ pub async fn blind_utxo(
 ) -> Result<(BlindResponse, OutPoint)> {
     log!("in blind_utxo");
     log!(format!("utxo {utxo:?}"));
-    let (response, status) = post_json(url("blind", &node_url), &utxo).await?;
+    // let (response, status) = post_json(url("blind", &node_url), &utxo).await?;
+    seal::Revealed::from(utxo);
     log!(format!("response status: {status}"));
 
     if status == 200 {
