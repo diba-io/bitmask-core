@@ -2143,8 +2143,9 @@ dependencies = [
 
 [[package]]
 name = "rgb20"
-version = "0.8.0-rc.2"
-source = "git+https://github.com/cryptoquick/rust-rgb20.git?branch=update-stens-fix-clippy#30f7445c7ec158ad9beaccc08485140cfcf81ccb"
+version = "0.8.0-rc.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fb11455803afc7275307852e90247934347f3711bd7df0760c7162e33846b797"
 dependencies = [
  "amplify",
  "bitcoin",

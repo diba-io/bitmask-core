@@ -44,9 +44,7 @@ rgb-std = { package = "rgb-std", version = "0.8.0-rc.2", features = [
     "serde",
     "wallet",
 ] }
-rgb20 = { version = "0.8.0-rc.2", features = [
-    "serde",
-], git = "https://github.com/cryptoquick/rust-rgb20.git", branch = "update-stens-fix-clippy" }
+rgb20 = { version = "0.8.0-rc.3", features = ["serde"] }
 serde = "1.0.130"
 serde_json = "1.0.68"
 serde-encrypt = "0.7.0"

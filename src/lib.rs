@@ -26,8 +26,8 @@ use data::{
 use operations::{
     bitcoin::{create_transaction, get_mnemonic, get_wallet, save_mnemonic},
     rgb::{
-        accept_transfer, blind_utxo, get_asset, get_assets, issue_asset, transfer_asset,
-        validate_transfer, Genesis, OwnedValue,
+        accept_transfer, blind_utxo, get_asset_by_contract_id, get_asset_by_genesis, get_assets,
+        issue_asset, transfer_asset, validate_transfer, Genesis, OwnedValue,
     },
 };
 
@@ -255,29 +255,30 @@ pub fn create_asset(
 
 pub async fn import_asset(
     rgb_tokens_descriptor: &str,
-    asset: Option<&str>,
+    contract_id: Option<&str>,
     genesis: Option<&str>,
     node_url: Option<String>,
 ) -> Result<ThinAsset> {
-    let wallet = get_wallet(rgb_tokens_descriptor, None).await;
-    let unspent = wallet.as_ref().unwrap().list_unspent().unwrap_or_default();
-    log!(format!("asset: {asset:#?}\tgenesis: {genesis:#?}"));
-    match asset {
-        Some(asset) => {
-            let asset = get_asset(Some(asset), None, unspent, node_url).await;
-            log!(format!("get asset {asset:#?}"));
-            match asset {
-                Ok(asset) => Ok(asset),
-                Err(e) => Err(format_err!("Server error: {e}")),
+    match genesis {
+        Some(genesis) => get_asset_by_genesis(genesis),
+        None => match contract_id {
+            Some(contract_id) => {
+                let wallet = get_wallet(rgb_tokens_descriptor, None).await;
+                let unspent = wallet.as_ref().unwrap().list_unspent().unwrap_or_default();
+
+                log!(format!("getting asset by contract id, {contract_id}"));
+                let asset = get_asset_by_contract_id(contract_id, unspent, node_url).await;
+                log!(format!("get asset {asset:?}"));
+                match asset {
+                    Ok(asset) => Ok(asset),
+                    Err(e) => Err(format_err!("Server error: {e}")),
+                }
             }
-        }
-        None => {
-            log!("genesis....");
-            match genesis {
-                Some(_genesis) => todo!("Import asset from genesis not yet implemented"),
-                None => Err(format_err!("Error: Unknown error in import_asset")),
+            None => {
+                log!("genesis....");
+                Err(format_err!("Error: Unknown error in import_asset"))
             }
-        }
+        },
     }
 }
 
@@ -472,7 +473,7 @@ pub async fn import_accept(
         Ok(_accept) => {
             let wallet = get_wallet(rgb_tokens_descriptor, None).await;
             let unspent = wallet.as_ref().unwrap().list_unspent().unwrap_or_default();
-            let asset = get_asset(Some(asset), None, unspent, node_url).await;
+            let asset = get_asset_by_contract_id(Some(asset), None, unspent, node_url).await;
             log!(format!("get asset {asset:#?}"));
             asset
         }

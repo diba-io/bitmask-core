@@ -1,7 +1,5 @@
-use std::{collections::HashMap, str::FromStr};
-
 use anyhow::{Error, Result};
-use serde::{Deserialize, Serialize};
+use rgb_core::Genesis;
 
 use crate::{
     data::{
@@ -12,41 +10,21 @@ use crate::{
     util::{get, post_json},
 };
 
-trait FromString {
-    fn from_string(str: String) -> serde_json::Value;
+pub async fn get_asset_by_genesis(genesis: &str) -> Result<ThinAsset> {
+    let genesis: Genesis = serde_json::from_str(genesis)?;
+
+    todo!();
+
+    Ok(assets)
 }
 
-impl FromString for serde_json::Value {
-    fn from_string(str: String) -> serde_json::Value {
-        serde_json::Value::from_str(&str).unwrap()
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct Person {
-    first_name: String,
-    last_name: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct PersonResponse {
-    data: String,
-    method: String,
-    headers: HashMap<String, String>,
-}
-
-// fn print_type_of<T>(_: &T) {
-//     log!("{}", std::any::type_name::<T>())
-// }
-
-pub async fn get_asset(
-    asset: Option<&str>,
-    _genesis: Option<&str>,
+pub async fn get_asset_by_contract_id(
+    asset: &str,
     unspent: Vec<bdk::LocalUtxo>,
     node_url: Option<String>,
 ) -> Result<ThinAsset> {
     let asset_data = ExportRequestMini {
-        asset: asset.unwrap().to_owned(),
+        asset: asset.to_owned(),
     };
     let (response, _) = match post_json(url("getasset", &node_url), &asset_data).await {
         Ok(response) => response,
@@ -76,7 +54,7 @@ pub async fn get_asset(
         .reduce(|a, b| a + b);
     log!(format!("amount: {amount:#?}"));
     let thin_assets = ThinAsset {
-        id: asset.unwrap().to_owned(),
+        id: asset.to_owned(),
         ticker: assets[0].ticker.clone(),
         name: assets[0].name.clone(),
         description: assets[0].description.clone().unwrap(),

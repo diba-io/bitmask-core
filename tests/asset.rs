@@ -68,7 +68,7 @@ async fn asset_import() -> Result<()> {
 
     let asset_id = genesis.contract_id().to_string();
 
-    let asset = import_asset(&vault.rgb_tokens_descriptor, Some(&asset_id), None, None).await?;
+    let asset = import_asset(&vault.rgb_tokens_descriptor, None, genesis, None).await?;
 
     assert_eq!(asset.id, asset_id, "Asset IDs match");
 
