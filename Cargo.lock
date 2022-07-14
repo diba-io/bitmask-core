@@ -174,9 +174,9 @@ dependencies = [
 
 [[package]]
 name = "bdk"
-version = "0.19.0"
+version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ec2c4c49915b82a2576bc7dee83d2f274387904b79305e6ae8b622daa0b282c1"
+checksum = "5a0becbf5a97855daca6717ff920c52a779cebf655b23ae1427e5366d2661e82"
 dependencies = [
  "async-trait",
  "bdk-macros",
@@ -2309,7 +2309,7 @@ dependencies = [
  "serde",
  "serde-encrypt-core",
  "serde_cbor",
- "spin 0.9.3",
+ "spin 0.9.4",
 ]
 
 [[package]]
@@ -2540,9 +2540,9 @@ checksum = "6e63cff320ae2c57904679ba7cb63280a3dc4613885beafb148ee7bf9aa9042d"
 
 [[package]]
 name = "spin"
-version = "0.9.3"
+version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c530c2b0d0bf8b69304b39fe2001993e267461948b890cd037d8ad4293fa1a0d"
+checksum = "7f6002a767bff9e83f8eeecf883ecb8011875a21ae8da43bffb817a57e78cc09"
 
 [[package]]
 name = "stability"
