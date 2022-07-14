@@ -5,7 +5,7 @@ use bdk::{database::MemoryDatabase, wallet::AddressIndex::New, FeeRate, Wallet};
 use bitcoin::{
     consensus::{deserialize, serialize},
     util::psbt::PartiallySignedTransaction,
-    OutPoint, Txid,
+    OutPoint,
 };
 
 use crate::{
@@ -35,19 +35,13 @@ pub async fn transfer_asset(
         .allocations
         .clone()
         .into_iter()
-        .map(|x| {
-            let mut split = x.outpoint.split(':');
-            OutPoint {
-                txid: Txid::from_str(split.next().unwrap()).unwrap(),
-                vout: split.next().unwrap().to_string().parse::<u32>().unwrap(),
-            }
-        })
-        .collect();
+        .map(|x| OutPoint::from_str(&x.outpoint))
+        .collect::<Result<Vec<_>, _>>()?;
     log!(format!("utxos {utxos:#?}"));
     log!(format!("unspents {unspents:#?}"));
 
     let to_be_consumed_utxos = utxos.clone();
-    let unspendable_outputs: Vec<bitcoin::OutPoint> = unspents
+    let unspendable_outputs: Vec<OutPoint> = unspents
         .into_iter()
         .filter(move |x| {
             let mut pass = true;
@@ -61,7 +55,7 @@ pub async fn transfer_asset(
             }
             pass
         })
-        .map(|x| bitcoin::OutPoint {
+        .map(|x| OutPoint {
             txid: x.outpoint.txid,
             vout: x.outpoint.vout,
         })

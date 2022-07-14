@@ -34,9 +34,19 @@ gloo-console = "0.2.1"
 gloo-net = "0.2.0"
 js-sys = "0.3.55"
 log = "0.4.17"
+lnpbp = "0.8.0"
 once_cell = "1.9.0"
 reqwest = { version = "0.11.11", features = ["json"] }
-rgb-core = "0.8.0-rc.3"
+rgb-core = { package = "rgb-core", version = "0.8.0-rc.6", features = [
+    "serde",
+] }
+rgb-std = { package = "rgb-std", version = "0.8.0-rc.2", features = [
+    "serde",
+    "wallet",
+] }
+rgb20 = { version = "0.8.0-rc.2", features = [
+    "serde",
+], git = "https://github.com/cryptoquick/rust-rgb20.git", branch = "update-stens-fix-clippy" }
 serde = "1.0.130"
 serde_json = "1.0.68"
 serde-encrypt = "0.7.0"
@@ -46,6 +56,7 @@ wasm-bindgen-futures = "0.4.27"
 web-sys = "0.3.55"
 wee_alloc = "0.4.5"
 pretty_env_logger = "0.4.0"
+stens = { version = "0.7.1", features = ["serde"] }
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3.13"

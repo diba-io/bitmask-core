@@ -25,7 +25,10 @@ use data::{
 
 use operations::{
     bitcoin::{create_transaction, get_mnemonic, get_wallet, save_mnemonic},
-    rgb::{accept_transfer, blind_utxo, get_asset, get_assets, transfer_asset, validate_transfer},
+    rgb::{
+        accept_transfer, blind_utxo, get_asset, get_assets, issue_asset, transfer_asset,
+        validate_transfer, Genesis, OwnedValue,
+    },
 };
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -237,6 +240,17 @@ pub async fn import_list_assets(node_url: Option<String>) -> Result<Vec<Asset>> 
     let assets = get_assets(node_url).await?;
     log!(format!("get assets: {assets:#?}"));
     Ok(assets)
+}
+
+pub fn create_asset(
+    ticker: String,
+    name: String,
+    precision: u8,
+    supply: u64,
+    utxo: String,
+) -> Result<(Genesis, Vec<OwnedValue>)> {
+    let utxo = OutPoint::from_str(&utxo)?;
+    issue_asset(ticker, name, precision, supply, utxo)
 }
 
 pub async fn import_asset(

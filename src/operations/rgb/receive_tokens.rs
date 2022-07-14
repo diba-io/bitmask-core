@@ -1,7 +1,7 @@
 use anyhow::Result;
 use bitcoin::OutPoint;
 use bp::seals::txout::CloseMethod;
-use rgb::seal;
+use rgb_core::seal;
 
 use crate::{data::structs::BlindResponse, log};
 
