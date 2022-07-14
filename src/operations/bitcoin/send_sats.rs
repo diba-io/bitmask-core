@@ -1,6 +1,6 @@
 use anyhow::Result;
-use bdk::{database::MemoryDatabase, FeeRate, TransactionDetails, Wallet};
-use bitcoin::consensus::serialize;
+use bdk::{database::MemoryDatabase, FeeRate, Wallet};
+use bitcoin::{consensus::serialize, Transaction};
 
 use crate::{
     data::structs::SatsInvoice,
@@ -11,7 +11,7 @@ use crate::{
 pub async fn create_transaction(
     invoices: Vec<SatsInvoice>,
     wallet: &Wallet<MemoryDatabase>,
-) -> Result<TransactionDetails> {
+) -> Result<Transaction> {
     synchronize_wallet(wallet).await?;
     let (psbt, details) = {
         let mut builder = wallet.build_tx();
@@ -24,8 +24,8 @@ pub async fn create_transaction(
 
     log!(format!("Transaction details: {details:#?}"));
     log!("Unsigned PSBT: {}", base64::encode(&serialize(&psbt)));
-    sign_psbt(wallet, psbt).await?;
+    let tx = sign_psbt(wallet, psbt).await?;
     log!("PSBT successfully signed");
 
-    Ok(details)
+    Ok(tx)
 }

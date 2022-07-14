@@ -2,9 +2,9 @@
 use std::str::FromStr;
 
 use anyhow::{format_err, Result};
-use bdk::{wallet::AddressIndex::LastUnused, BlockTime, TransactionDetails};
-use bitcoin::Txid;
+use bdk::{wallet::AddressIndex::LastUnused, BlockTime};
 use bitcoin::{util::address::Address, OutPoint};
+use bitcoin::{Transaction, Txid};
 use serde::{Deserialize, Serialize};
 use serde_encrypt::{
     serialize::impls::BincodeSerializer, shared_key::SharedKey, traits::SerdeEncryptSharedKey,
@@ -45,7 +45,7 @@ impl SerdeEncryptSharedKey for VaultData {
     type S = BincodeSerializer<Self>; // you can specify serializer implementation (or implement it by yourself).
 }
 
-pub fn get_vault(password: String, encrypted_descriptors: String) -> Result<VaultData> {
+pub fn get_vault(password: &str, encrypted_descriptors: &str) -> Result<VaultData> {
     let mut hasher = Sha256::new();
 
     // write input message
@@ -57,7 +57,7 @@ pub fn get_vault(password: String, encrypted_descriptors: String) -> Result<Vaul
         .as_slice()
         .try_into()
         .expect("slice with incorrect length");
-    let encrypted_descriptors: Vec<u8> = serde_json::from_str(&encrypted_descriptors).unwrap();
+    let encrypted_descriptors: Vec<u8> = serde_json::from_str(encrypted_descriptors).unwrap();
     // STORAGE_KEY_DESCRIPTOR_ENCRYPTED
     let encrypted_message = EncryptedMessage::deserialize(encrypted_descriptors);
     match encrypted_message {
@@ -124,9 +124,9 @@ pub fn get_mnemonic_seed(
 }
 
 pub fn save_mnemonic_seed(
-    mnemonic: String,
-    encryption_password: String,
-    seed_password: String,
+    mnemonic: &str,
+    encryption_password: &str,
+    seed_password: &str,
 ) -> Result<MnemonicSeedData> {
     let mut hasher = Sha256::new();
 
@@ -146,7 +146,7 @@ pub fn save_mnemonic_seed(
         rgb_tokens_descriptor,
         rgb_nfts_descriptor,
         pubkey_hash,
-    ) = save_mnemonic(&seed_password, mnemonic.clone());
+    ) = save_mnemonic(seed_password, mnemonic);
     let vault_data = VaultData {
         btc_descriptor,
         btc_change_descriptor,
@@ -159,7 +159,7 @@ pub fn save_mnemonic_seed(
         .unwrap();
     let serialized_encrypted_message: Vec<u8> = encrypted_message.serialize();
     let mnemonic_seed_data = MnemonicSeedData {
-        mnemonic,
+        mnemonic: mnemonic.to_owned(),
         serialized_encrypted_message,
     };
 
@@ -247,9 +247,9 @@ pub fn create_asset(
     name: &str,
     precision: u8,
     supply: u64,
-    utxo: String,
+    utxo: &str,
 ) -> Result<(Genesis, Vec<OwnedValue>)> {
-    let utxo = OutPoint::from_str(&utxo)?;
+    let utxo = OutPoint::from_str(utxo)?;
     issue_asset(ticker, name, precision, supply, utxo)
 }
 
@@ -316,7 +316,7 @@ pub async fn send_sats(
     change_descriptor: &str,
     address: String,
     amount: u64,
-) -> Result<TransactionDetails> {
+) -> Result<Transaction> {
     let address = Address::from_str(&(address));
 
     let wallet = get_wallet(descriptor, Some(change_descriptor))
@@ -370,10 +370,8 @@ pub async fn fund_wallet(
     )
     .await?;
 
-    let txid = details.txid;
+    let txid = details.txid();
     let outputs: Vec<String> = details
-        .transaction
-        .unwrap()
         .output
         .iter()
         .enumerate()
@@ -419,25 +417,25 @@ pub async fn send_tokens(
     Ok(consignment)
 }
 
-pub async fn validate_transaction(consignment: String, node_url: Option<String>) -> Result<()> {
-    validate_transfer(consignment, node_url).await
+pub async fn validate_transaction(consignment: &str, node_url: Option<String>) -> Result<()> {
+    validate_transfer(consignment.to_owned(), node_url).await
 }
 
 pub async fn accept_transaction(
-    consignment: String,
-    txid: String,
+    consignment: &str,
+    txid: &str,
     vout: u32,
-    blinding: String,
+    blinding: &str,
     node_url: Option<String>,
 ) -> Result<String> {
-    let txid = Txid::from_str(&txid)?;
+    let txid = Txid::from_str(txid)?;
 
     let transaction_data = TransactionData {
-        blinding,
+        blinding: blinding.to_owned(),
         utxo: OutPoint { txid, vout },
     };
     let accept = accept_transfer(
-        consignment,
+        consignment.to_owned(),
         transaction_data.utxo,
         transaction_data.blinding,
         node_url,
@@ -484,4 +482,11 @@ pub async fn import_accept(
 
 pub fn switch_network(network_str: &str) {
     constants::switch_network(network_str);
+}
+
+pub fn get_network() -> Result<String> {
+    match constants::NETWORK.read() {
+        Ok(network) => Ok(network.to_string()),
+        Err(err) => Ok(err.to_string()),
+    }
 }

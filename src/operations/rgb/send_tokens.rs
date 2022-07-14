@@ -132,9 +132,7 @@ pub async fn transfer_asset(
     let psbt: PartiallySignedTransaction =
         deserialize(&base64::decode(transfer_response.witness.clone())?)?;
     log!(format!("psbt from server {:#?}", psbt.to_string()));
-    sign_psbt(full_wallet, psbt).await.unwrap_or_else(|e| {
-        log!(format!("error at signing: {e:#?}"));
-    });
+    sign_psbt(full_wallet, psbt).await?;
 
     let enclose_request = EncloseForgetRequest {
         outpoints: utxos,

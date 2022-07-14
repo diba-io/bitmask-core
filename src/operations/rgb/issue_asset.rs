@@ -13,13 +13,9 @@ use stens::AsciiString;
 use crate::{constants::NETWORK, log};
 
 fn ticker_validator(name: &str) -> Result<()> {
+    log!(format!("validating ticker name: {name}"));
     if name.len() < 3 || name.len() > 8 || name.chars().any(|c| c < 'A' && c > 'Z') {
-        Err(anyhow!(
-            "Ticker name must be between 3 and 8 chars, contain no spaces and \
-            consist only of capital letters\
-            "
-            .to_string(),
-        ))
+        Err(anyhow!("Ticker name must be between 3 and 8 chars, contain no spaces and consist only of capital letters".to_string()))
     } else {
         Ok(())
     }
@@ -32,7 +28,7 @@ pub fn issue_asset(
     supply: u64,
     utxo: OutPoint,
 ) -> Result<(Genesis, Vec<OwnedValue>)> {
-    ticker_validator(name)?;
+    ticker_validator(ticker)?;
 
     let network = Chain::from(*NETWORK.read().unwrap());
     let ticker = AsciiString::try_from(ticker)?;
