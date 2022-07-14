@@ -18,12 +18,12 @@ struct State {
 }
 
 pub async fn get_wallet(
-    descriptor: String,
-    change_descriptor: Option<String>,
+    descriptor: &str,
+    change_descriptor: Option<&str>,
 ) -> Result<Wallet<MemoryDatabase>> {
     let wallet = Wallet::new(
-        &descriptor,
-        change_descriptor.as_ref(),
+        descriptor,
+        change_descriptor,
         *NETWORK.read().unwrap(),
         MemoryDatabase::default(),
     )?;

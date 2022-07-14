@@ -26,13 +26,13 @@ fn ticker_validator(name: &str) -> Result<()> {
 }
 
 pub fn issue_asset(
-    ticker: String,
-    name: String,
+    ticker: &str,
+    name: &str,
     precision: u8,
     supply: u64,
     utxo: OutPoint,
 ) -> Result<(Genesis, Vec<OwnedValue>)> {
-    ticker_validator(&name)?;
+    ticker_validator(name)?;
 
     let network = Chain::from(*NETWORK.read().unwrap());
     let ticker = AsciiString::try_from(ticker)?;

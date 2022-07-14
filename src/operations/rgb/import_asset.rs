@@ -40,13 +40,13 @@ struct PersonResponse {
 // }
 
 pub async fn get_asset(
-    asset: Option<String>,
-    _genesis: Option<String>,
+    asset: Option<&str>,
+    _genesis: Option<&str>,
     unspent: Vec<bdk::LocalUtxo>,
     node_url: Option<String>,
 ) -> Result<ThinAsset> {
     let asset_data = ExportRequestMini {
-        asset: asset.clone().unwrap(),
+        asset: asset.unwrap().to_owned(),
     };
     let (response, _) = match post_json(url("getasset", &node_url), &asset_data).await {
         Ok(response) => response,
@@ -76,7 +76,7 @@ pub async fn get_asset(
         .reduce(|a, b| a + b);
     log!(format!("amount: {amount:#?}"));
     let thin_assets = ThinAsset {
-        id: asset.unwrap(),
+        id: asset.unwrap().to_owned(),
         ticker: assets[0].ticker.clone(),
         name: assets[0].name.clone(),
         description: assets[0].description.clone().unwrap(),

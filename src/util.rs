@@ -6,7 +6,7 @@ use serde::Serialize;
 #[macro_export]
 macro_rules! log {
     ($($arg:expr),+) => {
-        let output = vec![$(String::from($arg),)+].join(" ");
+        let output = vec![$(String::from($arg.to_owned()),)+].join(" ");
         #[cfg(target_arch = "wasm32")]
         gloo_console::log!(format!("{}", output));
         #[cfg(not(target_arch = "wasm32"))]

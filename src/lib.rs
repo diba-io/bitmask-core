@@ -81,8 +81,8 @@ pub struct MnemonicSeedData {
 }
 
 pub fn get_mnemonic_seed(
-    encryption_password: String,
-    seed_password: String,
+    encryption_password: &str,
+    seed_password: &str,
 ) -> Result<MnemonicSeedData> {
     let mut hasher = Sha256::new();
 
@@ -103,7 +103,7 @@ pub fn get_mnemonic_seed(
         rgb_tokens_descriptor,
         rgb_nfts_descriptor,
         pubkey_hash,
-    ) = get_mnemonic(&seed_password);
+    ) = get_mnemonic(seed_password);
     let vault_data = VaultData {
         btc_descriptor,
         btc_change_descriptor,
@@ -185,8 +185,8 @@ pub struct WalletTransaction {
 }
 
 pub async fn get_wallet_data(
-    descriptor: String,
-    change_descriptor: Option<String>,
+    descriptor: &str,
+    change_descriptor: Option<&str>,
 ) -> Result<WalletData> {
     log!("get_wallet_data");
     log!(&descriptor, format!("{:?}", &change_descriptor));
@@ -243,8 +243,8 @@ pub async fn import_list_assets(node_url: Option<String>) -> Result<Vec<Asset>> 
 }
 
 pub fn create_asset(
-    ticker: String,
-    name: String,
+    ticker: &str,
+    name: &str,
     precision: u8,
     supply: u64,
     utxo: String,
@@ -254,9 +254,9 @@ pub fn create_asset(
 }
 
 pub async fn import_asset(
-    rgb_tokens_descriptor: String,
-    asset: Option<String>,
-    genesis: Option<String>,
+    rgb_tokens_descriptor: &str,
+    asset: Option<&str>,
+    genesis: Option<&str>,
     node_url: Option<String>,
 ) -> Result<ThinAsset> {
     let wallet = get_wallet(rgb_tokens_descriptor, None).await;
@@ -312,8 +312,8 @@ pub fn set_blinded_utxo(utxo_string: &str) -> Result<BlindingUtxo> {
 }
 
 pub async fn send_sats(
-    descriptor: String,
-    change_descriptor: String,
+    descriptor: &str,
+    change_descriptor: &str,
     address: String,
     amount: u64,
 ) -> Result<TransactionDetails> {
@@ -335,48 +335,71 @@ pub async fn send_sats(
     Ok(transaction)
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct FundVaultDetails {
+    pub txid: String,
+    pub send_assets: String,
+    pub recv_assets: String,
+    pub send_udas: String,
+    pub recv_udas: String,
+}
+
 pub async fn fund_wallet(
-    descriptor: String,
-    change_descriptor: String,
-    address: String,
-    uda_address: String,
-) -> Result<TransactionDetails> {
-    let address = Address::from_str(&(address));
-    let uda_address = Address::from_str(&(uda_address));
+    descriptor: &str,
+    change_descriptor: &str,
+    address: &str,
+    uda_address: &str,
+) -> Result<FundVaultDetails> {
+    let address = Address::from_str(address);
+    let uda_address = Address::from_str(uda_address);
 
     let wallet = get_wallet(descriptor, Some(change_descriptor))
         .await
         .unwrap();
     let invoice = SatsInvoice {
         address: address.unwrap(),
-        amount: 2000,
+        amount: 613,
     };
     let uda_invoice = SatsInvoice {
         address: uda_address.unwrap(),
-        amount: 2000,
+        amount: 613,
     };
-    let transaction = create_transaction(
+    let details = create_transaction(
         vec![invoice.clone(), invoice, uda_invoice.clone(), uda_invoice],
         &wallet,
     )
     .await?;
 
-    Ok(transaction)
+    let txid = details.txid;
+    let outputs: Vec<String> = details
+        .transaction
+        .unwrap()
+        .output
+        .iter()
+        .enumerate()
+        .map(|(i, _)| format!("{txid}:{i}"))
+        .collect();
+
+    Ok(FundVaultDetails {
+        txid: txid.to_string(),
+        send_assets: outputs[0].clone(),
+        recv_assets: outputs[1].clone(),
+        send_udas: outputs[2].clone(),
+        recv_udas: outputs[3].clone(),
+    })
 }
 
 pub async fn send_tokens(
-    btc_descriptor: String,
-    btc_change_descriptor: String,
-    rgb_tokens_descriptor: String,
+    btc_descriptor: &str,
+    btc_change_descriptor: &str,
+    rgb_tokens_descriptor: &str,
     blinded_utxo: String,
     amount: u64,
     asset: ThinAsset,
     node_url: Option<String>,
 ) -> Result<TransferResponse> {
-    let assets_wallet = get_wallet(rgb_tokens_descriptor.clone(), None)
-        .await
-        .unwrap();
-    let full_wallet = get_wallet(rgb_tokens_descriptor.clone(), Some(btc_descriptor))
+    let assets_wallet = get_wallet(rgb_tokens_descriptor, None).await.unwrap();
+    let full_wallet = get_wallet(rgb_tokens_descriptor, Some(btc_descriptor))
         .await
         .unwrap();
     let full_change_wallet = get_wallet(rgb_tokens_descriptor, Some(btc_change_descriptor))
@@ -425,15 +448,15 @@ pub async fn accept_transaction(
 }
 
 pub async fn import_accept(
-    rgb_tokens_descriptor: String,
-    asset: String,
-    consignment: String,
-    txid: String,
+    rgb_tokens_descriptor: &str,
+    asset: &str,
+    consignment: &str,
+    txid: &str,
     vout: u32,
     blinding: String,
     node_url: Option<String>,
 ) -> Result<ThinAsset> {
-    let txid = Txid::from_str(&txid)?;
+    let txid = Txid::from_str(txid)?;
 
     let transaction_data = TransactionData {
         blinding,
@@ -441,7 +464,7 @@ pub async fn import_accept(
     };
 
     let accept = accept_transfer(
-        consignment,
+        consignment.to_owned(),
         transaction_data.utxo,
         transaction_data.blinding,
         node_url.clone(),
