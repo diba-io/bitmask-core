@@ -1,5 +1,5 @@
 use anyhow::{Error, Result};
-use rgb_core::Genesis;
+// use rgb_core::Genesis;
 
 use crate::{
     data::{
@@ -10,13 +10,20 @@ use crate::{
     util::{get, post_json},
 };
 
-pub async fn get_asset_by_genesis(genesis: &str) -> Result<ThinAsset> {
-    let genesis: Genesis = serde_json::from_str(genesis)?;
+// pub fn get_asset_by_genesis(genesis: &str, unspent: Vec<bdk::LocalUtxo>) -> Result<ThinAsset> {
+//     let genesis: Genesis = serde_json::from_str(genesis)?;
 
-    todo!();
+//     let asset = ThinAsset {
+//         id: asset.to_owned(),
+//         ticker: assets[0].ticker.clone(),
+//         name: assets[0].name.clone(),
+//         description: assets[0].description.clone().unwrap(),
+//         allocations,
+//         balance: Some(amount.unwrap_or_default()),
+//     };
 
-    Ok(assets)
-}
+//     Ok(assets)
+// }
 
 pub async fn get_asset_by_contract_id(
     asset: &str,
@@ -60,7 +67,6 @@ pub async fn get_asset_by_contract_id(
         description: assets[0].description.clone().unwrap(),
         allocations,
         balance: Some(amount.unwrap_or_default()),
-        dolar_balance: None,
     };
 
     log!(format!("thin_assets: {thin_assets:?}"));

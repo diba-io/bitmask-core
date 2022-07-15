@@ -73,7 +73,6 @@ pub struct ThinAsset {
     pub description: String,
     pub allocations: Vec<Allocation>,
     pub balance: Option<u64>,
-    pub dolar_balance: Option<u32>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
