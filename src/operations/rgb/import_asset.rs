@@ -14,8 +14,6 @@ pub async fn get_asset_by_genesis(genesis: &str) -> Result<ThinAsset> {
     let genesis: Genesis = serde_json::from_str(genesis)?;
 
     todo!();
-
-    Ok(assets)
 }
 
 pub async fn get_asset_by_contract_id(

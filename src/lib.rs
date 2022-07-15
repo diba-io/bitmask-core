@@ -260,7 +260,7 @@ pub async fn import_asset(
     node_url: Option<String>,
 ) -> Result<ThinAsset> {
     match genesis {
-        Some(genesis) => get_asset_by_genesis(genesis),
+        Some(genesis) => get_asset_by_genesis(genesis).await,
         None => match contract_id {
             Some(contract_id) => {
                 let wallet = get_wallet(rgb_tokens_descriptor, None).await;
@@ -473,7 +473,7 @@ pub async fn import_accept(
         Ok(_accept) => {
             let wallet = get_wallet(rgb_tokens_descriptor, None).await;
             let unspent = wallet.as_ref().unwrap().list_unspent().unwrap_or_default();
-            let asset = get_asset_by_contract_id(Some(asset), None, unspent, node_url).await;
+            let asset = get_asset_by_contract_id(&asset, unspent, node_url).await;
             log!(format!("get asset {asset:#?}"));
             asset
         }
