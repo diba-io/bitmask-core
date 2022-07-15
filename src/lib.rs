@@ -20,15 +20,14 @@ pub mod web;
 
 use data::{
     constants,
-    structs::{Asset, SatsInvoice, ThinAsset, TransferResponse},
+    structs::{AssetResponse, SatsInvoice, ThinAsset, TransferResponse},
 };
 
 use operations::{
     bitcoin::{create_transaction, get_mnemonic, get_wallet, save_mnemonic},
     rgb::{
-        accept_transfer, blind_utxo, get_asset_by_contract_id,
-        /* get_asset_by_genesis, */ get_assets, issue_asset, transfer_asset,
-        validate_transfer, Genesis, OwnedValue,
+        accept_transfer, blind_utxo, get_asset_by_contract_id, get_asset_by_genesis, get_assets,
+        issue_asset, transfer_asset, validate_transfer,
     },
 };
 
@@ -236,11 +235,19 @@ pub async fn get_wallet_data(
     })
 }
 
-pub async fn import_list_assets(node_url: Option<String>) -> Result<Vec<Asset>> {
+pub async fn import_list_assets(node_url: Option<String>) -> Result<Vec<AssetResponse>> {
     log!("import_list_assets");
     let assets = get_assets(node_url).await?;
     log!(format!("get assets: {assets:#?}"));
     Ok(assets)
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct CreateAssetResult {
+    pub genesis: String,   // in bech32m encoding
+    pub id: String,        // consignment ID
+    pub asset_id: String,  // consignment ID
+    pub schema_id: String, // consignment ID
 }
 
 pub fn create_asset(
@@ -249,9 +256,19 @@ pub fn create_asset(
     precision: u8,
     supply: u64,
     utxo: &str,
-) -> Result<(Genesis, Vec<OwnedValue>)> {
+) -> Result<CreateAssetResult> {
     let utxo = OutPoint::from_str(utxo)?;
-    issue_asset(ticker, name, precision, supply, utxo)
+    let contract = issue_asset(ticker, name, precision, supply, utxo)?;
+    let genesis = contract.to_string();
+    let id = contract.id().to_string();
+    let asset_id = contract.contract_id().to_string();
+    let schema_id = contract.schema_id().to_string();
+    Ok(CreateAssetResult {
+        genesis,
+        id,
+        asset_id,
+        schema_id,
+    })
 }
 
 pub async fn import_asset(
@@ -260,16 +277,13 @@ pub async fn import_asset(
     genesis: Option<&str>,
     node_url: Option<String>,
 ) -> Result<ThinAsset> {
+    let wallet = get_wallet(rgb_tokens_descriptor, None).await;
+    let unspent = wallet.as_ref().unwrap().list_unspent().unwrap_or_default();
+
     match genesis {
-        Some(_genesis) => {
-            todo!("TODO: WIP");
-            // get_asset_by_genesis(genesis)
-        }
+        Some(genesis) => get_asset_by_genesis(genesis, unspent),
         None => match contract_id {
             Some(contract_id) => {
-                let wallet = get_wallet(rgb_tokens_descriptor, None).await;
-                let unspent = wallet.as_ref().unwrap().list_unspent().unwrap_or_default();
-
                 log!(format!("getting asset by contract id, {contract_id}"));
                 let asset = get_asset_by_contract_id(contract_id, unspent, node_url).await;
                 log!(format!("get asset {asset:?}"));

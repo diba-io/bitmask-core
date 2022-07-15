@@ -34,7 +34,7 @@ pub struct Inflation {}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct Asset {
+pub struct AssetResponse {
     pub genesis: String,
     pub id: String,
     pub ticker: String,

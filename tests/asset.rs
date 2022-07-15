@@ -4,8 +4,7 @@ use std::env;
 
 use anyhow::Result;
 use bitmask_core::{
-    /* create_asset, */ fund_wallet, get_network, get_vault,
-    get_wallet_data, /* import_asset, */
+    create_asset, fund_wallet, get_network, get_vault, get_wallet_data, import_asset,
     save_mnemonic_seed, set_blinded_utxo,
 };
 use log::info;
@@ -13,10 +12,10 @@ use log::info;
 const ENCRYPTION_PASSWORD: &str = "hunter2";
 const SEED_PASSWORD: &str = "";
 
-// const TICKER: &str = "TEST";
-// const NAME: &str = "Test asset";
-// const PRECISION: u8 = 3;
-// const SUPPLY: u64 = 1000;
+const TICKER: &str = "TEST";
+const NAME: &str = "Test asset";
+const PRECISION: u8 = 3;
+const SUPPLY: u64 = 1000;
 
 /// Test asset import
 #[tokio::test]
@@ -58,25 +57,34 @@ async fn asset_import() -> Result<()> {
     )
     .await?;
 
-    // info!("Create a test asset");
-    // let (genesis, _) = create_asset(
-    //     TICKER,
-    //     NAME,
-    //     PRECISION,
-    //     SUPPLY,
-    //     &fund_vault_details.send_assets,
-    // )?;
+    info!("Create a test asset");
+    let issued_asset = create_asset(
+        TICKER,
+        NAME,
+        PRECISION,
+        SUPPLY,
+        &fund_vault_details.send_assets,
+    )?;
 
+    let asset_data = serde_json::to_string_pretty(&issued_asset)?;
+
+    info!("Asset data: {asset_data}");
     // let asset_id = genesis.contract_id().to_string();
 
-    // let asset = import_asset(&vault.rgb_tokens_descriptor, None, genesis, None).await?;
+    let imported_asset = import_asset(
+        &vault.rgb_tokens_descriptor,
+        None,
+        Some(&issued_asset.genesis),
+        None,
+    )
+    .await?;
 
-    // assert_eq!(asset.id, asset_id, "Asset IDs match");
+    assert_eq!(issued_asset.asset_id, imported_asset.id, "Asset IDs match");
 
     info!("Parse wallet data");
     assert!(
         !btc_wallet.transactions.is_empty(),
-        "list of transactions is empty"
+        "list of transactions is not empty"
     );
 
     set_blinded_utxo(&fund_vault_details.send_assets)?;

@@ -8,11 +8,10 @@ mod validate_transaction;
 
 pub use accept_transaction::accept_transfer;
 pub use create_psbt::create_psbt;
-pub use import_asset::{get_asset_by_contract_id, /* get_asset_by_genesis, */ get_assets};
+pub use import_asset::{get_asset_by_contract_id, get_asset_by_genesis, get_assets};
 pub use issue_asset::issue_asset;
 pub use receive_tokens::blind_utxo;
 pub use send_tokens::transfer_asset;
 pub use validate_transaction::validate_transfer;
 
-pub use rgb_core::Genesis;
-pub use rgb_std::OwnedValue;
+pub use rgb_std::Contract;

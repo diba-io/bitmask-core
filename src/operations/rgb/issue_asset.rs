@@ -3,11 +3,9 @@ use std::{collections::BTreeMap, str::FromStr};
 use anyhow::{anyhow, Result};
 use bitcoin::OutPoint;
 use lnpbp::chain::Chain;
-use rgb20::{Asset, Rgb20};
-use rgb_core::{value::Revealed, Genesis};
-use rgb_std::{
-    fungible::allocation::OutpointValue, AssignedState, Consignment, Contract, OwnedValue,
-};
+use rgb20::Rgb20;
+use rgb_core::Consignment;
+use rgb_std::{fungible::allocation::OutpointValue, Contract};
 use stens::AsciiString;
 
 use crate::{constants::NETWORK, log};
@@ -27,7 +25,7 @@ pub fn issue_asset(
     precision: u8,
     supply: u64,
     utxo: OutPoint,
-) -> Result<(Genesis, Vec<OwnedValue>)> {
+) -> Result<Contract> {
     ticker_validator(ticker)?;
 
     let network = Chain::from(*NETWORK.read().unwrap());
@@ -47,15 +45,15 @@ pub fn issue_asset(
         None,
     );
 
-    let asset = Asset::try_from(&contract)?;
-    let genesis = contract.genesis();
-    let known_coins: Vec<AssignedState<Revealed>> = asset.known_coins().cloned().collect();
+    // let asset = Asset::try_from(&contract)?;
+    // let genesis = contract.to_string();
+    // let known_coins: Vec<AssignedState<Revealed>> = asset.known_coins().cloned().collect();
 
-    let genesis_json = serde_json::to_string(genesis)?;
+    let genesis_json = serde_json::to_string(contract.genesis())?;
     // let known_coins_json = serde_json::to_string(&known_coins)?; // TODO: needs serde traits
 
     log!(format!("genesis: {genesis_json}"));
     // log!(format!("known coins: {known_coins_json}"));
 
-    Ok((genesis.to_owned(), known_coins))
+    Ok(contract)
 }
