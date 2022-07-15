@@ -2,7 +2,7 @@ use anyhow::{Error, Result};
 use bdk::{blockchain::Blockchain, database::MemoryDatabase, SignOptions, Wallet};
 use bitcoin::{consensus::serialize, util::psbt::PartiallySignedTransaction, Transaction};
 
-use crate::{log, operations::bitcoin::balance::get_blockchain};
+use crate::{debug, operations::bitcoin::balance::get_blockchain};
 
 pub async fn sign_psbt(
     wallet: &Wallet<MemoryDatabase>,
@@ -10,9 +10,9 @@ pub async fn sign_psbt(
 ) -> Result<Transaction> {
     let finalized = wallet.sign(&mut psbt, SignOptions::default())?;
     if finalized {
-        log!("Signed PSBT: {}", base64::encode(&serialize(&psbt)));
+        debug!("Signed PSBT:", hex::encode(&serialize(&psbt)));
         let tx = psbt.extract_tx();
-        log!("tx: {}", base64::encode(&serialize(&tx)));
+        debug!("tx:", hex::encode(&serialize(&tx)));
         let blockchain = get_blockchain();
         blockchain.broadcast(&tx).await?;
         Ok(tx)

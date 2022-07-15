@@ -4,13 +4,35 @@ use gloo_net::http::Request;
 use serde::Serialize;
 
 #[macro_export]
-macro_rules! log {
+macro_rules! info {
     ($($arg:expr),+) => {
         let output = vec![$(String::from($arg.to_owned()),)+].join(" ");
         #[cfg(target_arch = "wasm32")]
-        gloo_console::log!(format!("{}", output));
+        gloo_console::info!(format!("{}", output));
         #[cfg(not(target_arch = "wasm32"))]
         log::info!("{}", output);
+    };
+}
+
+#[macro_export]
+macro_rules! debug {
+    ($($arg:expr),+) => {
+        let output = vec![$(String::from($arg.to_owned()),)+].join(" ");
+        #[cfg(target_arch = "wasm32")]
+        gloo_console::debug!(format!("{}", output));
+        #[cfg(not(target_arch = "wasm32"))]
+        log::debug!("{}", output);
+    };
+}
+
+#[macro_export]
+macro_rules! error {
+    ($($arg:expr),+) => {
+        let output = vec![$(String::from($arg.to_owned()),)+].join(" ");
+        #[cfg(target_arch = "wasm32")]
+        gloo_console::error!(format!("{}", output));
+        #[cfg(not(target_arch = "wasm32"))]
+        log::error!("{}", output);
     };
 }
 

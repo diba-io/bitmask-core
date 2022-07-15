@@ -188,8 +188,9 @@ pub async fn get_wallet_data(
     descriptor: &str,
     change_descriptor: Option<&str>,
 ) -> Result<WalletData> {
-    log!("get_wallet_data");
-    log!(&descriptor, format!("{:?}", &change_descriptor));
+    info!("get_wallet_data");
+    info!("descriptor:", &descriptor);
+    info!("change_descriptor:", format!("{:?}", &change_descriptor));
 
     let wallet = get_wallet(descriptor, change_descriptor).await;
     let address = wallet
@@ -198,22 +199,22 @@ pub async fn get_wallet_data(
         .get_address(LastUnused)
         .unwrap()
         .to_string();
-    log!(&address);
+    info!("address:", &address);
     let balance = wallet.as_ref().unwrap().get_balance().unwrap().to_string();
-    log!(&balance);
+    info!("balance:", &balance);
     let unspent = wallet.as_ref().unwrap().list_unspent().unwrap_or_default();
     let unspent: Vec<String> = unspent
         .into_iter()
         .map(|x| x.outpoint.to_string())
         .collect();
-    log!(format!("unspent: {unspent:#?}"));
+    debug!(format!("unspent: {unspent:#?}"));
 
     let transactions = wallet
         .as_ref()
         .unwrap()
         .list_transactions(false)
         .unwrap_or_default();
-    log!(format!("transactions: {transactions:#?}"));
+    debug!(format!("transactions: {transactions:#?}"));
 
     let transactions: Vec<WalletTransaction> = transactions
         .into_iter()
@@ -236,9 +237,9 @@ pub async fn get_wallet_data(
 }
 
 pub async fn import_list_assets(node_url: Option<String>) -> Result<Vec<AssetResponse>> {
-    log!("import_list_assets");
+    info!("import_list_assets");
     let assets = get_assets(node_url).await?;
-    log!(format!("get assets: {assets:#?}"));
+    info!(format!("get assets: {assets:#?}"));
     Ok(assets)
 }
 
@@ -281,12 +282,15 @@ pub async fn import_asset(
     let unspent = wallet.as_ref().unwrap().list_unspent().unwrap_or_default();
 
     match genesis {
-        Some(genesis) => get_asset_by_genesis(genesis, unspent),
+        Some(genesis) => {
+            info!("Getting asset by genesis:", genesis);
+            get_asset_by_genesis(genesis)
+        }
         None => match contract_id {
             Some(contract_id) => {
-                log!(format!("getting asset by contract id, {contract_id}"));
+                info!("Getting asset by contract id:", contract_id);
                 let asset = get_asset_by_contract_id(contract_id, unspent, node_url).await;
-                log!(format!("get asset {asset:?}"));
+                info!(format!("asset: {asset:?}"));
                 match asset {
                     Ok(asset) => Ok(asset),
                     Err(e) => Err(format_err!("Server error: {e}")),
@@ -457,7 +461,7 @@ pub async fn accept_transaction(
         node_url,
     )
     .await?;
-    log!("hola denueveo 3");
+    info!("Transaction accepted");
     Ok(accept)
 }
 
@@ -487,7 +491,7 @@ pub async fn import_accept(
     match accept {
         Ok(_accept) => {
             let asset = import_asset(rgb_tokens_descriptor, Some(asset), None, node_url).await;
-            log!(format!("get asset {asset:#?}"));
+            info!(format!("get asset {asset:#?}"));
             asset
         }
         Err(e) => Err(e),

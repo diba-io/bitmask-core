@@ -14,14 +14,11 @@ use crate::{
         constants::url,
         structs::{Allocation, Amount, AssetResponse, ExportRequestMini, ThinAsset},
     },
-    log,
+    info,
     util::{get, post_json},
 };
 
-pub fn get_asset_by_genesis(
-    genesis: &str,
-    _beneficiaries: Vec<bdk::LocalUtxo>,
-) -> Result<ThinAsset> {
+pub fn get_asset_by_genesis(genesis: &str) -> Result<ThinAsset> {
     let contract = Contract::from_str(genesis)?;
 
     let asset = Asset::try_from(&contract).unwrap();
@@ -77,7 +74,7 @@ pub fn get_asset_by_genesis(
         balance,
     };
 
-    log!(format!("asset decoded from genesis: {asset:#?}"));
+    info!(format!("Asset decoded from genesis: {asset:#?}"));
 
     Ok(asset)
 }
@@ -94,7 +91,7 @@ pub async fn get_asset_by_contract_id(
         Ok(response) => response,
         Err(e) => return Err(Error::msg(e)),
     };
-    log!(format!("response: {response:#?}"));
+    info!(format!("response: {response:#?}"));
     let assets: Vec<AssetResponse> = serde_json::from_str(&response)?;
     if assets.is_empty() {
         return Err(Error::msg("Incorrect rgb id".to_string()));
@@ -110,13 +107,13 @@ pub async fn get_asset_by_contract_id(
                 .any(|y| y.outpoint.to_string().eq(&a.outpoint))
         })
         .collect();
-    log!(format!("allocations: {allocations:#?}"));
+    info!(format!("allocations: {allocations:#?}"));
     let amount = allocations
         .clone()
         .into_iter()
         .map(|a| a.amount.value)
         .reduce(|a, b| a + b);
-    log!(format!("amount: {amount:#?}"));
+    info!(format!("amount: {amount:#?}"));
     let thin_assets = ThinAsset {
         id: asset.to_owned(),
         ticker: assets[0].ticker.clone(),
@@ -126,13 +123,13 @@ pub async fn get_asset_by_contract_id(
         balance: amount.unwrap_or_default(),
     };
 
-    log!(format!("thin_assets: {thin_assets:?}"));
+    info!(format!("thin_assets: {thin_assets:?}"));
     Ok(thin_assets)
 }
 
 pub async fn get_assets(node_url: Option<String>) -> Result<Vec<AssetResponse>> {
     let (response, _) = get(url("list", &node_url)).await?;
-    log!(format!("listassets: {response:#?}"));
+    info!(format!("listassets: {response:#?}"));
     let assets: Vec<AssetResponse> = serde_json::from_str(&response)?;
     Ok(assets)
 }

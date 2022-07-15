@@ -326,7 +326,6 @@ name = "bitmask-core"
 version = "0.3.1"
 dependencies = [
  "anyhow",
- "base64",
  "bdk",
  "bip39",
  "bitcoin",
@@ -337,6 +336,7 @@ dependencies = [
  "getrandom 0.2.7",
  "gloo-console",
  "gloo-net",
+ "hex",
  "js-sys",
  "lnpbp",
  "log",

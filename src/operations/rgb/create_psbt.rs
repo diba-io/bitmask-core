@@ -1,7 +1,7 @@
 use bdk::{database::MemoryDatabase, FeeRate, Wallet};
 use bitcoin::{consensus::serialize, util::address::Address};
 
-use crate::log;
+use crate::{debug, info};
 
 #[allow(dead_code)] // TODO: Is this needed?
 pub async fn create_psbt(address: Address, amount: u64, wallet: &Wallet<MemoryDatabase>) {
@@ -14,6 +14,6 @@ pub async fn create_psbt(address: Address, amount: u64, wallet: &Wallet<MemoryDa
         builder.finish().unwrap()
     };
 
-    log!(format!("Transaction details: {details:#?}"));
-    log!("Unsigned PSBT: {}", base64::encode(&serialize(&psbt)));
+    info!(format!("Transaction details: {details:#?}"));
+    debug!("Unsigned PSBT", hex::encode(&serialize(&psbt)));
 }

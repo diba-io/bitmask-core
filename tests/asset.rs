@@ -42,6 +42,11 @@ async fn asset_import() -> Result<()> {
     let btc_wallet =
         get_wallet_data(&vault.btc_descriptor, Some(&vault.btc_change_descriptor)).await?;
 
+    assert!(
+        !btc_wallet.transactions.is_empty(),
+        "List of transactions is not empty"
+    );
+
     info!("Get assets wallet data");
     let assets_wallet = get_wallet_data(&vault.rgb_tokens_descriptor, None).await?;
 
@@ -69,7 +74,6 @@ async fn asset_import() -> Result<()> {
     let asset_data = serde_json::to_string_pretty(&issued_asset)?;
 
     info!("Asset data: {asset_data}");
-    // let asset_id = genesis.contract_id().to_string();
 
     let imported_asset = import_asset(
         &vault.rgb_tokens_descriptor,
@@ -81,13 +85,10 @@ async fn asset_import() -> Result<()> {
 
     assert_eq!(issued_asset.asset_id, imported_asset.id, "Asset IDs match");
 
-    info!("Parse wallet data");
-    assert!(
-        !btc_wallet.transactions.is_empty(),
-        "list of transactions is not empty"
-    );
+    info!("Get a blinded UTXO");
 
     set_blinded_utxo(&fund_vault_details.send_assets)?;
+    info!("Transfer asset");
 
     Ok(())
 }

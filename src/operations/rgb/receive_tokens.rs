@@ -3,7 +3,7 @@ use bitcoin::OutPoint;
 use bp::seals::txout::CloseMethod;
 use rgb_core::seal;
 
-use crate::{data::structs::BlindResponse, log};
+use crate::{data::structs::BlindResponse, info};
 
 pub fn blind_utxo(utxo: OutPoint) -> Result<(BlindResponse, OutPoint)> {
     let seal = seal::Revealed::new(CloseMethod::TapretFirst, utxo);
@@ -13,7 +13,7 @@ pub fn blind_utxo(utxo: OutPoint) -> Result<(BlindResponse, OutPoint)> {
         conceal: seal.to_concealed_seal().to_string(),
     };
 
-    log!(format!("blind result: {result:?}"));
+    info!(format!("Blind result: {result:#?}"));
 
     Ok((result, utxo))
 }

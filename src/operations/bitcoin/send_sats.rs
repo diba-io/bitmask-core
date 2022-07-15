@@ -4,7 +4,7 @@ use bitcoin::{consensus::serialize, Transaction};
 
 use crate::{
     data::structs::SatsInvoice,
-    log,
+    debug, info,
     operations::bitcoin::{balance::synchronize_wallet, sign_psbt::sign_psbt},
 };
 
@@ -22,10 +22,10 @@ pub async fn create_transaction(
         builder.finish()?
     };
 
-    log!(format!("Transaction details: {details:#?}"));
-    log!("Unsigned PSBT: {}", base64::encode(&serialize(&psbt)));
+    debug!(format!("Create transaction: {details:#?}"));
+    debug!("Unsigned PSBT:", hex::encode(&serialize(&psbt)));
     let tx = sign_psbt(wallet, psbt).await?;
-    log!("PSBT successfully signed");
+    info!("PSBT successfully signed");
 
     Ok(tx)
 }
