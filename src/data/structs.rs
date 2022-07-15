@@ -23,10 +23,12 @@ pub struct Amount {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Allocation {
-    pub node_id: String,
     pub index: u32,
+    pub node_id: String,
     pub outpoint: String,
-    pub revealed_amount: Amount,
+    pub amount: Amount,
+    pub seal_vout: u32,
+    pub seal_txid: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -72,7 +74,7 @@ pub struct ThinAsset {
     pub name: String,
     pub description: String,
     pub allocations: Vec<Allocation>,
-    pub balance: Option<u64>,
+    pub balance: u64,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

@@ -65,7 +65,7 @@ pub async fn transfer_asset(
         .clone()
         .into_iter()
         .map(|x| SealCoins {
-            coins: asset.balance.unwrap() - amount,
+            coins: asset.balance - amount,
             txid: Some(x.txid.to_string()),
             vout: x.vout,
         })

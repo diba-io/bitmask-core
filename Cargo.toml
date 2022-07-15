@@ -47,12 +47,12 @@ serde = "1.0.130"
 serde_json = "1.0.68"
 serde-encrypt = "0.7.0"
 sha2 = "0.10.1"
+stens = { version = "0.7.1", features = ["serde"] }
 wasm-bindgen = { version = "0.2.77", features = ["serde-serialize"] }
 wasm-bindgen-futures = "0.4.27"
 web-sys = "0.3.55"
 wee_alloc = "0.4.5"
 pretty_env_logger = "0.4.0"
-stens = { version = "0.7.1", features = ["serde"] }
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3.13"

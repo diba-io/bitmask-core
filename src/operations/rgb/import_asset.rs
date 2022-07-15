@@ -1,14 +1,18 @@
 use std::str::FromStr;
 
-use anyhow::{Error, Result};
-// use rgb20::Asset;
-// use rgb_core::{schema::NodeSchema, Consignment, Node};
+use anyhow::{anyhow, Error, Result};
+use rgb20::Asset;
+use rgb_core::{
+    data::Revealed,
+    vm::embedded::constants::{FIELD_TYPE_NAME, FIELD_TYPE_TICKER},
+    Consignment, Node,
+};
 use rgb_std::Contract;
 
 use crate::{
     data::{
         constants::url,
-        structs::{Allocation, AssetResponse, ExportRequestMini, ThinAsset},
+        structs::{Allocation, Amount, AssetResponse, ExportRequestMini, ThinAsset},
     },
     log,
     util::{get, post_json},
@@ -20,29 +24,60 @@ pub fn get_asset_by_genesis(
 ) -> Result<ThinAsset> {
     let contract = Contract::from_str(genesis)?;
 
-    // let asset = Asset::try_from(&contract).unwrap();
+    let asset = Asset::try_from(&contract).unwrap();
 
     let id = contract.contract_id().to_string();
-    // let rgb20_schema = rgb20::schema::schema().genesis.metadata();
-    // let genesis = contract.genesis();
-    // let metadata = genesis.metadata();
+    let metadata = contract.genesis().metadata();
 
-    // let schema = asset.known_coins()
-    // let ticker = genesis.
+    let ticker = match metadata.get(&FIELD_TYPE_TICKER).unwrap().get(0) {
+        Some(Revealed::AsciiString(ticker)) => ticker.to_string(),
+        _ => return Err(anyhow!("Error decoding asset ticker")),
+    };
+    let name = match metadata.get(&FIELD_TYPE_NAME).unwrap().get(0) {
+        Some(Revealed::AsciiString(name)) => name.to_string(),
+        _ => return Err(anyhow!("Error decoding asset name")),
+    };
 
-    // let beneficiaries = beneficiaries
-    //     .into_iter()
-    //     .map(|v| (v.seal_confidential.into(), v.value))
-    //     .collect();
+    // let allocations =
+    let allocations: Vec<Allocation> = asset
+        .known_coins()
+        .enumerate()
+        .map(|(index, coin)| {
+            let index = index as u32;
+            let outpoint = coin.outpoint.to_string();
+            let node_id = coin.outpoint.node_id.to_string();
+            let seal_txid = coin.seal.txid.to_string();
+            let seal_vout = coin.seal.vout;
+
+            let blinding = coin.state.blinding.to_string();
+            let value = coin.state.value;
+            let amount = Amount { value, blinding };
+
+            Allocation {
+                index,
+                outpoint,
+                node_id,
+                seal_txid,
+                seal_vout,
+                amount,
+            }
+        })
+        .collect();
+
+    let balance = allocations
+        .iter()
+        .fold(0, |balance, alloc| balance + alloc.amount.value);
 
     let asset = ThinAsset {
         id,
-        ticker: "".to_owned(),
-        name: "".to_owned(),
-        description: "".to_owned(),
-        allocations: vec![],
-        balance: None,
+        ticker,
+        name,
+        description: "Unlisted asset".to_owned(),
+        allocations,
+        balance,
     };
+
+    log!(format!("asset decoded from genesis: {asset:#?}"));
 
     Ok(asset)
 }
@@ -79,7 +114,7 @@ pub async fn get_asset_by_contract_id(
     let amount = allocations
         .clone()
         .into_iter()
-        .map(|a| a.revealed_amount.value)
+        .map(|a| a.amount.value)
         .reduce(|a, b| a + b);
     log!(format!("amount: {amount:#?}"));
     let thin_assets = ThinAsset {
@@ -88,7 +123,7 @@ pub async fn get_asset_by_contract_id(
         name: assets[0].name.clone(),
         description: assets[0].description.clone().unwrap(),
         allocations,
-        balance: Some(amount.unwrap_or_default()),
+        balance: amount.unwrap_or_default(),
     };
 
     log!(format!("thin_assets: {thin_assets:?}"));
