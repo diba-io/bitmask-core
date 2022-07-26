@@ -63,7 +63,7 @@ async fn asset_import() -> Result<()> {
     .await?;
 
     info!("Create a test asset");
-    let issued_asset = create_asset(
+    let issued_asset = &create_asset(
         TICKER,
         NAME,
         PRECISION,
@@ -97,7 +97,7 @@ async fn asset_import() -> Result<()> {
         &vault.rgb_tokens_descriptor,
         &blinded_utxo,
         100,
-        &asset_data,
+        &issued_asset.genesis,
     )
     .await?;
 
