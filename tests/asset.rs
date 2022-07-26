@@ -5,7 +5,7 @@ use std::env;
 use anyhow::Result;
 use bitmask_core::{
     create_asset, fund_wallet, get_network, get_vault, get_wallet_data, import_asset,
-    save_mnemonic_seed, set_blinded_utxo,
+    save_mnemonic_seed, send_tokens, set_blinded_utxo,
 };
 use log::info;
 
@@ -50,7 +50,7 @@ async fn asset_import() -> Result<()> {
     info!("Get assets wallet data");
     let assets_wallet = get_wallet_data(&vault.rgb_tokens_descriptor, None).await?;
 
-    info!("Get UDAs wa&llet data");
+    info!("Get UDAs wallet data");
     let udas_wallet = get_wallet_data(&vault.rgb_nfts_descriptor, None).await?;
 
     info!("Fund vault");
@@ -74,7 +74,6 @@ async fn asset_import() -> Result<()> {
     let asset_data = serde_json::to_string_pretty(&issued_asset)?;
 
     info!("Asset data: {asset_data}");
-
     let imported_asset = import_asset(
         &vault.rgb_tokens_descriptor,
         None,
@@ -86,9 +85,23 @@ async fn asset_import() -> Result<()> {
     assert_eq!(issued_asset.asset_id, imported_asset.id, "Asset IDs match");
 
     info!("Get a blinded UTXO");
+    let blinded_utxo = set_blinded_utxo(&fund_vault_details.send_assets)?;
+    let blinded_utxo = format!("{:?}", blinded_utxo);
 
-    set_blinded_utxo(&fund_vault_details.send_assets)?;
+    info!("Blinded UTXO: {}", &blinded_utxo);
+
     info!("Transfer asset");
+    let consignment = send_tokens(
+        &vault.btc_descriptor,
+        // &vault.btc_change_descriptor,
+        &vault.rgb_tokens_descriptor,
+        &blinded_utxo,
+        100,
+        &asset_data,
+    )
+    .await?;
+
+    info!("Transfer response: {:?}", &consignment);
 
     Ok(())
 }

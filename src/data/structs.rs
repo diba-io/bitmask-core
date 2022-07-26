@@ -1,4 +1,4 @@
-use bitcoin::{util::address::Address, OutPoint};
+use bitcoin::{util::address::Address, OutPoint, Txid};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -85,9 +85,9 @@ pub struct BlindResponse {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SealCoins {
-    pub coins: u64,
+    pub amount: u64,
+    pub txid: Txid,
     pub vout: u32,
-    pub txid: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

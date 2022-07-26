@@ -1,152 +1,718 @@
+use std::collections::{BTreeMap, BTreeSet};
 use std::str::FromStr;
 
-use anyhow::Result;
-use bdk::{database::MemoryDatabase, wallet::AddressIndex::New, FeeRate, Wallet};
-use bitcoin::{
-    consensus::{deserialize, serialize},
-    util::psbt::PartiallySignedTransaction,
-    OutPoint,
+use amplify::hex::ToHex;
+use anyhow::{anyhow, Result};
+// use bdk::sled::Serialize;
+use bdk::{database::MemoryDatabase, descriptor::Descriptor, Wallet};
+use bitcoin::{psbt::serialize::Serialize, OutPoint, Transaction, Txid};
+use bp::dbc::anchor::PsbtEmbeddedMessage;
+use bp::seals::txout::{CloseMethod, ExplicitSeal};
+use commit_verify::lnpbp4::{self, MerkleBlock};
+use commit_verify::EmbedCommitVerify;
+use electrum_client::{Client, ElectrumApi};
+use rgb20::Asset;
+use rgb_core::{Anchor, Extension, IntoRevealedSeal};
+use rgb_std::{
+    blank::BlankBundle,
+    fungible::allocation::{AllocatedValue, UtxobValue},
+    psbt::RgbExt,
+    psbt::RgbInExt,
+    BundleId, Consignment, ConsignmentId, ConsignmentType, Contract, ContractId, ContractState,
+    ContractStateMap, Disclosure, Genesis, InmemConsignment, Node, NodeId, Schema, SchemaId,
+    SealEndpoint, Transition, TransitionBundle, Validator, Validity,
+};
+use storm::{ChunkId, ChunkIdExt};
+use strict_encoding::{StrictDecode, StrictEncode};
+use wallet::{
+    descriptors::InputDescriptor, locks::LockTime, psbt::Psbt, scripts::taproot::DfsPath,
 };
 
 use crate::{
     data::{
-        constants::url,
-        structs::{EncloseForgetRequest, SealCoins, ThinAsset, TransferRequest, TransferResponse},
+        constants::BITCOIN_EXPLORER_API,
+        structs::{SealCoins, TransferResponse},
     },
-    debug, info,
+    debug, error, info,
     operations::bitcoin::{sign_psbt, synchronize_wallet},
-    util::post_json,
+    trace, warn,
 };
 
+#[derive(Clone, Ord, PartialOrd, Eq, PartialEq, Hash, Debug, StrictEncode, StrictDecode)]
+pub enum OutpointFilter {
+    All,
+    Only(BTreeSet<OutPoint>),
+}
+
+impl OutpointFilter {
+    pub fn includes(&self, outpoint: OutPoint) -> bool {
+        match self {
+            OutpointFilter::All => true,
+            OutpointFilter::Only(set) => set.contains(&outpoint),
+        }
+    }
+}
+
+#[derive(serde::Serialize, Debug, Clone)]
+pub struct ConsignmentDetails {
+    transitions: BTreeMap<NodeId, Transition>,
+    transition_witness: BTreeMap<NodeId, Txid>,
+    anchors: BTreeMap<Txid, Anchor<MerkleBlock>>,
+    bundles: BTreeMap<Txid, BTreeMap<NodeId, BTreeSet<u16>>>,
+    contract_transitions: BTreeMap<ChunkId, BTreeSet<NodeId>>,
+    outpoints: BTreeMap<ChunkId, BTreeSet<NodeId>>,
+    node_contracts: BTreeMap<NodeId, ContractId>,
+    extensions: BTreeMap<NodeId, Extension>,
+    contracts: BTreeMap<ContractId, ContractState>,
+    contract_id: ContractId,
+    consignment_id: ConsignmentId,
+    schema_id: SchemaId,
+    schema: Schema,
+    schemata: BTreeMap<SchemaId, Schema>,
+    genesis: Genesis,
+    root_schema_id: Option<SchemaId>,
+    root_schema: Option<Schema>,
+}
+
+fn process_consignment<C: ConsignmentType>(
+    consignment: &InmemConsignment<C>,
+    force: bool,
+) -> Result<ConsignmentDetails> {
+    let mut transitions: BTreeMap<NodeId, Transition> = Default::default();
+    let mut transition_witness: BTreeMap<NodeId, Txid> = Default::default();
+    let mut anchors: BTreeMap<Txid, Anchor<MerkleBlock>> = Default::default();
+    let mut bundles: BTreeMap<Txid, BTreeMap<NodeId, BTreeSet<u16>>> = Default::default();
+    let mut contract_transitions: BTreeMap<ChunkId, BTreeSet<NodeId>> = Default::default();
+    let mut outpoints: BTreeMap<ChunkId, BTreeSet<NodeId>> = Default::default();
+    let mut node_contracts: BTreeMap<NodeId, ContractId> = Default::default();
+    let mut extensions: BTreeMap<NodeId, Extension> = Default::default();
+    let mut contracts: BTreeMap<ContractId, ContractState> = Default::default();
+    let mut schemata: BTreeMap<SchemaId, Schema> = Default::default();
+
+    let contract_id = consignment.contract_id();
+    let consignment_id = consignment.id();
+    let schema = consignment.schema();
+    let schema_id = consignment.schema_id();
+    let genesis = consignment.genesis();
+    let root_schema = consignment.root_schema().cloned();
+    let root_schema_id = consignment.root_schema_id();
+
+    info!(format!(
+        "Registering consignment {consignment_id} for contract {contract_id}"
+    ));
+
+    let mut state = ContractState::with(schema_id, root_schema_id, contract_id, genesis);
+    trace!(format!("Starting with contract state {state:?}"));
+
+    debug!(format!(
+        "Validating consignment {consignment_id} for contract {contract_id}"
+    ));
+    let electrum_client =
+        Client::new(&BITCOIN_EXPLORER_API.read().expect("Read lock for API URL"))?;
+    let status = Validator::validate(consignment, &electrum_client);
+    info!(format!(
+        "Consignment validation result is {}",
+        status.validity()
+    ));
+
+    match status.validity() {
+        Validity::Valid => {
+            info!("Consignment is fully valid");
+        }
+        Validity::ValidExceptEndpoints if force => {
+            warn!("Forcing import of consignment with non-mined transactions");
+        }
+        Validity::UnresolvedTransactions | Validity::ValidExceptEndpoints => {
+            error!(format!(
+                "Some of consignment-related transactions were not found: {status:?}",
+            ));
+            return Err(anyhow!(status.to_string()));
+        }
+        Validity::Invalid => {
+            error!(format!("Invalid consignment: {status:?}"));
+            return Err(anyhow!(status.to_string()));
+        }
+    }
+
+    info!(format!(
+        "Storing consignment {consignment_id} into database"
+    ));
+    trace!(format!("Schema: {schema:?}"));
+    schemata.insert(schema_id, schema.clone());
+    if let Some(root_schema) = root_schema.clone() {
+        trace!(format!("Root schema: {root_schema:?}"));
+        schemata.insert(root_schema.schema_id(), root_schema);
+    }
+
+    let genesis = consignment.genesis();
+    debug!("Indexing genesis");
+    trace!(format!("Genesis: {genesis:?}"));
+
+    for seal in genesis.revealed_seals().unwrap_or_default() {
+        debug!(format!("Adding outpoint for seal {seal}"));
+        let index_id = ChunkId::with_fixed_fragments(seal.txid, seal.vout);
+        outpoints
+            .entry(index_id)
+            .or_insert(BTreeSet::new())
+            .insert(NodeId::from_str(&contract_id.to_string())?);
+    }
+    debug!("Storing contract self-reference");
+    node_contracts.insert(NodeId::from_str(&contract_id.to_string())?, contract_id);
+
+    for (anchor, bundle) in consignment.anchored_bundles() {
+        let bundle_id = bundle.bundle_id();
+        let witness_txid = anchor.txid;
+        debug!(format!(
+            "Processing anchored bundle {bundle_id} for txid {witness_txid}"
+        ));
+        trace!(format!("Anchor: {anchor:?}"));
+        trace!(format!("Bundle: {bundle:?}"));
+        let anchor = anchor
+            .to_merkle_block(contract_id, bundle_id.into())
+            .expect("broken anchor data");
+        debug!(format!("Restored anchor id is {}", anchor.anchor_id()));
+        trace!(format!("Restored anchor: {anchor:?}"));
+        anchors.insert(anchor.txid, anchor);
+        let mut data = bundle
+            .concealed_iter()
+            .map(|(id, set)| (*id, set.clone()))
+            .collect::<Vec<_>>();
+        for (transition, inputs) in bundle.revealed_iter() {
+            let node_id = transition.node_id();
+            let transition_type = transition.transition_type();
+            debug!(format!("Processing state transition {node_id}"));
+            trace!(format!("State transition: {transition:?}"));
+
+            state.add_transition(witness_txid, transition);
+            trace!(format!("Contract state now is {state:?}"));
+
+            trace!("Storing state transition data");
+            data.push((node_id, inputs.clone()));
+            transitions.insert(node_id, transition.clone());
+            transition_witness.insert(node_id, witness_txid);
+
+            trace!("Indexing transition");
+            let index_id = ChunkId::with_fixed_fragments(contract_id, transition_type);
+            contract_transitions
+                .entry(index_id)
+                .or_insert(BTreeSet::new())
+                .insert(node_id);
+
+            node_contracts.insert(node_id, contract_id);
+
+            for seal in transition.revealed_seals().unwrap_or_default() {
+                let index_id = ChunkId::with_fixed_fragments(seal.txid, seal.vout);
+                outpoints
+                    .entry(index_id)
+                    .or_insert(BTreeSet::new())
+                    .insert(node_id);
+            }
+        }
+
+        let mut bundle_data = BTreeMap::new();
+        for (node_id, inputs) in data {
+            bundle_data.insert(node_id, inputs.clone());
+        }
+
+        bundles.insert(witness_txid, bundle_data.to_owned());
+    }
+    for extension in consignment.state_extensions() {
+        let node_id = extension.node_id();
+        debug!(format!("Processing state extension {node_id}"));
+        trace!(format!("State transition: {extension:?}"));
+
+        state.add_extension(extension);
+        trace!(format!("Contract state now is {state:?}"));
+
+        node_contracts.insert(node_id, contract_id);
+
+        extensions.insert(node_id, extension.clone());
+        // We do not store seal outpoint here - or will have to store it into a separate
+        // database Extension rights are always closed seals, since the extension
+        // can get into the history only through closing by a state transition
+    }
+
+    debug!(format!("Storing contract state for {contract_id}"));
+    trace!(format!("Final contract state is {state:?}"));
+    contracts.insert(contract_id, state);
+
+    info!(format!(
+        "Consignment processing complete for {consignment_id}"
+    ));
+
+    Ok(ConsignmentDetails {
+        transitions,
+        transition_witness,
+        anchors,
+        bundles,
+        contract_transitions,
+        node_contracts,
+        outpoints,
+        extensions,
+        contracts,
+        contract_id,
+        consignment_id,
+        schema_id,
+        schema: schema.to_owned(),
+        schemata,
+        genesis: genesis.to_owned(),
+        root_schema_id,
+        root_schema,
+    })
+}
+
+struct Collector {
+    pub anchored_bundles: BTreeMap<Txid, (Anchor<lnpbp4::MerkleProof>, TransitionBundle)>,
+    pub endpoints: Vec<(BundleId, SealEndpoint)>,
+    pub endpoint_inputs: Vec<NodeId>,
+}
+
+impl Collector {
+    pub fn new() -> Self {
+        Collector {
+            anchored_bundles: empty![],
+            endpoints: vec![],
+            endpoint_inputs: vec![],
+        }
+    }
+
+    pub fn process(
+        &mut self,
+        consignment_details: &ConsignmentDetails,
+        node_ids: impl IntoIterator<Item = NodeId>,
+        outpoint_filter: &OutpointFilter,
+    ) -> Result<()> {
+        let ConsignmentDetails {
+            transitions,
+            transition_witness,
+            anchors,
+            bundles,
+            contract_id,
+            ..
+        } = consignment_details;
+
+        for transition_id in node_ids {
+            let transition: &Transition = transitions.get(&transition_id).unwrap();
+
+            let witness_txid: &Txid = transition_witness.get(&transition_id).unwrap();
+
+            let bundle = if let Some((_, bundle)) = self.anchored_bundles.get_mut(witness_txid) {
+                bundle
+            } else {
+                let anchor: &Anchor<lnpbp4::MerkleBlock> = anchors.get(witness_txid).unwrap();
+                let bundle: TransitionBundle =
+                    TransitionBundle::try_from(bundles.get(witness_txid).unwrap().to_owned())?;
+                let anchor = anchor.to_merkle_proof(*contract_id)?;
+                self.anchored_bundles
+                    .insert(*witness_txid, (anchor, bundle));
+                &mut self
+                    .anchored_bundles
+                    .get_mut(witness_txid)
+                    .expect("stdlib is broken")
+                    .1
+            };
+
+            let bundle_id = bundle.bundle_id();
+            for (_, assignments) in transition.owned_rights().iter() {
+                for seal in assignments.filter_revealed_seals() {
+                    let txid = seal.txid.unwrap_or(*witness_txid);
+                    let outpoint = OutPoint::new(txid, seal.vout);
+                    let seal_endpoint = SealEndpoint::from(seal);
+                    if outpoint_filter.includes(outpoint) {
+                        self.endpoints.push((bundle_id, seal_endpoint));
+                        self.endpoint_inputs.extend(
+                            transition
+                                .parent_outputs()
+                                .into_iter()
+                                .map(|out| out.node_id),
+                        );
+                    }
+                }
+            }
+
+            bundle.reveal_transition(transition.to_owned())?;
+        }
+
+        Ok(())
+    }
+
+    pub fn iterate(mut self, consignment_details: &ConsignmentDetails) -> Result<Self> {
+        // Collect all transitions between endpoints and genesis independently from their type
+        loop {
+            let node_ids = self.endpoint_inputs;
+            self.endpoint_inputs = vec![];
+            self.process(consignment_details, node_ids, &OutpointFilter::All)?;
+            if self.endpoint_inputs.is_empty() {
+                break;
+            }
+        }
+        Ok(self)
+    }
+
+    pub fn into_consignment<T: ConsignmentType>(
+        self,
+        schema: Schema,
+        root_schema: Option<Schema>,
+        genesis: Genesis,
+    ) -> Result<InmemConsignment<T>> {
+        let anchored_bundles = self
+            .anchored_bundles
+            .into_values()
+            .collect::<Vec<_>>()
+            .try_into()?;
+
+        Ok(InmemConsignment::<T>::with(
+            schema,
+            root_schema,
+            genesis,
+            self.endpoints,
+            anchored_bundles,
+            empty!(),
+        ))
+    }
+}
+
+fn compose_consignment<T: ConsignmentType>(
+    contract: &Contract,
+    utxos: Vec<OutPoint>,
+) -> Result<(InmemConsignment<T>, ConsignmentDetails)> {
+    let consignment_details = process_consignment(contract, true)?;
+    let details = consignment_details.clone();
+
+    let mut collector = Collector::new();
+    // let outpoints_all = OutpointFilter::All;
+
+    for transition_type in consignment_details.schema.transitions.keys() {
+        let chunk_id =
+            ChunkId::with_fixed_fragments(consignment_details.contract_id, *transition_type);
+        let node_ids: BTreeSet<NodeId> = consignment_details
+            .contract_transitions
+            .get(&chunk_id)
+            .unwrap()
+            .to_owned();
+        let outpoints: BTreeSet<OutPoint> = utxos.clone().into_iter().collect();
+        let filter = OutpointFilter::Only(outpoints);
+        collector.process(&consignment_details, node_ids, &filter)?;
+    }
+
+    collector = collector.iterate(&consignment_details)?;
+
+    let consignment = collector.into_consignment(
+        consignment_details.schema,
+        consignment_details.root_schema,
+        consignment_details.genesis,
+    )?;
+
+    Ok((consignment, details))
+}
+
+fn outpoint_state(
+    outpoints: &BTreeSet<OutPoint>,
+    consignment_details: &ConsignmentDetails,
+) -> Result<ContractStateMap> {
+    let mut res: ContractStateMap = bmap! {};
+
+    let indexes: BTreeSet<ChunkId> = outpoints
+        .iter()
+        .map(|outpoint| ChunkId::with_fixed_fragments(outpoint.txid, outpoint.vout))
+        .collect();
+
+    for index in &indexes {
+        let set: &BTreeSet<NodeId> = consignment_details.outpoints.get(index).unwrap();
+        for node_id in set {
+            let contract_id: &ContractId = consignment_details.node_contracts.get(node_id).unwrap();
+
+            let state: &ContractState = consignment_details.contracts.get(contract_id).unwrap();
+
+            let map = if outpoints.is_empty() {
+                state.all_outpoint_state()
+            } else {
+                state.filter_outpoint_state(outpoints)
+            };
+
+            res.insert(*contract_id, map);
+        }
+    }
+
+    Ok(res)
+}
+
 pub async fn transfer_asset(
-    blinded_utxo: String,
+    blinded_utxo: &str,
     amount: u64,
-    asset: ThinAsset,
+    asset_contract: &str, // rgb1...
     full_wallet: &Wallet<MemoryDatabase>,
-    full_change_wallet: &Wallet<MemoryDatabase>,
     assets_wallet: &Wallet<MemoryDatabase>,
-    node_url: Option<String>,
-) -> Result<TransferResponse> {
+    rgb_tokens_descriptor: &str,
+) -> Result<(ConsignmentDetails, Transaction, TransferResponse)> {
+    // BDK
     info!("sync");
     synchronize_wallet(assets_wallet).await?;
     info!("synced");
-    let unspents = assets_wallet.list_unspent()?;
-    let utxos: Vec<OutPoint> = asset
-        .allocations
-        .clone()
-        .into_iter()
-        .map(|x| OutPoint::from_str(&x.outpoint))
-        .collect::<Result<Vec<_>, _>>()?;
-    debug!(format!("utxos {utxos:#?}"));
-    debug!(format!("unspents {unspents:#?}"));
+    let asset_utxos = assets_wallet.list_unspent()?;
 
-    let to_be_consumed_utxos = utxos.clone();
-    let unspendable_outputs: Vec<OutPoint> = unspents
-        .into_iter()
-        .filter(move |x| {
-            let mut pass = true;
-            for local_utxo in to_be_consumed_utxos.iter() {
-                info!(format!("local_utxo {local_utxo:#?}"));
-                if (local_utxo.txid == x.outpoint.txid) && (local_utxo.vout == x.outpoint.vout) {
-                    info!(format!("local outpoint {:#?}", &x.outpoint));
-                    pass = false;
-                    break;
-                }
-            }
-            pass
-        })
-        .map(|x| OutPoint {
-            txid: x.outpoint.txid,
-            vout: x.outpoint.vout,
-        })
-        .collect();
+    // RGB
+    // rgb-cli -n testnet transfer compose ${CONTRACT_ID} ${UTXO_SRC} ${CONSIGNMENT}
+    let contract = Contract::from_str(asset_contract)?;
+    let asset = Asset::try_from(&contract)?;
 
-    let seal_coins: Vec<SealCoins> = unspendable_outputs
-        .clone()
-        .into_iter()
-        .map(|x| SealCoins {
-            coins: asset.balance - amount,
-            txid: Some(x.txid.to_string()),
-            vout: x.vout,
-        })
-        .filter(|x| (x.coins > 0)) // TODO: if we have only one asset it's all well but if we have several it will fail. Problem is we need allocate if we have serveral but if you put it 0 it will fail, so maybe is a rgb-node problem
-        .collect();
-    info!("seal_coins");
-    info!(format!("{:#?}", &seal_coins));
+    let mut allocations = vec![];
+    let mut balance = 0;
 
-    let seal_coins = match seal_coins.get(0) {
-        Some(seal_coin) => {
-            vec![seal_coin.clone()]
+    for utxo in &asset_utxos {
+        let mut coins = asset.outpoint_coins(utxo.outpoint);
+        for coin in coins.iter() {
+            balance += coin.state.value;
         }
-        None => {
-            vec![]
-        }
-    };
-
-    let send_to_one = assets_wallet.get_address(New).unwrap(); // TODO: that has to be corrected before release because this sats are lost! Bdk don't get the tweak key utxos!
-    let send_to_two = assets_wallet.get_address(New).unwrap();
-    synchronize_wallet(full_wallet).await?;
-    let (psbt, _details) = {
-        let mut builder = full_wallet.build_tx();
-        builder
-            .unspendable(unspendable_outputs.clone())
-            .add_recipient(send_to_one.script_pubkey(), 546)
-            .add_recipient(send_to_two.script_pubkey(), 546)
-            .enable_rbf()
-            .fee_rate(FeeRate::from_sat_per_vb(1.0));
-        match builder.finish() {
-            Ok((psbt, details)) => (psbt, details),
-            Err(e) => {
-                info!(format!("{:#?}", e));
-                builder = full_change_wallet.build_tx();
-                builder
-                    .unspendable(unspendable_outputs)
-                    .add_recipient(send_to_one.script_pubkey(), 546)
-                    .add_recipient(send_to_two.script_pubkey(), 546)
-                    .fee_rate(FeeRate::from_sat_per_vb(1.0));
-                builder.finish()?
-            }
-        }
-    };
-
-    info!(format!("psbt to server {:#?}", psbt.to_string()));
-    let transfer_request = TransferRequest {
-        inputs: utxos.clone(),
-        allocate: seal_coins,
-        receiver: blinded_utxo,
-        amount,
-        asset: asset.id,
-        witness: hex::encode(&serialize(&psbt)),
-    };
-    info!(format!("{:?}", transfer_request));
-
-    let (response, _) = post_json(url("transfer", &node_url), &transfer_request)
-        .await
-        .unwrap_or_else(|e| {
-            info!(format!("error from server {:#?}", e));
-            panic!("{:#?}", e);
-        });
-    // parse into generic JSON value
-    let transfer_response: TransferResponse = serde_json::from_str(&response)?;
-    info!(format!("Transfer made: {transfer_response:?}"));
-    let psbt: PartiallySignedTransaction =
-        deserialize(&hex::decode(transfer_response.witness.clone())?)?;
-    info!(format!("psbt from server {:#?}", psbt.to_string()));
-    sign_psbt(full_wallet, psbt).await?;
-
-    let enclose_request = EncloseForgetRequest {
-        outpoints: utxos,
-        disclosure: transfer_response.disclosure.clone(),
-    };
-    let (response, status) = post_json(url("enclose_forget", &node_url), &enclose_request).await?;
-
-    info!(format!("enclose and forget made {:?}", status));
-
-    if status == 200 {
-        info!(format!("forget utxo success: {:#?}", response));
-    } else {
-        info!(format!("forget utxo error"));
+        allocations.append(&mut coins);
     }
 
-    Ok(transfer_response)
+    debug!(format!("asset_utxos {:#?}", &asset_utxos));
+    debug!(format!("utxos {allocations:#?}"));
+    debug!(format!("balance {balance}"));
+
+    if amount > balance {
+        return Err(anyhow!(
+            "Not enough coins. Had {balance}, but needed {amount}"
+        ));
+    }
+
+    let seal_coins: Vec<SealCoins> = allocations
+        .clone()
+        .into_iter()
+        .map(|coin| SealCoins {
+            amount: coin.state.value,
+            txid: coin.seal.txid,
+            vout: coin.seal.vout,
+        })
+        // TODO: If we have only one asset it's okay, but if we have several it will fail. We need to allocate if we have several but if you put in 0 it will fail, so it might be an rgb-node problem
+        .filter(|x| (x.amount > 0))
+        .collect();
+    info!("seal_coins", format!("{seal_coins:#?}"));
+
+    // rgb20 transfer --utxo ${UTXO_SRC} --change 9900@tapret1st:${UTXO_CHANGE} ${CONSIGNMENT} 100@${TXOB} ${TRANSITION}
+    let outpoints: Vec<OutPoint> = seal_coins
+        .iter()
+        .map(|coin| OutPoint {
+            txid: coin.txid,
+            vout: coin.vout,
+        })
+        .collect();
+
+    // Compose consignment from provided asset contract
+    let (mut consignment, consignment_details) = compose_consignment(&contract, outpoints.clone())?;
+
+    // Compose asset transfer state transition
+    // rust-rgb20 -> bin/rgb20 -> Command::Transfer
+    let beneficiaries = vec![UtxobValue {
+        value: amount,
+        seal_confidential: blinded_utxo.parse()?,
+    }];
+    let beneficiaries = beneficiaries
+        .into_iter()
+        .map(|v| (v.seal_confidential.into(), amount))
+        .collect();
+
+    // Coin selection
+    // TODO: Better coin selection strategy
+
+    let change_output = asset_utxos.get(0).unwrap();
+    let mut change = vec![];
+    let mut inputs = vec![];
+    let mut remainder = amount;
+    for coin in allocations {
+        if coin.state.value >= remainder {
+            change.push(AllocatedValue {
+                value: coin.state.value - remainder,
+                seal: ExplicitSeal {
+                    method: CloseMethod::TapretFirst,
+                    txid: Some(change_output.outpoint.txid),
+                    vout: change_output.outpoint.vout,
+                },
+            });
+            inputs.push(InputDescriptor::from_str(&format!(
+                "{} /0/0",
+                coin.outpoint
+            ))?);
+            break;
+        } else {
+            change.push(AllocatedValue {
+                value: 0,
+                seal: ExplicitSeal {
+                    method: CloseMethod::TapretFirst,
+                    txid: Some(change_output.outpoint.txid),
+                    vout: change_output.outpoint.vout,
+                },
+            });
+            remainder -= coin.state.value;
+            inputs.push(InputDescriptor::from_str(&format!(
+                "{} /0/0",
+                coin.outpoint
+            ))?);
+        }
+    }
+
+    let change = change
+        .into_iter()
+        .map(|v| (v.into_revealed_seal(), v.value))
+        .collect();
+    let outpoints: BTreeSet<OutPoint> = outpoints.clone().into_iter().collect();
+    let transition = asset
+        .transfer(outpoints.clone(), beneficiaries, change)
+        .unwrap();
+
+    // descriptor-wallet -> btc-cold -> construct
+    // btc-cold construct --input "${UTXO_SRC} /0/0" --allow-tapret-path 1 ${WALLET} ${PSBT} ${FEE}
+    let txid_set: BTreeSet<_> = inputs.iter().map(|input| input.outpoint.txid).collect();
+    let electrum_client =
+        Client::new(&BITCOIN_EXPLORER_API.read().expect("Read lock for API URL"))?;
+    let tx_map = electrum_client
+        .batch_transaction_get(&txid_set)?
+        .into_iter()
+        .map(|tx| (tx.txid(), tx))
+        .collect::<BTreeMap<_, _>>();
+
+    info!("Re-scanned network");
+
+    let outputs = vec![]; // TODO: not sure if this is correct
+    let allow_tapret_path = DfsPath::from_str("1")?;
+    let descriptor = Descriptor::from_str(rgb_tokens_descriptor)?;
+    let fee = 500;
+    let mut psbt = Psbt::construct(
+        &descriptor,
+        &inputs,
+        &outputs,
+        0_u16,
+        fee,
+        Some(&allow_tapret_path),
+        &tx_map,
+    )
+    .expect("Construct PSBT for witness tx");
+    psbt.fallback_locktime = Some(LockTime::from_str("none")?);
+
+    // Embed information about the contract into the PSBT
+    psbt.set_rgb_contract(contract)?;
+
+    // Embed information about the state transition into the PSBT
+    // rgb-cli -n testnet transfer combine ${CONTRACT_ID} ${TRANSITION} ${PSBT} ${UTXO_SRC}
+    // rgb-node -> cli/command -> TransferCommand::Combine
+    let node_id = transition.node_id();
+    psbt.push_rgb_transition(transition)?;
+
+    let contract_id = consignment_details.contract_id;
+
+    for input in &mut psbt.inputs {
+        if outpoints.contains(&input.previous_outpoint) {
+            input.set_rgb_consumer(contract_id, node_id)?;
+        }
+    }
+
+    let outpoints: BTreeSet<_> = psbt
+        .inputs
+        .iter()
+        .map(|input| input.previous_outpoint)
+        .collect();
+    let state_map = outpoint_state(&outpoints, &consignment_details)?;
+    for (cid, outpoint_map) in state_map {
+        if cid == contract_id {
+            continue;
+        }
+        let blank_bundle = TransitionBundle::blank(&outpoint_map, &bmap! {})?;
+        for (transition, indexes) in blank_bundle.revealed_iter() {
+            psbt.push_rgb_transition(transition.clone())?;
+            for no in indexes {
+                psbt.inputs[*no as usize].set_rgb_consumer(contract_id, transition.node_id())?;
+            }
+        }
+    }
+
+    debug!("PSBT: {}", hex::encode(psbt.serialize()));
+
+    // Process all state transitions under all contracts which are present in PSBT and prepare information about them which will be used in LNPBP4 commitments.
+    // rgb psbt bundle ${PSBT}
+    // rgb-std -> bin/rgb -> Command::Psbt -> PsbtCommand::Bundle
+    let count = psbt.rgb_bundle_to_lnpbp4()?;
+    info!(format!("Total {count} bundles converted"));
+
+    // Analyze
+    for contract_id in psbt.rgb_contract_ids() {
+        info!(format!("- contract_id: {contract_id}"));
+        if let Some(contract) = psbt.rgb_contract(contract_id)? {
+            info!(format!("  - source: {contract}"));
+        } else {
+            info!("  - warning: contract source is absent");
+        }
+        info!("  - transitions:");
+        for node_id in psbt.rgb_node_ids(contract_id) {
+            if let Some(transition) = psbt.rgb_transition(node_id)? {
+                info!(format!("    - {}", transition.strict_serialize()?.to_hex()));
+            } else {
+                info!("    - warning: transition is absent");
+            }
+        }
+        info!("  - used in:");
+        for (node_id, vin) in psbt.rgb_contract_consumers(contract_id)? {
+            info!(format!("    - input: {vin}"));
+            info!(format!("      node_id: {node_id}"));
+        }
+    }
+
+    // Finalize the consignment by adding the anchor information to it referencing the txid.
+    // rgb-cli -n testnet transfer finalize --endseal ${TXOB} ${PSBT} ${CONSIGNMENT} --send
+    // rgb-node -> bucketd/processor -> finalize_transfer
+
+    info!(format!("Finalizing transfer for {}", contract_id));
+
+    // 1. Pack LNPBP-4 and anchor information.
+    let mut bundles = psbt.rgb_bundles()?;
+    debug!(format!("Found {} bundles", bundles.len()));
+    trace!(format!("Bundles: {bundles:?}"));
+
+    let anchor = Anchor::commit(&mut psbt)?;
+    trace!(format!("Anchor: {anchor:?}"));
+
+    // 2. Extract contract-related state transition from PSBT and put it
+    //    into consignment.
+    let bundle = bundles.remove(&contract_id).unwrap();
+    let bundle_id = bundle.bundle_id();
+    consignment.push_anchored_bundle(anchor.to_merkle_proof(contract_id)?, bundle)?;
+
+    // 3. Add seal endpoints.
+    let endseals = vec![SealEndpoint::from_str(blinded_utxo)?];
+    for endseal in endseals {
+        consignment.push_seal_endpoint(bundle_id, endseal);
+    }
+
+    // 4. Conceal all the state not related to the transfer.
+    // TODO: Conceal all the amounts except the last transition
+    // TODO: Conceal all seals outside of the paths from the endpoint to genesis
+
+    // 5. Construct and store disclosure for the blank transfers.
+    let txid = anchor.txid;
+    let disclosure = Disclosure::with(anchor, bundles, None);
+
+    info!(format!("txid: {txid}, disclosure: {disclosure:?}"));
+
+    // Finalize, sign & publish the witness transaction
+
+    // dbc commit ${PSBT}
+    // bp-core/bin/dbc -> Command::Commit
+    let anchor = psbt.embed_commit(&PsbtEmbeddedMessage)?;
+    info!(format!("Anchor: {anchor:?}"));
+
+    // btc-hot sign ${PSBT} ${DIR}/testnet
+    // btc-cold finalize --publish testnet ${PSBT}
+    let tx = sign_psbt(full_wallet, psbt.into()).await?;
+
+    let witness = format!("{tx:?}");
+
+    Ok((
+        process_consignment(&consignment, true)?,
+        tx,
+        TransferResponse {
+            consignment: consignment.to_string(),
+            disclosure: format!("{disclosure:?}"),
+            witness,
+        },
+    ))
 }

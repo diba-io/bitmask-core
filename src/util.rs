@@ -36,6 +36,28 @@ macro_rules! error {
     };
 }
 
+#[macro_export]
+macro_rules! warn {
+    ($($arg:expr),+) => {
+        let output = vec![$(String::from($arg.to_owned()),)+].join(" ");
+        #[cfg(target_arch = "wasm32")]
+        gloo_console::warn!(format!("{}", output));
+        #[cfg(not(target_arch = "wasm32"))]
+        log::warn!("{}", output);
+    };
+}
+
+#[macro_export]
+macro_rules! trace {
+    ($($arg:expr),+) => {
+        let output = vec![$(String::from($arg.to_owned()),)+].join(" ");
+        #[cfg(target_arch = "wasm32")]
+        gloo_console::trace!(format!("{}", output));
+        #[cfg(not(target_arch = "wasm32"))]
+        log::trace!("{}", output);
+    };
+}
+
 #[cfg(target_arch = "wasm32")]
 pub async fn post_json<T: Serialize>(url: String, body: &T) -> Result<(String, u16)> {
     let response = Request::post(&url)

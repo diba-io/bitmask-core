@@ -325,13 +325,17 @@ checksum = "bef38d45163c2f1dde094a7dfd33ccf595c92905c8f8f4fdc18d06fb1037718a"
 name = "bitmask-core"
 version = "0.3.1"
 dependencies = [
+ "amplify",
  "anyhow",
  "bdk",
  "bip39",
  "bitcoin",
+ "bitcoin_hashes 0.10.0",
  "bp-core",
  "commit_verify",
  "console_error_panic_hook",
+ "descriptor-wallet",
+ "electrum-client",
  "futures",
  "getrandom 0.2.7",
  "gloo-console",
@@ -351,6 +355,8 @@ dependencies = [
  "serde_json",
  "sha2 0.10.2",
  "stens",
+ "storm-core",
+ "strict_encoding",
  "tokio",
  "wasm-bindgen",
  "wasm-bindgen-futures",
@@ -473,9 +479,32 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f08493fa7707effc63254c66c6ea908675912493cd67952eda23c09fae2610b1"
 dependencies = [
  "cfg-if 1.0.0",
- "cipher",
+ "cipher 0.3.0",
  "cpufeatures",
  "zeroize",
+]
+
+[[package]]
+name = "chacha20"
+version = "0.8.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5c80e5460aa66fe3b91d40bcbdab953a597b60053e34d684ac6903f863b680a6"
+dependencies = [
+ "cfg-if 1.0.0",
+ "cipher 0.3.0",
+ "cpufeatures",
+ "zeroize",
+]
+
+[[package]]
+name = "chacha20"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c7fc89c7c5b9e7a02dfe45cd2367bae382f9ed31c61ca8debe5f827c420a2f08"
+dependencies = [
+ "cfg-if 1.0.0",
+ "cipher 0.4.3",
+ "cpufeatures",
 ]
 
 [[package]]
@@ -485,8 +514,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b6547abe025f4027edacd9edaa357aded014eecec42a5070d9b885c3c334aba2"
 dependencies = [
  "aead",
- "chacha20",
- "cipher",
+ "chacha20 0.7.3",
+ "cipher 0.3.0",
+ "poly1305",
+ "zeroize",
+]
+
+[[package]]
+name = "chacha20poly1305"
+version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a18446b09be63d457bbec447509e85f662f32952b035ce892290396bc0b0cff5"
+dependencies = [
+ "aead",
+ "chacha20 0.8.2",
+ "cipher 0.3.0",
  "poly1305",
  "zeroize",
 ]
@@ -512,6 +554,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7ee52072ec15386f770805afd189a01c8841be8696bed250fa2f13c4c0d6dfb7"
 dependencies = [
  "generic-array",
+]
+
+[[package]]
+name = "cipher"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d1873270f8f7942c191139cb8a40fd228da6c3fd2fc376d7e92d47aa14aeb59e"
+dependencies = [
+ "crypto-common",
+ "inout",
 ]
 
 [[package]]
@@ -672,8 +724,8 @@ version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2a41c3b5488899ea68ee2dd99e089b95629c6407150bda8e56f2602d78fec8e4"
 dependencies = [
- "chacha20",
- "chacha20poly1305",
+ "chacha20 0.7.3",
+ "chacha20poly1305 0.8.2",
  "rand_core 0.6.3",
  "salsa20",
  "x25519-dalek",
@@ -1287,6 +1339,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "inet2_addr"
+version = "0.8.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f1007a4b840c2db58cfb6d1a262c33f1a694383b46bd2eda4054f0d84eb08abd"
+dependencies = [
+ "amplify",
+ "lightning_encoding",
+ "secp256k1",
+ "strict_encoding",
+ "stringly_conversions",
+]
+
+[[package]]
+name = "inet2_derive"
+version = "0.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3c4dcfebf43283584cac748eadbbd3a5fab257d7e9a8fab4cf6bd7fcc01f0d30"
+dependencies = [
+ "amplify",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "inflate"
 version = "0.4.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1296,12 +1373,38 @@ dependencies = [
 ]
 
 [[package]]
+name = "inout"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a0c10553d664a4d0bcff9f4215d0aac67a639cc68ef660840afe309b807bc9f5"
+dependencies = [
+ "generic-array",
+]
+
+[[package]]
 name = "instant"
 version = "0.1.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7a5bbe824c507c5da5956355e86a746d82e0e1464f65d862cc5e71da70e94b2c"
 dependencies = [
  "cfg-if 1.0.0",
+]
+
+[[package]]
+name = "internet2"
+version = "0.8.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cdb989d923b9e5d091c57269869975016eef11af1d9670ae475a67e46bde941c"
+dependencies = [
+ "amplify",
+ "bitcoin_hashes 0.10.0",
+ "chacha20 0.9.0",
+ "chacha20poly1305 0.9.1",
+ "inet2_addr",
+ "inet2_derive",
+ "lightning_encoding",
+ "secp256k1",
+ "strict_encoding",
 ]
 
 [[package]]
@@ -2206,7 +2309,7 @@ version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ecbd2eb639fd7cab5804a0837fe373cc2172d15437e804c054a9fb885cb923b0"
 dependencies = [
- "cipher",
+ "cipher 0.3.0",
  "zeroize",
 ]
 
@@ -2318,7 +2421,7 @@ version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b7b6b755b01ac3c6c956bc26b02b10e42d68c26068f0289e26b7f4d561731848"
 dependencies = [
- "chacha20poly1305",
+ "chacha20poly1305 0.8.2",
  "crypto_box",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
@@ -2564,6 +2667,22 @@ dependencies = [
  "serde",
  "serde_with",
  "serde_yaml",
+ "strict_encoding",
+]
+
+[[package]]
+name = "storm-core"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f8c86eb19d8639c31589447f2a7c3488b51b9b4ff254286ab6705bf348abb204"
+dependencies = [
+ "amplify",
+ "bitcoin_hashes 0.10.0",
+ "commit_verify",
+ "internet2",
+ "lnpbp_bech32",
+ "once_cell",
+ "stens",
  "strict_encoding",
 ]
 

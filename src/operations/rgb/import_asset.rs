@@ -20,8 +20,7 @@ use crate::{
 
 pub fn get_asset_by_genesis(genesis: &str) -> Result<ThinAsset> {
     let contract = Contract::from_str(genesis)?;
-
-    let asset = Asset::try_from(&contract).unwrap();
+    let asset = Asset::try_from(&contract)?;
 
     let id = contract.contract_id().to_string();
     let metadata = contract.genesis().metadata();

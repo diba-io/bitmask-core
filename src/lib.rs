@@ -1,10 +1,12 @@
-#![allow(clippy::unused_unit)]
+#[macro_use]
+extern crate amplify;
+
 use std::str::FromStr;
 
 use anyhow::{format_err, Result};
 use bdk::{wallet::AddressIndex::LastUnused, BlockTime};
-use bitcoin::{util::address::Address, OutPoint};
-use bitcoin::{Transaction, Txid};
+use bitcoin::{util::address::Address, OutPoint, Transaction, Txid};
+use operations::rgb::ConsignmentDetails;
 use serde::{Deserialize, Serialize};
 use serde_encrypt::{
     serialize::impls::BincodeSerializer, shared_key::SharedKey, traits::SerdeEncryptSharedKey,
@@ -376,7 +378,8 @@ pub async fn fund_wallet(
     let wallet = get_wallet(descriptor, Some(change_descriptor))
         .await
         .unwrap();
-    let invoice = SatsInvoice {
+
+    let asset_invoice = SatsInvoice {
         address: address.unwrap(),
         amount: 613,
     };
@@ -384,8 +387,14 @@ pub async fn fund_wallet(
         address: uda_address.unwrap(),
         amount: 613,
     };
+
     let details = create_transaction(
-        vec![invoice.clone(), invoice, uda_invoice.clone(), uda_invoice],
+        vec![
+            asset_invoice.clone(),
+            asset_invoice,
+            uda_invoice.clone(),
+            uda_invoice,
+        ],
         &wallet,
     )
     .await?;
@@ -409,32 +418,31 @@ pub async fn fund_wallet(
 
 pub async fn send_tokens(
     btc_descriptor: &str,
-    btc_change_descriptor: &str,
+    // btc_change_descriptor: &str,
     rgb_tokens_descriptor: &str,
-    blinded_utxo: String,
+    blinded_utxo: &str,
     amount: u64,
-    asset: ThinAsset,
-    node_url: Option<String>,
-) -> Result<TransferResponse> {
+    asset_contract: &str,
+) -> Result<(ConsignmentDetails, Transaction, TransferResponse)> {
     let assets_wallet = get_wallet(rgb_tokens_descriptor, None).await.unwrap();
     let full_wallet = get_wallet(rgb_tokens_descriptor, Some(btc_descriptor))
         .await
         .unwrap();
-    let full_change_wallet = get_wallet(rgb_tokens_descriptor, Some(btc_change_descriptor))
-        .await
-        .unwrap();
-    let consignment = transfer_asset(
+    // let full_change_wallet = get_wallet(rgb_tokens_descriptor, Some(btc_change_descriptor))
+    //     .await
+    //     .unwrap();
+    let (consignment, tx, response) = transfer_asset(
         blinded_utxo,
         amount,
-        asset,
+        asset_contract,
         &full_wallet,
-        &full_change_wallet,
+        // &full_change_wallet,
         &assets_wallet,
-        node_url,
+        rgb_tokens_descriptor,
     )
     .await?;
 
-    Ok(consignment)
+    Ok((consignment, tx, response))
 }
 
 pub async fn validate_transaction(consignment: &str, node_url: Option<String>) -> Result<()> {

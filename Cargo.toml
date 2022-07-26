@@ -15,6 +15,7 @@ repository = "https://github.com/rgb-products/bitmask-core"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
+amplify = "3.13.0"
 anyhow = "1.0.44"
 bdk = { version = "0.20.0", features = [
     "use-esplora-reqwest",
@@ -24,9 +25,12 @@ bdk = { version = "0.20.0", features = [
 ], default-features = false }
 bip39 = "1.0.1"
 bitcoin = "0.28.1"
+bitcoin_hashes = "0.10.0"
 bp-core = { version = "0.8.0", features = ["wallet"] }
 commit_verify = { version = "0.8.0", features = ["rand"] }
 console_error_panic_hook = "0.1.6"
+descriptor-wallet = { version = "0.8.2", features = ["descriptors"] }
+electrum-client = "0.10.1"
 futures = "0.3.17"
 getrandom = { version = "0.2.3", features = ["js"] }
 gloo-console = "0.2.1"
@@ -48,6 +52,12 @@ serde_json = "1.0.68"
 serde-encrypt = "0.7.0"
 sha2 = "0.10.1"
 stens = { version = "0.7.1", features = ["serde"] }
+storm-core = "0.8.0"
+strict_encoding = { version = "0.8.1", features = [
+    "crypto",
+    "chrono",
+    "bitcoin",
+] }
 wasm-bindgen = { version = "0.2.77", features = ["serde-serialize"] }
 wasm-bindgen-futures = "0.4.27"
 web-sys = "0.3.55"
