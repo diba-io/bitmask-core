@@ -20,7 +20,7 @@ fn get_random_buf() -> Result<[u8; 16], getrandom::Error> {
     Ok(buf)
 }
 
-fn get_descriptor(xprv: ExtendedPrivKey, path: &str) -> String {
+fn get_descriptor(xprv: ExtendedPrivKey, path: &str, xpub: bool) -> String {
     let secp = Secp256k1::new();
     let deriv_descriptor: DerivationPath = DerivationPath::from_str(path).unwrap();
     let derived_xprv = &xprv.derive_priv(&secp, &deriv_descriptor).unwrap();
@@ -32,8 +32,12 @@ fn get_descriptor(xprv: ExtendedPrivKey, path: &str) -> String {
         .unwrap();
 
     if let SecretDesc(desc_seckey, _, _) = derived_xprv_desc_key {
-        let _desc_pubkey = desc_seckey.as_public(&secp).unwrap();
-        desc_seckey.to_string()
+        let desc_pubkey = desc_seckey.as_public(&secp).unwrap();
+        if xpub {
+            desc_pubkey.to_string()
+        } else {
+            desc_seckey.to_string()
+        }
     } else {
         "Invalid key variant".to_string()
     }
@@ -64,10 +68,10 @@ pub fn get_mnemonic(seed_password: &str) -> (String, String, String, String, Str
     let xprv = ExtendedPrivKey::new_master(*network, &seed).expect("New xprivkey from seed");
     // let network = network.to_string();
 
-    let btc_descriptor = format!("wpkh({})", get_descriptor(xprv, BTC_PATH));
-    let btc_change_descriptor = format!("wpkh({})", get_descriptor(xprv, BTC_CHANGE_PATH));
-    let rgb_tokens_descriptor = format!("wpkh({})", get_descriptor(xprv, RGB_TOKENS_PATH));
-    let rgb_nfts_descriptor = format!("wpkh({})", get_descriptor(xprv, RGB_NFTS_PATH));
+    let btc_descriptor = format!("wpkh({})", get_descriptor(xprv, BTC_PATH, false));
+    let btc_change_descriptor = format!("wpkh({})", get_descriptor(xprv, BTC_CHANGE_PATH, false));
+    let rgb_tokens_descriptor = format!("wpkh({})", get_descriptor(xprv, RGB_TOKENS_PATH, true));
+    let rgb_nfts_descriptor = format!("wpkh({})", get_descriptor(xprv, RGB_NFTS_PATH, true));
     // let rgb_tokens_descriptor = get_rgb_descriptor(&network, xprv, RGB_TOKENS_PATH);
     // let rgb_nfts_descriptor = get_rgb_descriptor(&network, xprv, RGB_NFTS_PATH);
 
@@ -96,10 +100,10 @@ pub fn save_mnemonic(
     let xprv = ExtendedPrivKey::new_master(*network, &seed).expect("New xprivkey from seed");
     // let network = network.to_string();
 
-    let btc_descriptor = format!("wpkh({})", get_descriptor(xprv, BTC_PATH));
-    let btc_change_descriptor = format!("wpkh({})", get_descriptor(xprv, BTC_CHANGE_PATH));
-    let rgb_tokens_descriptor = format!("wpkh({})", get_descriptor(xprv, RGB_TOKENS_PATH));
-    let rgb_nfts_descriptor = format!("wpkh({})", get_descriptor(xprv, RGB_NFTS_PATH));
+    let btc_descriptor = format!("wpkh({})", get_descriptor(xprv, BTC_PATH, false));
+    let btc_change_descriptor = format!("wpkh({})", get_descriptor(xprv, BTC_CHANGE_PATH, false));
+    let rgb_tokens_descriptor = format!("wpkh({})", get_descriptor(xprv, RGB_TOKENS_PATH, true));
+    let rgb_nfts_descriptor = format!("wpkh({})", get_descriptor(xprv, RGB_NFTS_PATH, true));
     // let rgb_tokens_descriptor = get_rgb_descriptor(&network, xprv, RGB_TOKENS_PATH);
     // let rgb_nfts_descriptor = get_rgb_descriptor(&network, xprv, RGB_NFTS_PATH);
 

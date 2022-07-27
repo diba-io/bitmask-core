@@ -13,6 +13,7 @@ use bp::seals::txout::{CloseMethod, ExplicitSeal};
 use commit_verify::lnpbp4::{self, MerkleBlock};
 use commit_verify::EmbedCommitVerify;
 use electrum_client::{Client, ElectrumApi};
+use regex::Regex;
 use rgb20::Asset;
 use rgb_core::{Anchor, Extension, IntoRevealedSeal};
 use rgb_std::AssignedState;
@@ -666,10 +667,17 @@ pub async fn transfer_asset(
     let outputs = vec![]; // TODO: not sure if this is correct
     let allow_tapret_path = DfsPath::from_str("0")?;
 
+    // format BDK descriptor for RGB
+    debug!(rgb_tokens_descriptor);
+    let re = Regex::new(r"\(\[([0-9a-f]+)/(.+)](.+)/").unwrap();
+    let cap = re.captures(rgb_tokens_descriptor).unwrap();
+    let rgb_tokens_descriptor = format!("wpkh(m=[{}]/{}=[{}]/*/*)", &cap[1], &cap[2], &cap[3]);
+    let rgb_tokens_descriptor = rgb_tokens_descriptor.replace('\'', "h");
+
     debug!(format!(
         "Creating descriptor wallet from RGB Tokens Descriptor: {rgb_tokens_descriptor}"
     ));
-    let descriptor = match Descriptor::from_str(rgb_tokens_descriptor) {
+    let descriptor = match Descriptor::from_str(&rgb_tokens_descriptor) {
         Ok(d) => d,
         Err(err) => {
             error!(format!(
@@ -688,7 +696,7 @@ pub async fn transfer_asset(
     debug!(format!("descriptor: {descriptor:?}"));
     debug!(format!("fee: {fee:?}"));
 
-    let mut psbt = Psbt::construct(
+    let mut psbt = match Psbt::construct(
         &descriptor,
         &inputs,
         &outputs,
@@ -696,8 +704,17 @@ pub async fn transfer_asset(
         fee,
         Some(&allow_tapret_path),
         &tx_map,
-    )
-    .expect("Construct PSBT for witness tx");
+    ) {
+        Ok(p) => p,
+        Err(err) => {
+            error!(format!(
+                "Error constructing PSBT from RGB Tokens Descriptor: {err}",
+            ));
+            return Err(anyhow!(
+                "Error constructing PSBT from RGB Tokens Descriptor"
+            ));
+        }
+    };
 
     debug!(format!("PSBT successfully constructed: {psbt:#?}"));
 

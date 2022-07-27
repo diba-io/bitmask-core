@@ -347,6 +347,7 @@ dependencies = [
  "once_cell",
  "pretty_env_logger",
  "psbt",
+ "regex",
  "reqwest",
  "rgb-core",
  "rgb-std",
