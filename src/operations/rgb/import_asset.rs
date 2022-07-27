@@ -5,9 +5,8 @@ use rgb20::Asset;
 use rgb_core::{
     data::Revealed,
     vm::embedded::constants::{FIELD_TYPE_NAME, FIELD_TYPE_TICKER},
-    Consignment, Node,
 };
-use rgb_std::Contract;
+use rgb_std::{Consignment, Contract, Node};
 
 use crate::{
     data::{

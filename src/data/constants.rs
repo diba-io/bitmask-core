@@ -1,4 +1,6 @@
+use anyhow::Result;
 use std::{str::FromStr, sync::RwLock};
+use tokio::sync::RwLock as AsyncRwLock;
 
 use bitcoin::Network;
 use once_cell::sync::Lazy;
@@ -22,6 +24,17 @@ static BITCOIN_EXPLORER_API_SIGNET: Lazy<String> =
 pub static BITCOIN_EXPLORER_API: Lazy<RwLock<String>> = Lazy::new(|| {
     RwLock::new(BITCOIN_EXPLORER_API_TESTNET.to_owned()) //TODO: Change default to mainnet
 });
+
+static BITCOIN_ELECTRUM_API_MAINNET: Lazy<String> =
+    Lazy::new(|| dot_env("BITCOIN_ELECTRUM_API_MAINNET"));
+static BITCOIN_ELECTRUM_API_TESTNET: Lazy<String> =
+    Lazy::new(|| dot_env("BITCOIN_ELECTRUM_API_TESTNET"));
+static BITCOIN_ELECTRUM_API_SIGNET: Lazy<String> =
+    Lazy::new(|| dot_env("BITCOIN_ELECTRUM_API_SIGNET"));
+pub static BITCOIN_ELECTRUM_API: Lazy<AsyncRwLock<String>> = Lazy::new(|| {
+    AsyncRwLock::new(BITCOIN_ELECTRUM_API_TESTNET.to_owned()) //TODO: Change default to mainnet
+});
+
 pub static NODE_SERVER_BASE_URL: Lazy<String> = Lazy::new(|| dot_env("NODE_SERVER_BASE_URL"));
 
 // Descriptor strings
@@ -29,16 +42,16 @@ pub static NODE_SERVER_BASE_URL: Lazy<String> = Lazy::new(|| dot_env("NODE_SERVE
 pub const BTC_PATH: &str = "m/84h/1h/0h/0";
 pub const BTC_CHANGE_PATH: &str = "m/84h/1h/0h/1";
 // For TOKENS ---> that's provisional, it will be replace for RGB final guidelines
-pub const RGB_TOKENS_PATH: &str = "m/168h/20h/0h/0";
+pub const RGB_TOKENS_PATH: u32 = 0;
 // For UDAS ---> that's provisional, it will be replace for RGB final guidelines
-pub const RGB_NFTS_PATH: &str = "m/168h/21h/0h/0";
+pub const RGB_NFTS_PATH: u32 = 1;
 
 pub static NETWORK: Lazy<RwLock<Network>> = Lazy::new(|| {
     RwLock::new(Network::Testnet) // TODO: Change default to mainnet
 });
 
 // See: https://docs.rs/bitcoin/0.27.1/src/bitcoin/network/constants.rs.html#62-75
-pub fn switch_network(network_str: &str) {
+pub async fn switch_network(network_str: &str) -> Result<()> {
     let network = Network::from_str(network_str).unwrap();
 
     *BITCOIN_EXPLORER_API.write().unwrap() = match network {
@@ -48,7 +61,16 @@ pub fn switch_network(network_str: &str) {
         Network::Regtest => unimplemented!(),
     };
 
+    *BITCOIN_ELECTRUM_API.write().await = match network {
+        Network::Bitcoin => BITCOIN_ELECTRUM_API_MAINNET.to_owned(),
+        Network::Testnet => BITCOIN_ELECTRUM_API_TESTNET.to_owned(),
+        Network::Signet => BITCOIN_ELECTRUM_API_SIGNET.to_owned(),
+        Network::Regtest => unimplemented!(),
+    };
+
     *NETWORK.write().unwrap() = network;
+
+    Ok(())
 }
 
 /// Get a node URL, using the default node URL is none is provided

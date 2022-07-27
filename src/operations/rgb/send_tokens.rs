@@ -2,6 +2,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::str::FromStr;
 
 use amplify::hex::ToHex;
+use amplify::Wrapper;
 use anyhow::{anyhow, Result};
 use bdk::LocalUtxo;
 // use bdk::sled::Serialize;
@@ -32,7 +33,7 @@ use wallet::{
 
 use crate::{
     data::{
-        constants::BITCOIN_EXPLORER_API,
+        constants::BITCOIN_ELECTRUM_API,
         structs::{SealCoins, TransferResponse},
     },
     debug, error, info,
@@ -76,7 +77,8 @@ pub struct ConsignmentDetails {
     root_schema: Option<Schema>,
 }
 
-fn process_consignment<C: ConsignmentType>(
+// rgb-node -> bucketd/processor -> process_consignment
+async fn process_consignment<C: ConsignmentType>(
     consignment: &InmemConsignment<C>,
     force: bool,
 ) -> Result<ConsignmentDetails> {
@@ -104,13 +106,12 @@ fn process_consignment<C: ConsignmentType>(
     ));
 
     let mut state = ContractState::with(schema_id, root_schema_id, contract_id, genesis);
-    debug!(format!("Starting with contract state {state:?}"));
+    debug!(format!("Starting with contract state {state:#?}"));
 
     info!(format!(
         "Validating consignment {consignment_id} for contract {contract_id}"
     ));
-    let electrum_client =
-        Client::new(&BITCOIN_EXPLORER_API.read().expect("Read lock for API URL"))?;
+    let electrum_client = Client::new(&BITCOIN_ELECTRUM_API.read().await)?;
     let status = Validator::validate(consignment, &electrum_client);
     info!(format!(
         "Consignment validation result is {}",
@@ -139,27 +140,31 @@ fn process_consignment<C: ConsignmentType>(
     info!(format!(
         "Storing consignment {consignment_id} into database"
     ));
-    debug!(format!("Schema: {schema:?}"));
+    debug!(format!("Schema: {schema:#?}"));
     schemata.insert(schema_id, schema.clone());
     if let Some(root_schema) = root_schema.clone() {
-        debug!(format!("Root schema: {root_schema:?}"));
+        debug!(format!("Root schema: {root_schema:#?}"));
         schemata.insert(root_schema.schema_id(), root_schema);
     }
 
     let genesis = consignment.genesis();
     info!("Indexing genesis");
-    debug!(format!("Genesis: {genesis:?}"));
+    debug!(format!("Genesis: {genesis:#?}"));
 
     for seal in genesis.revealed_seals().unwrap_or_default() {
         debug!(format!("Adding outpoint for seal {seal}"));
         let index_id = ChunkId::with_fixed_fragments(seal.txid, seal.vout);
-        outpoints
+        debug!(format!("index id: {index_id}"));
+        let success = outpoints
             .entry(index_id)
             .or_insert(BTreeSet::new())
-            .insert(NodeId::from_str(&contract_id.to_string())?);
+            .insert(NodeId::from_inner(contract_id.into_inner()));
+        debug!(format!(
+            "insertion into outpoints BTreeMap success: {success}"
+        ));
     }
     debug!("Storing contract self-reference");
-    node_contracts.insert(NodeId::from_str(&contract_id.to_string())?, contract_id);
+    node_contracts.insert(NodeId::from_inner(contract_id.into_inner()), contract_id);
 
     for (anchor, bundle) in consignment.anchored_bundles() {
         let bundle_id = bundle.bundle_id();
@@ -235,7 +240,7 @@ fn process_consignment<C: ConsignmentType>(
     }
 
     info!(format!("Storing contract state for {contract_id}"));
-    debug!(format!("Final contract state is {state:?}"));
+    debug!(format!("Final contract state is {state:#?}"));
     contracts.insert(contract_id, state);
 
     info!(format!(
@@ -374,36 +379,44 @@ impl Collector {
     }
 }
 
-fn compose_consignment<T: ConsignmentType>(
+// rgb-node -> bucketd/processor -> compose_consignment
+async fn compose_consignment<T: ConsignmentType>(
     contract: &Contract,
     utxos: Vec<OutPoint>,
 ) -> Result<(InmemConsignment<T>, ConsignmentDetails)> {
-    let consignment_details = process_consignment(contract, true)?;
+    info!("Composing consignment");
+    let consignment_details = process_consignment(contract, true).await?;
+    debug!("Consignment successfully processed");
     let details = consignment_details.clone();
 
     let mut collector = Collector::new();
-    // let outpoints_all = OutpointFilter::All;
 
-    for transition_type in consignment_details.schema.transitions.keys() {
-        let chunk_id =
-            ChunkId::with_fixed_fragments(consignment_details.contract_id, *transition_type);
-        let node_ids: BTreeSet<NodeId> = consignment_details
+    debug!("Processing consignment into a consignment collector");
+    for transition_type in details.schema.transitions.keys() {
+        let chunk_id = ChunkId::with_fixed_fragments(details.contract_id, *transition_type);
+        debug!(format!("ChunkId: {chunk_id}"));
+        let node_ids: BTreeSet<NodeId> = details
             .contract_transitions
             .get(&chunk_id)
-            .unwrap()
+            .unwrap_or(&BTreeSet::new())
             .to_owned();
+        debug!(format!("node_ids: {node_ids:#?}"));
         let outpoints: BTreeSet<OutPoint> = utxos.clone().into_iter().collect();
+        debug!(format!("outpoints: {outpoints:#?}"));
         let filter = OutpointFilter::Only(outpoints);
-        collector.process(&consignment_details, node_ids, &filter)?;
+        collector.process(&details, node_ids, &filter)?;
     }
+    debug!("Consignment successfully processed into collector");
 
-    collector = collector.iterate(&consignment_details)?;
+    collector = collector.iterate(&details)?;
 
     let consignment = collector.into_consignment(
         consignment_details.schema,
         consignment_details.root_schema,
         consignment_details.genesis,
     )?;
+
+    debug!("Consignment collector successfully processed into consignment");
 
     Ok((consignment, details))
 }
@@ -460,7 +473,7 @@ pub async fn transfer_asset(
     let contract = Contract::from_str(asset_contract)?;
     debug!(format!("parsed contract: {contract}"));
     let asset = Asset::try_from(&contract)?;
-    debug!(format!("asset from contract: {asset:?}"));
+    debug!(format!("asset from contract: {asset:#?}"));
 
     let mut allocations = vec![];
     let mut balance = 0;
@@ -478,6 +491,9 @@ pub async fn transfer_asset(
     debug!(format!("balance {balance}"));
 
     if amount > balance {
+        error!(format!(
+            "Not enough coins. Had {balance}, but needed {amount}"
+        ));
         return Err(anyhow!(
             "Not enough coins. Had {balance}, but needed {amount}"
         ));
@@ -506,41 +522,71 @@ pub async fn transfer_asset(
         .collect();
 
     // Compose consignment from provided asset contract
-    let (mut consignment, consignment_details) = compose_consignment(&contract, outpoints.clone())?;
+    let (mut consignment, consignment_details) =
+        compose_consignment(&contract, outpoints.clone()).await?;
 
-    // Compose asset transfer state transition
+    info!(format!("Parse blinded UTXO: {blinded_utxo}"));
+    let utxob = match blinded_utxo.parse() {
+        Ok(utxob) => utxob,
+        Err(err) => return Err(anyhow!("Error parsing supplied blinded utxo: {err}")),
+    };
+
     // rust-rgb20 -> bin/rgb20 -> Command::Transfer
     let beneficiaries = vec![UtxobValue {
         value: amount,
-        seal_confidential: blinded_utxo.parse()?,
+        seal_confidential: utxob,
     }];
+    debug!("Map beneficiaries");
     let beneficiaries = beneficiaries
         .into_iter()
         .map(|v| (v.seal_confidential.into(), amount))
         .collect();
 
-    // Coin selection - Largest First Coin
+    info!(format!("Beneficiaries: {beneficiaries:?}"));
+
+    debug!("Coin selection - Largest First Coin");
     let mut change: Vec<(AssignedState<_>, u64)> = vec![];
     let mut inputs = vec![];
     let mut remainder = amount;
 
     for coin in allocations {
+        let descriptor = format!("{}:{} /0/0", coin.seal.txid, coin.seal.vout);
+        debug!(format!(
+            "Parsing InputDescriptor from outpoint: {descriptor}"
+        ));
+        let input_descriptor = match InputDescriptor::from_str(&descriptor) {
+            Ok(desc) => desc,
+            Err(err) => return Err(anyhow!("Error parsing input_descriptor: {err}")),
+        };
+        debug!(format!(
+            "InputDescriptor successfully parsed: {input_descriptor:?}"
+        ));
+
         if coin.state.value >= remainder {
+            debug!("Large coins");
             change.push((coin.clone(), coin.state.value - remainder)); // Change
-            inputs.push(InputDescriptor::from_str(&format!(
-                "{} /0/0",
-                coin.outpoint
-            ))?);
+            inputs.push(input_descriptor);
+            debug!(format!("Coin: {coin:?}"));
+            debug!(format!(
+                "Amount: {} - Remainder: {remainder}",
+                coin.state.value
+            ));
             break;
         } else {
+            debug!("Whole coins");
             change.push((coin.clone(), coin.state.value)); // Spend entire coin
             remainder -= coin.state.value;
-            inputs.push(InputDescriptor::from_str(&format!(
-                "{} /0/0",
-                coin.outpoint
-            ))?);
+            inputs.push(input_descriptor);
+            debug!(format!("Coin: {coin:?}"));
+            debug!(format!(
+                "Amount: {} - Remainder: {remainder}",
+                coin.state.value
+            ));
         }
     }
+
+    debug!(format!("Change: {change:#?}"));
+    debug!(format!("Inputs: {inputs:#?}"));
 
     // Find an output that isn't being used as change
     let change_outputs: Vec<&LocalUtxo> = asset_utxos
@@ -553,18 +599,22 @@ pub async fn transfer_asset(
         })
         .collect();
 
+    debug!(format!("Candidate change outputs: {change_outputs:#?}"));
+
     // If there's no free outputs, the user needs to run fund vault again.
     if change_outputs.is_empty() {
+        error!("no free outputs, the user needs to run fund vault again");
         return Err(anyhow!(
             "no free outputs, the user needs to run fund vault again"
         ));
     }
     let change_output = change_outputs.get(0).unwrap();
+    debug!(format!("Selected change output: {change_output:#?}"));
 
     let change = change
         .iter()
-        .map(|(coin, remainder)| AllocatedValue {
-            value: coin.state.value - remainder,
+        .map(|(_coin, remainder)| AllocatedValue {
+            value: *remainder,
             seal: ExplicitSeal {
                 method: CloseMethod::TapretFirst,
                 txid: Some(change_output.outpoint.txid),
@@ -573,16 +623,38 @@ pub async fn transfer_asset(
         })
         .map(|v| (v.into_revealed_seal(), v.value))
         .collect();
-    let outpoints: BTreeSet<OutPoint> = outpoints.clone().into_iter().collect();
-    let transition = asset
-        .transfer(outpoints.clone(), beneficiaries, change)
-        .unwrap();
+
+    let outpoints: BTreeSet<OutPoint> = outpoints.into_iter().collect();
+
+    info!("Creating state transition for asset transfer");
+    debug!(format!("Outpoints: {outpoints:#?}"));
+    debug!(format!("Beneficiaries: {beneficiaries:#?}"));
+    debug!(format!("Change allocated values: {change:#?}"));
+
+    let transition = match asset.transfer(outpoints.clone(), beneficiaries, change) {
+        Ok(t) => t,
+        Err(err) => {
+            error!(format!(
+                "Error creating state transition for asset transfer: {err}",
+            ));
+            return Err(anyhow!(
+                "Error creating state transition for asset transfer"
+            ));
+        }
+    };
+
+    info!("Successfully created transition");
+    debug!(format!("Transition: {transition:#?}"));
 
     // descriptor-wallet -> btc-cold -> construct
     // btc-cold construct --input "${UTXO_SRC} /0/0" --allow-tapret-path 1 ${WALLET} ${PSBT} ${FEE}
     let txid_set: BTreeSet<_> = inputs.iter().map(|input| input.outpoint.txid).collect();
-    let electrum_client =
-        Client::new(&BITCOIN_EXPLORER_API.read().expect("Read lock for API URL"))?;
+    debug!(format!("txid set: {txid_set:?}"));
+
+    let url = BITCOIN_ELECTRUM_API.read().await;
+    let electrum_client = Client::new(&url)?;
+    debug!(format!("electrum client connected to {url}"));
+
     let tx_map = electrum_client
         .batch_transaction_get(&txid_set)?
         .into_iter()
@@ -593,8 +665,29 @@ pub async fn transfer_asset(
 
     let outputs = vec![]; // TODO: not sure if this is correct
     let allow_tapret_path = DfsPath::from_str("1")?;
-    let descriptor = Descriptor::from_str(rgb_tokens_descriptor)?;
+
+    debug!(format!(
+        "Creating descriptor wallet from RGB Tokens Descriptor: {rgb_tokens_descriptor}"
+    ));
+    let descriptor = match Descriptor::from_str(rgb_tokens_descriptor) {
+        Ok(d) => d,
+        Err(err) => {
+            error!(format!(
+                "Error creating descriptor wallet from RGB Tokens Descriptor: {err}",
+            ));
+            return Err(anyhow!(
+                "Error creating descriptor wallet from RGB Tokens Descriptor"
+            ));
+        }
+    };
     let fee = 500;
+
+    debug!("Constructing PSBT with...");
+    debug!(format!("outputs: {outputs:?}"));
+    debug!(format!("allow_tapret_path: {allow_tapret_path:?}"));
+    debug!(format!("descriptor: {descriptor:?}"));
+    debug!(format!("fee: {fee:?}"));
+
     let mut psbt = Psbt::construct(
         &descriptor,
         &inputs,
@@ -605,10 +698,15 @@ pub async fn transfer_asset(
         &tx_map,
     )
     .expect("Construct PSBT for witness tx");
+
+    debug!(format!("PSBT successfully constructed: {psbt:#?}"));
+
     psbt.fallback_locktime = Some(LockTime::from_str("none")?);
+    debug!(format!("Locktime set: {:#?}", psbt.fallback_locktime));
 
     // Embed information about the contract into the PSBT
     psbt.set_rgb_contract(contract)?;
+    debug!("RGB contract successfully set on PSBT");
 
     // Embed information about the state transition into the PSBT
     // rgb-cli -n testnet transfer combine ${CONTRACT_ID} ${TRANSITION} ${PSBT} ${UTXO_SRC}
@@ -695,7 +793,7 @@ pub async fn transfer_asset(
     consignment.push_anchored_bundle(anchor.to_merkle_proof(contract_id)?, bundle)?;
 
     // 3. Add seal endpoints.
-    let endseals = vec![SealEndpoint::from_str(blinded_utxo)?];
+    let endseals = vec![SealEndpoint::try_from(utxob)?];
     for endseal in endseals {
         consignment.push_seal_endpoint(bundle_id, endseal);
     }
@@ -724,7 +822,7 @@ pub async fn transfer_asset(
     let witness = format!("{tx:?}");
 
     Ok((
-        process_consignment(&consignment, true)?,
+        process_consignment(&consignment, true).await?,
         tx,
         TransferResponse {
             consignment: consignment.to_string(),

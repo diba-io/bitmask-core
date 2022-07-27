@@ -29,7 +29,7 @@ bitcoin_hashes = "0.10.0"
 bp-core = { version = "0.8.0", features = ["wallet"] }
 commit_verify = { version = "0.8.0", features = ["rand"] }
 console_error_panic_hook = "0.1.6"
-descriptor-wallet = { version = "0.8.2", features = ["descriptors"] }
+descriptor-wallet = { version = "0.8.2", features = ["descriptors", "serde"] }
 electrum-client = "0.10.1"
 futures = "0.3.17"
 getrandom = { version = "0.2.3", features = ["js"] }
@@ -40,6 +40,7 @@ js-sys = "0.3.55"
 log = "0.4.17"
 lnpbp = "0.8.0"
 once_cell = "1.9.0"
+psbt = { version = "0.8.4", features = ["sign", "miniscript", "serde"] }
 reqwest = { version = "0.11.11", features = ["json"] }
 rgb-core = { package = "rgb-core", version = "0.8.0", features = ["serde"] }
 rgb-std = { package = "rgb-std", version = "0.8.0", features = [
@@ -58,6 +59,7 @@ strict_encoding = { version = "0.8.1", features = [
     "chrono",
     "bitcoin",
 ] }
+tokio = { version = "1.20.1" }
 wasm-bindgen = { version = "0.2.77", features = ["serde-serialize"] }
 wasm-bindgen-futures = "0.4.27"
 web-sys = "0.3.55"

@@ -21,7 +21,7 @@ const SUPPLY: u64 = 1000;
 #[tokio::test]
 async fn asset_import() -> Result<()> {
     if env::var("RUST_LOG").is_err() {
-        env::set_var("RUST_LOG", "info");
+        env::set_var("RUST_LOG", "bitmask_core=debug");
     }
 
     pretty_env_logger::init();
@@ -86,16 +86,15 @@ async fn asset_import() -> Result<()> {
 
     info!("Get a blinded UTXO");
     let blinded_utxo = set_blinded_utxo(&fund_vault_details.send_assets)?;
-    let blinded_utxo = format!("{:?}", blinded_utxo);
 
-    info!("Blinded UTXO: {}", &blinded_utxo);
+    info!("Blinded UTXO: {:?}", blinded_utxo);
 
     info!("Transfer asset");
     let consignment = send_tokens(
         &vault.btc_descriptor,
         // &vault.btc_change_descriptor,
         &vault.rgb_tokens_descriptor,
-        &blinded_utxo,
+        &blinded_utxo.conceal,
         100,
         &issued_asset.genesis,
     )

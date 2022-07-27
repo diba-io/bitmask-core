@@ -311,9 +311,9 @@ struct TransactionData {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BlindingUtxo {
-    conceal: String,
-    blinding: String,
-    utxo: OutPoint,
+    pub conceal: String,
+    pub blinding: String,
+    pub utxo: OutPoint,
 }
 
 pub fn set_blinded_utxo(utxo_string: &str) -> Result<BlindingUtxo> {
@@ -506,8 +506,8 @@ pub async fn import_accept(
     }
 }
 
-pub fn switch_network(network_str: &str) {
-    constants::switch_network(network_str);
+pub async fn switch_network(network_str: &str) -> Result<()> {
+    constants::switch_network(network_str).await
 }
 
 pub fn get_network() -> Result<String> {
