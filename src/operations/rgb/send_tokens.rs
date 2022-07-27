@@ -664,7 +664,7 @@ pub async fn transfer_asset(
     info!("Re-scanned network");
 
     let outputs = vec![]; // TODO: not sure if this is correct
-    let allow_tapret_path = DfsPath::from_str("1")?;
+    let allow_tapret_path = DfsPath::from_str("0")?;
 
     debug!(format!(
         "Creating descriptor wallet from RGB Tokens Descriptor: {rgb_tokens_descriptor}"
@@ -741,7 +741,7 @@ pub async fn transfer_asset(
         }
     }
 
-    debug!("PSBT: {}", hex::encode(psbt.serialize()));
+    debug!(format!("PSBT: {}", base64::encode(&psbt.serialize())));
 
     // Process all state transitions under all contracts which are present in PSBT and prepare information about them which will be used in LNPBP4 commitments.
     // rgb psbt bundle ${PSBT}

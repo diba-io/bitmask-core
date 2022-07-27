@@ -327,6 +327,7 @@ version = "0.3.1"
 dependencies = [
  "amplify",
  "anyhow",
+ "base64-compat",
  "bdk",
  "bip39",
  "bitcoin",
@@ -340,7 +341,6 @@ dependencies = [
  "getrandom 0.2.7",
  "gloo-console",
  "gloo-net",
- "hex",
  "js-sys",
  "lnpbp",
  "log",

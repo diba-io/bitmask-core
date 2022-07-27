@@ -4,8 +4,8 @@ use std::env;
 
 use anyhow::Result;
 use bitmask_core::{
-    create_asset, fund_wallet, get_network, get_vault, get_wallet_data, import_asset,
-    save_mnemonic_seed, send_tokens, set_blinded_utxo,
+    create_asset, fund_wallet, get_network, /* get_rgb_address,*/ get_vault, get_wallet_data,
+    import_asset, save_mnemonic_seed, send_tokens, set_blinded_utxo,
 };
 use log::info;
 

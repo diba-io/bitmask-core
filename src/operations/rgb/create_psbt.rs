@@ -15,5 +15,5 @@ pub async fn create_psbt(address: Address, amount: u64, wallet: &Wallet<MemoryDa
     };
 
     info!(format!("Transaction details: {details:#?}"));
-    debug!("Unsigned PSBT", hex::encode(&serialize(&psbt)));
+    debug!("Unsigned PSBT", base64::encode(&serialize(&psbt)));
 }

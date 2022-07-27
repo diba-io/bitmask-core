@@ -29,7 +29,7 @@ use operations::{
     bitcoin::{create_transaction, get_mnemonic, get_wallet, save_mnemonic},
     rgb::{
         accept_transfer, blind_utxo, get_asset_by_contract_id, get_asset_by_genesis, get_assets,
-        issue_asset, transfer_asset, validate_transfer,
+        issue_asset, /* rgb_address, */ transfer_asset, validate_transfer,
     },
 };
 
@@ -237,6 +237,10 @@ pub async fn get_wallet_data(
         unspent,
     })
 }
+
+// pub fn get_rgb_address(descriptor_str: &str, index: u16, change: bool) -> Result<String> {
+//     rgb_address(descriptor_str, index, change)
+// }
 
 pub async fn import_list_assets(node_url: Option<String>) -> Result<Vec<AssetResponse>> {
     info!("import_list_assets");
