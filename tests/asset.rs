@@ -7,7 +7,7 @@ use bitmask_core::{
     create_asset, fund_wallet, get_network, /* get_rgb_address,*/ get_vault, get_wallet_data,
     import_asset, save_mnemonic_seed, send_tokens, set_blinded_utxo,
 };
-use log::info;
+use log::{debug, info};
 
 const ENCRYPTION_PASSWORD: &str = "hunter2";
 const SEED_PASSWORD: &str = "";
@@ -21,7 +21,7 @@ const SUPPLY: u64 = 1000;
 #[tokio::test]
 async fn asset_import() -> Result<()> {
     if env::var("RUST_LOG").is_err() {
-        env::set_var("RUST_LOG", "bitmask_core=debug");
+        env::set_var("RUST_LOG", "bitmask_core=debug,asset=debug");
     }
 
     pretty_env_logger::init();
@@ -61,6 +61,7 @@ async fn asset_import() -> Result<()> {
         &udas_wallet.address,
     )
     .await?;
+    debug!("Fund vault details: {fund_vault_details:#?}");
 
     info!("Create a test asset");
     let issued_asset = &create_asset(
@@ -72,8 +73,9 @@ async fn asset_import() -> Result<()> {
     )?;
 
     let asset_data = serde_json::to_string_pretty(&issued_asset)?;
+    debug!("Asset data: {asset_data}");
 
-    info!("Asset data: {asset_data}");
+    info!("Import asset");
     let imported_asset = import_asset(
         &vault.rgb_tokens_descriptor,
         None,
@@ -87,10 +89,10 @@ async fn asset_import() -> Result<()> {
     info!("Get a blinded UTXO");
     let blinded_utxo = set_blinded_utxo(&fund_vault_details.send_assets)?;
 
-    info!("Blinded UTXO: {:?}", blinded_utxo);
+    debug!("Blinded UTXO: {:?}", blinded_utxo);
 
     info!("Transfer asset");
-    let consignment = send_tokens(
+    let consignment_details = send_tokens(
         &vault.btc_descriptor,
         // &vault.btc_change_descriptor,
         &vault.rgb_tokens_descriptor,
@@ -100,7 +102,7 @@ async fn asset_import() -> Result<()> {
     )
     .await?;
 
-    info!("Transfer response: {:?}", &consignment);
+    debug!("Transfer response: {:#?}", &consignment_details);
 
     Ok(())
 }

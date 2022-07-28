@@ -207,10 +207,10 @@ pub async fn get_wallet_data(
         .into_iter()
         .map(|x| x.outpoint.to_string())
         .collect();
-    debug!(format!("unspent: {unspent:#?}"));
+    trace!(format!("unspent: {unspent:#?}"));
 
     let transactions = wallet.list_transactions(false).unwrap_or_default();
-    debug!(format!("transactions: {transactions:#?}"));
+    trace!(format!("transactions: {transactions:#?}"));
 
     let transactions: Vec<WalletTransaction> = transactions
         .into_iter()
@@ -353,7 +353,7 @@ pub async fn send_sats(
     Ok(transaction)
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct FundVaultDetails {
     pub txid: String,
     pub send_assets: String,
@@ -418,11 +418,9 @@ pub async fn send_tokens(
     amount: u64,
     asset_contract: &str,
 ) -> Result<(ConsignmentDetails, Transaction, TransferResponse)> {
-    let assets_wallet = get_wallet(rgb_tokens_descriptor, None)?;
     let full_wallet = get_wallet(rgb_tokens_descriptor, Some(btc_descriptor))?;
-    // let full_change_wallet = get_wallet(rgb_tokens_descriptor, Some(btc_change_descriptor))
-    //     .await
-    //     .unwrap();
+    // let full_change_wallet = get_wallet(rgb_tokens_descriptor, Some(btc_change_descriptor))?;
+    let assets_wallet = get_wallet(rgb_tokens_descriptor, None)?;
     let (consignment, tx, response) = transfer_asset(
         blinded_utxo,
         amount,

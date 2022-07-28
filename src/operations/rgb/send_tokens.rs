@@ -32,6 +32,7 @@ use wallet::{
     descriptors::InputDescriptor, locks::LockTime, psbt::Psbt, scripts::taproot::DfsPath,
 };
 
+use crate::trace;
 use crate::{
     data::{
         constants::BITCOIN_ELECTRUM_API,
@@ -141,7 +142,7 @@ async fn process_consignment<C: ConsignmentType>(
     info!(format!(
         "Storing consignment {consignment_id} into database"
     ));
-    debug!(format!("Schema: {schema:#?}"));
+    trace!(format!("Schema: {schema:#?}"));
     schemata.insert(schema_id, schema.clone());
     if let Some(root_schema) = root_schema.clone() {
         debug!(format!("Root schema: {root_schema:#?}"));
@@ -458,6 +459,7 @@ pub async fn transfer_asset(
     amount: u64,
     asset_contract: &str, // rgb1...
     full_wallet: &Wallet<MemoryDatabase>,
+    // full_change_wallet: &Wallet<MemoryDatabase>,
     assets_wallet: &Wallet<MemoryDatabase>,
     rgb_tokens_descriptor: &str,
 ) -> Result<(ConsignmentDetails, Transaction, TransferResponse)> {
@@ -487,8 +489,8 @@ pub async fn transfer_asset(
         allocations.append(&mut coins);
     }
 
-    debug!(format!("asset_utxos {:#?}", &asset_utxos));
-    debug!(format!("utxos {allocations:#?}"));
+    trace!(format!("asset utxos {:#?}", &asset_utxos));
+    debug!(format!("allocations {allocations:#?}"));
     debug!(format!("balance {balance}"));
 
     if amount > balance {
@@ -600,7 +602,7 @@ pub async fn transfer_asset(
         })
         .collect();
 
-    debug!(format!("Candidate change outputs: {change_outputs:#?}"));
+    trace!(format!("Candidate change outputs: {change_outputs:#?}"));
 
     // If there's no free outputs, the user needs to run fund vault again.
     if change_outputs.is_empty() {
@@ -617,7 +619,7 @@ pub async fn transfer_asset(
         .map(|(_coin, remainder)| AllocatedValue {
             value: *remainder,
             seal: ExplicitSeal {
-                method: CloseMethod::TapretFirst,
+                method: CloseMethod::OpretFirst,
                 txid: Some(change_output.outpoint.txid),
                 vout: change_output.outpoint.vout,
             },
@@ -654,7 +656,7 @@ pub async fn transfer_asset(
 
     let url = BITCOIN_ELECTRUM_API.read().await;
     let electrum_client = Client::new(&url)?;
-    debug!(format!("electrum client connected to {url}"));
+    debug!(format!("Electrum client connected to {url}"));
 
     let tx_map = electrum_client
         .batch_transaction_get(&txid_set)?
@@ -668,7 +670,6 @@ pub async fn transfer_asset(
     let allow_tapret_path = DfsPath::from_str("0")?;
 
     // format BDK descriptor for RGB
-    debug!(rgb_tokens_descriptor);
     let re = Regex::new(r"\(\[([0-9a-f]+)/(.+)](.+)/").unwrap();
     let cap = re.captures(rgb_tokens_descriptor).unwrap();
     let rgb_tokens_descriptor = format!("wpkh(m=[{}]/{}=[{}]/*/*)", &cap[1], &cap[2], &cap[3]);
@@ -702,7 +703,8 @@ pub async fn transfer_asset(
         &outputs,
         0_u16,
         fee,
-        Some(&allow_tapret_path),
+        // Some(&allow_tapret_path),
+        None,
         &tx_map,
     ) {
         Ok(p) => p,
