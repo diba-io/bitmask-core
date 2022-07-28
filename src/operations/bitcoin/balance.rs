@@ -17,17 +17,33 @@ struct State {
     balance: String,
 }
 
-pub async fn get_wallet(
+pub fn get_wallet(
     descriptor: &str,
     change_descriptor: Option<&str>,
 ) -> Result<Wallet<MemoryDatabase>> {
-    let wallet = Wallet::new(
-        descriptor,
-        change_descriptor,
-        *NETWORK.read().unwrap(),
-        MemoryDatabase::default(),
-    )?;
-    synchronize_wallet(&wallet).await?;
+    // #[cfg(not(target_arch = "wasm32"))]
+    // let db = {
+    //     use directories::ProjectDirs;
+    //     use regex::Regex;
+
+    //     let re = Regex::new(r"\(\[([0-9a-f]+)/(.+)](.+)/").unwrap();
+    //     let cap = re.captures(descriptor).unwrap();
+    //     let fingerprint = &cap[1];
+    //     let fingerprint = if let Some(change_descriptor) = change_descriptor {
+    //         let cap = re.captures(change_descriptor).unwrap();
+    //         [fingerprint, &cap[1]].join("_")
+    //     } else {
+    //         fingerprint.to_owned()
+    //     };
+    //     let project_dirs = ProjectDirs::from("org", "DIBA", "BitMask").unwrap();
+    //     let db: sled::Db = sled::open(project_dirs.data_local_dir().join("wallet_db"))?;
+    //     db.open_tree(fingerprint).unwrap()
+    // };
+
+    // #[cfg(target_arch = "wasm32")]
+    let db = MemoryDatabase::default();
+
+    let wallet = Wallet::new(descriptor, change_descriptor, *NETWORK.read().unwrap(), db)?;
     Ok(wallet)
 }
 

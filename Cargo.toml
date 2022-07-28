@@ -31,6 +31,7 @@ bp-core = { version = "0.8.0", features = ["wallet"] }
 commit_verify = { version = "0.8.0", features = ["rand"] }
 console_error_panic_hook = "0.1.6"
 descriptor-wallet = { version = "0.8.2", features = ["descriptors", "serde"] }
+directories = "4.0"
 electrum-client = "0.10.1"
 futures = "0.3.17"
 getrandom = { version = "0.2.3", features = ["js"] }
@@ -38,6 +39,7 @@ gloo-console = "0.2.1"
 gloo-net = "0.2.0"
 base64 = { package = "base64-compat", version = "1.0.0" }
 js-sys = "0.3.55"
+lazy_static = "1.4.0"
 log = "0.4.17"
 lnpbp = "0.8.0"
 # miniscript = "7.0.0"
@@ -68,6 +70,9 @@ wasm-bindgen-futures = "0.4.27"
 web-sys = "0.3.55"
 wee_alloc = "0.4.5"
 pretty_env_logger = "0.4.0"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+sled = "0.34.7"
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3.13"

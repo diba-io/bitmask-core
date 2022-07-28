@@ -33,6 +33,8 @@ use operations::{
     },
 };
 
+use crate::operations::bitcoin::synchronize_wallet;
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct VaultData {
@@ -194,28 +196,20 @@ pub async fn get_wallet_data(
     info!("descriptor:", &descriptor);
     info!("change_descriptor:", format!("{:?}", &change_descriptor));
 
-    let wallet = get_wallet(descriptor, change_descriptor).await;
-    let address = wallet
-        .as_ref()
-        .unwrap()
-        .get_address(LastUnused)
-        .unwrap()
-        .to_string();
+    let wallet = get_wallet(descriptor, change_descriptor)?;
+    synchronize_wallet(&wallet).await?;
+    let address = wallet.get_address(LastUnused).unwrap().to_string();
     info!("address:", &address);
-    let balance = wallet.as_ref().unwrap().get_balance().unwrap().to_string();
+    let balance = wallet.get_balance().unwrap().to_string();
     info!("balance:", &balance);
-    let unspent = wallet.as_ref().unwrap().list_unspent().unwrap_or_default();
+    let unspent = wallet.list_unspent().unwrap_or_default();
     let unspent: Vec<String> = unspent
         .into_iter()
         .map(|x| x.outpoint.to_string())
         .collect();
     debug!(format!("unspent: {unspent:#?}"));
 
-    let transactions = wallet
-        .as_ref()
-        .unwrap()
-        .list_transactions(false)
-        .unwrap_or_default();
+    let transactions = wallet.list_transactions(false).unwrap_or_default();
     debug!(format!("transactions: {transactions:#?}"));
 
     let transactions: Vec<WalletTransaction> = transactions
@@ -284,8 +278,8 @@ pub async fn import_asset(
     genesis: Option<&str>,
     node_url: Option<String>,
 ) -> Result<ThinAsset> {
-    let wallet = get_wallet(rgb_tokens_descriptor, None).await;
-    let unspent = wallet.as_ref().unwrap().list_unspent().unwrap_or_default();
+    let wallet = get_wallet(rgb_tokens_descriptor, None)?;
+    let unspent = wallet.list_unspent().unwrap_or_default();
 
     match genesis {
         Some(genesis) => {
@@ -345,9 +339,7 @@ pub async fn send_sats(
 ) -> Result<Transaction> {
     let address = Address::from_str(&(address));
 
-    let wallet = get_wallet(descriptor, Some(change_descriptor))
-        .await
-        .unwrap();
+    let wallet = get_wallet(descriptor, Some(change_descriptor))?;
 
     let transaction = create_transaction(
         vec![SatsInvoice {
@@ -379,9 +371,7 @@ pub async fn fund_wallet(
     let address = Address::from_str(address);
     let uda_address = Address::from_str(uda_address);
 
-    let wallet = get_wallet(descriptor, Some(change_descriptor))
-        .await
-        .unwrap();
+    let wallet = get_wallet(descriptor, Some(change_descriptor))?;
 
     let asset_invoice = SatsInvoice {
         address: address.unwrap(),
@@ -428,10 +418,8 @@ pub async fn send_tokens(
     amount: u64,
     asset_contract: &str,
 ) -> Result<(ConsignmentDetails, Transaction, TransferResponse)> {
-    let assets_wallet = get_wallet(rgb_tokens_descriptor, None).await.unwrap();
-    let full_wallet = get_wallet(rgb_tokens_descriptor, Some(btc_descriptor))
-        .await
-        .unwrap();
+    let assets_wallet = get_wallet(rgb_tokens_descriptor, None)?;
+    let full_wallet = get_wallet(rgb_tokens_descriptor, Some(btc_descriptor))?;
     // let full_change_wallet = get_wallet(rgb_tokens_descriptor, Some(btc_change_descriptor))
     //     .await
     //     .unwrap();
