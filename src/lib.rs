@@ -14,7 +14,7 @@ use serde_encrypt::{
 };
 use sha2::{Digest, Sha256};
 
-mod data;
+pub mod data;
 mod operations;
 mod util;
 #[cfg(target_arch = "wasm32")]
