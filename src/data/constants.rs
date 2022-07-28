@@ -1,5 +1,5 @@
 use anyhow::Result;
-use std::{str::FromStr, sync::RwLock};
+use std::{env, str::FromStr, sync::RwLock};
 use tokio::sync::RwLock as AsyncRwLock;
 
 use bitcoin::Network;
@@ -7,11 +7,16 @@ use once_cell::sync::Lazy;
 
 fn dot_env(key: &str) -> String {
     let env_file = include_str!("../../.env");
-    if let Some(line) = env_file.split('\n').find(|e| e.starts_with(key)) {
-        let (_, val) = line.split_once('=').expect("value exists for key");
-        val.to_owned()
-    } else {
-        panic!("Couldn't access .env key: {}", key);
+    match env::var(key) {
+        Ok(val) => val,
+        Err(_) => {
+            if let Some(line) = env_file.split('\n').find(|e| e.starts_with(key)) {
+                let (_, val) = line.split_once('=').expect("value exists for key");
+                val.to_owned()
+            } else {
+                panic!("Couldn't access .env key: {}", key);
+            }
+        }
     }
 }
 
