@@ -2,7 +2,7 @@ use anyhow::Result;
 
 use crate::{
     data::{constants::url, structs::ValidateRequest},
-    log,
+    info,
     util::post_json,
 };
 
@@ -15,6 +15,6 @@ pub async fn validate_transfer(consignment: String, node_url: Option<String>) ->
     // parse into generic JSON value
     // let result = serde_json::from_str(&response)?;
 
-    log!(format!("validate_transfer result {response:?}"));
+    info!(format!("validate_transfer result {response:?}"));
     Ok(())
 }

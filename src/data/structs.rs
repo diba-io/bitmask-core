@@ -1,4 +1,4 @@
-use bitcoin::util::address::Address;
+use bitcoin::{util::address::Address, OutPoint, Txid};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -23,10 +23,12 @@ pub struct Amount {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Allocation {
-    pub node_id: String,
     pub index: u32,
+    pub node_id: String,
     pub outpoint: String,
-    pub revealed_amount: Amount,
+    pub amount: Amount,
+    pub seal_vout: u32,
+    pub seal_txid: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -34,7 +36,7 @@ pub struct Inflation {}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct Asset {
+pub struct AssetResponse {
     pub genesis: String,
     pub id: String,
     pub ticker: String,
@@ -72,14 +74,7 @@ pub struct ThinAsset {
     pub name: String,
     pub description: String,
     pub allocations: Vec<Allocation>,
-    pub balance: Option<u64>,
-    pub dolar_balance: Option<u32>,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct OutPoint {
-    pub txid: String,
-    pub vout: u32,
+    pub balance: u64,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -90,9 +85,9 @@ pub struct BlindResponse {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SealCoins {
-    pub coins: u64,
+    pub amount: u64,
+    pub txid: Txid,
     pub vout: u32,
-    pub txid: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

@@ -1,31 +1,19 @@
-use anyhow::{format_err, Result};
+use anyhow::Result;
+use bitcoin::OutPoint;
+use bp::seals::txout::CloseMethod;
+use rgb_core::seal;
 
-use crate::{
-    data::{
-        constants::url,
-        structs::{BlindResponse, OutPoint},
-    },
-    log,
-    util::post_json,
-};
+use crate::{data::structs::BlindResponse, info};
 
-pub async fn blind_utxo(
-    utxo: OutPoint,
-    node_url: Option<String>,
-) -> Result<(BlindResponse, OutPoint)> {
-    log!("in blind_utxo");
-    log!(format!("utxo {utxo:?}"));
-    let (response, status) = post_json(url("blind", &node_url), &utxo).await?;
-    log!(format!("response status: {status}"));
+pub fn blind_utxo(utxo: OutPoint) -> Result<(BlindResponse, OutPoint)> {
+    let seal = seal::Revealed::new(CloseMethod::TapretFirst, utxo);
 
-    if status == 200 {
-        // parse into generic JSON value
-        let js: BlindResponse = serde_json::from_str(&response)?;
-        log!(format!("blind utxo result {js:?}"));
-        Ok((js, utxo))
-    } else {
-        Err(format_err!(
-            "Error from blind utxo response. Status: {status}"
-        ))
-    }
+    let result = BlindResponse {
+        blinding: seal.blinding.to_string(),
+        conceal: seal.to_concealed_seal().to_string(),
+    };
+
+    info!(format!("Blind result: {result:#?}"));
+
+    Ok((result, utxo))
 }

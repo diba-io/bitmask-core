@@ -2,7 +2,7 @@ use anyhow::Result;
 
 use crate::{
     data::{constants::url, structs::AcceptRequest},
-    log,
+    info,
     util::post_json,
     OutPoint,
 };
@@ -18,8 +18,8 @@ pub async fn accept_transfer(
         outpoint,
         blinding_factor,
     };
-    log!("here);");
+    info!("here);");
     let (response, _) = post_json(url("accept", &node_url), &accept_request).await?;
-    log!(format!("accept transfer result: {response:?}"));
+    info!(format!("accept transfer result: {response:?}"));
     Ok(response)
 }
