@@ -272,6 +272,22 @@ pub fn create_asset(
     })
 }
 
+pub async fn get_asset(contract_id: Option<&str>, genesis: Option<&str>) -> Result<ThinAsset> {
+    match genesis {
+        Some(genesis) => {
+            info!("Getting asset by genesis:", genesis);
+            get_asset_by_genesis(genesis)
+        }
+        None => match contract_id {
+            Some(contract_id) => {
+                info!("Getting asset by contract id:", contract_id);
+                todo!()
+            }
+            None => Err(format_err!("Error: Unknown error in get_asset")),
+        },
+    }
+}
+
 pub async fn import_asset(
     rgb_tokens_descriptor: &str,
     contract_id: Option<&str>,
