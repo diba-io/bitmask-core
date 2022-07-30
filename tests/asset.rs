@@ -77,7 +77,7 @@ async fn asset_import() -> Result<()> {
 
     info!("Import asset");
     let imported_asset = import_asset(
-        &vault.rgb_tokens_descriptor,
+        Some(&vault.rgb_tokens_descriptor),
         None,
         Some(&issued_asset.genesis),
         None,
