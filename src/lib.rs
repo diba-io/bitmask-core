@@ -6,13 +6,13 @@ use std::str::FromStr;
 use anyhow::{format_err, Result};
 use bdk::{wallet::AddressIndex::LastUnused, BlockTime};
 use bitcoin::{util::address::Address, OutPoint, Transaction, Txid};
+use bitcoin_hashes::{sha256, Hash};
 use operations::rgb::ConsignmentDetails;
 use serde::{Deserialize, Serialize};
 use serde_encrypt::{
     serialize::impls::BincodeSerializer, shared_key::SharedKey, traits::SerdeEncryptSharedKey,
     AsSharedKey, EncryptedMessage,
 };
-use sha2::{Digest, Sha256};
 
 pub mod data;
 mod operations;
@@ -50,17 +50,9 @@ impl SerdeEncryptSharedKey for VaultData {
 }
 
 pub fn get_vault(password: &str, encrypted_descriptors: &str) -> Result<VaultData> {
-    let mut hasher = Sha256::new();
-
-    // write input message
-    hasher.update(password.as_bytes());
-
     // read hash digest and consume hasher
-    let result = hasher.finalize();
-    let shared_key: [u8; 32] = result
-        .as_slice()
-        .try_into()
-        .expect("slice with incorrect length");
+    let hash = sha256::Hash::hash(password.as_bytes());
+    let shared_key: [u8; 32] = hash.into_inner();
     let encrypted_descriptors: Vec<u8> = serde_json::from_str(encrypted_descriptors).unwrap();
     // STORAGE_KEY_DESCRIPTOR_ENCRYPTED
     let encrypted_message = EncryptedMessage::deserialize(encrypted_descriptors);
@@ -88,17 +80,8 @@ pub fn get_mnemonic_seed(
     encryption_password: &str,
     seed_password: &str,
 ) -> Result<MnemonicSeedData> {
-    let mut hasher = Sha256::new();
-
-    // write input message
-    hasher.update(encryption_password.as_bytes());
-
-    // read hash digest and consume hasher
-    let hash = hasher.finalize();
-    let shared_key: [u8; 32] = hash
-        .as_slice()
-        .try_into()
-        .expect("slice with incorrect length");
+    let hash = sha256::Hash::hash(encryption_password.as_bytes());
+    let shared_key: [u8; 32] = hash.into_inner();
 
     let (
         mnemonic,
@@ -132,17 +115,8 @@ pub fn save_mnemonic_seed(
     encryption_password: &str,
     seed_password: &str,
 ) -> Result<MnemonicSeedData> {
-    let mut hasher = Sha256::new();
-
-    // write input message
-    hasher.update(encryption_password.as_bytes());
-
-    // read hash digest and consume hasher
-    let hash = hasher.finalize();
-    let shared_key: [u8; 32] = hash
-        .as_slice()
-        .try_into()
-        .expect("slice with incorrect length");
+    let hash = sha256::Hash::hash(encryption_password.as_bytes());
+    let shared_key: [u8; 32] = hash.into_inner();
 
     let (
         btc_descriptor,

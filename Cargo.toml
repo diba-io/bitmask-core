@@ -56,7 +56,6 @@ rgb20 = { version = "0.8.0-rc.3", features = ["serde"] }
 serde = "1.0.130"
 serde_json = "1.0.68"
 serde-encrypt = "0.7.0"
-sha2 = "0.10.1"
 stens = { version = "0.7.1", features = ["serde"] }
 storm-core = "0.8.0"
 strict_encoding = { version = "0.8.1", features = [
