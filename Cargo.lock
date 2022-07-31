@@ -186,7 +186,7 @@ dependencies = [
 [[package]]
 name = "bdk"
 version = "0.20.1-dev"
-source = "git+https://github.com/bitcoindevkit/bdk.git?branch=master#a1477405d1adebd9a95689af17d3912edf1e57ef"
+source = "git+https://github.com/bitcoindevkit/bdk.git?rev=a1477405d1adebd9a95689af17d3912edf1e57ef#a1477405d1adebd9a95689af17d3912edf1e57ef"
 dependencies = [
  "ahash",
  "async-trait",
