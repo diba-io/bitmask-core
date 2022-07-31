@@ -1,3 +1,5 @@
+use std::fs;
+
 use anyhow::Result;
 use bdk::{blockchain::esplora::EsploraBlockchain, database::AnyDatabase, SyncOptions, Wallet};
 use bitcoin_hashes::{sha256, Hash, HashEngine};
@@ -13,6 +15,7 @@ pub fn get_wallet(
 ) -> Result<Wallet<AnyDatabase>> {
     #[cfg(not(target_arch = "wasm32"))]
     let db = {
+        use bdk::database::SqliteDatabase;
         use directories::ProjectDirs;
         let mut engine = sha256::Hash::engine();
         engine.input(descriptor.as_bytes());
@@ -22,8 +25,10 @@ pub fn get_wallet(
         let hash = sha256::Hash::from_engine(engine);
         debug!("Descriptor hash:", hash.to_string());
         let project_dirs = ProjectDirs::from("org", "DIBA", "BitMask").unwrap();
-        let db: sled::Db = sled::open(project_dirs.data_local_dir().join("wallet_db"))?;
-        AnyDatabase::Sled(db.open_tree(hash).unwrap())
+        let db_path = project_dirs.data_local_dir().join("wallet_db");
+        fs::create_dir_all(&db_path).unwrap();
+        let db = SqliteDatabase::new(&db_path.join(hash.to_string()));
+        AnyDatabase::Sqlite(db)
     };
 
     #[cfg(target_arch = "wasm32")]
