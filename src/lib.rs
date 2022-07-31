@@ -273,22 +273,21 @@ pub fn create_asset(
 }
 
 pub async fn import_asset(
-    rgb_tokens_descriptor: &str,
+    rgb_tokens_descriptor: Option<&str>,
     contract_id: Option<&str>,
     genesis: Option<&str>,
     node_url: Option<String>,
 ) -> Result<ThinAsset> {
-    let wallet = get_wallet(rgb_tokens_descriptor, None)?;
-    let unspent = wallet.list_unspent().unwrap_or_default();
-
     match genesis {
         Some(genesis) => {
             info!("Getting asset by genesis:", genesis);
             get_asset_by_genesis(genesis)
         }
-        None => match contract_id {
-            Some(contract_id) => {
+        None => match (contract_id, rgb_tokens_descriptor) {
+            (Some(contract_id), Some(rgb_tokens_descriptor)) => {
                 info!("Getting asset by contract id:", contract_id);
+                let wallet = get_wallet(rgb_tokens_descriptor, None)?;
+                let unspent = wallet.list_unspent().unwrap_or_default();
                 let asset = get_asset_by_contract_id(contract_id, unspent, node_url).await;
                 info!(format!("asset: {asset:?}"));
                 match asset {
@@ -296,7 +295,7 @@ pub async fn import_asset(
                     Err(e) => Err(format_err!("Server error: {e}")),
                 }
             }
-            None => Err(format_err!("Error: Unknown error in import_asset")),
+            _ => Err(format_err!("Error: Unknown error in import_asset")),
         },
     }
 }
@@ -488,7 +487,8 @@ pub async fn import_accept(
     .await;
     match accept {
         Ok(_accept) => {
-            let asset = import_asset(rgb_tokens_descriptor, Some(asset), None, node_url).await;
+            let asset =
+                import_asset(Some(rgb_tokens_descriptor), Some(asset), None, node_url).await;
             info!(format!("get asset {asset:#?}"));
             asset
         }
