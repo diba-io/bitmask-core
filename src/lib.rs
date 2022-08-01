@@ -22,14 +22,14 @@ pub mod web;
 
 use data::{
     constants,
-    structs::{AssetResponse, SatsInvoice, ThinAsset, TransferResponse},
+    structs::{AssetResponse, SatsInvoice, SealCoins, ThinAsset, TransferResponse},
 };
 
 use operations::{
     bitcoin::{create_transaction, get_mnemonic, get_wallet, save_mnemonic},
     rgb::{
         accept_transfer, blind_utxo, get_asset_by_contract_id, get_asset_by_genesis, get_assets,
-        issue_asset, /* rgb_address, */ transfer_asset, validate_transfer,
+        issue_asset, rgb_tweaking, /* rgb_address, */ transfer_asset, validate_transfer,
     },
 };
 
@@ -456,6 +456,20 @@ pub async fn send_tokens(
         rgb_tokens_descriptor,
     )
     .await?;
+
+    Ok((consignment, tx, response))
+}
+
+pub async fn rgb_tweak(
+    receiver: String,
+    amount: u64,
+    asset: String,
+    inputs: Vec<OutPoint>,
+    allocate: Vec<SealCoins>,
+    witness: String,
+) -> Result<(ConsignmentDetails, Transaction, TransferResponse)> {
+    let (consignment, tx, response) =
+        rgb_tweaking(receiver, amount, asset, inputs, allocate, witness).await?;
 
     Ok((consignment, tx, response))
 }
