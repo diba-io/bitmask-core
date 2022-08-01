@@ -461,12 +461,12 @@ pub async fn send_tokens(
 }
 
 pub async fn rgb_tweak(
-    receiver: String,
+    receiver: &str,
     amount: u64,
-    asset: String,
+    asset: &str,
     inputs: Vec<OutPoint>,
     allocate: Vec<SealCoins>,
-    witness: String,
+    witness: &str,
 ) -> Result<(ConsignmentDetails, Transaction, TransferResponse)> {
     let (consignment, tx, response) =
         rgb_tweaking(receiver, amount, asset, inputs, allocate, witness).await?;

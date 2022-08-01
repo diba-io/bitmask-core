@@ -853,12 +853,12 @@ pub async fn transfer_asset(
 }
 
 pub async fn rgb_tweaking(
-    receiver: String,
+    receiver: &str,
     amount: u64,
-    asset: String,
+    asset: &str,
     inputs: Vec<OutPoint>,
     allocate: Vec<SealCoins>,
-    witness: String,
+    witness: &str,
 ) -> Result<(ConsignmentDetails, Transaction, TransferResponse)> {
     todo!()
 }
