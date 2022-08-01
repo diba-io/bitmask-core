@@ -567,6 +567,7 @@ pub async fn transfer_asset(
 
         if coin.state.value >= remainder {
             debug!("Large coins");
+            // TODO: Change output must not be cloned, it needs to be a separate UTXO
             change.push((coin.clone(), coin.state.value - remainder)); // Change
             inputs.push(input_descriptor);
             debug!(format!("Coin: {coin:?}"));
