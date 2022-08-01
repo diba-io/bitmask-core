@@ -859,6 +859,6 @@ pub async fn rgb_tweaking(
     inputs: Vec<OutPoint>,
     allocate: Vec<SealCoins>,
     witness: &str,
-) -> Result<(ConsignmentDetails, Transaction, TransferResponse)> {
+) -> Result<(ConsignmentDetails, Psbt, TransferResponse)> {
     todo!()
 }
