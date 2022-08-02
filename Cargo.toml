@@ -25,38 +25,46 @@ bdk = { version = "0.20.0", features = [
 ], default-features = false }
 bip39 = "1.0.1"
 bitcoin = "0.28.1"
-bitcoin_hashes = "0.10.0"
-# bitcoin_hd = "0.8.1"
-bp-core = { version = "0.8.0", features = ["wallet"] }
-commit_verify = { version = "0.8.0", features = ["rand"] }
 console_error_panic_hook = "0.1.6"
 descriptor-wallet = { version = "0.8.3", features = ["descriptors", "serde"] }
 directories = "4.0"
-electrum-client = "0.10.1"
 futures = "0.3.17"
 getrandom = { version = "0.2.3", features = ["js"] }
-gloo-console = "0.2.1"
-gloo-net = "0.2.0"
 base64 = { package = "base64-compat", version = "1.0.0" }
-js-sys = "0.3.55"
 lazy_static = "1.4.0"
 log = "0.4.17"
-lnpbp = "0.8.0"
-# miniscript = "7.0.0"
 once_cell = "1.9.0"
-psbt = { version = "0.8.5", features = ["sign", "miniscript", "serde"] }
 regex = "1"
-reqwest = { version = "0.11.11", features = ["json"] }
 rgb-core = { package = "rgb-core", version = "0.8.0", features = ["serde"] }
+serde = "1.0.130"
+serde_json = "1.0.68"
+serde-encrypt = "0.7.0"
+sha2 = "0.10.1"
+tokio = { version = "1.20.1" }
+pretty_env_logger = "0.4.0"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+gloo-console = "0.2.1"
+gloo-net = "0.2.0"
+js-sys = "0.3.55"
+psbt = { version = "0.8.5", features = ["miniscript", "serde"] }
+wasm-bindgen = { version = "0.2.77", features = ["serde-serialize"] }
+wasm-bindgen-futures = "0.4.27"
+web-sys = "0.3.55"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+bitcoin_hashes = "0.10.0"
+bp-core = { version = "0.8.0", features = ["wallet"] }
+commit_verify = { version = "0.8.0", features = ["rand"] }
+electrum-client = "0.10.1"
+lnpbp = "0.8.0"
+psbt = { version = "0.8.5", features = ["sign", "miniscript", "serde"] }
+reqwest = { version = "0.11.11", features = ["json"] }
 rgb-std = { package = "rgb-std", version = "0.8.0", features = [
     "serde",
     "wallet",
 ] }
 rgb20 = { version = "0.8.0-rc.4", features = ["serde"] }
-serde = "1.0.130"
-serde_json = "1.0.68"
-serde-encrypt = "0.7.0"
-sha2 = "0.10.1"
 stens = { version = "0.7.1", features = ["serde"] }
 storm-core = "0.8.0"
 strict_encoding = { version = "0.8.1", features = [
@@ -64,15 +72,6 @@ strict_encoding = { version = "0.8.1", features = [
     "chrono",
     "bitcoin",
 ] }
-tokio = { version = "1.20.1" }
-wasm-bindgen = { version = "0.2.77", features = ["serde-serialize"] }
-wasm-bindgen-futures = "0.4.27"
-web-sys = "0.3.55"
-wee_alloc = "0.4.5"
-pretty_env_logger = "0.4.0"
-
-[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-sled = "0.34.7"
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3.13"
