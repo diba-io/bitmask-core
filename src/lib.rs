@@ -3,7 +3,7 @@ extern crate amplify;
 
 use std::str::FromStr;
 
-use anyhow::{format_err, Result};
+use anyhow::{anyhow, format_err, Result};
 use bdk::{wallet::AddressIndex::LastUnused, BlockTime};
 use bitcoin::{util::address::Address, OutPoint, Transaction, Txid};
 use bitcoin_hashes::{sha256, Hash};
@@ -247,22 +247,22 @@ pub fn create_asset(
 }
 
 pub async fn import_asset(
-    rgb_tokens_descriptor: &str,
+    rgb_tokens_descriptor: Option<&str>,
     contract_id: Option<&str>,
     genesis: Option<&str>,
     node_url: Option<String>,
 ) -> Result<ThinAsset> {
-    let wallet = get_wallet(rgb_tokens_descriptor, None)?;
-    let unspent = wallet.list_unspent().unwrap_or_default();
-
     match genesis {
         Some(genesis) => {
             info!("Getting asset by genesis:", genesis);
             get_asset_by_genesis(genesis)
         }
-        None => match contract_id {
-            Some(contract_id) => {
+        None => match (contract_id, rgb_tokens_descriptor) {
+            (Some(contract_id), Some(rgb_tokens_descriptor)) => {
                 info!("Getting asset by contract id:", contract_id);
+                let wallet = get_wallet(rgb_tokens_descriptor, None)?;
+                synchronize_wallet(&wallet).await?;
+                let unspent = wallet.list_unspent().unwrap_or_default();
                 let asset = get_asset_by_contract_id(contract_id, unspent, node_url).await;
                 info!(format!("asset: {asset:?}"));
                 match asset {
@@ -270,7 +270,7 @@ pub async fn import_asset(
                     Err(e) => Err(format_err!("Server error: {e}")),
                 }
             }
-            None => Err(format_err!("Error: Unknown error in import_asset")),
+            _ => Err(format_err!("Error: Unknown error in import_asset")),
         },
     }
 }
@@ -384,6 +384,31 @@ pub async fn fund_wallet(
     })
 }
 
+pub async fn get_assets_vault(assets_descriptor: &str) -> Result<FundVaultDetails> {
+    let assets_wallet = get_wallet(assets_descriptor, None)?;
+    synchronize_wallet(&assets_wallet).await?;
+
+    let asset_utxos = assets_wallet.list_unspent()?;
+
+    debug!(format!("Asset UTXOs: {asset_utxos:#?}"));
+
+    match asset_utxos.get(0) {
+        Some(asset_utxo) => {
+            let txid = asset_utxo.outpoint.txid.to_string();
+            let output = asset_utxo.outpoint.to_string();
+
+            Ok(FundVaultDetails {
+                txid,
+                send_assets: output.clone(), // TODO: Make it work with other UTXOs
+                recv_assets: output.clone(),
+                send_udas: output.clone(),
+                recv_udas: output,
+            })
+        }
+        None => Err(anyhow!("No asset UTXOs")),
+    }
+}
+
 pub async fn send_tokens(
     btc_descriptor: &str,
     // btc_change_descriptor: &str,
@@ -462,7 +487,8 @@ pub async fn import_accept(
     .await;
     match accept {
         Ok(_accept) => {
-            let asset = import_asset(rgb_tokens_descriptor, Some(asset), None, node_url).await;
+            let asset =
+                import_asset(Some(rgb_tokens_descriptor), Some(asset), None, node_url).await;
             info!(format!("get asset {asset:#?}"));
             asset
         }

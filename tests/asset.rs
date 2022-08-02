@@ -4,8 +4,8 @@ use std::env;
 
 use anyhow::Result;
 use bitmask_core::{
-    create_asset, fund_wallet, get_network, /* get_rgb_address,*/ get_vault, get_wallet_data,
-    import_asset, save_mnemonic_seed, send_tokens, set_blinded_utxo,
+    create_asset, fund_wallet, get_assets_vault, get_network, /* get_rgb_address,*/ get_vault,
+    get_wallet_data, import_asset, save_mnemonic_seed, /* send_tokens, */ set_blinded_utxo,
 };
 use log::{debug, info};
 
@@ -53,31 +53,36 @@ async fn asset_import() -> Result<()> {
     info!("Get UDAs wallet data");
     let udas_wallet = get_wallet_data(&vault.rgb_nfts_descriptor, None).await?;
 
-    info!("Fund vault");
-    let fund_vault_details = fund_wallet(
-        &vault.btc_descriptor,
-        &vault.btc_change_descriptor,
-        &assets_wallet.address,
-        &udas_wallet.address,
-    )
-    .await?;
-    debug!("Fund vault details: {fund_vault_details:#?}");
+    info!("Check assets vault");
+    let send_assets = match get_assets_vault(&vault.rgb_tokens_descriptor).await {
+        Ok(fund_vault_details) => {
+            info!("Found existing UTXO");
+            fund_vault_details.send_assets
+        }
+        Err(err) => {
+            info!("Funding vault... {}", err);
+            let fund_vault_details = fund_wallet(
+                &vault.btc_descriptor,
+                &vault.btc_change_descriptor,
+                &assets_wallet.address,
+                &udas_wallet.address,
+            )
+            .await?;
+            debug!("Fund vault details: {fund_vault_details:#?}");
+
+            fund_vault_details.send_assets
+        }
+    };
 
     info!("Create a test asset");
-    let issued_asset = &create_asset(
-        TICKER,
-        NAME,
-        PRECISION,
-        SUPPLY,
-        &fund_vault_details.send_assets,
-    )?;
+    let issued_asset = &create_asset(TICKER, NAME, PRECISION, SUPPLY, &send_assets)?;
 
     let asset_data = serde_json::to_string_pretty(&issued_asset)?;
     debug!("Asset data: {asset_data}");
 
     info!("Import asset");
     let imported_asset = import_asset(
-        &vault.rgb_tokens_descriptor,
+        Some(&vault.rgb_tokens_descriptor),
         None,
         Some(&issued_asset.genesis),
         None,
@@ -87,22 +92,22 @@ async fn asset_import() -> Result<()> {
     assert_eq!(issued_asset.asset_id, imported_asset.id, "Asset IDs match");
 
     info!("Get a blinded UTXO");
-    let blinded_utxo = set_blinded_utxo(&fund_vault_details.send_assets)?;
+    let blinded_utxo = set_blinded_utxo(&send_assets)?;
 
     debug!("Blinded UTXO: {:?}", blinded_utxo);
 
-    info!("Transfer asset");
-    let consignment_details = send_tokens(
-        &vault.btc_descriptor,
-        // &vault.btc_change_descriptor,
-        &vault.rgb_tokens_descriptor,
-        &blinded_utxo.conceal,
-        100,
-        &issued_asset.genesis,
-    )
-    .await?;
+    // info!("Transfer asset");
+    // let consignment_details = send_tokens(
+    //     &vault.btc_descriptor,
+    //     // &vault.btc_change_descriptor,
+    //     &vault.rgb_tokens_descriptor,
+    //     &blinded_utxo.conceal,
+    //     100,
+    //     &issued_asset.genesis,
+    // )
+    // .await?;
 
-    debug!("Transfer response: {:#?}", &consignment_details);
+    // debug!("Transfer response: {:#?}", &consignment_details);
 
     Ok(())
 }

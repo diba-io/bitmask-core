@@ -1,8 +1,9 @@
-use std::fs;
-
 use anyhow::Result;
-use bdk::{blockchain::esplora::EsploraBlockchain, database::AnyDatabase, SyncOptions, Wallet};
-use bitcoin_hashes::{sha256, Hash, HashEngine};
+use bdk::{
+    blockchain::esplora::EsploraBlockchain,
+    database::{AnyDatabase, MemoryDatabase},
+    SyncOptions, Wallet,
+};
 
 use crate::{
     data::constants::{BITCOIN_EXPLORER_API, NETWORK},
@@ -13,9 +14,13 @@ pub fn get_wallet(
     descriptor: &str,
     change_descriptor: Option<&str>,
 ) -> Result<Wallet<AnyDatabase>> {
+    #[cfg(feature = "webp")]
     #[cfg(not(target_arch = "wasm32"))]
     let db = {
         use bdk::database::SqliteDatabase;
+        use bitcoin_hashes::{sha256, Hash, HashEngine};
+        use std::fs;
+
         use directories::ProjectDirs;
         let mut engine = sha256::Hash::engine();
         engine.input(descriptor.as_bytes());
@@ -30,20 +35,27 @@ pub fn get_wallet(
         let db = SqliteDatabase::new(&db_path.join(hash.to_string()));
         AnyDatabase::Sqlite(db)
     };
+    #[cfg(not(feature = "webp"))]
+    #[cfg(not(target_arch = "wasm32"))]
+    let db = AnyDatabase::Memory(MemoryDatabase::default());
 
     #[cfg(target_arch = "wasm32")]
-    let db = MemoryDatabase::default();
+    let db = AnyDatabase::Memory(MemoryDatabase::default());
+
+    debug!(format!("Using database: {db:?}"));
 
     let wallet = Wallet::new(descriptor, change_descriptor, *NETWORK.read().unwrap(), db)?;
     Ok(wallet)
 }
 
 pub fn get_blockchain() -> EsploraBlockchain {
+    debug!("Getting blockchain");
     EsploraBlockchain::new(&BITCOIN_EXPLORER_API.read().unwrap(), 100)
 }
 
 pub async fn synchronize_wallet(wallet: &Wallet<AnyDatabase>) -> Result<()> {
     let blockchain = get_blockchain();
     wallet.sync(&blockchain, SyncOptions::default()).await?;
+    debug!("Synced");
     Ok(())
 }
