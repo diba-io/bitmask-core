@@ -1,5 +1,5 @@
 use anyhow::Result;
-use bdk::{database::MemoryDatabase, FeeRate, Wallet};
+use bdk::{database::AnyDatabase, FeeRate, Wallet};
 use bitcoin::{consensus::serialize, Transaction};
 
 use crate::{
@@ -10,7 +10,7 @@ use crate::{
 
 pub async fn create_transaction(
     invoices: Vec<SatsInvoice>,
-    wallet: &Wallet<MemoryDatabase>,
+    wallet: &Wallet<AnyDatabase>,
 ) -> Result<Transaction> {
     synchronize_wallet(wallet).await?;
     let (psbt, details) = {
