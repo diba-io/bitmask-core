@@ -469,10 +469,11 @@ pub async fn rgb_tweak(
     allocate: Vec<SealCoins>,
     witness: &str,
 ) -> Result<(ConsignmentDetails, Psbt, TransferResponse)> {
-    let (consignment, psbt, response) =
+    let (psbt, consignment, disclosure) =
         rgb_tweaking(receiver, amount, asset, inputs, allocate, witness).await?;
+    rgb_tweaking(asset, _, witness, _, _, receiver).await?;
 
-    Ok((consignment, psbt, response))
+    Ok((psbt, consignment, disclosure))
 }
 
 pub async fn validate_transaction(consignment: &str, node_url: Option<String>) -> Result<()> {

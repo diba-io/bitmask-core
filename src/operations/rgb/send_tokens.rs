@@ -523,10 +523,7 @@ pub async fn transfer_asset(
             vout: coin.vout,
         })
         .collect();
-
-    // Compose consignment from provided asset contract
-    let (mut consignment, consignment_details) =
-        compose_consignment(&contract, outpoints.clone()).await?;
+    let outpoint_for_consignment = outpoints.clone();
 
     info!(format!("Parse blinded UTXO: {blinded_utxo}"));
     let utxob = match blinded_utxo.parse() {
@@ -724,24 +721,64 @@ pub async fn transfer_asset(
     psbt.fallback_locktime = Some(LockTime::from_str("none")?);
     debug!(format!("Locktime set: {:#?}", psbt.fallback_locktime));
 
-    // Embed information about the contract into the PSBT
+    let (psbt, consignment, disclosure) = rgb_tweaking(
+        contract,
+        outpoint_for_consignment,
+        &mut psbt,
+        transition,
+        outpoints,
+        blinded_utxo,
+    )
+    .await?;
+
+    // btc-hot sign ${PSBT} ${DIR}/testnet
+    // btc-cold finalize --publish testnet ${PSBT}
+    let tx = sign_psbt(full_wallet, psbt.into()).await?;
+
+    let witness = format!("{tx:?}");
+
+    Ok((
+        process_consignment(&consignment, true).await?,
+        tx,
+        TransferResponse {
+            consignment: consignment.to_string(),
+            disclosure: format!("{disclosure:?}"),
+            witness,
+        },
+    ))
+}
+
+pub async fn rgb_tweaking(
+    contract: InmemConsignment<rgb_std::ContractConsignment>,
+    outpoint_for_consignment: Vec<OutPoint>,
+    psbt: &mut Psbt,
+    transition: Transition,
+    outpoints: BTreeSet<OutPoint>,
+    blinded_utxo: &str,
+) -> Result<
+    (
+        Psbt,
+        InmemConsignment<rgb_std::ContractConsignment>,
+        Disclosure,
+    ),
+    anyhow::Error,
+> {
+    let utxob: rgb_core::seal::Confidential = match blinded_utxo.parse() {
+        Ok(utxob) => utxob,
+        Err(err) => return Err(anyhow!("Error parsing supplied blinded utxo: {err}")),
+    };
+    let (mut consignment, consignment_details) =
+        compose_consignment(&contract, outpoint_for_consignment.clone()).await?;
     psbt.set_rgb_contract(contract)?;
     debug!("RGB contract successfully set on PSBT");
-
-    // Embed information about the state transition into the PSBT
-    // rgb-cli -n testnet transfer combine ${CONTRACT_ID} ${TRANSITION} ${PSBT} ${UTXO_SRC}
-    // rgb-node -> cli/command -> TransferCommand::Combine
     let node_id = transition.node_id();
     psbt.push_rgb_transition(transition)?;
-
     let contract_id = consignment_details.contract_id;
-
     for input in &mut psbt.inputs {
         if outpoints.contains(&input.previous_outpoint) {
             input.set_rgb_consumer(contract_id, node_id)?;
         }
     }
-
     let outpoints: BTreeSet<_> = psbt
         .inputs
         .iter()
@@ -760,16 +797,9 @@ pub async fn transfer_asset(
             }
         }
     }
-
     debug!(format!("PSBT: {}", base64::encode(&psbt.serialize())));
-
-    // Process all state transitions under all contracts which are present in PSBT and prepare information about them which will be used in LNPBP4 commitments.
-    // rgb psbt bundle ${PSBT}
-    // rgb-std -> bin/rgb -> Command::Psbt -> PsbtCommand::Bundle
     let count = psbt.rgb_bundle_to_lnpbp4()?;
     info!(format!("Total {count} bundles converted"));
-
-    // Analyze
     for contract_id in psbt.rgb_contract_ids() {
         info!(format!("- contract_id: {contract_id}"));
         if let Some(contract) = psbt.rgb_contract(contract_id)? {
@@ -791,41 +821,21 @@ pub async fn transfer_asset(
             info!(format!("      node_id: {node_id}"));
         }
     }
-
-    // Finalize the consignment by adding the anchor information to it referencing the txid.
-    // rgb-cli -n testnet transfer finalize --endseal ${TXOB} ${PSBT} ${CONSIGNMENT} --send
-    // rgb-node -> bucketd/processor -> finalize_transfer
-
     info!(format!("Finalizing transfer for {}", contract_id));
-
-    // 1. Pack LNPBP-4 and anchor information.
     let mut bundles = psbt.rgb_bundles()?;
     info!(format!("Found {} bundles", bundles.len()));
     debug!(format!("Bundles: {bundles:?}"));
-
-    let anchor = Anchor::commit(&mut psbt)?;
+    let anchor = Anchor::commit(psbt)?;
     debug!(format!("Anchor: {anchor:?}"));
-
-    // 2. Extract contract-related state transition from PSBT and put it
-    //    into consignment.
     let bundle = bundles.remove(&contract_id).unwrap();
     let bundle_id = bundle.bundle_id();
     consignment.push_anchored_bundle(anchor.to_merkle_proof(contract_id)?, bundle)?;
-
-    // 3. Add seal endpoints.
     let endseals = vec![SealEndpoint::try_from(utxob)?];
     for endseal in endseals {
         consignment.push_seal_endpoint(bundle_id, endseal);
     }
-
-    // 4. Conceal all the state not related to the transfer.
-    // TODO: Conceal all the amounts except the last transition
-    // TODO: Conceal all seals outside of the paths from the endpoint to genesis
-
-    // 5. Construct and store disclosure for the blank transfers.
     let txid = anchor.txid;
     let disclosure = Disclosure::with(anchor, bundles, None);
-
     info!(format!("txid: {txid}, disclosure: {disclosure:?}"));
 
     // Finalize, sign & publish the witness transaction
@@ -835,24 +845,10 @@ pub async fn transfer_asset(
     let anchor = psbt.embed_commit(&PsbtEmbeddedMessage)?;
     info!(format!("Anchor: {anchor:?}"));
 
-    // btc-hot sign ${PSBT} ${DIR}/testnet
-    // btc-cold finalize --publish testnet ${PSBT}
-    let tx = sign_psbt(full_wallet, psbt.into()).await?;
-
-    let witness = format!("{tx:?}");
-
-    Ok((
-        process_consignment(&consignment, true).await?,
-        tx,
-        TransferResponse {
-            consignment: consignment.to_string(),
-            disclosure: format!("{disclosure:?}"),
-            witness,
-        },
-    ))
+    Ok(((*psbt).clone(), consignment, disclosure))
 }
 
-pub async fn rgb_tweaking(
+/*pub async fn rgb_tweaking(
     receiver: &str,
     amount: u64,
     asset: &str,
@@ -861,4 +857,4 @@ pub async fn rgb_tweaking(
     witness: &str,
 ) -> Result<(ConsignmentDetails, Psbt, TransferResponse)> {
     todo!()
-}
+}*/
