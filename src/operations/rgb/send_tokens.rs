@@ -9,6 +9,7 @@ use bdk::LocalUtxo;
 use bdk::{database::MemoryDatabase, descriptor::Descriptor, Wallet};
 use bitcoin::{psbt::serialize::Serialize, OutPoint, Transaction, Txid};
 use bp::dbc::anchor::PsbtEmbeddedMessage;
+use bp::seals::txout::blind::RevealedSeal;
 use bp::seals::txout::{CloseMethod, ExplicitSeal};
 use commit_verify::lnpbp4::{self, MerkleBlock};
 use commit_verify::EmbedCommitVerify;
@@ -537,7 +538,7 @@ pub async fn transfer_asset(
         seal_confidential: utxob,
     }];
     debug!("Map beneficiaries");
-    let beneficiaries = beneficiaries
+    let beneficiaries: BTreeMap<SealEndpoint, u64> = beneficiaries
         .into_iter()
         .map(|v| (v.seal_confidential.into(), amount))
         .collect();
@@ -612,7 +613,7 @@ pub async fn transfer_asset(
     let change_output = change_outputs.get(0).unwrap();
     debug!(format!("Selected change output: {change_output:#?}"));
 
-    let change = change
+    let change: BTreeMap<RevealedSeal, u64> = change
         .iter()
         .map(|(_coin, remainder)| AllocatedValue {
             value: *remainder,
@@ -632,16 +633,9 @@ pub async fn transfer_asset(
     debug!(format!("Beneficiaries: {beneficiaries:#?}"));
     debug!(format!("Change allocated values: {change:#?}"));
 
-    let transition = match asset.transfer(outpoints.clone(), beneficiaries, change) {
-        Ok(t) => t,
-        Err(err) => {
-            error!(format!(
-                "Error creating state transition for asset transfer: {err}",
-            ));
-            return Err(anyhow!(
-                "Error creating state transition for asset transfer"
-            ));
-        }
+    let transition = match transition(asset, &outpoints, &beneficiaries, &change) {
+        Ok(value) => value,
+        Err(value) => return value,
     };
 
     info!("Successfully created transition");
@@ -722,12 +716,13 @@ pub async fn transfer_asset(
     debug!(format!("Locktime set: {:#?}", psbt.fallback_locktime));
 
     let (psbt, consignment, disclosure) = rgb_tweaking(
-        contract,
+        asset_contract,
         outpoint_for_consignment,
         &mut psbt,
-        transition,
         outpoints,
         blinded_utxo,
+        change,
+        amount,
     )
     .await?;
 
@@ -748,13 +743,36 @@ pub async fn transfer_asset(
     ))
 }
 
+fn transition(
+    asset: Asset,
+    outpoints: &BTreeSet<OutPoint>,
+    beneficiaries: &BTreeMap<SealEndpoint, u64>,
+    change: &BTreeMap<rgb_core::seal::Revealed, u64>,
+) -> Result<Transition, Result<(ConsignmentDetails, Transaction, TransferResponse), anyhow::Error>>
+{
+    let transition = match asset.transfer(outpoints.clone(), beneficiaries.clone(), change.clone())
+    {
+        Ok(t) => t,
+        Err(err) => {
+            error!(format!(
+                "Error creating state transition for asset transfer: {err}",
+            ));
+            return Err(Err(anyhow!(
+                "Error creating state transition for asset transfer"
+            )));
+        }
+    };
+    Ok(transition)
+}
+
 pub async fn rgb_tweaking(
-    contract: InmemConsignment<rgb_std::ContractConsignment>,
+    asset_contract: &str,
     outpoint_for_consignment: Vec<OutPoint>,
     psbt: &mut Psbt,
-    transition: Transition,
     outpoints: BTreeSet<OutPoint>,
     blinded_utxo: &str,
+    change: BTreeMap<RevealedSeal, u64>,
+    amount: u64,
 ) -> Result<
     (
         Psbt,
@@ -763,9 +781,28 @@ pub async fn rgb_tweaking(
     ),
     anyhow::Error,
 > {
+    let contract = Contract::from_str(asset_contract)?;
+    debug!(format!("parsed contract: {contract}"));
+    let asset = Asset::try_from(&contract)?;
+    debug!(format!("asset from contract: {asset:#?}"));
     let utxob: rgb_core::seal::Confidential = match blinded_utxo.parse() {
         Ok(utxob) => utxob,
         Err(err) => return Err(anyhow!("Error parsing supplied blinded utxo: {err}")),
+    };
+    let beneficiaries = vec![UtxobValue {
+        value: amount,
+        seal_confidential: utxob,
+    }];
+    debug!("Map beneficiaries");
+    let beneficiaries: BTreeMap<SealEndpoint, u64> = beneficiaries
+        .into_iter()
+        .map(|v| (v.seal_confidential.into(), amount))
+        .collect();
+
+    info!(format!("Beneficiaries: {beneficiaries:?}"));
+    let transition = match transition(asset, &outpoints, &beneficiaries, &change) {
+        Ok(value) => value,
+        Err(err) => return Err(anyhow!("Error making transition")), // TODO: make a more informative error compatible with the method
     };
     let (mut consignment, consignment_details) =
         compose_consignment(&contract, outpoint_for_consignment.clone()).await?;
@@ -847,14 +884,3 @@ pub async fn rgb_tweaking(
 
     Ok(((*psbt).clone(), consignment, disclosure))
 }
-
-/*pub async fn rgb_tweaking(
-    receiver: &str,
-    amount: u64,
-    asset: &str,
-    inputs: Vec<OutPoint>,
-    allocate: Vec<SealCoins>,
-    witness: &str,
-) -> Result<(ConsignmentDetails, Psbt, TransferResponse)> {
-    todo!()
-}*/

@@ -8,6 +8,7 @@ use bdk::{wallet::AddressIndex::LastUnused, BlockTime};
 use bitcoin::{util::address::Address, OutPoint, Transaction, Txid};
 use operations::rgb::ConsignmentDetails;
 use psbt::Psbt;
+use rgb_std::{ContractConsignment, Disclosure, InmemConsignment};
 use serde::{Deserialize, Serialize};
 use serde_encrypt::{
     serialize::impls::BincodeSerializer, shared_key::SharedKey, traits::SerdeEncryptSharedKey,
@@ -468,10 +469,9 @@ pub async fn rgb_tweak(
     inputs: Vec<OutPoint>,
     allocate: Vec<SealCoins>,
     witness: &str,
-) -> Result<(ConsignmentDetails, Psbt, TransferResponse)> {
+) -> Result<(Psbt, InmemConsignment<ContractConsignment>, Disclosure)> {
     let (psbt, consignment, disclosure) =
-        rgb_tweaking(receiver, amount, asset, inputs, allocate, witness).await?;
-    rgb_tweaking(asset, _, witness, _, _, receiver).await?;
+        rgb_tweaking(asset, _, witness, _, receiver, _, _).await?;
 
     Ok((psbt, consignment, disclosure))
 }
