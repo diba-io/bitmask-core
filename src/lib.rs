@@ -1,4 +1,6 @@
+#![feature(future_join)]
 #![allow(clippy::unused_unit)]
+use std::future::join;
 use std::str::FromStr;
 
 use anyhow::{format_err, Result};
@@ -24,7 +26,7 @@ use data::{
 };
 
 use operations::{
-    bitcoin::{create_transaction, get_mnemonic, get_wallet, save_mnemonic},
+    bitcoin::{create_transaction, get_mnemonic, get_wallet, save_mnemonic, synchronize_wallet},
     rgb::{accept_transfer, blind_utxo, get_asset, get_assets, transfer_asset, validate_transfer},
 };
 
@@ -188,28 +190,20 @@ pub async fn get_wallet_data(
     log!("get_wallet_data");
     log!(&descriptor, format!("{:?}", &change_descriptor));
 
-    let wallet = get_wallet(descriptor, change_descriptor).await;
-    let address = wallet
-        .as_ref()
-        .unwrap()
-        .get_address(LastUnused)
-        .unwrap()
-        .to_string();
+    let wallet = get_wallet(descriptor, change_descriptor)?;
+    synchronize_wallet(&wallet).await?;
+    let address = wallet.get_address(LastUnused)?.to_string();
     log!(&address);
-    let balance = wallet.as_ref().unwrap().get_balance().unwrap().to_string();
+    let balance = wallet.get_balance()?.to_string();
     log!(&balance);
-    let unspent = wallet.as_ref().unwrap().list_unspent().unwrap_or_default();
+    let unspent = wallet.list_unspent().unwrap_or_default();
     let unspent: Vec<String> = unspent
         .into_iter()
         .map(|x| x.outpoint.to_string())
         .collect();
     log!(format!("unspent: {unspent:#?}"));
 
-    let transactions = wallet
-        .as_ref()
-        .unwrap()
-        .list_transactions(false)
-        .unwrap_or_default();
+    let transactions = wallet.list_transactions(false).unwrap_or_default();
     log!(format!("transactions: {transactions:#?}"));
 
     let transactions: Vec<WalletTransaction> = transactions
@@ -245,8 +239,9 @@ pub async fn import_asset(
     genesis: Option<String>,
     node_url: Option<String>,
 ) -> Result<ThinAsset> {
-    let wallet = get_wallet(rgb_tokens_descriptor, None).await;
-    let unspent = wallet.as_ref().unwrap().list_unspent().unwrap_or_default();
+    let wallet = get_wallet(rgb_tokens_descriptor, None)?;
+    synchronize_wallet(&wallet).await?;
+    let unspent = wallet.list_unspent().unwrap_or_default();
     log!(format!("asset: {asset:#?}\tgenesis: {genesis:#?}"));
     match asset {
         Some(asset) => {
@@ -308,9 +303,8 @@ pub async fn send_sats(
 ) -> Result<TransactionDetails> {
     let address = Address::from_str(&(address));
 
-    let wallet = get_wallet(descriptor, Some(change_descriptor))
-        .await
-        .unwrap();
+    let wallet = get_wallet(descriptor, Some(change_descriptor))?;
+    synchronize_wallet(&wallet).await?;
 
     let transaction = create_transaction(
         vec![SatsInvoice {
@@ -333,9 +327,9 @@ pub async fn fund_wallet(
     let address = Address::from_str(&(address));
     let uda_address = Address::from_str(&(uda_address));
 
-    let wallet = get_wallet(descriptor, Some(change_descriptor))
-        .await
-        .unwrap();
+    let wallet = get_wallet(descriptor, Some(change_descriptor))?;
+    synchronize_wallet(&wallet).await?;
+
     let invoice = SatsInvoice {
         address: address.unwrap(),
         amount: 2000,
@@ -362,15 +356,17 @@ pub async fn send_tokens(
     asset: ThinAsset,
     node_url: Option<String>,
 ) -> Result<TransferResponse> {
-    let assets_wallet = get_wallet(rgb_tokens_descriptor.clone(), None)
-        .await
-        .unwrap();
-    let full_wallet = get_wallet(rgb_tokens_descriptor.clone(), Some(btc_descriptor))
-        .await
-        .unwrap();
-    let full_change_wallet = get_wallet(rgb_tokens_descriptor, Some(btc_change_descriptor))
-        .await
-        .unwrap();
+    let assets_wallet = get_wallet(rgb_tokens_descriptor.clone(), None)?;
+    let full_wallet = get_wallet(rgb_tokens_descriptor.clone(), Some(btc_descriptor))?;
+    let full_change_wallet = get_wallet(rgb_tokens_descriptor, Some(btc_change_descriptor))?;
+
+    let _ = join!(
+        synchronize_wallet(&assets_wallet),
+        synchronize_wallet(&full_wallet),
+        synchronize_wallet(&full_change_wallet),
+    )
+    .await;
+
     let consignment = transfer_asset(
         blinded_utxo,
         amount,
@@ -434,8 +430,9 @@ pub async fn import_accept(
     .await;
     match accept {
         Ok(_accept) => {
-            let wallet = get_wallet(rgb_tokens_descriptor, None).await;
-            let unspent = wallet.as_ref().unwrap().list_unspent().unwrap_or_default();
+            let wallet = get_wallet(rgb_tokens_descriptor, None)?;
+            synchronize_wallet(&wallet).await?;
+            let unspent = wallet.list_unspent().unwrap_or_default();
             let asset = get_asset(Some(asset), None, unspent, node_url).await;
             log!(format!("get asset {asset:#?}"));
             asset
