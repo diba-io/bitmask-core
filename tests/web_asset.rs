@@ -5,7 +5,7 @@ use wasm_bindgen_test::*;
 
 use bitmask_core::{
     web::{
-        get_vault, get_wallet_data, import_asset, json_parse, resolve, save_mnemonic_seed,
+        get_vault, get_wallet_data, /*import_asset,*/ json_parse, resolve, save_mnemonic_seed,
         set_panic_hook,
     },
     MnemonicSeedData, VaultData, WalletData,
@@ -18,7 +18,7 @@ const MNEMONIC: &str =
 const ENCRYPTION_PASSWORD: &str = "hunter2";
 const SEED_PASSWORD: &str = "";
 
-const ASSET: &str = "rgb1g2antx89ypjuat7jdth35d8xgqserckrhj9elkrhxhjhxch8sxqqguzmh6"; // BUX
+// const ASSET: &str = "rgb1g2antx89ypjuat7jdth35d8xgqserckrhj9elkrhxhjhxch8sxqqguzmh6"; // BUX
 
 /// Test asset import
 #[wasm_bindgen_test]
@@ -45,13 +45,13 @@ async fn asset_import() {
     .await;
     let vault_data: VaultData = json_parse(&vault_str);
 
-    resolve(import_asset(
-        vault_data.rgb_tokens_descriptor.clone(),
-        Some(ASSET.to_owned()),
-        None,
-        None,
-    ))
-    .await;
+    // resolve(import_asset(
+    //     vault_data.rgb_tokens_descriptor.clone(),
+    //     Some(ASSET.to_owned()),
+    //     None,
+    //     None,
+    // ))
+    // .await;
 
     // Get wallet data
     let wallet_str: JsValue = resolve(get_wallet_data(
