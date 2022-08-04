@@ -17,12 +17,6 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 anyhow = "1.0.44"
 base64 = "0.13.0"
-bdk = { version = "0.18.0", features = [
-    "use-esplora-reqwest",
-    "key-value-db",
-    "async-interface",
-    "reqwest-default-tls",
-], default-features = false }
 bip39 = "1.0.1"
 bitcoin = "0.27.1"
 console_error_panic_hook = "0.1.6"
@@ -43,6 +37,19 @@ wasm-bindgen-futures = "0.4.27"
 web-sys = "0.3.55"
 wee_alloc = "0.4.5"
 pretty_env_logger = "0.4.0"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+bdk = { version = "0.18.0", features = [
+    "use-esplora-reqwest",
+    "async-interface",
+    "reqwest-default-tls",
+], default-features = false }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+bdk = { version = "0.18.0", features = [
+    "use-esplora-reqwest",
+    "async-interface",
+], default-features = false }
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3.13"
