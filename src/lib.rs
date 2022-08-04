@@ -1,4 +1,6 @@
+#![feature(future_join)]
 #![allow(clippy::unused_unit)]
+use std::future::join;
 use std::str::FromStr;
 
 use anyhow::{format_err, Result};
@@ -302,6 +304,7 @@ pub async fn send_sats(
     let address = Address::from_str(&(address));
 
     let wallet = get_wallet(descriptor, Some(change_descriptor))?;
+    synchronize_wallet(&wallet).await?;
 
     let transaction = create_transaction(
         vec![SatsInvoice {
@@ -325,6 +328,8 @@ pub async fn fund_wallet(
     let uda_address = Address::from_str(&(uda_address));
 
     let wallet = get_wallet(descriptor, Some(change_descriptor))?;
+    synchronize_wallet(&wallet).await?;
+
     let invoice = SatsInvoice {
         address: address.unwrap(),
         amount: 2000,
@@ -354,6 +359,13 @@ pub async fn send_tokens(
     let assets_wallet = get_wallet(rgb_tokens_descriptor.clone(), None)?;
     let full_wallet = get_wallet(rgb_tokens_descriptor.clone(), Some(btc_descriptor))?;
     let full_change_wallet = get_wallet(rgb_tokens_descriptor, Some(btc_change_descriptor))?;
+
+    let _ = join!(
+        synchronize_wallet(&assets_wallet),
+        synchronize_wallet(&full_wallet),
+        synchronize_wallet(&full_change_wallet),
+    ).await;
+
     let consignment = transfer_asset(
         blinded_utxo,
         amount,
@@ -417,8 +429,9 @@ pub async fn import_accept(
     .await;
     match accept {
         Ok(_accept) => {
-            let wallet = get_wallet(rgb_tokens_descriptor, None);
-            let unspent = wallet.as_ref().unwrap().list_unspent().unwrap_or_default();
+            let wallet = get_wallet(rgb_tokens_descriptor, None)?;
+            synchronize_wallet(&wallet).await?;
+            let unspent = wallet.list_unspent().unwrap_or_default();
             let asset = get_asset(Some(asset), None, unspent, node_url).await;
             log!(format!("get asset {asset:#?}"));
             asset
