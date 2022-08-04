@@ -1,7 +1,7 @@
 #[macro_use]
 extern crate amplify;
 
-use std::str::FromStr;
+use std::{collections::BTreeSet, str::FromStr};
 
 use anyhow::{anyhow, format_err, Result};
 use bdk::{wallet::AddressIndex::LastUnused, BlockTime};
@@ -443,11 +443,26 @@ pub async fn rgb_tweak(
     inputs: Vec<OutPoint>,
     allocate: Vec<SealCoins>,
     witness: &str,
-) -> Result<(Psbt, InmemConsignment<ContractConsignment>, Disclosure)> {
-    let (psbt, consignment, disclosure) =
-        rgb_tweaking(asset, _, witness, _, receiver, _, _).await?;
-
-    Ok((psbt, consignment, disclosure))
+) -> Result<TransferResponse> {
+    let mut psbt = Psbt::from_str(witness)?;
+    let change: std::collections::BTreeMap<rgb_core::seal::Revealed, u64> =
+        std::collections::BTreeMap::new();
+    let (psbt, consignment, disclosure) = rgb_tweaking(
+        asset,
+        inputs,
+        &mut psbt,
+        BTreeSet::new(),
+        receiver,
+        change,
+        amount,
+    )
+    .await?;
+    let transfer_response = TransferResponse {
+        consignment: consignment.to_string(),
+        disclosure: format!("{disclosure:?}"),
+        witness: psbt.to_string(),
+    };
+    Ok(transfer_response)
 }
 
 pub async fn validate_transaction(consignment: &str, node_url: Option<String>) -> Result<()> {
