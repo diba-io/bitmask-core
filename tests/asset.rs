@@ -1,7 +1,7 @@
 #![cfg(not(target_arch = "wasm32"))]
 
 use anyhow::Result;
-use bitmask_core::{get_vault, get_wallet_data, import_asset, save_mnemonic_seed};
+use bitmask_core::{get_vault, get_wallet_data, /* import_asset, */ save_mnemonic_seed};
 use std::env;
 
 const MNEMONIC: &str =
@@ -9,7 +9,7 @@ const MNEMONIC: &str =
 const ENCRYPTION_PASSWORD: &str = "hunter2";
 const SEED_PASSWORD: &str = "";
 
-const ASSET: &str = "rgb1g2antx89ypjuat7jdth35d8xgqserckrhj9elkrhxhjhxch8sxqqguzmh6"; // BUX
+// const ASSET: &str = "rgb1g2antx89ypjuat7jdth35d8xgqserckrhj9elkrhxhjhxch8sxqqguzmh6"; // BUX
 
 /// Test asset import
 #[tokio::test]
