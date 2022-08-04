@@ -17,7 +17,7 @@ struct State {
     balance: String,
 }
 
-pub fn get_wallet(
+pub async fn get_wallet(
     descriptor: String,
     change_descriptor: Option<String>,
 ) -> Result<Wallet<MemoryDatabase>> {
@@ -27,7 +27,7 @@ pub fn get_wallet(
         *NETWORK.read().unwrap(),
         MemoryDatabase::default(),
     )?;
-
+    synchronize_wallet(&wallet).await?;
     Ok(wallet)
 }
 
