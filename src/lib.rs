@@ -9,7 +9,7 @@ use bitcoin::{util::address::Address, OutPoint, Transaction, Txid};
 use bitcoin_hashes::{sha256, Hash};
 use operations::rgb::ConsignmentDetails;
 use psbt::Psbt;
-use rgb_std::{ContractConsignment, Disclosure, InmemConsignment};
+
 use serde::{Deserialize, Serialize};
 use serde_encrypt::{
     serialize::impls::BincodeSerializer, shared_key::SharedKey, traits::SerdeEncryptSharedKey,
@@ -441,7 +441,7 @@ pub async fn rgb_tweak(
     amount: u64,
     asset: &str,
     inputs: Vec<OutPoint>,
-    allocate: Vec<SealCoins>,
+    _allocate: Vec<SealCoins>,
     witness: &str,
 ) -> Result<TransferResponse> {
     let mut psbt = Psbt::from_str(witness)?;

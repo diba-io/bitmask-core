@@ -803,7 +803,7 @@ pub async fn rgb_tweaking(
     info!(format!("Beneficiaries: {beneficiaries:?}"));
     let transition = match transition(asset, &outpoints, &beneficiaries, &change) {
         Ok(value) => value,
-        Err(err) => return Err(anyhow!("Error making transition")), // TODO: make a more informative error compatible with the method
+        Err(_err) => return Err(anyhow!("Error making transition")), // TODO: make a more informative error compatible with the method
     };
     let (mut consignment, consignment_details) =
         compose_consignment(&contract, outpoint_for_consignment.clone()).await?;
