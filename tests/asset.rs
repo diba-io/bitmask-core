@@ -32,15 +32,15 @@ async fn asset_import() -> Result<()> {
     // Get vault properties
     let vault = get_vault(ENCRYPTION_PASSWORD.to_owned(), encrypted_descriptors)?;
 
-    let asset = import_asset(
-        vault.rgb_tokens_descriptor.clone(),
-        Some(ASSET.to_owned()),
-        None,
-        None,
-    )
-    .await?;
+    // let asset = import_asset(
+    //     vault.rgb_tokens_descriptor.clone(),
+    //     Some(ASSET.to_owned()),
+    //     None,
+    //     None,
+    // )
+    // .await?;
 
-    assert_eq!(asset.id, ASSET, "Asset IDs match");
+    // assert_eq!(asset.id, ASSET, "Asset IDs match");
 
     // Get wallet data
     let wallet = get_wallet_data(vault.rgb_tokens_descriptor, None).await?;
