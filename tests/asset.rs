@@ -5,7 +5,7 @@ use std::env;
 use anyhow::Result;
 use bitmask_core::{
     create_asset, fund_wallet, get_assets_vault, get_network, /* get_rgb_address,*/ get_vault,
-    get_wallet_data, import_asset, save_mnemonic_seed, send_tokens, set_blinded_utxo,
+    get_wallet_data, import_asset, save_mnemonic_seed, /* send_tokens, */ set_blinded_utxo,
 };
 use log::{debug, info};
 
@@ -96,18 +96,18 @@ async fn asset_import() -> Result<()> {
 
     debug!("Blinded UTXO: {:?}", blinded_utxo);
 
-    info!("Transfer asset");
-    let consignment_details = send_tokens(
-        &vault.btc_descriptor,
-        // &vault.btc_change_descriptor,
-        &vault.rgb_tokens_descriptor,
-        &blinded_utxo.conceal,
-        100,
-        &issued_asset.genesis,
-    )
-    .await?;
+    // info!("Transfer asset");
+    // let consignment_details = send_tokens(
+    //     &vault.btc_descriptor,
+    //     // &vault.btc_change_descriptor,
+    //     &vault.rgb_tokens_descriptor,
+    //     &blinded_utxo.conceal,
+    //     100,
+    //     &issued_asset.genesis,
+    // )
+    // .await?;
 
-    debug!("Transfer response: {:#?}", &consignment_details);
+    // debug!("Transfer response: {:#?}", &consignment_details);
 
     Ok(())
 }

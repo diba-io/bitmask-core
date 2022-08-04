@@ -1,11 +1,11 @@
 use anyhow::{Error, Result};
-use bdk::{blockchain::Blockchain, database::MemoryDatabase, SignOptions, Wallet};
+use bdk::{blockchain::Blockchain, database::AnyDatabase, SignOptions, Wallet};
 use bitcoin::{consensus::serialize, util::psbt::PartiallySignedTransaction, Transaction};
 
 use crate::{debug, operations::bitcoin::balance::get_blockchain};
 
 pub async fn sign_psbt(
-    wallet: &Wallet<MemoryDatabase>,
+    wallet: &Wallet<AnyDatabase>,
     mut psbt: PartiallySignedTransaction,
 ) -> Result<Transaction> {
     let finalized = wallet.sign(&mut psbt, SignOptions::default())?;

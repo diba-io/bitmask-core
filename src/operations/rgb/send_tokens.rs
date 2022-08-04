@@ -4,9 +4,10 @@ use std::str::FromStr;
 use amplify::hex::ToHex;
 use amplify::Wrapper;
 use anyhow::{anyhow, Result};
+use bdk::database::AnyDatabase;
 use bdk::LocalUtxo;
 // use bdk::sled::Serialize;
-use bdk::{database::MemoryDatabase, descriptor::Descriptor, Wallet};
+use bdk::{descriptor::Descriptor, Wallet};
 use bitcoin::{psbt::serialize::Serialize, OutPoint, Transaction, Txid};
 use bp::dbc::anchor::PsbtEmbeddedMessage;
 use bp::seals::txout::blind::RevealedSeal;
@@ -459,9 +460,9 @@ pub async fn transfer_asset(
     blinded_utxo: &str,
     amount: u64,
     asset_contract: &str, // rgb1...
-    full_wallet: &Wallet<MemoryDatabase>,
-    // full_change_wallet: &Wallet<MemoryDatabase>,
-    assets_wallet: &Wallet<MemoryDatabase>,
+    full_wallet: &Wallet<AnyDatabase>,
+    // full_change_wallet: &Wallet<AnyDatabase>,
+    assets_wallet: &Wallet<AnyDatabase>,
     rgb_tokens_descriptor: &str,
 ) -> Result<(ConsignmentDetails, Transaction, TransferResponse)> {
     // BDK
