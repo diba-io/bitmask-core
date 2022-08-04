@@ -17,6 +17,7 @@ jobs:
         with:
           profile: minimal
           toolchain: nightly
+          target: x86_64-unknown-linux-gnu
 
       - uses: Swatinem/rust-cache@v1
 
@@ -36,6 +37,7 @@ jobs:
         with:
           profile: minimal
           toolchain: nightly
+          target: wasm32-unknown-unknown
 
       - uses: Swatinem/rust-cache@v1
       - uses: jetli/wasm-pack-action@v0.3.0
@@ -60,6 +62,7 @@ jobs:
         with:
           profile: minimal
           toolchain: nightly
+          target: x86_64-unknown-linux-gnu
 
       - uses: Swatinem/rust-cache@v1
 
@@ -80,6 +83,7 @@ jobs:
         with:
           profile: minimal
           toolchain: nightly
+          target: wasm32-unknown-unknown
 
       - uses: Swatinem/rust-cache@v1
       - uses: jetli/wasm-pack-action@v0.3.0
