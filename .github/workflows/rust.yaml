@@ -86,7 +86,7 @@ jobs:
       - uses: jetli/wasm-pack-action@v0.3.0
 
       - name: Add wasm32 target
-        run: rustup target add wasm32-unknown-unknown && rustup override set nightly && rustup target add wasm32-unknown-unknown --toolchain nightly
+        run: rustup override set nightly && rustup target add wasm32-unknown-unknown --toolchain nightly
 
       - name: Test
         run: wasm-pack test --headless --chrome
