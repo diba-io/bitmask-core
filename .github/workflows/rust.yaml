@@ -43,7 +43,7 @@ jobs:
       - uses: jetli/wasm-pack-action@v0.3.0
 
       - name: Add wasm32 target
-        run: rustup target add wasm32-unknown-unknown
+        run: rustup target add wasm32-unknown-unknown && rustup override set nightly && rustup target add wasm32-unknown-unknown --toolchain nightly
 
       - name: Install nightly clippy
         run: rustup component add clippy --toolchain nightly-wasm32-unknown-unknown
@@ -89,7 +89,7 @@ jobs:
       - uses: jetli/wasm-pack-action@v0.3.0
 
       - name: Add wasm32 target
-        run: rustup target add wasm32-unknown-unknown
+        run: rustup target add wasm32-unknown-unknown && rustup override set nightly && rustup target add wasm32-unknown-unknown --toolchain nightly
 
       - name: Test
         run: wasm-pack +nightly test --headless --chrome
