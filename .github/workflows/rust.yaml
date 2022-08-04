@@ -46,7 +46,7 @@ jobs:
         run: rustup target add wasm32-unknown-unknown && rustup override set nightly && rustup target add wasm32-unknown-unknown --toolchain nightly
 
       - name: Install nightly clippy
-        run: rustup component add clippy --toolchain nightly-wasm32-unknown-unknown
+        run: rustup component add clippy --toolchain wasm32-unknown-unknown
 
       - name: Lint (wasm32)
         run: cargo +nightly clippy --target wasm32-unknown-unknown --lib -- -D warnings
