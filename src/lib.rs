@@ -1,7 +1,5 @@
-#![feature(future_join)]
-#![allow(clippy::unused_unit)]
-use std::future::join;
 use std::str::FromStr;
+use tokio::try_join;
 
 use anyhow::{format_err, Result};
 use bdk::{wallet::AddressIndex::LastUnused, BlockTime, TransactionDetails};
@@ -360,12 +358,11 @@ pub async fn send_tokens(
     let full_wallet = get_wallet(rgb_tokens_descriptor.clone(), Some(btc_descriptor))?;
     let full_change_wallet = get_wallet(rgb_tokens_descriptor, Some(btc_change_descriptor))?;
 
-    let _ = join!(
+    try_join!(
         synchronize_wallet(&assets_wallet),
         synchronize_wallet(&full_wallet),
         synchronize_wallet(&full_change_wallet),
-    )
-    .await;
+    )?;
 
     let consignment = transfer_asset(
         blinded_utxo,

@@ -172,7 +172,6 @@ dependencies = [
  "bip39",
  "bitcoin",
  "console_error_panic_hook",
- "futures",
  "getrandom 0.2.7",
  "gloo-console",
  "gloo-net",

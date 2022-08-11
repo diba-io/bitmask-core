@@ -20,7 +20,6 @@ base64 = "0.13.0"
 bip39 = "1.0.1"
 bitcoin = "0.27.1"
 console_error_panic_hook = "0.1.6"
-futures = "0.3.17"
 getrandom = { version = "0.2.3", features = ["js"] }
 gloo-console = "0.2.1"
 gloo-net = "0.2.0"
@@ -50,6 +49,7 @@ bdk = { version = "0.18.0", features = [
     "use-esplora-reqwest",
     "async-interface",
 ], default-features = false }
+tokio = { version = "1", features = ["macros"] }
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3.13"
