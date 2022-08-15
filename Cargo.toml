@@ -31,6 +31,7 @@ serde = "1.0.130"
 serde_json = "1.0.68"
 serde-encrypt = "0.7.0"
 sha2 = "0.10.1"
+tokio = { version = "1", features = ["macros"] }
 wasm-bindgen = { version = "0.2.77", features = ["serde-serialize"] }
 wasm-bindgen-futures = "0.4.27"
 web-sys = "0.3.55"
@@ -49,7 +50,6 @@ bdk = { version = "0.18.0", features = [
     "use-esplora-reqwest",
     "async-interface",
 ], default-features = false }
-tokio = { version = "1", features = ["macros"] }
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3.13"
