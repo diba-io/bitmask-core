@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, str::FromStr};
+use std::collections::BTreeMap;
 
 use anyhow::{anyhow, Result};
 use bitcoin::OutPoint;
@@ -31,8 +31,10 @@ pub fn issue_asset(
     let network = Chain::from(*NETWORK.read().unwrap());
     let ticker = AsciiString::try_from(ticker)?;
     let name = AsciiString::try_from(name)?;
-    let outpoint_value = format!("{supply}@{utxo}");
-    let allocation = vec![OutpointValue::from_str(&outpoint_value)?];
+    let allocation = vec![OutpointValue {
+        value: supply,
+        outpoint: utxo,
+    }];
 
     let contract = Contract::create_rgb20(
         network,
