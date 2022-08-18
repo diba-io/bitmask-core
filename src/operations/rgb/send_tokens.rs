@@ -621,7 +621,7 @@ pub async fn transfer_asset(
         .map(|(_coin, remainder)| AllocatedValue {
             value: *remainder,
             seal: ExplicitSeal {
-                method: CloseMethod::OpretFirst,
+                method: CloseMethod::TapretFirst,
                 txid: Some(change_output.outpoint.txid),
                 vout: change_output.outpoint.vout,
             },
@@ -669,7 +669,7 @@ pub async fn transfer_asset(
     info!("Re-scanned network");
 
     let outputs = vec![]; // TODO: not sure if this is correct
-    let allow_tapret_path = DfsPath::from_str("0")?;
+    let allow_tapret_path = DfsPath::from_str("1")?;
 
     // format BDK descriptor for RGB
     let re = Regex::new(r"\(\[([0-9a-f]+)/(.+)](.+)/").unwrap();
@@ -705,8 +705,7 @@ pub async fn transfer_asset(
         &outputs,
         0_u16,
         fee,
-        // Some(&allow_tapret_path),
-        None,
+        Some(&allow_tapret_path),
         &tx_map,
     ) {
         Ok(p) => p,
