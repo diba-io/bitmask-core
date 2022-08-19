@@ -3,8 +3,8 @@ use std::str::FromStr;
 use anyhow::Result;
 use bdk::{
     bitcoin::util::bip32::{DerivationPath, ExtendedPrivKey, ExtendedPubKey, KeySource},
-    descriptor::Segwitv0,
     keys::{DerivableKey, DescriptorKey, DescriptorKey::Secret as SecretDesc},
+    miniscript::{ScriptContext, Tap},
 };
 use bip39::Mnemonic;
 use bitcoin::secp256k1::Secp256k1;
@@ -20,14 +20,14 @@ fn get_random_buf() -> Result<[u8; 16], getrandom::Error> {
     Ok(buf)
 }
 
-fn get_descriptor(xprv: ExtendedPrivKey, path: &str, xpub: bool) -> String {
+fn get_descriptor<C: ScriptContext>(xprv: ExtendedPrivKey, path: &str, xpub: bool) -> String {
     let secp = Secp256k1::new();
     let deriv_descriptor: DerivationPath = DerivationPath::from_str(path).unwrap();
     let derived_xprv = &xprv.derive_priv(&secp, &deriv_descriptor).unwrap();
 
     let origin: KeySource = (xprv.fingerprint(&secp), deriv_descriptor);
 
-    let derived_xprv_desc_key: DescriptorKey<Segwitv0> = derived_xprv
+    let derived_xprv_desc_key: DescriptorKey<C> = derived_xprv
         .into_descriptor_key(Some(origin), DerivationPath::default())
         .unwrap();
 
@@ -66,14 +66,15 @@ pub fn get_mnemonic(seed_password: &str) -> (String, String, String, String, Str
 
     let network = NETWORK.read().unwrap();
     let xprv = ExtendedPrivKey::new_master(*network, &seed).expect("New xprivkey from seed");
-    // let network = network.to_string();
 
-    let btc_descriptor = format!("wpkh({})", get_descriptor(xprv, BTC_PATH, false));
-    let btc_change_descriptor = format!("wpkh({})", get_descriptor(xprv, BTC_CHANGE_PATH, false));
-    let rgb_tokens_descriptor = format!("wpkh({})", get_descriptor(xprv, RGB_TOKENS_PATH, true));
-    let rgb_nfts_descriptor = format!("wpkh({})", get_descriptor(xprv, RGB_NFTS_PATH, true));
-    // let rgb_tokens_descriptor = get_rgb_descriptor(&network, xprv, RGB_TOKENS_PATH);
-    // let rgb_nfts_descriptor = get_rgb_descriptor(&network, xprv, RGB_NFTS_PATH);
+    let btc_descriptor = format!("tr({})", get_descriptor::<Tap>(xprv, BTC_PATH, false));
+    let btc_change_descriptor = format!(
+        "tr({})",
+        get_descriptor::<Tap>(xprv, BTC_CHANGE_PATH, false)
+    );
+    let rgb_tokens_descriptor =
+        format!("tr({})", get_descriptor::<Tap>(xprv, RGB_TOKENS_PATH, true));
+    let rgb_nfts_descriptor = format!("tr({})", get_descriptor::<Tap>(xprv, RGB_NFTS_PATH, true));
 
     let secp = Secp256k1::new();
     let xpub = ExtendedPubKey::from_priv(&secp, &xprv);
@@ -98,14 +99,15 @@ pub fn save_mnemonic(
 
     let network = NETWORK.read().unwrap();
     let xprv = ExtendedPrivKey::new_master(*network, &seed).expect("New xprivkey from seed");
-    // let network = network.to_string();
 
-    let btc_descriptor = format!("wpkh({})", get_descriptor(xprv, BTC_PATH, false));
-    let btc_change_descriptor = format!("wpkh({})", get_descriptor(xprv, BTC_CHANGE_PATH, false));
-    let rgb_tokens_descriptor = format!("wpkh({})", get_descriptor(xprv, RGB_TOKENS_PATH, true));
-    let rgb_nfts_descriptor = format!("wpkh({})", get_descriptor(xprv, RGB_NFTS_PATH, true));
-    // let rgb_tokens_descriptor = get_rgb_descriptor(&network, xprv, RGB_TOKENS_PATH);
-    // let rgb_nfts_descriptor = get_rgb_descriptor(&network, xprv, RGB_NFTS_PATH);
+    let btc_descriptor = format!("tr({})", get_descriptor::<Tap>(xprv, BTC_PATH, false));
+    let btc_change_descriptor = format!(
+        "tr({})",
+        get_descriptor::<Tap>(xprv, BTC_CHANGE_PATH, false)
+    );
+    let rgb_tokens_descriptor =
+        format!("tr({})", get_descriptor::<Tap>(xprv, RGB_TOKENS_PATH, true));
+    let rgb_nfts_descriptor = format!("tr({})", get_descriptor::<Tap>(xprv, RGB_NFTS_PATH, true));
 
     let secp = Secp256k1::new();
     let xpub = ExtendedPubKey::from_priv(&secp, &xprv);
