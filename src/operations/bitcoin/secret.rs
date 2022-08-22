@@ -85,7 +85,7 @@ pub fn get_mnemonic(seed_password: &str) -> (String, String, String, String, Str
         btc_change_descriptor,
         rgb_tokens_descriptor,
         rgb_nfts_descriptor,
-        xpub.identifier().to_string(),
+        xpub.to_pub().pubkey_hash().to_string(),
     )
 }
 
@@ -117,6 +117,6 @@ pub fn save_mnemonic(
         btc_change_descriptor,
         rgb_tokens_descriptor,
         rgb_nfts_descriptor,
-        xpub.identifier().to_string(),
+        xpub.to_pub().pubkey_hash().to_string(),
     )
 }
