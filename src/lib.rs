@@ -3,7 +3,7 @@ extern crate amplify;
 
 use std::str::FromStr;
 
-use anyhow::{anyhow, format_err, Result};
+use anyhow::{anyhow, Result};
 use bdk::{wallet::AddressIndex::LastUnused, BlockTime};
 use bitcoin::{util::address::Address, OutPoint, Transaction, Txid};
 use bitcoin_hashes::{sha256, Hash};
@@ -22,28 +22,18 @@ pub mod web;
 
 use data::{
     constants,
-    structs::{AssetResponse, SatsInvoice, ThinAsset, TransferResponse},
+    structs::{AssetResponse, SatsInvoice, ThinAsset, TransferResponse, VaultData},
 };
 
 use operations::{
-    bitcoin::{create_transaction, get_mnemonic, get_wallet, save_mnemonic},
+    bitcoin::{create_transaction, get_wallet, new_mnemonic, save_mnemonic},
     rgb::{
-        accept_transfer, blind_utxo, get_asset_by_contract_id, get_asset_by_genesis, get_assets,
-        issue_asset, /* rgb_address, */ transfer_asset, validate_transfer,
+        accept_transfer, blind_utxo, get_asset_by_genesis, get_assets, issue_asset,
+        /* rgb_address, */ transfer_asset, validate_transfer,
     },
 };
 
 use crate::operations::bitcoin::synchronize_wallet;
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-#[serde(rename_all = "camelCase")]
-pub struct VaultData {
-    pub btc_descriptor: String,
-    pub btc_change_descriptor: String,
-    pub rgb_tokens_descriptor: String,
-    pub rgb_nfts_descriptor: String,
-    pub pubkey_hash: String,
-}
 
 impl SerdeEncryptSharedKey for VaultData {
     type S = BincodeSerializer<Self>; // you can specify serializer implementation (or implement it by yourself).
@@ -53,27 +43,19 @@ pub fn get_vault(password: &str, encrypted_descriptors: &str) -> Result<VaultDat
     // read hash digest and consume hasher
     let hash = sha256::Hash::hash(password.as_bytes());
     let shared_key: [u8; 32] = hash.into_inner();
-    let encrypted_descriptors: Vec<u8> = serde_json::from_str(encrypted_descriptors).unwrap();
-    // STORAGE_KEY_DESCRIPTOR_ENCRYPTED
-    let encrypted_message = EncryptedMessage::deserialize(encrypted_descriptors);
-    match encrypted_message {
-        Ok(encrypted_message) => {
-            let vault_data =
-                VaultData::decrypt_owned(&encrypted_message, &SharedKey::from_array(shared_key));
-            match vault_data {
-                Ok(vault_data) => Ok(vault_data),
-                Err(e) => Err(format_err!("Error: {e}")),
-            }
-        }
-        Err(e) => Err(format_err!("Error: {e}")),
-    }
+    let encrypted_descriptors: Vec<u8> = hex::decode(encrypted_descriptors)?;
+    let encrypted_message = EncryptedMessage::deserialize(encrypted_descriptors)?;
+    Ok(VaultData::decrypt_owned(
+        &encrypted_message,
+        &SharedKey::from_array(shared_key),
+    )?)
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct MnemonicSeedData {
     pub mnemonic: String,
-    pub serialized_encrypted_message: Vec<u8>,
+    pub serialized_encrypted_message: String,
 }
 
 pub fn get_mnemonic_seed(
@@ -83,27 +65,13 @@ pub fn get_mnemonic_seed(
     let hash = sha256::Hash::hash(encryption_password.as_bytes());
     let shared_key: [u8; 32] = hash.into_inner();
 
-    let (
-        mnemonic,
-        btc_descriptor,
-        btc_change_descriptor,
-        rgb_tokens_descriptor,
-        rgb_nfts_descriptor,
-        pubkey_hash,
-    ) = get_mnemonic(seed_password);
-    let vault_data = VaultData {
-        btc_descriptor,
-        btc_change_descriptor,
-        rgb_tokens_descriptor,
-        rgb_nfts_descriptor,
-        pubkey_hash,
-    };
+    let vault_data = new_mnemonic(seed_password)?;
     let encrypted_message = vault_data
         .encrypt(&SharedKey::from_array(shared_key))
         .unwrap();
-    let serialized_encrypted_message: Vec<u8> = encrypted_message.serialize();
+    let serialized_encrypted_message = hex::encode(&encrypted_message.serialize());
     let mnemonic_seed_data = MnemonicSeedData {
-        mnemonic,
+        mnemonic: vault_data.mnemonic,
         serialized_encrypted_message,
     };
 
@@ -118,26 +86,13 @@ pub fn save_mnemonic_seed(
     let hash = sha256::Hash::hash(encryption_password.as_bytes());
     let shared_key: [u8; 32] = hash.into_inner();
 
-    let (
-        btc_descriptor,
-        btc_change_descriptor,
-        rgb_tokens_descriptor,
-        rgb_nfts_descriptor,
-        pubkey_hash,
-    ) = save_mnemonic(seed_password, mnemonic);
-    let vault_data = VaultData {
-        btc_descriptor,
-        btc_change_descriptor,
-        rgb_tokens_descriptor,
-        rgb_nfts_descriptor,
-        pubkey_hash,
-    };
+    let vault_data = save_mnemonic(seed_password, mnemonic)?;
     let encrypted_message = vault_data
         .encrypt(&SharedKey::from_array(shared_key))
         .unwrap();
-    let serialized_encrypted_message: Vec<u8> = encrypted_message.serialize();
+    let serialized_encrypted_message = hex::encode(&encrypted_message.serialize());
     let mnemonic_seed_data = MnemonicSeedData {
-        mnemonic: mnemonic.to_owned(),
+        mnemonic: vault_data.mnemonic,
         serialized_encrypted_message,
     };
 
@@ -162,10 +117,7 @@ pub struct WalletTransaction {
     pub confirmation_time: Option<BlockTime>,
 }
 
-pub async fn get_wallet_data(
-    descriptor: &str,
-    change_descriptor: Option<&str>,
-) -> Result<WalletData> {
+pub async fn get_wallet_data(descriptor: &str, change_descriptor: &str) -> Result<WalletData> {
     info!("get_wallet_data");
     info!("descriptor:", &descriptor);
     info!("change_descriptor:", format!("{:?}", &change_descriptor));
@@ -210,9 +162,9 @@ pub async fn get_wallet_data(
 //     rgb_address(descriptor_str, index, change)
 // }
 
-pub async fn import_list_assets(node_url: Option<String>) -> Result<Vec<AssetResponse>> {
+pub fn import_list_assets(contract: &str) -> Result<Vec<AssetResponse>> {
     info!("import_list_assets");
-    let assets = get_assets(node_url).await?;
+    let assets = get_assets(contract)?;
     info!(format!("get assets: {assets:#?}"));
     Ok(assets)
 }
@@ -246,33 +198,9 @@ pub fn create_asset(
     })
 }
 
-pub async fn import_asset(
-    rgb_tokens_descriptor: Option<&str>,
-    contract_id: Option<&str>,
-    genesis: Option<&str>,
-    node_url: Option<String>,
-) -> Result<ThinAsset> {
-    match genesis {
-        Some(genesis) => {
-            info!("Getting asset by genesis:", genesis);
-            get_asset_by_genesis(genesis)
-        }
-        None => match (contract_id, rgb_tokens_descriptor) {
-            (Some(contract_id), Some(rgb_tokens_descriptor)) => {
-                info!("Getting asset by contract id:", contract_id);
-                let wallet = get_wallet(rgb_tokens_descriptor, None)?;
-                synchronize_wallet(&wallet).await?;
-                let unspent = wallet.list_unspent().unwrap_or_default();
-                let asset = get_asset_by_contract_id(contract_id, unspent, node_url).await;
-                info!(format!("asset: {asset:?}"));
-                match asset {
-                    Ok(asset) => Ok(asset),
-                    Err(e) => Err(format_err!("Server error: {e}")),
-                }
-            }
-            _ => Err(format_err!("Error: Unknown error in import_asset")),
-        },
-    }
+pub fn import_asset(genesis: &str) -> Result<ThinAsset> {
+    info!("Getting asset by genesis:", genesis);
+    get_asset_by_genesis(genesis)
 }
 
 #[derive(Serialize, Deserialize)]
@@ -313,7 +241,7 @@ pub async fn send_sats(
 ) -> Result<Transaction> {
     let address = Address::from_str(&(address));
 
-    let wallet = get_wallet(descriptor, Some(change_descriptor))?;
+    let wallet = get_wallet(descriptor, change_descriptor)?;
 
     let transaction = create_transaction(
         vec![SatsInvoice {
@@ -345,7 +273,7 @@ pub async fn fund_wallet(
     let address = Address::from_str(address);
     let uda_address = Address::from_str(uda_address);
 
-    let wallet = get_wallet(descriptor, Some(change_descriptor))?;
+    let wallet = get_wallet(descriptor, change_descriptor)?;
 
     let asset_invoice = SatsInvoice {
         address: address.unwrap(),
@@ -384,8 +312,11 @@ pub async fn fund_wallet(
     })
 }
 
-pub async fn get_assets_vault(assets_descriptor: &str) -> Result<FundVaultDetails> {
-    let assets_wallet = get_wallet(assets_descriptor, None)?;
+pub async fn get_assets_vault(
+    assets_descriptor: &str,
+    assets_change_descriptor: &str,
+) -> Result<FundVaultDetails> {
+    let assets_wallet = get_wallet(assets_descriptor, assets_change_descriptor)?;
     synchronize_wallet(&assets_wallet).await?;
 
     let asset_utxos = assets_wallet.list_unspent()?;
@@ -409,25 +340,25 @@ pub async fn get_assets_vault(assets_descriptor: &str) -> Result<FundVaultDetail
     }
 }
 
-pub async fn send_tokens(
+pub async fn send_assets(
     btc_descriptor: &str,
-    // btc_change_descriptor: &str,
-    rgb_tokens_descriptor: &str,
+    btc_change_descriptor: &str,
+    rgb_assets_descriptor: &str,
+    rgb_assets_change_descriptor: &str,
     blinded_utxo: &str,
     amount: u64,
     asset_contract: &str,
 ) -> Result<(ConsignmentDetails, Transaction, TransferResponse)> {
-    let full_wallet = get_wallet(rgb_tokens_descriptor, Some(btc_descriptor))?;
-    // let full_change_wallet = get_wallet(rgb_tokens_descriptor, Some(btc_change_descriptor))?;
-    let assets_wallet = get_wallet(rgb_tokens_descriptor, None)?;
+    let full_wallet = get_wallet(btc_descriptor, btc_change_descriptor)?;
+    let assets_wallet = get_wallet(rgb_assets_descriptor, rgb_assets_change_descriptor)?;
     let (consignment, tx, response) = transfer_asset(
         blinded_utxo,
         amount,
         asset_contract,
         &full_wallet,
-        // &full_change_wallet,
         &assets_wallet,
-        rgb_tokens_descriptor,
+        rgb_assets_descriptor,
+        rgb_assets_change_descriptor,
     )
     .await?;
 
@@ -463,8 +394,7 @@ pub async fn accept_transaction(
 }
 
 pub async fn import_accept(
-    rgb_tokens_descriptor: &str,
-    asset: &str,
+    asset_contract: &str,
     consignment: &str,
     txid: &str,
     vout: u32,
@@ -487,8 +417,7 @@ pub async fn import_accept(
     .await;
     match accept {
         Ok(_accept) => {
-            let asset =
-                import_asset(Some(rgb_tokens_descriptor), Some(asset), None, node_url).await;
+            let asset = import_asset(asset_contract);
             info!(format!("get asset {asset:#?}"));
             asset
         }

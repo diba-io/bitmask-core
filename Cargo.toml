@@ -20,6 +20,7 @@ sqlite = []
 
 [dependencies]
 anyhow = "1.0.44"
+base64 = { package = "base64-compat", version = "1.0.0" }
 bip39 = "1.0.1"
 bitcoin = "0.28.1"
 console_error_panic_hook = "0.1.6"
@@ -27,7 +28,7 @@ descriptor-wallet = { version = "0.8.3", features = ["descriptors", "serde"] }
 directories = "4.0"
 futures = "0.3.17"
 getrandom = { version = "0.2.3", features = ["js"] }
-base64 = { package = "base64-compat", version = "1.0.0" }
+hex = "0.4.3"
 lazy_static = "1.4.0"
 log = "0.4.17"
 once_cell = "1.9.0"

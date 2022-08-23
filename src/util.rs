@@ -120,19 +120,3 @@ pub async fn post_json<T: Serialize>(url: String, body: &T) -> Result<(String, u
 
     Ok((response_text, status_code))
 }
-
-#[cfg(not(target_arch = "wasm32"))]
-pub async fn get(url: String) -> Result<(String, u16)> {
-    let response = reqwest::get(&url)
-        .await
-        .context(format!("Error sending GET request to {}", url))?;
-
-    let status_code = response.status().as_u16();
-
-    let response_text = response
-        .text()
-        .await
-        .context("Error in handling server response")?;
-
-    Ok((response_text, status_code))
-}

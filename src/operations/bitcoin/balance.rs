@@ -10,10 +10,7 @@ use crate::{
     debug,
 };
 
-pub fn get_wallet(
-    descriptor: &str,
-    change_descriptor: Option<&str>,
-) -> Result<Wallet<AnyDatabase>> {
+pub fn get_wallet(descriptor: &str, change_descriptor: &str) -> Result<Wallet<AnyDatabase>> {
     #[cfg(feature = "webp")]
     #[cfg(not(target_arch = "wasm32"))]
     let db = {
@@ -44,7 +41,12 @@ pub fn get_wallet(
 
     debug!(format!("Using database: {db:?}"));
 
-    let wallet = Wallet::new(descriptor, change_descriptor, *NETWORK.read().unwrap(), db)?;
+    let wallet = Wallet::new(
+        descriptor,
+        Some(change_descriptor),
+        *NETWORK.read().unwrap(),
+        db,
+    )?;
     Ok(wallet)
 }
 

@@ -460,9 +460,9 @@ pub async fn transfer_asset(
     amount: u64,
     asset_contract: &str, // rgb1...
     full_wallet: &Wallet<AnyDatabase>,
-    // full_change_wallet: &Wallet<AnyDatabase>,
     assets_wallet: &Wallet<AnyDatabase>,
-    rgb_tokens_descriptor: &str,
+    rgb_assets_descriptor: &str,
+    rgb_assets_change_descriptor: &str,
 ) -> Result<(ConsignmentDetails, Transaction, TransferResponse)> {
     // BDK
     info!("sync wallet");
@@ -546,7 +546,7 @@ pub async fn transfer_asset(
         .map(|v| (v.seal_confidential.into(), amount))
         .collect();
 
-    info!(format!("Beneficiaries: {beneficiaries:?}"));
+    info!(format!("Beneficiaries: {beneficiaries:#?}"));
 
     debug!("Coin selection - Largest First Coin");
     let mut change: Vec<(AssignedState<_>, u64)> = vec![];
@@ -563,7 +563,7 @@ pub async fn transfer_asset(
             Err(err) => return Err(anyhow!("Error parsing input_descriptor: {err}")),
         };
         debug!(format!(
-            "InputDescriptor successfully parsed: {input_descriptor:?}"
+            "InputDescriptor successfully parsed: {input_descriptor:#?}"
         ));
 
         if coin.state.value >= remainder {
@@ -571,7 +571,7 @@ pub async fn transfer_asset(
             // TODO: Change output must not be cloned, it needs to be a separate UTXO
             change.push((coin.clone(), coin.state.value - remainder)); // Change
             inputs.push(input_descriptor);
-            debug!(format!("Coin: {coin:?}"));
+            debug!(format!("Coin: {coin:#?}"));
             debug!(format!(
                 "Amount: {} - Remainder: {remainder}",
                 coin.state.value
@@ -582,7 +582,7 @@ pub async fn transfer_asset(
             change.push((coin.clone(), coin.state.value)); // Spend entire coin
             remainder -= coin.state.value;
             inputs.push(input_descriptor);
-            debug!(format!("Coin: {coin:?}"));
+            debug!(format!("Coin: {coin:#?}"));
             debug!(format!(
                 "Amount: {} - Remainder: {remainder}",
                 coin.state.value
@@ -673,8 +673,8 @@ pub async fn transfer_asset(
 
     // format BDK descriptor for RGB
     let re = Regex::new(r"\(\[([0-9a-f]+)/(.+)](.+)/").unwrap();
-    let cap = re.captures(rgb_tokens_descriptor).unwrap();
-    let rgb_tokens_descriptor = format!("wpkh(m=[{}]/{}=[{}]/*/*)", &cap[1], &cap[2], &cap[3]);
+    let cap = re.captures(rgb_assets_descriptor).unwrap();
+    let rgb_tokens_descriptor = format!("tr(m=[{}]/{}=[{}]/*/*)", &cap[1], &cap[2], &cap[3]);
     let rgb_tokens_descriptor = rgb_tokens_descriptor.replace('\'', "h");
 
     debug!(format!(
