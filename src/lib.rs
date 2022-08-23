@@ -22,7 +22,9 @@ pub mod web;
 
 use data::{
     constants,
-    structs::{AssetResponse, SatsInvoice, ThinAsset, TransferResponse, VaultData},
+    structs::{
+        AssetResponse, FundVaultDetails, SatsInvoice, ThinAsset, TransferResponse, VaultData,
+    },
 };
 
 use operations::{
@@ -222,6 +224,7 @@ pub fn set_blinded_utxo(utxo_string: &str) -> Result<BlindingUtxo> {
         txid: Txid::from_str(split.next().unwrap())?,
         vout: split.next().unwrap().to_string().parse::<u32>()?,
     };
+
     let (blind, utxo) = blind_utxo(utxo)?;
 
     let blinding_utxo = BlindingUtxo {
@@ -232,6 +235,22 @@ pub fn set_blinded_utxo(utxo_string: &str) -> Result<BlindingUtxo> {
 
     Ok(blinding_utxo)
 }
+
+// pub fn get_blinded_utxo(rgb_descriptor: &str, rgb_change_descriptor: &str) -> Result<BlindingUtxo> {
+//     let rgb_wallet = get_wallet(rgb_descriptor, rgb_change_descriptor)?;
+
+//     // ensure there's always a receive utxo
+
+//     let (blind, utxo) = blind_utxo(utxo)?;
+
+//     let blinding_utxo = BlindingUtxo {
+//         conceal: blind.conceal,
+//         blinding: blind.blinding,
+//         utxo,
+//     };
+
+//     Ok(blinding_utxo)
+// }
 
 pub async fn send_sats(
     descriptor: &str,
@@ -253,15 +272,6 @@ pub async fn send_sats(
     .await?;
 
     Ok(transaction)
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct FundVaultDetails {
-    pub txid: String,
-    pub send_assets: String,
-    pub recv_assets: String,
-    pub send_udas: String,
-    pub recv_udas: String,
 }
 
 pub async fn fund_wallet(
@@ -305,10 +315,10 @@ pub async fn fund_wallet(
 
     Ok(FundVaultDetails {
         txid: txid.to_string(),
-        send_assets: outputs[0].clone(),
-        recv_assets: outputs[1].clone(),
-        send_udas: outputs[2].clone(),
-        recv_udas: outputs[3].clone(),
+        assets: outputs[0].clone(),
+        assets_change: outputs[1].clone(),
+        udas: outputs[2].clone(),
+        udas_change: outputs[3].clone(),
     })
 }
 
@@ -330,10 +340,10 @@ pub async fn get_assets_vault(
 
             Ok(FundVaultDetails {
                 txid,
-                send_assets: output.clone(), // TODO: Make it work with other UTXOs
-                recv_assets: output.clone(),
-                send_udas: output.clone(),
-                recv_udas: output,
+                assets: output.clone(), // TODO: Make it work with other UTXOs
+                assets_change: output.clone(),
+                udas: output.clone(),
+                udas_change: output,
             })
         }
         None => Err(anyhow!("No asset UTXOs")),

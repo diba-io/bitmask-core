@@ -14,6 +14,15 @@ pub struct VaultData {
     pub mnemonic: String,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct FundVaultDetails {
+    pub txid: String,
+    pub assets: String,
+    pub assets_change: String,
+    pub udas: String,
+    pub udas_change: String,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Issue {
     pub id: String,

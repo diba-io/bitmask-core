@@ -7,10 +7,7 @@ use bdk::{
     miniscript::{ScriptContext, Tap},
 };
 use bip39::Mnemonic;
-use bitcoin::secp256k1::Secp256k1;
-// use bitcoin::util::bip32::ChildNumber;
-// use psbt::sign::MemorySigningAccount;
-// use wallet::hd::{standards::DerivationBlockchain, Bip43, DerivationStandard};
+use bitcoin::{secp256k1::Secp256k1, util::bip32::ChildNumber};
 
 use crate::data::{
     constants::{BTC_PATH, NETWORK, RGB_ASSETS_PATH, RGB_UDAS_PATH},
@@ -23,17 +20,26 @@ fn get_random_buf() -> Result<[u8; 16], getrandom::Error> {
     Ok(buf)
 }
 
-fn get_descriptor<C: ScriptContext>(xprv: ExtendedPrivKey, path: &str) -> Result<String> {
+fn get_descriptor<C: ScriptContext>(
+    xprv: ExtendedPrivKey,
+    path: &str,
+    is_change: bool,
+) -> Result<String> {
     let secp = Secp256k1::new();
     let deriv_descriptor: DerivationPath = DerivationPath::from_str(path)?;
     let derived_xprv = &xprv.derive_priv(&secp, &deriv_descriptor)?;
     let origin: KeySource = (xprv.fingerprint(&secp), deriv_descriptor);
-    let derived_xprv_desc_key: DescriptorKey<C> =
-        derived_xprv.into_descriptor_key(Some(origin), DerivationPath::default())?;
+    let derived_xprv_desc_key: DescriptorKey<C> = derived_xprv.into_descriptor_key(
+        Some(origin),
+        DerivationPath::default().child(ChildNumber::from_normal_idx(if is_change {
+            1
+        } else {
+            0
+        })?),
+    )?;
 
     if let SecretDesc(desc_seckey, _, _) = derived_xprv_desc_key {
-        let desc_pubkey = desc_seckey.as_public(&secp)?;
-        Ok(desc_pubkey.to_string())
+        Ok(desc_seckey.to_string())
     } else {
         Err(anyhow!("Invalid key variant"))
     }
@@ -56,15 +62,19 @@ pub fn get_mnemonic(mnemonic_phrase: Mnemonic, seed_password: &str) -> Result<Va
     let network = NETWORK.read().unwrap();
     let xprv = ExtendedPrivKey::new_master(*network, &seed)?;
 
-    let btc_descriptor = format!("tr({}/0/*)", get_descriptor::<Tap>(xprv, BTC_PATH)?);
-    let btc_change_descriptor = format!("tr({}/1/*)", get_descriptor::<Tap>(xprv, BTC_PATH)?);
-    let rgb_assets_descriptor =
-        format!("tr({}/0/*)", get_descriptor::<Tap>(xprv, RGB_ASSETS_PATH)?);
-    let rgb_assets_change_descriptor =
-        format!("tr({}/1/*)", get_descriptor::<Tap>(xprv, RGB_ASSETS_PATH)?);
-    let rgb_udas_descriptor = format!("tr({}/0/*)", get_descriptor::<Tap>(xprv, RGB_UDAS_PATH)?);
+    let btc_descriptor = format!("tr({})", get_descriptor::<Tap>(xprv, BTC_PATH, false)?);
+    let btc_change_descriptor = format!("tr({})", get_descriptor::<Tap>(xprv, BTC_PATH, true)?);
+    let rgb_assets_descriptor = format!(
+        "tr({})",
+        get_descriptor::<Tap>(xprv, RGB_ASSETS_PATH, false)?
+    );
+    let rgb_assets_change_descriptor = format!(
+        "tr({})",
+        get_descriptor::<Tap>(xprv, RGB_ASSETS_PATH, true)?
+    );
+    let rgb_udas_descriptor = format!("tr({})", get_descriptor::<Tap>(xprv, RGB_UDAS_PATH, false)?);
     let rgb_udas_change_descriptor =
-        format!("tr({}/1/*)", get_descriptor::<Tap>(xprv, RGB_UDAS_PATH)?);
+        format!("tr({})", get_descriptor::<Tap>(xprv, RGB_UDAS_PATH, true)?);
 
     let secp = Secp256k1::new();
     let xpub = ExtendedPubKey::from_priv(&secp, &xprv);

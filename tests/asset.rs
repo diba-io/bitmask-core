@@ -70,7 +70,7 @@ async fn asset_import() -> Result<()> {
     {
         Ok(fund_vault_details) => {
             info!("Found existing UTXO");
-            fund_vault_details.send_assets
+            fund_vault_details.assets
         }
         Err(err) => {
             info!("Funding vault... {}", err);
@@ -83,7 +83,7 @@ async fn asset_import() -> Result<()> {
             .await?;
             debug!("Fund vault details: {fund_vault_details:#?}");
 
-            fund_vault_details.send_assets
+            fund_vault_details.assets
         }
     };
 
