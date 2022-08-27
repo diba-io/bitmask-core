@@ -424,11 +424,16 @@ async fn compose_consignment<T: ConsignmentType>(
     Ok((consignment, details))
 }
 
+// rgb-node -> bucketd/processor -> outpoint_state
 fn outpoint_state(
     outpoints: &BTreeSet<OutPoint>,
     consignment_details: &ConsignmentDetails,
 ) -> Result<ContractStateMap> {
     let mut res: ContractStateMap = bmap! {};
+
+    if outpoints.is_empty() {
+        error!("Outpoints provided to outpoint_state is empty");
+    }
 
     let indexes: BTreeSet<ChunkId> = outpoints
         .iter()
@@ -436,9 +441,13 @@ fn outpoint_state(
         .collect();
 
     for index in &indexes {
-        let set: &BTreeSet<NodeId> = consignment_details.outpoints.get(index).unwrap();
+        let set: BTreeSet<NodeId> = match consignment_details.outpoints.get(index) {
+            Some(set) => set.clone(),
+            None => bset! {},
+        };
         for node_id in set {
-            let contract_id: &ContractId = consignment_details.node_contracts.get(node_id).unwrap();
+            let contract_id: &ContractId =
+                consignment_details.node_contracts.get(&node_id).unwrap();
 
             let state: &ContractState = consignment_details.contracts.get(contract_id).unwrap();
 
@@ -761,6 +770,7 @@ pub async fn transfer_asset(
         .map(|input| input.previous_outpoint)
         .collect();
     info!("Getting outpoint state map");
+    debug!(format!("Outpoints: {outpoints:#?}"));
     let state_map = outpoint_state(&outpoints, &consignment_details)?;
     debug!(format!("Outpoint state map: {state_map:#?}"));
 
@@ -825,7 +835,7 @@ pub async fn transfer_asset(
     // 1. Pack LNPBP-4 and anchor information.
     let mut bundles = psbt.rgb_bundles()?;
     info!(format!("Found {} bundles", bundles.len()));
-    debug!(format!("Bundles: {bundles:?}"));
+    debug!(format!("Bundles: {bundles:#?}"));
 
     let anchor = Anchor::commit(&mut psbt)?;
     debug!(format!("Anchor: {anchor:?}"));
