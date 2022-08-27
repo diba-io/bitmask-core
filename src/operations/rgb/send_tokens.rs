@@ -731,36 +731,61 @@ pub async fn transfer_asset(
     // rgb-cli -n testnet transfer combine ${CONTRACT_ID} ${TRANSITION} ${PSBT} ${UTXO_SRC}
     // rgb-node -> cli/command -> TransferCommand::Combine
     let node_id = transition.node_id();
+    debug!(format!("Using Node ID: {node_id}"));
     psbt.push_rgb_transition(transition)?;
+    info!("Pushed state RGB state transition onto PSBT");
 
     let contract_id = consignment_details.contract_id;
+    debug!(format!("Using contract_id: {contract_id}"));
 
     for input in &mut psbt.inputs {
+        debug!(format!("Input: {input:#?}"));
         if outpoints.contains(&input.previous_outpoint) {
+            debug!(format!(
+                "Input contains previous outpoint: {}",
+                input.previous_outpoint
+            ));
+            debug!(format!(
+                "Setting RGB consumer on input for contract id: {contract_id} and node id: {node_id}"
+            ));
             input.set_rgb_consumer(contract_id, node_id)?;
+            debug!("RGB consumer successfully set on input");
         }
     }
 
+    info!("Mapping outpoints on PSBT");
+    debug!(format!("Mapping outpoints on PSBT: {psbt}"));
     let outpoints: BTreeSet<_> = psbt
         .inputs
         .iter()
         .map(|input| input.previous_outpoint)
         .collect();
+    info!("Getting outpoint state map");
     let state_map = outpoint_state(&outpoints, &consignment_details)?;
+    debug!(format!("Outpoint state map: {state_map:#?}"));
+
     for (cid, outpoint_map) in state_map {
         if cid == contract_id {
             continue;
         }
         let blank_bundle = TransitionBundle::blank(&outpoint_map, &bmap! {})?;
         for (transition, indexes) in blank_bundle.revealed_iter() {
+            debug!(format!("Pushing RGB transition: {transition:#?}"));
             psbt.push_rgb_transition(transition.clone())?;
             for no in indexes {
-                psbt.inputs[*no as usize].set_rgb_consumer(contract_id, transition.node_id())?;
+                debug!(format!(
+                    "Setting RGB consumer for contract id: {cid} and node_id: {}",
+                    transition.node_id()
+                ));
+                psbt.inputs[*no as usize].set_rgb_consumer(cid, transition.node_id())?;
             }
         }
     }
 
-    debug!(format!("PSBT: {}", base64::encode(&psbt.serialize())));
+    debug!(format!(
+        "PSBT with state transition: {}",
+        base64::encode(&psbt.serialize())
+    ));
 
     // Process all state transitions under all contracts which are present in PSBT and prepare information about them which will be used in LNPBP4 commitments.
     // rgb psbt bundle ${PSBT}
