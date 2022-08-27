@@ -9,10 +9,8 @@ use bdk::LocalUtxo;
 // use bdk::sled::Serialize;
 use bdk::{descriptor::Descriptor, Wallet};
 use bitcoin::{psbt::serialize::Serialize, OutPoint, Transaction, Txid};
-use bp::dbc::anchor::PsbtEmbeddedMessage;
 use bp::seals::txout::{CloseMethod, ExplicitSeal};
 use commit_verify::lnpbp4::{self, MerkleBlock};
-use commit_verify::EmbedCommitVerify;
 use electrum_client::{Client, ElectrumApi};
 use regex::Regex;
 use rgb20::Asset;
@@ -830,44 +828,45 @@ pub async fn transfer_asset(
     // rgb-cli -n testnet transfer finalize --endseal ${TXOB} ${PSBT} ${CONSIGNMENT} --send
     // rgb-node -> bucketd/processor -> finalize_transfer
 
-    info!(format!("Finalizing transfer for {}", contract_id));
+    info!(format!("Finalizing transfer for {}...", contract_id));
 
     // 1. Pack LNPBP-4 and anchor information.
+    info!("1. Pack LNPBP-4 and anchor information.");
     let mut bundles = psbt.rgb_bundles()?;
     info!(format!("Found {} bundles", bundles.len()));
     debug!(format!("Bundles: {bundles:#?}"));
 
     let anchor = Anchor::commit(&mut psbt)?;
-    debug!(format!("Anchor: {anchor:?}"));
+    debug!(format!("Anchor: {anchor:#?}"));
 
-    // 2. Extract contract-related state transition from PSBT and put it
-    //    into consignment.
+    // 2. Extract contract-related state transition from PSBT and put it into consignment.
+    info!("2. Extract contract-related state transition from PSBT and put it into consignment.");
     let bundle = bundles.remove(&contract_id).unwrap();
     let bundle_id = bundle.bundle_id();
     consignment.push_anchored_bundle(anchor.to_merkle_proof(contract_id)?, bundle)?;
 
     // 3. Add seal endpoints.
+    info!("3. Add seal endpoints.");
     let endseals = vec![SealEndpoint::try_from(utxob)?];
     for endseal in endseals {
         consignment.push_seal_endpoint(bundle_id, endseal);
     }
 
     // 4. Conceal all the state not related to the transfer.
+    info!("4. Conceal all the state not related to the transfer.");
     // TODO: Conceal all the amounts except the last transition
     // TODO: Conceal all seals outside of the paths from the endpoint to genesis
 
     // 5. Construct and store disclosure for the blank transfers.
+    info!("5. Construct and store disclosure for the blank transfers.");
     let txid = anchor.txid;
     let disclosure = Disclosure::with(anchor, bundles, None);
 
-    info!(format!("txid: {txid}, disclosure: {disclosure:?}"));
+    debug!(format!("txid: {txid}"));
+    debug!(format!("disclosure: {disclosure:#?}"));
 
     // Finalize, sign & publish the witness transaction
-
-    // dbc commit ${PSBT}
-    // bp-core/bin/dbc -> Command::Commit
-    let anchor = psbt.embed_commit(&PsbtEmbeddedMessage)?;
-    info!(format!("Anchor: {anchor:?}"));
+    info!("Finalize, sign & publish the witness transaction...");
 
     // btc-hot sign ${PSBT} ${DIR}/testnet
     // btc-cold finalize --publish testnet ${PSBT}
