@@ -41,10 +41,11 @@ pub fn get_wallet(
 
     #[cfg(target_arch = "wasm32")]
     let db = AnyDatabase::Memory(MemoryDatabase::default());
-
     debug!(format!("Using database: {db:?}"));
 
     let wallet = Wallet::new(descriptor, change_descriptor, *NETWORK.read().unwrap(), db)?;
+    debug!(format!("Using wallet: {wallet:?}"));
+
     Ok(wallet)
 }
 

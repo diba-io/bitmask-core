@@ -13,6 +13,7 @@ use serde_encrypt::{
     serialize::impls::BincodeSerializer, shared_key::SharedKey, traits::SerdeEncryptSharedKey,
     AsSharedKey, EncryptedMessage,
 };
+use tokio::try_join;
 
 pub mod data;
 mod operations;
@@ -28,14 +29,12 @@ use data::{
 };
 
 use operations::{
-    bitcoin::{create_transaction, get_wallet, new_mnemonic, save_mnemonic},
+    bitcoin::{create_transaction, get_wallet, new_mnemonic, save_mnemonic, synchronize_wallet},
     rgb::{
         accept_transfer, blind_utxo, get_asset_by_genesis, get_assets, issue_asset,
         /* rgb_address, */ transfer_asset, validate_transfer,
     },
 };
-
-use crate::operations::bitcoin::synchronize_wallet;
 
 impl SerdeEncryptSharedKey for VaultData {
     type S = BincodeSerializer<Self>; // you can specify serializer implementation (or implement it by yourself).
@@ -239,8 +238,8 @@ pub fn set_blinded_utxo(utxo_string: &str) -> Result<BlindingUtxo> {
     Ok(blinding_utxo)
 }
 
-// pub fn get_blinded_utxo(rgb_descriptor: &str, rgb_change_descriptor: &str) -> Result<BlindingUtxo> {
-//     let rgb_wallet = get_wallet(rgb_descriptor, rgb_change_descriptor)?;
+// pub fn get_blinded_utxo(rgb_descriptor: &str) -> Result<BlindingUtxo> {
+//     let rgb_wallet = get_wallet(rgb_descriptor, None)?;
 
 //     // ensure there's always a receive utxo
 
@@ -264,6 +263,7 @@ pub async fn send_sats(
     let address = Address::from_str(&(address));
 
     let wallet = get_wallet(descriptor, Some(change_descriptor))?;
+    synchronize_wallet(&wallet).await?;
 
     let transaction = create_transaction(
         vec![SatsInvoice {
@@ -287,6 +287,7 @@ pub async fn fund_wallet(
     let uda_address = Address::from_str(uda_address);
 
     let wallet = get_wallet(descriptor, Some(change_descriptor))?;
+    synchronize_wallet(&wallet).await?;
 
     let asset_invoice = SatsInvoice {
         address: address.unwrap(),
@@ -359,6 +360,12 @@ pub async fn send_assets(
 ) -> Result<(ConsignmentDetails, Transaction, TransferResponse)> {
     let full_wallet = get_wallet(rgb_assets_descriptor, Some(btc_descriptor))?;
     let assets_wallet = get_wallet(rgb_assets_descriptor, None)?;
+
+    try_join!(
+        synchronize_wallet(&full_wallet),
+        synchronize_wallet(&assets_wallet),
+    )?;
+
     let (consignment, tx, response) = transfer_asset(
         blinded_utxo,
         amount,
