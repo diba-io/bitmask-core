@@ -8,6 +8,7 @@ pub async fn sign_psbt(
     wallet: &Wallet<AnyDatabase>,
     mut psbt: PartiallySignedTransaction,
 ) -> Result<Transaction> {
+    debug!("Signing PSBT...");
     let finalized = wallet.sign(&mut psbt, SignOptions::default())?;
     if finalized {
         debug!("Signed PSBT:", base64::encode(&serialize(&psbt)));
