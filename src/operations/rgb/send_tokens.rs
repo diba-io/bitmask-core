@@ -62,7 +62,7 @@ pub struct ConsignmentDetails {
     transitions: BTreeMap<NodeId, Transition>,
     transition_witness: BTreeMap<NodeId, Txid>,
     anchors: BTreeMap<Txid, Anchor<MerkleBlock>>,
-    bundles: BTreeMap<Txid, BTreeMap<NodeId, BTreeSet<u16>>>,
+    bundles: BTreeMap<Txid, TransitionBundle>,
     contract_transitions: BTreeMap<ChunkId, BTreeSet<NodeId>>,
     outpoints: BTreeMap<ChunkId, BTreeSet<NodeId>>,
     node_contracts: BTreeMap<NodeId, ContractId>,
@@ -86,7 +86,7 @@ async fn process_consignment<C: ConsignmentType>(
     let mut transitions: BTreeMap<NodeId, Transition> = Default::default();
     let mut transition_witness: BTreeMap<NodeId, Txid> = Default::default();
     let mut anchors: BTreeMap<Txid, Anchor<MerkleBlock>> = Default::default();
-    let mut bundles: BTreeMap<Txid, BTreeMap<NodeId, BTreeSet<u16>>> = Default::default();
+    let mut bundles: BTreeMap<Txid, TransitionBundle> = Default::default();
     let mut contract_transitions: BTreeMap<ChunkId, BTreeSet<NodeId>> = Default::default();
     let mut outpoints: BTreeMap<ChunkId, BTreeSet<NodeId>> = Default::default();
     let mut node_contracts: BTreeMap<NodeId, ContractId> = Default::default();
@@ -181,10 +181,13 @@ async fn process_consignment<C: ConsignmentType>(
         info!(format!("Restored anchor id is {}", anchor.anchor_id()));
         debug!(format!("Restored anchor: {anchor:?}"));
         anchors.insert(anchor.txid, anchor);
-        let mut data = bundle
+
+        let concealed: BTreeMap<NodeId, BTreeSet<u16>> = bundle
             .concealed_iter()
             .map(|(id, set)| (*id, set.clone()))
-            .collect::<Vec<_>>();
+            .collect();
+        let mut revealed: BTreeMap<Transition, BTreeSet<u16>> = bmap!();
+
         for (transition, inputs) in bundle.revealed_iter() {
             let node_id = transition.node_id();
             let transition_type = transition.transition_type();
@@ -195,7 +198,7 @@ async fn process_consignment<C: ConsignmentType>(
             debug!(format!("Contract state now is {state:?}"));
 
             debug!("Storing state transition data");
-            data.push((node_id, inputs.clone()));
+            revealed.insert(transition.clone(), inputs.clone());
             transitions.insert(node_id, transition.clone());
             transition_witness.insert(node_id, witness_txid);
 
@@ -209,7 +212,10 @@ async fn process_consignment<C: ConsignmentType>(
             node_contracts.insert(node_id, contract_id);
 
             for seal in transition.revealed_seals().unwrap_or_default() {
-                let index_id = ChunkId::with_fixed_fragments(seal.txid, seal.vout);
+                let index_id = ChunkId::with_fixed_fragments(
+                    seal.txid.expect("seal should contain revealed txid"),
+                    seal.vout,
+                );
                 outpoints
                     .entry(index_id)
                     .or_insert(BTreeSet::new())
@@ -217,12 +223,15 @@ async fn process_consignment<C: ConsignmentType>(
             }
         }
 
-        let mut bundle_data = BTreeMap::new();
-        for (node_id, inputs) in data {
-            bundle_data.insert(node_id, inputs.clone());
-        }
+        // let mut bundle_data = BTreeMap::new();
+        // for (node_id, inputs) in data {
+        //     bundle_data.insert(node_id, inputs.clone());
+        // }
 
-        bundles.insert(witness_txid, bundle_data.to_owned());
+        let data = TransitionBundle::with(revealed, concealed)
+            .expect("enough data should be available to create bundle");
+
+        bundles.insert(witness_txid, data);
     }
     for extension in consignment.state_extensions() {
         let node_id = extension.node_id();
@@ -300,6 +309,9 @@ impl Collector {
         } = consignment_details;
 
         for transition_id in node_ids {
+            if transition_id.to_vec() == contract_id.to_vec() {
+                continue;
+            }
             let transition: &Transition = transitions.get(&transition_id).unwrap();
 
             let witness_txid: &Txid = transition_witness.get(&transition_id).unwrap();
@@ -308,8 +320,7 @@ impl Collector {
                 bundle
             } else {
                 let anchor: &Anchor<lnpbp4::MerkleBlock> = anchors.get(witness_txid).unwrap();
-                let bundle: TransitionBundle =
-                    TransitionBundle::try_from(bundles.get(witness_txid).unwrap().to_owned())?;
+                let bundle: TransitionBundle = bundles.get(witness_txid).unwrap().to_owned();
                 let anchor = anchor.to_merkle_proof(*contract_id)?;
                 self.anchored_bundles
                     .insert(*witness_txid, (anchor, bundle));
