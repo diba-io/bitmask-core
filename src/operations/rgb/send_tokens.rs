@@ -674,7 +674,7 @@ pub async fn transfer_asset(
     // format BDK descriptor for RGB
     let re = Regex::new(r"\(\[([0-9a-f]+)/(.+)](.+)/").unwrap();
     let cap = re.captures(rgb_tokens_descriptor).unwrap();
-    let rgb_tokens_descriptor = format!("wpkh(m=[{}]/{}=[{}]/*/*)", &cap[1], &cap[2], &cap[3]);
+    let rgb_tokens_descriptor = format!("tr(m=[{}]/{}=[{}]/*/*)", &cap[1], &cap[2], &cap[3]);
     let rgb_tokens_descriptor = rgb_tokens_descriptor.replace('\'', "h");
 
     debug!(format!(
@@ -696,7 +696,7 @@ pub async fn transfer_asset(
     debug!("Constructing PSBT with...");
     debug!(format!("outputs: {outputs:?}"));
     debug!(format!("allow_tapret_path: {allow_tapret_path:?}"));
-    debug!(format!("descriptor: {descriptor:?}"));
+    debug!(format!("descriptor: {descriptor:#?}"));
     debug!(format!("fee: {fee:?}"));
 
     let mut psbt = match Psbt::construct(

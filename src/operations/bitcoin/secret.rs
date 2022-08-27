@@ -72,9 +72,11 @@ pub fn get_mnemonic(seed_password: &str) -> (String, String, String, String, Str
         "tr({})",
         get_descriptor::<Tap>(xprv, BTC_CHANGE_PATH, false)
     );
-    let rgb_tokens_descriptor =
-        format!("tr({})", get_descriptor::<Tap>(xprv, RGB_TOKENS_PATH, true));
-    let rgb_nfts_descriptor = format!("tr({})", get_descriptor::<Tap>(xprv, RGB_NFTS_PATH, true));
+    let rgb_tokens_descriptor = format!(
+        "tr({})",
+        get_descriptor::<Tap>(xprv, RGB_TOKENS_PATH, false)
+    );
+    let rgb_nfts_descriptor = format!("tr({})", get_descriptor::<Tap>(xprv, RGB_NFTS_PATH, false));
 
     let secp = Secp256k1::new();
     let xpub = ExtendedPubKey::from_priv(&secp, &xprv);

@@ -14,7 +14,7 @@ pub fn get_wallet(
     descriptor: &str,
     change_descriptor: Option<&str>,
 ) -> Result<Wallet<AnyDatabase>> {
-    #[cfg(feature = "webp")]
+    #[cfg(feature = "web")]
     #[cfg(not(target_arch = "wasm32"))]
     let db = {
         use bdk::database::SqliteDatabase;
@@ -35,7 +35,7 @@ pub fn get_wallet(
         let db = SqliteDatabase::new(&db_path.join(hash.to_string()));
         AnyDatabase::Sqlite(db)
     };
-    #[cfg(not(feature = "webp"))]
+    #[cfg(not(feature = "web"))]
     #[cfg(not(target_arch = "wasm32"))]
     let db = AnyDatabase::Memory(MemoryDatabase::default());
 
