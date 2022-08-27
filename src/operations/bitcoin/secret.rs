@@ -24,6 +24,7 @@ fn get_descriptor<C: ScriptContext>(
     xprv: ExtendedPrivKey,
     path: &str,
     is_change: bool,
+    is_secret: bool,
 ) -> Result<String> {
     let secp = Secp256k1::new();
     let deriv_descriptor: DerivationPath = DerivationPath::from_str(path)?;
@@ -39,7 +40,12 @@ fn get_descriptor<C: ScriptContext>(
     )?;
 
     if let SecretDesc(desc_seckey, _, _) = derived_xprv_desc_key {
-        Ok(desc_seckey.to_string())
+        if is_secret {
+            Ok(desc_seckey.to_string())
+        } else {
+            let desc_pubkey = desc_seckey.as_public(&secp)?;
+            Ok(desc_pubkey.to_string())
+        }
     } else {
         Err(anyhow!("Invalid key variant"))
     }
@@ -62,19 +68,20 @@ pub fn get_mnemonic(mnemonic_phrase: Mnemonic, seed_password: &str) -> Result<Va
     let network = NETWORK.read().unwrap();
     let xprv = ExtendedPrivKey::new_master(*network, &seed)?;
 
-    let btc_descriptor = format!("tr({})", get_descriptor::<Tap>(xprv, BTC_PATH, false)?);
-    let btc_change_descriptor = format!("tr({})", get_descriptor::<Tap>(xprv, BTC_PATH, true)?);
+    let btc_descriptor = format!(
+        "tr({})",
+        get_descriptor::<Tap>(xprv, BTC_PATH, false, true)?
+    );
+    let btc_change_descriptor =
+        format!("tr({})", get_descriptor::<Tap>(xprv, BTC_PATH, true, true)?);
     let rgb_assets_descriptor = format!(
         "tr({})",
-        get_descriptor::<Tap>(xprv, RGB_ASSETS_PATH, false)?
+        get_descriptor::<Tap>(xprv, RGB_ASSETS_PATH, false, false)?
     );
-    let rgb_assets_change_descriptor = format!(
+    let rgb_udas_descriptor = format!(
         "tr({})",
-        get_descriptor::<Tap>(xprv, RGB_ASSETS_PATH, true)?
+        get_descriptor::<Tap>(xprv, RGB_UDAS_PATH, false, false)?
     );
-    let rgb_udas_descriptor = format!("tr({})", get_descriptor::<Tap>(xprv, RGB_UDAS_PATH, false)?);
-    let rgb_udas_change_descriptor =
-        format!("tr({})", get_descriptor::<Tap>(xprv, RGB_UDAS_PATH, true)?);
 
     let secp = Secp256k1::new();
     let xpub = ExtendedPubKey::from_priv(&secp, &xprv);
@@ -83,9 +90,7 @@ pub fn get_mnemonic(mnemonic_phrase: Mnemonic, seed_password: &str) -> Result<Va
         btc_descriptor,
         btc_change_descriptor,
         rgb_assets_descriptor,
-        rgb_assets_change_descriptor,
         rgb_udas_descriptor,
-        rgb_udas_change_descriptor,
         xpubkh: xpub.to_pub().pubkey_hash().to_string(),
         mnemonic: mnemonic_phrase.to_string(),
     })

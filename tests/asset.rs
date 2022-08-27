@@ -40,7 +40,8 @@ async fn asset_import() -> Result<()> {
     )?;
 
     info!("Get assets wallet data");
-    let btc_wallet = get_wallet_data(&vault.btc_descriptor, &vault.btc_change_descriptor).await?;
+    let btc_wallet =
+        get_wallet_data(&vault.btc_descriptor, Some(&vault.btc_change_descriptor)).await?;
 
     assert!(
         !btc_wallet.transactions.is_empty(),
@@ -48,26 +49,13 @@ async fn asset_import() -> Result<()> {
     );
 
     info!("Get assets wallet data");
-    let assets_wallet = get_wallet_data(
-        &vault.rgb_assets_descriptor,
-        &vault.rgb_assets_change_descriptor,
-    )
-    .await?;
+    let assets_wallet = get_wallet_data(&vault.rgb_assets_descriptor, None).await?;
 
     info!("Get UDAs wallet data");
-    let udas_wallet = get_wallet_data(
-        &vault.rgb_udas_descriptor,
-        &vault.rgb_udas_change_descriptor,
-    )
-    .await?;
+    let udas_wallet = get_wallet_data(&vault.rgb_udas_descriptor, None).await?;
 
     info!("Check assets vault");
-    let send_assets_utxo = match get_assets_vault(
-        &vault.rgb_assets_descriptor,
-        &vault.rgb_assets_change_descriptor,
-    )
-    .await
-    {
+    let send_assets_utxo = match get_assets_vault(&vault.rgb_assets_descriptor).await {
         Ok(fund_vault_details) => {
             info!("Found existing UTXO");
             fund_vault_details.assets
@@ -106,9 +94,7 @@ async fn asset_import() -> Result<()> {
     info!("Transfer asset");
     let consignment_details = send_assets(
         &vault.btc_descriptor,
-        &vault.btc_change_descriptor,
         &vault.rgb_assets_descriptor,
-        &vault.rgb_assets_change_descriptor,
         &blinded_utxo.conceal,
         100,
         &issued_asset.genesis,

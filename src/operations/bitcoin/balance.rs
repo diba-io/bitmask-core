@@ -10,8 +10,11 @@ use crate::{
     debug,
 };
 
-pub fn get_wallet(descriptor: &str, change_descriptor: &str) -> Result<Wallet<AnyDatabase>> {
-    #[cfg(feature = "webp")]
+pub fn get_wallet(
+    descriptor: &str,
+    change_descriptor: Option<&str>,
+) -> Result<Wallet<AnyDatabase>> {
+    #[cfg(feature = "web")]
     #[cfg(not(target_arch = "wasm32"))]
     let db = {
         use bdk::database::SqliteDatabase;
@@ -32,7 +35,7 @@ pub fn get_wallet(descriptor: &str, change_descriptor: &str) -> Result<Wallet<An
         let db = SqliteDatabase::new(&db_path.join(hash.to_string()));
         AnyDatabase::Sqlite(db)
     };
-    #[cfg(not(feature = "webp"))]
+    #[cfg(not(feature = "web"))]
     #[cfg(not(target_arch = "wasm32"))]
     let db = AnyDatabase::Memory(MemoryDatabase::default());
 
@@ -41,12 +44,7 @@ pub fn get_wallet(descriptor: &str, change_descriptor: &str) -> Result<Wallet<An
 
     debug!(format!("Using database: {db:?}"));
 
-    let wallet = Wallet::new(
-        descriptor,
-        Some(change_descriptor),
-        *NETWORK.read().unwrap(),
-        db,
-    )?;
+    let wallet = Wallet::new(descriptor, change_descriptor, *NETWORK.read().unwrap(), db)?;
     Ok(wallet)
 }
 

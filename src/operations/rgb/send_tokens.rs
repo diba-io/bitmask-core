@@ -462,7 +462,6 @@ pub async fn transfer_asset(
     full_wallet: &Wallet<AnyDatabase>,
     assets_wallet: &Wallet<AnyDatabase>,
     rgb_assets_descriptor: &str,
-    rgb_assets_change_descriptor: &str,
 ) -> Result<(ConsignmentDetails, Transaction, TransferResponse)> {
     // BDK
     info!("sync wallet");
@@ -672,15 +671,15 @@ pub async fn transfer_asset(
     let allow_tapret_path = DfsPath::from_str("1")?;
 
     // format BDK descriptor for RGB
-    let re = Regex::new(r"\(\[([0-9a-f]+)/(.+)](.+)/").unwrap();
+    let re = Regex::new(r"\(\[([0-9a-f]+)/(.+)](.+?)/").unwrap();
     let cap = re.captures(rgb_assets_descriptor).unwrap();
-    let rgb_tokens_descriptor = format!("tr(m=[{}]/{}=[{}]/*/*)", &cap[1], &cap[2], &cap[3]);
-    let rgb_tokens_descriptor = rgb_tokens_descriptor.replace('\'', "h");
+    let rgb_assets_descriptor = format!("tr(m=[{}]/{}=[{}]/*/*)", &cap[1], &cap[2], &cap[3]);
+    let rgb_assets_descriptor = rgb_assets_descriptor.replace('\'', "h");
 
     debug!(format!(
-        "Creating descriptor wallet from RGB Tokens Descriptor: {rgb_tokens_descriptor}"
+        "Creating descriptor wallet from RGB Tokens Descriptor: {rgb_assets_descriptor}"
     ));
-    let descriptor = match Descriptor::from_str(&rgb_tokens_descriptor) {
+    let descriptor = match Descriptor::from_str(&rgb_assets_descriptor) {
         Ok(d) => d,
         Err(err) => {
             error!(format!(
@@ -696,7 +695,7 @@ pub async fn transfer_asset(
     debug!("Constructing PSBT with...");
     debug!(format!("outputs: {outputs:?}"));
     debug!(format!("allow_tapret_path: {allow_tapret_path:?}"));
-    debug!(format!("descriptor: {descriptor:?}"));
+    debug!(format!("descriptor: {descriptor:#?}"));
     debug!(format!("fee: {fee:?}"));
 
     let mut psbt = match Psbt::construct(

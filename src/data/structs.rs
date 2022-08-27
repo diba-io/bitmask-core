@@ -7,9 +7,7 @@ pub struct VaultData {
     pub btc_descriptor: String,
     pub btc_change_descriptor: String,
     pub rgb_assets_descriptor: String,
-    pub rgb_assets_change_descriptor: String,
     pub rgb_udas_descriptor: String,
-    pub rgb_udas_change_descriptor: String,
     pub xpubkh: String,
     pub mnemonic: String,
 }

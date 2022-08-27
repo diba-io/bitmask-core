@@ -119,7 +119,10 @@ pub struct WalletTransaction {
     pub confirmation_time: Option<BlockTime>,
 }
 
-pub async fn get_wallet_data(descriptor: &str, change_descriptor: &str) -> Result<WalletData> {
+pub async fn get_wallet_data(
+    descriptor: &str,
+    change_descriptor: Option<&str>,
+) -> Result<WalletData> {
     info!("get_wallet_data");
     info!("descriptor:", &descriptor);
     info!("change_descriptor:", format!("{:?}", &change_descriptor));
@@ -260,7 +263,7 @@ pub async fn send_sats(
 ) -> Result<Transaction> {
     let address = Address::from_str(&(address));
 
-    let wallet = get_wallet(descriptor, change_descriptor)?;
+    let wallet = get_wallet(descriptor, Some(change_descriptor))?;
 
     let transaction = create_transaction(
         vec![SatsInvoice {
@@ -283,15 +286,15 @@ pub async fn fund_wallet(
     let address = Address::from_str(address);
     let uda_address = Address::from_str(uda_address);
 
-    let wallet = get_wallet(descriptor, change_descriptor)?;
+    let wallet = get_wallet(descriptor, Some(change_descriptor))?;
 
     let asset_invoice = SatsInvoice {
         address: address.unwrap(),
-        amount: 613,
+        amount: 294, // https://bitcoinops.org/en/newsletters/2021/10/20/#bitcoin-core-22863:~:text=%E2%97%8F%20Bitcoin%20Core,at%20this%20time
     };
     let uda_invoice = SatsInvoice {
         address: uda_address.unwrap(),
-        amount: 613,
+        amount: 294,
     };
 
     let details = create_transaction(
@@ -322,11 +325,8 @@ pub async fn fund_wallet(
     })
 }
 
-pub async fn get_assets_vault(
-    assets_descriptor: &str,
-    assets_change_descriptor: &str,
-) -> Result<FundVaultDetails> {
-    let assets_wallet = get_wallet(assets_descriptor, assets_change_descriptor)?;
+pub async fn get_assets_vault(assets_descriptor: &str) -> Result<FundVaultDetails> {
+    let assets_wallet = get_wallet(assets_descriptor, None)?;
     synchronize_wallet(&assets_wallet).await?;
 
     let asset_utxos = assets_wallet.list_unspent()?;
@@ -352,15 +352,13 @@ pub async fn get_assets_vault(
 
 pub async fn send_assets(
     btc_descriptor: &str,
-    btc_change_descriptor: &str,
     rgb_assets_descriptor: &str,
-    rgb_assets_change_descriptor: &str,
     blinded_utxo: &str,
     amount: u64,
     asset_contract: &str,
 ) -> Result<(ConsignmentDetails, Transaction, TransferResponse)> {
-    let full_wallet = get_wallet(btc_descriptor, btc_change_descriptor)?;
-    let assets_wallet = get_wallet(rgb_assets_descriptor, rgb_assets_change_descriptor)?;
+    let full_wallet = get_wallet(rgb_assets_descriptor, Some(btc_descriptor))?;
+    let assets_wallet = get_wallet(rgb_assets_descriptor, None)?;
     let (consignment, tx, response) = transfer_asset(
         blinded_utxo,
         amount,
@@ -368,7 +366,6 @@ pub async fn send_assets(
         &full_wallet,
         &assets_wallet,
         rgb_assets_descriptor,
-        rgb_assets_change_descriptor,
     )
     .await?;
 

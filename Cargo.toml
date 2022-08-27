@@ -17,6 +17,7 @@ crate-type = ["cdylib", "rlib"]
 [features]
 default = []
 sqlite = []
+web = []
 
 [dependencies]
 anyhow = "1.0.44"
