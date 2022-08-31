@@ -13,6 +13,7 @@ use bp::dbc::anchor::PsbtEmbeddedMessage;
 use bp::seals::txout::blind::RevealedSeal;
 use bp::seals::txout::{CloseMethod, ExplicitSeal};
 use commit_verify::lnpbp4::{self, MerkleBlock};
+use commit_verify::EmbedCommitVerify;
 use electrum_client::{Client, ElectrumApi};
 use regex::Regex;
 use rgb20::Asset;
@@ -923,7 +924,7 @@ pub async fn rgb_tweaking(
     info!(format!("Found {} bundles", bundles.len()));
     debug!(format!("Bundles: {bundles:#?}"));
 
-    let anchor = Anchor::commit(&mut psbt)?;
+    let anchor = Anchor::commit(psbt)?;
     debug!(format!("Anchor: {anchor:#?}"));
 
     // 2. Extract contract-related state transition from PSBT and put it into consignment.
@@ -961,17 +962,6 @@ pub async fn rgb_tweaking(
 
     // btc-hot sign ${PSBT} ${DIR}/testnet
     // btc-cold finalize --publish testnet ${PSBT}
-    let tx = sign_psbt(full_wallet, psbt.into()).await?;
 
-    let witness = format!("{tx:?}");
-
-    Ok((
-        process_consignment(&consignment, true).await?,
-        tx,
-        TransferResponse {
-            consignment: consignment.to_string(),
-            disclosure: format!("{disclosure:?}"),
-            witness,
-        },
-    ))
+    Ok((psbt.clone(), consignment, disclosure))
 }

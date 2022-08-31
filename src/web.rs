@@ -99,7 +99,11 @@ pub fn get_wallet_data(descriptor: String, change_descriptor: Option<String>) ->
 }
 
 #[wasm_bindgen]
-pub fn import_list_assets(xpubkh: String, encryption_secret: String, node_url: Option<String>) -> Promise {
+pub fn import_list_assets(
+    xpubkh: String,
+    encryption_secret: String,
+    node_url: Option<String>,
+) -> Promise {
     set_panic_hook();
 
     future_to_promise(async move {
@@ -244,15 +248,7 @@ pub fn accept_transaction(
 ) -> Promise {
     set_panic_hook();
     future_to_promise(async move {
-        match crate::accept_transaction(
-            consignment,
-            txid,
-            vout,
-            blinding,
-            node_url,
-        )
-        .await
-        {
+        match crate::accept_transaction(consignment, txid, vout, blinding, node_url).await {
             Ok(result) => Ok(JsValue::from_string(
                 serde_json::to_string(&result).unwrap(),
             )),
