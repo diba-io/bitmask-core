@@ -44,12 +44,11 @@ pub static NODE_SERVER_BASE_URL: Lazy<String> = Lazy::new(|| dot_env("NODE_SERVE
 
 // Descriptor strings
 // For SATS
-pub const BTC_PATH: &str = "m/86h/1h/0h/0";
-pub const BTC_CHANGE_PATH: &str = "m/86h/1h/0h/1";
+pub const BTC_PATH: &str = "m/86h/1h/0h";
 // For TOKENS ---> that's provisional, it will be replace for RGB final guidelines
-pub const RGB_TOKENS_PATH: &str = "m/168h/20h/0h/0h";
+pub const RGB_ASSETS_PATH: &str = "m/168h/20h/0h";
 // For UDAS ---> that's provisional, it will be replace for RGB final guidelines
-pub const RGB_NFTS_PATH: &str = "m/168h/21h/0h/0h";
+pub const RGB_UDAS_PATH: &str = "m/168h/21h/0h";
 
 pub static NETWORK: Lazy<RwLock<Network>> = Lazy::new(|| {
     RwLock::new(Network::Testnet) // TODO: Change default to mainnet

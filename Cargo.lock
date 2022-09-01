@@ -354,6 +354,7 @@ dependencies = [
  "getrandom 0.2.7",
  "gloo-console",
  "gloo-net",
+ "hex",
  "js-sys",
  "lazy_static",
  "lnpbp",

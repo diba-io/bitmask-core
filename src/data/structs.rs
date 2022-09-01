@@ -1,6 +1,26 @@
 use bitcoin::{util::address::Address, OutPoint, Txid};
 use serde::{Deserialize, Serialize};
 
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct VaultData {
+    pub btc_descriptor: String,
+    pub btc_change_descriptor: String,
+    pub rgb_assets_descriptor: String,
+    pub rgb_udas_descriptor: String,
+    pub xpubkh: String,
+    pub mnemonic: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct FundVaultDetails {
+    pub txid: String,
+    pub assets: String,
+    pub assets_change: String,
+    pub udas: String,
+    pub udas_change: String,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Issue {
     pub id: String,

@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use anyhow::{anyhow, Error, Result};
+use anyhow::{anyhow, Result};
 use rgb20::Asset;
 use rgb_core::{
     data::Revealed,
@@ -9,12 +9,8 @@ use rgb_core::{
 use rgb_std::{Consignment, Contract, Node};
 
 use crate::{
-    data::{
-        constants::url,
-        structs::{Allocation, Amount, AssetResponse, ExportRequestMini, ThinAsset},
-    },
+    data::structs::{Allocation, Amount, AssetResponse, ThinAsset},
     info,
-    util::{get, post_json},
 };
 
 pub fn get_asset_by_genesis(genesis: &str) -> Result<ThinAsset> {
@@ -77,57 +73,6 @@ pub fn get_asset_by_genesis(genesis: &str) -> Result<ThinAsset> {
     Ok(asset)
 }
 
-pub async fn get_asset_by_contract_id(
-    asset: &str,
-    unspent: Vec<bdk::LocalUtxo>,
-    node_url: Option<String>,
-) -> Result<ThinAsset> {
-    let asset_data = ExportRequestMini {
-        asset: asset.to_owned(),
-    };
-    let (response, _) = match post_json(url("getasset", &node_url), &asset_data).await {
-        Ok(response) => response,
-        Err(e) => return Err(Error::msg(e)),
-    };
-    info!(format!("response: {response:#?}"));
-    let assets: Vec<AssetResponse> = serde_json::from_str(&response)?;
-    if assets.is_empty() {
-        return Err(Error::msg("Incorrect rgb id".to_string()));
-    }
-    let allocations: Vec<Allocation> = assets[0]
-        .known_allocations
-        .clone()
-        .into_iter()
-        .filter(|a| {
-            unspent
-                .clone()
-                .into_iter()
-                .any(|y| y.outpoint.to_string().eq(&a.outpoint))
-        })
-        .collect();
-    info!(format!("allocations: {allocations:#?}"));
-    let amount = allocations
-        .clone()
-        .into_iter()
-        .map(|a| a.amount.value)
-        .reduce(|a, b| a + b);
-    info!(format!("amount: {amount:#?}"));
-    let thin_assets = ThinAsset {
-        id: asset.to_owned(),
-        ticker: assets[0].ticker.clone(),
-        name: assets[0].name.clone(),
-        description: assets[0].description.clone().unwrap(),
-        allocations,
-        balance: amount.unwrap_or_default(),
-    };
-
-    info!(format!("thin_assets: {thin_assets:?}"));
-    Ok(thin_assets)
-}
-
-pub async fn get_assets(node_url: Option<String>) -> Result<Vec<AssetResponse>> {
-    let (response, _) = get(url("list", &node_url)).await?;
-    info!(format!("listassets: {response:#?}"));
-    let assets: Vec<AssetResponse> = serde_json::from_str(&response)?;
-    Ok(assets)
+pub fn get_assets(_contract: &str) -> Result<Vec<AssetResponse>> {
+    todo!("decode assets from contract(s)");
 }

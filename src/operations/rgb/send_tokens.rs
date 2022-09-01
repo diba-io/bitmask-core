@@ -9,10 +9,8 @@ use bdk::LocalUtxo;
 // use bdk::sled::Serialize;
 use bdk::{descriptor::Descriptor, Wallet};
 use bitcoin::{psbt::serialize::Serialize, OutPoint, Transaction, Txid};
-use bp::dbc::anchor::PsbtEmbeddedMessage;
 use bp::seals::txout::{CloseMethod, ExplicitSeal};
 use commit_verify::lnpbp4::{self, MerkleBlock};
-use commit_verify::EmbedCommitVerify;
 use electrum_client::{Client, ElectrumApi};
 use regex::Regex;
 use rgb20::Asset;
@@ -64,7 +62,7 @@ pub struct ConsignmentDetails {
     transitions: BTreeMap<NodeId, Transition>,
     transition_witness: BTreeMap<NodeId, Txid>,
     anchors: BTreeMap<Txid, Anchor<MerkleBlock>>,
-    bundles: BTreeMap<Txid, BTreeMap<NodeId, BTreeSet<u16>>>,
+    bundles: BTreeMap<Txid, TransitionBundle>,
     contract_transitions: BTreeMap<ChunkId, BTreeSet<NodeId>>,
     outpoints: BTreeMap<ChunkId, BTreeSet<NodeId>>,
     node_contracts: BTreeMap<NodeId, ContractId>,
@@ -88,7 +86,7 @@ async fn process_consignment<C: ConsignmentType>(
     let mut transitions: BTreeMap<NodeId, Transition> = Default::default();
     let mut transition_witness: BTreeMap<NodeId, Txid> = Default::default();
     let mut anchors: BTreeMap<Txid, Anchor<MerkleBlock>> = Default::default();
-    let mut bundles: BTreeMap<Txid, BTreeMap<NodeId, BTreeSet<u16>>> = Default::default();
+    let mut bundles: BTreeMap<Txid, TransitionBundle> = Default::default();
     let mut contract_transitions: BTreeMap<ChunkId, BTreeSet<NodeId>> = Default::default();
     let mut outpoints: BTreeMap<ChunkId, BTreeSet<NodeId>> = Default::default();
     let mut node_contracts: BTreeMap<NodeId, ContractId> = Default::default();
@@ -183,10 +181,13 @@ async fn process_consignment<C: ConsignmentType>(
         info!(format!("Restored anchor id is {}", anchor.anchor_id()));
         debug!(format!("Restored anchor: {anchor:?}"));
         anchors.insert(anchor.txid, anchor);
-        let mut data = bundle
+
+        let concealed: BTreeMap<NodeId, BTreeSet<u16>> = bundle
             .concealed_iter()
             .map(|(id, set)| (*id, set.clone()))
-            .collect::<Vec<_>>();
+            .collect();
+        let mut revealed: BTreeMap<Transition, BTreeSet<u16>> = bmap!();
+
         for (transition, inputs) in bundle.revealed_iter() {
             let node_id = transition.node_id();
             let transition_type = transition.transition_type();
@@ -197,7 +198,7 @@ async fn process_consignment<C: ConsignmentType>(
             debug!(format!("Contract state now is {state:?}"));
 
             debug!("Storing state transition data");
-            data.push((node_id, inputs.clone()));
+            revealed.insert(transition.clone(), inputs.clone());
             transitions.insert(node_id, transition.clone());
             transition_witness.insert(node_id, witness_txid);
 
@@ -211,7 +212,10 @@ async fn process_consignment<C: ConsignmentType>(
             node_contracts.insert(node_id, contract_id);
 
             for seal in transition.revealed_seals().unwrap_or_default() {
-                let index_id = ChunkId::with_fixed_fragments(seal.txid, seal.vout);
+                let index_id = ChunkId::with_fixed_fragments(
+                    seal.txid.expect("seal should contain revealed txid"),
+                    seal.vout,
+                );
                 outpoints
                     .entry(index_id)
                     .or_insert(BTreeSet::new())
@@ -219,12 +223,15 @@ async fn process_consignment<C: ConsignmentType>(
             }
         }
 
-        let mut bundle_data = BTreeMap::new();
-        for (node_id, inputs) in data {
-            bundle_data.insert(node_id, inputs.clone());
-        }
+        // let mut bundle_data = BTreeMap::new();
+        // for (node_id, inputs) in data {
+        //     bundle_data.insert(node_id, inputs.clone());
+        // }
 
-        bundles.insert(witness_txid, bundle_data.to_owned());
+        let data = TransitionBundle::with(revealed, concealed)
+            .expect("enough data should be available to create bundle");
+
+        bundles.insert(witness_txid, data);
     }
     for extension in consignment.state_extensions() {
         let node_id = extension.node_id();
@@ -302,6 +309,9 @@ impl Collector {
         } = consignment_details;
 
         for transition_id in node_ids {
+            if transition_id.to_vec() == contract_id.to_vec() {
+                continue;
+            }
             let transition: &Transition = transitions.get(&transition_id).unwrap();
 
             let witness_txid: &Txid = transition_witness.get(&transition_id).unwrap();
@@ -310,8 +320,7 @@ impl Collector {
                 bundle
             } else {
                 let anchor: &Anchor<lnpbp4::MerkleBlock> = anchors.get(witness_txid).unwrap();
-                let bundle: TransitionBundle =
-                    TransitionBundle::try_from(bundles.get(witness_txid).unwrap().to_owned())?;
+                let bundle: TransitionBundle = bundles.get(witness_txid).unwrap().to_owned();
                 let anchor = anchor.to_merkle_proof(*contract_id)?;
                 self.anchored_bundles
                     .insert(*witness_txid, (anchor, bundle));
@@ -424,11 +433,16 @@ async fn compose_consignment<T: ConsignmentType>(
     Ok((consignment, details))
 }
 
+// rgb-node -> bucketd/processor -> outpoint_state
 fn outpoint_state(
     outpoints: &BTreeSet<OutPoint>,
     consignment_details: &ConsignmentDetails,
 ) -> Result<ContractStateMap> {
     let mut res: ContractStateMap = bmap! {};
+
+    if outpoints.is_empty() {
+        error!("Outpoints provided to outpoint_state is empty");
+    }
 
     let indexes: BTreeSet<ChunkId> = outpoints
         .iter()
@@ -436,9 +450,13 @@ fn outpoint_state(
         .collect();
 
     for index in &indexes {
-        let set: &BTreeSet<NodeId> = consignment_details.outpoints.get(index).unwrap();
+        let set: BTreeSet<NodeId> = match consignment_details.outpoints.get(index) {
+            Some(set) => set.clone(),
+            None => bset! {},
+        };
         for node_id in set {
-            let contract_id: &ContractId = consignment_details.node_contracts.get(node_id).unwrap();
+            let contract_id: &ContractId =
+                consignment_details.node_contracts.get(&node_id).unwrap();
 
             let state: &ContractState = consignment_details.contracts.get(contract_id).unwrap();
 
@@ -460,9 +478,8 @@ pub async fn transfer_asset(
     amount: u64,
     asset_contract: &str, // rgb1...
     full_wallet: &Wallet<AnyDatabase>,
-    // full_change_wallet: &Wallet<AnyDatabase>,
     assets_wallet: &Wallet<AnyDatabase>,
-    rgb_tokens_descriptor: &str,
+    rgb_assets_descriptor: &str,
 ) -> Result<(ConsignmentDetails, Transaction, TransferResponse)> {
     // BDK
     info!("sync wallet");
@@ -546,7 +563,7 @@ pub async fn transfer_asset(
         .map(|v| (v.seal_confidential.into(), amount))
         .collect();
 
-    info!(format!("Beneficiaries: {beneficiaries:?}"));
+    info!(format!("Beneficiaries: {beneficiaries:#?}"));
 
     debug!("Coin selection - Largest First Coin");
     let mut change: Vec<(AssignedState<_>, u64)> = vec![];
@@ -563,7 +580,7 @@ pub async fn transfer_asset(
             Err(err) => return Err(anyhow!("Error parsing input_descriptor: {err}")),
         };
         debug!(format!(
-            "InputDescriptor successfully parsed: {input_descriptor:?}"
+            "InputDescriptor successfully parsed: {input_descriptor:#?}"
         ));
 
         if coin.state.value >= remainder {
@@ -571,7 +588,7 @@ pub async fn transfer_asset(
             // TODO: Change output must not be cloned, it needs to be a separate UTXO
             change.push((coin.clone(), coin.state.value - remainder)); // Change
             inputs.push(input_descriptor);
-            debug!(format!("Coin: {coin:?}"));
+            debug!(format!("Coin: {coin:#?}"));
             debug!(format!(
                 "Amount: {} - Remainder: {remainder}",
                 coin.state.value
@@ -582,7 +599,7 @@ pub async fn transfer_asset(
             change.push((coin.clone(), coin.state.value)); // Spend entire coin
             remainder -= coin.state.value;
             inputs.push(input_descriptor);
-            debug!(format!("Coin: {coin:?}"));
+            debug!(format!("Coin: {coin:#?}"));
             debug!(format!(
                 "Amount: {} - Remainder: {remainder}",
                 coin.state.value
@@ -672,15 +689,15 @@ pub async fn transfer_asset(
     let allow_tapret_path = DfsPath::from_str("1")?;
 
     // format BDK descriptor for RGB
-    let re = Regex::new(r"\(\[([0-9a-f]+)/(.+)](.+)/").unwrap();
-    let cap = re.captures(rgb_tokens_descriptor).unwrap();
-    let rgb_tokens_descriptor = format!("tr(m=[{}]/{}=[{}]/*/*)", &cap[1], &cap[2], &cap[3]);
-    let rgb_tokens_descriptor = rgb_tokens_descriptor.replace('\'', "h");
+    let re = Regex::new(r"\(\[([0-9a-f]+)/(.+)](.+?)/").unwrap();
+    let cap = re.captures(rgb_assets_descriptor).unwrap();
+    let rgb_assets_descriptor = format!("tr(m=[{}]/{}=[{}]/*/*)", &cap[1], &cap[2], &cap[3]);
+    let rgb_assets_descriptor = rgb_assets_descriptor.replace('\'', "h");
 
     debug!(format!(
-        "Creating descriptor wallet from RGB Tokens Descriptor: {rgb_tokens_descriptor}"
+        "Creating descriptor wallet from RGB Tokens Descriptor: {rgb_assets_descriptor}"
     ));
-    let descriptor = match Descriptor::from_str(&rgb_tokens_descriptor) {
+    let descriptor = match Descriptor::from_str(&rgb_assets_descriptor) {
         Ok(d) => d,
         Err(err) => {
             error!(format!(
@@ -732,36 +749,62 @@ pub async fn transfer_asset(
     // rgb-cli -n testnet transfer combine ${CONTRACT_ID} ${TRANSITION} ${PSBT} ${UTXO_SRC}
     // rgb-node -> cli/command -> TransferCommand::Combine
     let node_id = transition.node_id();
+    debug!(format!("Using Node ID: {node_id}"));
     psbt.push_rgb_transition(transition)?;
+    info!("Pushed state RGB state transition onto PSBT");
 
     let contract_id = consignment_details.contract_id;
+    debug!(format!("Using contract_id: {contract_id}"));
 
     for input in &mut psbt.inputs {
+        debug!(format!("Input: {input:#?}"));
         if outpoints.contains(&input.previous_outpoint) {
+            debug!(format!(
+                "Input contains previous outpoint: {}",
+                input.previous_outpoint
+            ));
+            debug!(format!(
+                "Setting RGB consumer on input for contract id: {contract_id} and node id: {node_id}"
+            ));
             input.set_rgb_consumer(contract_id, node_id)?;
+            debug!("RGB consumer successfully set on input");
         }
     }
 
+    info!("Mapping outpoints on PSBT");
+    debug!(format!("Mapping outpoints on PSBT: {psbt}"));
     let outpoints: BTreeSet<_> = psbt
         .inputs
         .iter()
         .map(|input| input.previous_outpoint)
         .collect();
+    info!("Getting outpoint state map");
+    debug!(format!("Outpoints: {outpoints:#?}"));
     let state_map = outpoint_state(&outpoints, &consignment_details)?;
+    debug!(format!("Outpoint state map: {state_map:#?}"));
+
     for (cid, outpoint_map) in state_map {
         if cid == contract_id {
             continue;
         }
         let blank_bundle = TransitionBundle::blank(&outpoint_map, &bmap! {})?;
         for (transition, indexes) in blank_bundle.revealed_iter() {
+            debug!(format!("Pushing RGB transition: {transition:#?}"));
             psbt.push_rgb_transition(transition.clone())?;
             for no in indexes {
-                psbt.inputs[*no as usize].set_rgb_consumer(contract_id, transition.node_id())?;
+                debug!(format!(
+                    "Setting RGB consumer for contract id: {cid} and node_id: {}",
+                    transition.node_id()
+                ));
+                psbt.inputs[*no as usize].set_rgb_consumer(cid, transition.node_id())?;
             }
         }
     }
 
-    debug!(format!("PSBT: {}", base64::encode(&psbt.serialize())));
+    debug!(format!(
+        "PSBT with state transition: {}",
+        base64::encode(&psbt.serialize())
+    ));
 
     // Process all state transitions under all contracts which are present in PSBT and prepare information about them which will be used in LNPBP4 commitments.
     // rgb psbt bundle ${PSBT}
@@ -796,44 +839,45 @@ pub async fn transfer_asset(
     // rgb-cli -n testnet transfer finalize --endseal ${TXOB} ${PSBT} ${CONSIGNMENT} --send
     // rgb-node -> bucketd/processor -> finalize_transfer
 
-    info!(format!("Finalizing transfer for {}", contract_id));
+    info!(format!("Finalizing transfer for {}...", contract_id));
 
     // 1. Pack LNPBP-4 and anchor information.
+    info!("1. Pack LNPBP-4 and anchor information.");
     let mut bundles = psbt.rgb_bundles()?;
     info!(format!("Found {} bundles", bundles.len()));
-    debug!(format!("Bundles: {bundles:?}"));
+    debug!(format!("Bundles: {bundles:#?}"));
 
     let anchor = Anchor::commit(&mut psbt)?;
-    debug!(format!("Anchor: {anchor:?}"));
+    debug!(format!("Anchor: {anchor:#?}"));
 
-    // 2. Extract contract-related state transition from PSBT and put it
-    //    into consignment.
+    // 2. Extract contract-related state transition from PSBT and put it into consignment.
+    info!("2. Extract contract-related state transition from PSBT and put it into consignment.");
     let bundle = bundles.remove(&contract_id).unwrap();
     let bundle_id = bundle.bundle_id();
     consignment.push_anchored_bundle(anchor.to_merkle_proof(contract_id)?, bundle)?;
 
     // 3. Add seal endpoints.
+    info!("3. Add seal endpoints.");
     let endseals = vec![SealEndpoint::try_from(utxob)?];
     for endseal in endseals {
         consignment.push_seal_endpoint(bundle_id, endseal);
     }
 
     // 4. Conceal all the state not related to the transfer.
+    info!("4. Conceal all the state not related to the transfer.");
     // TODO: Conceal all the amounts except the last transition
     // TODO: Conceal all seals outside of the paths from the endpoint to genesis
 
     // 5. Construct and store disclosure for the blank transfers.
+    info!("5. Construct and store disclosure for the blank transfers.");
     let txid = anchor.txid;
     let disclosure = Disclosure::with(anchor, bundles, None);
 
-    info!(format!("txid: {txid}, disclosure: {disclosure:?}"));
+    debug!(format!("txid: {txid}"));
+    debug!(format!("disclosure: {disclosure:#?}"));
 
     // Finalize, sign & publish the witness transaction
-
-    // dbc commit ${PSBT}
-    // bp-core/bin/dbc -> Command::Commit
-    let anchor = psbt.embed_commit(&PsbtEmbeddedMessage)?;
-    info!(format!("Anchor: {anchor:?}"));
+    info!("Finalize, sign & publish the witness transaction...");
 
     // btc-hot sign ${PSBT} ${DIR}/testnet
     // btc-cold finalize --publish testnet ${PSBT}
