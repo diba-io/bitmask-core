@@ -881,7 +881,8 @@ pub async fn transfer_asset(
 
     // btc-hot sign ${PSBT} ${DIR}/testnet
     // btc-cold finalize --publish testnet ${PSBT}
-    let tx = sign_psbt(full_wallet, psbt.into()).await?;
+    let tx = sign_psbt(assets_wallet, psbt.into()).await?;
+    // let tx = sign_psbt(full_wallet, psbt.into()).await?;
 
     let witness = format!("{tx:?}");
 
