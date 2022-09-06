@@ -479,7 +479,7 @@ pub async fn transfer_asset(
     asset_contract: &str, // rgb1...
     full_wallet: &Wallet<AnyDatabase>,
     assets_wallet: &Wallet<AnyDatabase>,
-    rgb_assets_descriptor: &str,
+    bdk_rgb_assets_descriptor: &str,
 ) -> Result<(ConsignmentDetails, Transaction, TransferResponse)> {
     // BDK
     info!("sync wallet");
@@ -690,7 +690,7 @@ pub async fn transfer_asset(
 
     // format BDK descriptor for RGB
     let re = Regex::new(r"\(\[([0-9a-f]+)/(.+)](.+?)/").unwrap();
-    let cap = re.captures(rgb_assets_descriptor).unwrap();
+    let cap = re.captures(bdk_rgb_assets_descriptor).unwrap();
     let rgb_assets_descriptor = format!("tr(m=[{}]/{}=[{}]/*/*)", &cap[1], &cap[2], &cap[3]);
     let rgb_assets_descriptor = rgb_assets_descriptor.replace('\'', "h");
 
@@ -878,6 +878,17 @@ pub async fn transfer_asset(
 
     // Finalize, sign & publish the witness transaction
     info!("Finalize, sign & publish the witness transaction...");
+
+    debug!(format!(
+        "Finalized PSBT: {}",
+        base64::encode(&psbt.serialize())
+    ));
+    debug!(format!(
+        "RGB assets descriptor from BDK {bdk_rgb_assets_descriptor}"
+    ));
+    debug!(format!(
+        "RGB assets descriptor formatted for RGB {rgb_assets_descriptor}"
+    ));
 
     // btc-hot sign ${PSBT} ${DIR}/testnet
     // btc-cold finalize --publish testnet ${PSBT}
