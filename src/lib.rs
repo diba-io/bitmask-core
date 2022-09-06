@@ -13,7 +13,6 @@ use serde_encrypt::{
     serialize::impls::BincodeSerializer, shared_key::SharedKey, traits::SerdeEncryptSharedKey,
     AsSharedKey, EncryptedMessage,
 };
-use tokio::try_join;
 
 pub mod data;
 mod operations;
@@ -352,27 +351,27 @@ pub async fn get_assets_vault(assets_descriptor: &str) -> Result<FundVaultDetail
 }
 
 pub async fn send_assets(
-    btc_descriptor: &str,
-    rgb_assets_descriptor: &str,
+    rgb_assets_descriptor_xprv: &str,
+    rgb_assets_descriptor_xpub: &str,
     blinded_utxo: &str,
     amount: u64,
     asset_contract: &str,
 ) -> Result<(ConsignmentDetails, Transaction, TransferResponse)> {
-    let full_wallet = get_wallet(rgb_assets_descriptor, Some(btc_descriptor))?;
-    let assets_wallet = get_wallet(rgb_assets_descriptor, None)?;
+    // let full_wallet = get_wallet(rgb_assets_descriptor, Some(btc_descriptor))?;
+    let assets_wallet = get_wallet(rgb_assets_descriptor_xprv, None)?;
+    synchronize_wallet(&assets_wallet).await?;
 
-    try_join!(
-        synchronize_wallet(&full_wallet),
-        synchronize_wallet(&assets_wallet),
-    )?;
+    // try_join!(
+    //     synchronize_wallet(&full_wallet),
+    //     synchronize_wallet(&assets_wallet),
+    // )?;
 
     let (consignment, tx, response) = transfer_asset(
         blinded_utxo,
         amount,
         asset_contract,
-        &full_wallet,
         &assets_wallet,
-        rgb_assets_descriptor,
+        rgb_assets_descriptor_xpub,
     )
     .await?;
 

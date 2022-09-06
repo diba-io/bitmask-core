@@ -477,9 +477,8 @@ pub async fn transfer_asset(
     blinded_utxo: &str,
     amount: u64,
     asset_contract: &str, // rgb1...
-    full_wallet: &Wallet<AnyDatabase>,
     assets_wallet: &Wallet<AnyDatabase>,
-    bdk_rgb_assets_descriptor: &str,
+    bdk_rgb_assets_descriptor_xpub: &str,
 ) -> Result<(ConsignmentDetails, Transaction, TransferResponse)> {
     // BDK
     info!("sync wallet");
@@ -690,7 +689,7 @@ pub async fn transfer_asset(
 
     // format BDK descriptor for RGB
     let re = Regex::new(r"\(\[([0-9a-f]+)/(.+)](.+?)/").unwrap();
-    let cap = re.captures(bdk_rgb_assets_descriptor).unwrap();
+    let cap = re.captures(bdk_rgb_assets_descriptor_xpub).unwrap();
     let rgb_assets_descriptor = format!("tr(m=[{}]/{}=[{}]/*/*)", &cap[1], &cap[2], &cap[3]);
     let rgb_assets_descriptor = rgb_assets_descriptor.replace('\'', "h");
 
@@ -884,7 +883,7 @@ pub async fn transfer_asset(
         base64::encode(&psbt.serialize())
     ));
     debug!(format!(
-        "RGB assets descriptor from BDK {bdk_rgb_assets_descriptor}"
+        "RGB assets descriptor from BDK {bdk_rgb_assets_descriptor_xpub}"
     ));
     debug!(format!(
         "RGB assets descriptor formatted for RGB {rgb_assets_descriptor}"
