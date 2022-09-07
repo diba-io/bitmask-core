@@ -877,10 +877,13 @@ pub async fn transfer_asset(
 
     // Finalize, sign & publish the witness transaction
     info!("Finalize, sign & publish the witness transaction...");
-
     debug!(format!(
-        "Finalized PSBT: {}",
+        "Finalized PSBT to be signed (base64): {}",
         base64::encode(&psbt.serialize())
+    ));
+    debug!(format!(
+        "Finalized PSBT to be signed (hex): {}",
+        hex::encode(&psbt.serialize())
     ));
     debug!(format!(
         "RGB assets descriptor from BDK {bdk_rgb_assets_descriptor_xpub}"
