@@ -68,17 +68,34 @@ pub fn get_mnemonic(mnemonic_phrase: Mnemonic, seed_password: &str) -> Result<Va
     let network = NETWORK.read().unwrap();
     let xprv = ExtendedPrivKey::new_master(*network, &seed)?;
 
-    let btc_descriptor = format!(
+    let btc_descriptor_xprv = format!(
         "tr({})",
         get_descriptor::<Tap>(xprv, BTC_PATH, false, true)?
     );
-    let btc_change_descriptor =
+    let btc_change_descriptor_xprv =
         format!("tr({})", get_descriptor::<Tap>(xprv, BTC_PATH, true, true)?);
-    let rgb_assets_descriptor = format!(
+
+    let btc_descriptor_xpub = format!(
+        "tr({})",
+        get_descriptor::<Tap>(xprv, BTC_PATH, false, false)?
+    );
+    let btc_change_descriptor_xpub = format!(
+        "tr({})",
+        get_descriptor::<Tap>(xprv, BTC_PATH, true, false)?
+    );
+    let rgb_assets_descriptor_xprv = format!(
+        "tr({})",
+        get_descriptor::<Tap>(xprv, RGB_ASSETS_PATH, false, true)?
+    );
+    let rgb_udas_descriptor_xprv = format!(
+        "tr({})",
+        get_descriptor::<Tap>(xprv, RGB_UDAS_PATH, false, true)?
+    );
+    let rgb_assets_descriptor_xpub = format!(
         "tr({})",
         get_descriptor::<Tap>(xprv, RGB_ASSETS_PATH, false, false)?
     );
-    let rgb_udas_descriptor = format!(
+    let rgb_udas_descriptor_xpub = format!(
         "tr({})",
         get_descriptor::<Tap>(xprv, RGB_UDAS_PATH, false, false)?
     );
@@ -87,10 +104,14 @@ pub fn get_mnemonic(mnemonic_phrase: Mnemonic, seed_password: &str) -> Result<Va
     let xpub = ExtendedPubKey::from_priv(&secp, &xprv);
 
     Ok(VaultData {
-        btc_descriptor,
-        btc_change_descriptor,
-        rgb_assets_descriptor,
-        rgb_udas_descriptor,
+        btc_descriptor_xprv,
+        btc_descriptor_xpub,
+        btc_change_descriptor_xprv,
+        btc_change_descriptor_xpub,
+        rgb_assets_descriptor_xprv,
+        rgb_assets_descriptor_xpub,
+        rgb_udas_descriptor_xprv,
+        rgb_udas_descriptor_xpub,
         xpubkh: xpub.to_pub().pubkey_hash().to_string(),
         mnemonic: mnemonic_phrase.to_string(),
     })

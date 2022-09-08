@@ -4,10 +4,14 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct VaultData {
-    pub btc_descriptor: String,
-    pub btc_change_descriptor: String,
-    pub rgb_assets_descriptor: String,
-    pub rgb_udas_descriptor: String,
+    pub btc_descriptor_xprv: String,
+    pub btc_descriptor_xpub: String,
+    pub btc_change_descriptor_xprv: String,
+    pub btc_change_descriptor_xpub: String,
+    pub rgb_assets_descriptor_xprv: String,
+    pub rgb_assets_descriptor_xpub: String,
+    pub rgb_udas_descriptor_xprv: String,
+    pub rgb_udas_descriptor_xpub: String,
     pub xpubkh: String,
     pub mnemonic: String,
 }
