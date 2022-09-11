@@ -21,7 +21,11 @@ const SUPPLY: u64 = 1000;
 #[tokio::test]
 async fn asset_import() -> Result<()> {
     if env::var("RUST_LOG").is_err() {
-        env::set_var("RUST_LOG", "bitmask_core=debug,asset=debug");
+        env::set_var(
+            "RUST_LOG",
+            "bitmask_core=debug,asset=debug,bdk=info,rgb_node=debug,internet2=debug,stored=debug,storm_node=debug,lnpbp=debug
+            ",
+        );
     }
 
     pretty_env_logger::init();

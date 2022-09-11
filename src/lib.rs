@@ -7,7 +7,7 @@ use anyhow::{anyhow, Result};
 use bdk::{wallet::AddressIndex::LastUnused, BlockTime};
 use bitcoin::{util::address::Address, OutPoint, Transaction, Txid};
 use bitcoin_hashes::{sha256, Hash};
-use operations::rgb::{register_contract, rgb_init, ConsignmentDetails};
+use operations::rgb::{register_contract, rgb_init};
 use serde::{Deserialize, Serialize};
 use serde_encrypt::{
     serialize::impls::BincodeSerializer, shared_key::SharedKey, traits::SerdeEncryptSharedKey,
@@ -22,16 +22,14 @@ pub mod web;
 
 use data::{
     constants,
-    structs::{
-        AssetResponse, FundVaultDetails, SatsInvoice, ThinAsset, TransferResponse, VaultData,
-    },
+    structs::{AssetResponse, FundVaultDetails, SatsInvoice, ThinAsset, VaultData},
 };
 
 use operations::{
     bitcoin::{create_transaction, get_wallet, new_mnemonic, save_mnemonic, synchronize_wallet},
     rgb::{
         accept_transfer, blind_utxo, get_asset_by_genesis, get_assets, issue_asset,
-        /* rgb_address, */ transfer_asset, validate_transfer,
+        validate_transfer,
     },
 };
 
@@ -352,9 +350,9 @@ pub async fn get_assets_vault(assets_descriptor: &str) -> Result<FundVaultDetail
 
 pub async fn send_assets(
     rgb_assets_descriptor_xprv: &str,
-    rgb_assets_descriptor_xpub: &str,
-    blinded_utxo: &str,
-    amount: u64,
+    _rgb_assets_descriptor_xpub: &str,
+    _blinded_utxo: &str,
+    _amount: u64,
     asset_contract: &str,
 ) -> Result<()> /*(ConsignmentDetails, Transaction, TransferResponse)*/ {
     // let full_wallet = get_wallet(rgb_assets_descriptor, Some(btc_descriptor))?;
@@ -364,7 +362,6 @@ pub async fn send_assets(
     let contract_validity = register_contract(asset_contract)?;
     info!(format!("Contract validity: {contract_validity:?}"));
     abort.send(()).unwrap();
-    debug!("beep");
 
     // let (consignment, tx, response) = transfer_asset(
     //     blinded_utxo,
