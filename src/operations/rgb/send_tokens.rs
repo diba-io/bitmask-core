@@ -1,13 +1,9 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::str::FromStr;
 
-use amplify::hex::ToHex;
-use amplify::Wrapper;
+use amplify::{hex::ToHex, Wrapper};
 use anyhow::{anyhow, Result};
-use bdk::database::AnyDatabase;
-use bdk::LocalUtxo;
-// use bdk::sled::Serialize;
-use bdk::{descriptor::Descriptor, Wallet};
+use bdk::{database::AnyDatabase, descriptor::Descriptor, LocalUtxo, Wallet};
 use bitcoin::{psbt::serialize::Serialize, OutPoint, Transaction, Txid};
 use bp::seals::txout::{CloseMethod, ExplicitSeal};
 use commit_verify::lnpbp4::{self, MerkleBlock};
@@ -15,15 +11,14 @@ use electrum_client::{Client, ElectrumApi};
 use regex::Regex;
 use rgb20::Asset;
 use rgb_core::{Anchor, Extension, IntoRevealedSeal};
-use rgb_std::AssignedState;
 use rgb_std::{
     blank::BlankBundle,
     fungible::allocation::{AllocatedValue, UtxobValue},
     psbt::RgbExt,
     psbt::RgbInExt,
-    BundleId, Consignment, ConsignmentId, ConsignmentType, Contract, ContractId, ContractState,
-    ContractStateMap, Disclosure, Genesis, InmemConsignment, Node, NodeId, Schema, SchemaId,
-    SealEndpoint, Transition, TransitionBundle, Validator, Validity,
+    AssignedState, BundleId, Consignment, ConsignmentId, ConsignmentType, Contract, ContractId,
+    ContractState, ContractStateMap, Disclosure, Genesis, InmemConsignment, Node, NodeId, Schema,
+    SchemaId, SealEndpoint, Transition, TransitionBundle, Validator, Validity,
 };
 use storm::{ChunkId, ChunkIdExt};
 use strict_encoding::{StrictDecode, StrictEncode};
@@ -223,11 +218,6 @@ async fn process_consignment<C: ConsignmentType>(
             }
         }
 
-        // let mut bundle_data = BTreeMap::new();
-        // for (node_id, inputs) in data {
-        //     bundle_data.insert(node_id, inputs.clone());
-        // }
-
         let data = TransitionBundle::with(revealed, concealed)
             .expect("enough data should be available to create bundle");
 
@@ -309,7 +299,7 @@ impl Collector {
         } = consignment_details;
 
         for transition_id in node_ids {
-            if transition_id.to_vec() == contract_id.to_vec() {
+            if transition_id.as_inner() == contract_id.as_inner() {
                 continue;
             }
             let transition: &Transition = transitions.get(&transition_id).unwrap();
@@ -669,12 +659,12 @@ pub async fn transfer_asset(
 
     // descriptor-wallet -> btc-cold -> construct
     // btc-cold construct --input "${UTXO_SRC} /0/0" --allow-tapret-path 1 ${WALLET} ${PSBT} ${FEE}
-    let txid_set: BTreeSet<_> = inputs.iter().map(|input| input.outpoint.txid).collect();
-    debug!(format!("txid set: {txid_set:?}"));
-
     let url = BITCOIN_ELECTRUM_API.read().await;
     let electrum_client = Client::new(&url)?;
     debug!(format!("Electrum client connected to {url}"));
+
+    let txid_set: BTreeSet<_> = inputs.iter().map(|input| input.outpoint.txid).collect();
+    debug!(format!("txid set: {txid_set:?}"));
 
     let tx_map = electrum_client
         .batch_transaction_get(&txid_set)?
@@ -870,10 +860,18 @@ pub async fn transfer_asset(
     // 5. Construct and store disclosure for the blank transfers.
     info!("5. Construct and store disclosure for the blank transfers.");
     let txid = anchor.txid;
+    let mut disclosures: BTreeMap<Txid, Disclosure> = Default::default();
     let disclosure = Disclosure::with(anchor, bundles, None);
+    let disclosure_str = format!("disclosure: {disclosure:#?}");
 
     debug!(format!("txid: {txid}"));
-    debug!(format!("disclosure: {disclosure:#?}"));
+    debug!(disclosure_str);
+
+    disclosures.insert(txid, disclosure);
+
+    // rgb-node -> bucketd/processor -> handle_finalize_transfer
+
+    // let consignment_data = consignment.strict_serialize()?;
 
     // Finalize, sign & publish the witness transaction
     info!("Finalize, sign & publish the witness transaction...");
@@ -904,7 +902,7 @@ pub async fn transfer_asset(
         tx,
         TransferResponse {
             consignment: consignment.to_string(),
-            disclosure: format!("{disclosure:?}"),
+            disclosure: disclosure_str,
             witness,
         },
     ))
