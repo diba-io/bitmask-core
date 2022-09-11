@@ -9,8 +9,6 @@ use bdk::LocalUtxo;
 // use bdk::sled::Serialize;
 use bdk::{descriptor::Descriptor, Wallet};
 use bitcoin::{psbt::serialize::Serialize, OutPoint, Transaction, Txid};
-use bp::dbc::anchor::PsbtEmbeddedMessage;
-use bp::seals::txout::blind::RevealedSeal;
 use bp::seals::txout::{CloseMethod, ExplicitSeal};
 use commit_verify::lnpbp4::{self, MerkleBlock};
 use commit_verify::EmbedCommitVerify;
@@ -40,8 +38,11 @@ use crate::{
         constants::BITCOIN_ELECTRUM_API,
         structs::{SealCoins, TransferResponse},
     },
-    debug, error, info,
-    operations::bitcoin::{sign_psbt, synchronize_wallet},
+    debug,
+    error,
+    info,
+    operations::bitcoin::synchronize_wallet,
+    // operations::bitcoin::sign_psbt,
     warn,
 };
 
@@ -482,7 +483,7 @@ pub async fn transfer_asset(
     asset_contract: &str, // rgb1...
     assets_wallet: &Wallet<AnyDatabase>,
     bdk_rgb_assets_descriptor_xpub: &str,
-) -> Result<(ConsignmentDetails, Transaction, TransferResponse)> {
+) -> Result<(ConsignmentDetails, /* Transaction, */ TransferResponse)> {
     // BDK
     info!("sync wallet");
     synchronize_wallet(assets_wallet).await?;
@@ -973,6 +974,10 @@ pub async fn rgb_tweaking(
 
     // btc-hot sign ${PSBT} ${DIR}/testnet
     // btc-cold finalize --publish testnet ${PSBT}
+    let tx = sign_psbt(assets_wallet, psbt.into()).await?;
+    // let tx = sign_psbt(full_wallet, psbt.into()).await?;
+
+    let witness = format!("{tx:?}");
 
     Ok((psbt.clone(), consignment, disclosure))
 }
