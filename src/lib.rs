@@ -356,7 +356,7 @@ pub async fn send_assets(
     blinded_utxo: &str,
     amount: u64,
     asset_contract: &str,
-) -> Result<(ConsignmentDetails, /* Transaction, */ TransferResponse)> {
+) -> Result<(ConsignmentDetails, Transaction, TransferResponse)> {
     // let full_wallet = get_wallet(rgb_assets_descriptor, Some(btc_descriptor))?;
     let assets_wallet = get_wallet(rgb_assets_descriptor_xprv, None)?;
     synchronize_wallet(&assets_wallet).await?;
@@ -366,7 +366,7 @@ pub async fn send_assets(
     //     synchronize_wallet(&assets_wallet),
     // )?;
 
-    let (consignment, /* tx, */ response) = transfer_asset(
+    let (consignment, tx, response) = transfer_asset(
         blinded_utxo,
         amount,
         asset_contract,
@@ -375,7 +375,7 @@ pub async fn send_assets(
     )
     .await?;
 
-    Ok((consignment, /* tx, */ response))
+    Ok((consignment, tx, response))
 }
 
 pub async fn validate_transaction(consignment: &str, node_url: Option<String>) -> Result<()> {
