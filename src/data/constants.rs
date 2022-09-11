@@ -36,7 +36,10 @@ static BITCOIN_ELECTRUM_API_TESTNET: Lazy<String> =
     Lazy::new(|| dot_env("BITCOIN_ELECTRUM_API_TESTNET"));
 static BITCOIN_ELECTRUM_API_SIGNET: Lazy<String> =
     Lazy::new(|| dot_env("BITCOIN_ELECTRUM_API_SIGNET"));
-pub static BITCOIN_ELECTRUM_API: Lazy<AsyncRwLock<String>> = Lazy::new(|| {
+pub static BITCOIN_ELECTRUM_API: Lazy<RwLock<String>> = Lazy::new(|| {
+    RwLock::new(BITCOIN_ELECTRUM_API_TESTNET.to_owned()) //TODO: Change default to mainnet
+});
+pub static BITCOIN_ELECTRUM_API_ASYNC: Lazy<AsyncRwLock<String>> = Lazy::new(|| {
     AsyncRwLock::new(BITCOIN_ELECTRUM_API_TESTNET.to_owned()) //TODO: Change default to mainnet
 });
 
@@ -65,7 +68,7 @@ pub async fn switch_network(network_str: &str) -> Result<()> {
         Network::Regtest => unimplemented!(),
     };
 
-    *BITCOIN_ELECTRUM_API.write().await = match network {
+    *BITCOIN_ELECTRUM_API.write().unwrap() = match network {
         Network::Bitcoin => BITCOIN_ELECTRUM_API_MAINNET.to_owned(),
         Network::Testnet => BITCOIN_ELECTRUM_API_TESTNET.to_owned(),
         Network::Signet => BITCOIN_ELECTRUM_API_SIGNET.to_owned(),

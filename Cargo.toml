@@ -40,6 +40,7 @@ serde-encrypt = "0.7.0"
 tokio = { version = "1.20.1", features = ["macros"] }
 pretty_env_logger = "0.4.0"
 
+# Browser
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 bdk = { version = "0.22.0", features = [
     "use-esplora-reqwest",
@@ -53,9 +54,10 @@ wasm-bindgen = { version = "0.2.77", features = ["serde-serialize"] }
 wasm-bindgen-futures = "0.4.27"
 web-sys = "0.3.55"
 
+# Server / Desktop
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 amplify = "3.13.0"
-bdk = { version = "0.21.0", features = [
+bdk = { version = "0.22.0", features = [
     "use-esplora-reqwest",
     "sqlite-bundled",
     "async-interface",
@@ -65,16 +67,21 @@ bitcoin_hashes = "0.10.0"
 bp-core = { version = "0.8.0", features = ["wallet"] }
 commit_verify = { version = "0.8.0", features = ["rand"] }
 electrum-client = "0.10.1"
+internet2 = { version = "0.8.0", features = ["keygen", "zmq"] }
 lnpbp = "0.8.0"
 psbt = { version = "0.8.5", features = ["sign", "miniscript", "serde"] }
 reqwest = { version = "0.11.11", features = ["json"] }
+rgb_rpc = { version = "0.8.0", git = "https://github.com/RGB-WG/rgb-node.git", branch = "master" }
 rgb-core = { package = "rgb-core", version = "0.8.0", features = ["serde"] }
 rgb-std = { package = "rgb-std", version = "0.8.0", features = [
     "serde",
     "wallet",
 ] }
+rgb_node = { version = "0.8.0", git = "https://github.com/RGB-WG/rgb-node.git", branch = "master" }
 rgb20 = { version = "0.8.0-rc.4", features = ["serde"] }
 stens = { version = "0.7.1", features = ["serde"] }
+store_daemon = "0.8.0"
+storm_node = "0.8.0"
 storm-core = "0.8.0"
 strict_encoding = { version = "0.8.1", features = [
     "crypto",

@@ -79,7 +79,7 @@ async fn asset_import() -> Result<()> {
     };
 
     info!("Create a test asset");
-    let issued_asset = &create_asset(TICKER, NAME, PRECISION, SUPPLY, &send_assets_utxo)?;
+    let issued_asset = create_asset(TICKER, NAME, PRECISION, SUPPLY, &send_assets_utxo)?;
 
     let asset_data = serde_json::to_string_pretty(&issued_asset)?;
     debug!("Asset data: {asset_data}");
@@ -87,7 +87,10 @@ async fn asset_import() -> Result<()> {
     info!("Import asset");
     let imported_asset = import_asset(&issued_asset.genesis)?;
 
-    assert_eq!(issued_asset.asset_id, imported_asset.id, "Asset IDs match");
+    assert_eq!(
+        &issued_asset.asset_id, &imported_asset.id,
+        "Asset IDs match"
+    );
 
     info!("Get a blinded UTXO");
     let blinded_utxo = set_blinded_utxo(&send_assets_utxo)?;
@@ -95,7 +98,8 @@ async fn asset_import() -> Result<()> {
     debug!("Blinded UTXO: {:?}", blinded_utxo);
 
     info!("Transfer asset");
-    let consignment_details = send_assets(
+    // let consignment_details =
+    send_assets(
         &vault.rgb_assets_descriptor_xprv,
         &vault.rgb_assets_descriptor_xpub,
         &blinded_utxo.conceal,
@@ -104,7 +108,7 @@ async fn asset_import() -> Result<()> {
     )
     .await?;
 
-    debug!("Transfer response: {:#?}", &consignment_details);
+    // debug!("Transfer response: {:#?}", &consignment_details);
 
     Ok(())
 }

@@ -29,7 +29,7 @@ use wallet::{
 use crate::trace;
 use crate::{
     data::{
-        constants::BITCOIN_ELECTRUM_API,
+        constants::BITCOIN_ELECTRUM_API_ASYNC,
         structs::{SealCoins, TransferResponse},
     },
     debug, error, info,
@@ -107,7 +107,7 @@ async fn process_consignment<C: ConsignmentType>(
     info!(format!(
         "Validating consignment {consignment_id} for contract {contract_id}"
     ));
-    let electrum_client = Client::new(&BITCOIN_ELECTRUM_API.read().await)?;
+    let electrum_client = Client::new(&BITCOIN_ELECTRUM_API_ASYNC.read().await)?;
     let status = Validator::validate(consignment, &electrum_client);
     info!(format!(
         "Consignment validation result is {}",
@@ -659,7 +659,7 @@ pub async fn transfer_asset(
 
     // descriptor-wallet -> btc-cold -> construct
     // btc-cold construct --input "${UTXO_SRC} /0/0" --allow-tapret-path 1 ${WALLET} ${PSBT} ${FEE}
-    let url = BITCOIN_ELECTRUM_API.read().await;
+    let url = BITCOIN_ELECTRUM_API_ASYNC.read().await;
     let electrum_client = Client::new(&url)?;
     debug!(format!("Electrum client connected to {url}"));
 

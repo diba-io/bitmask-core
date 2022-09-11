@@ -7,7 +7,7 @@ use anyhow::{anyhow, Result};
 use bdk::{wallet::AddressIndex::LastUnused, BlockTime};
 use bitcoin::{util::address::Address, OutPoint, Transaction, Txid};
 use bitcoin_hashes::{sha256, Hash};
-use operations::rgb::ConsignmentDetails;
+use operations::rgb::{register_contract, rgb_init, ConsignmentDetails};
 use serde::{Deserialize, Serialize};
 use serde_encrypt::{
     serialize::impls::BincodeSerializer, shared_key::SharedKey, traits::SerdeEncryptSharedKey,
@@ -356,26 +356,27 @@ pub async fn send_assets(
     blinded_utxo: &str,
     amount: u64,
     asset_contract: &str,
-) -> Result<(ConsignmentDetails, Transaction, TransferResponse)> {
+) -> Result<()> /*(ConsignmentDetails, Transaction, TransferResponse)*/ {
     // let full_wallet = get_wallet(rgb_assets_descriptor, Some(btc_descriptor))?;
     let assets_wallet = get_wallet(rgb_assets_descriptor_xprv, None)?;
     synchronize_wallet(&assets_wallet).await?;
+    let abort = rgb_init().await;
+    let contract_validity = register_contract(asset_contract)?;
+    info!(format!("Contract validity: {contract_validity:?}"));
+    abort.send(()).unwrap();
+    debug!("beep");
 
-    // try_join!(
-    //     synchronize_wallet(&full_wallet),
-    //     synchronize_wallet(&assets_wallet),
-    // )?;
+    // let (consignment, tx, response) = transfer_asset(
+    //     blinded_utxo,
+    //     amount,
+    //     asset_contract,
+    //     &assets_wallet,
+    //     rgb_assets_descriptor_xpub,
+    // )
+    // .await?;
 
-    let (consignment, tx, response) = transfer_asset(
-        blinded_utxo,
-        amount,
-        asset_contract,
-        &assets_wallet,
-        rgb_assets_descriptor_xpub,
-    )
-    .await?;
-
-    Ok((consignment, tx, response))
+    // Ok((consignment, tx, response))
+    Ok(())
 }
 
 pub async fn validate_transaction(consignment: &str, node_url: Option<String>) -> Result<()> {
