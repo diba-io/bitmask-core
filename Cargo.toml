@@ -70,6 +70,7 @@ commit_verify = { version = "0.8.0", features = ["rand"] }
 electrum-client = "0.10.1"
 internet2 = { version = "0.8.0", features = ["keygen", "zmq"] }
 lnpbp = "0.8.0"
+miniscript = "7.0.0"
 psbt = { version = "0.8.5", features = ["sign", "miniscript", "serde"] }
 reqwest = { version = "0.11.11", features = ["json"] }
 rgb_rpc = { version = "0.8.0", git = "https://github.com/RGB-WG/rgb-node.git", branch = "master" }

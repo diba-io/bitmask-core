@@ -5,12 +5,12 @@ use std::{
 };
 
 use anyhow::Result;
-use tokio::task::spawn_blocking;
+use tokio::task::{spawn_blocking, JoinHandle};
 
 use crate::{data::constants::BITCOIN_ELECTRUM_API, debug, error, info, trace};
 
-pub async fn rgb_init() -> SyncSender<i32> {
-    let (tx, rx) = mpsc::sync_channel::<i32>(1);
+pub async fn rgb_init() -> (SyncSender<i32>, JoinHandle<()>) {
+    let (abort, rx) = mpsc::sync_channel::<i32>(1);
 
     let stored = spawn_blocking(|| {
         stored().expect("start stored");
@@ -23,7 +23,7 @@ pub async fn rgb_init() -> SyncSender<i32> {
     });
 
     // Await oneshot to abort threads
-    let _handle = spawn_blocking(move || {
+    let abort_handle: JoinHandle<_> = tokio::spawn(async move {
         match rx.recv() {
             Ok(shutdown) => {
                 info!("Aborting RGB daemon threads");
@@ -40,7 +40,7 @@ pub async fn rgb_init() -> SyncSender<i32> {
         };
     });
 
-    tx
+    (abort, abort_handle)
 }
 
 use internet2::addr::ServiceAddr;

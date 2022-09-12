@@ -18,17 +18,17 @@ pub fn rgb_cli() -> Result<RgbClient> {
     debug!(format!("RPC socket {connect}"));
     debug!(format!("Chain {chain}"));
 
-    let mut client =
+    let mut rgb_client =
         RgbClient::with(connect, s!("rgb-cli"), chain).expect("Error initializing client");
 
-    if !client.hello()? {
+    if !rgb_client.hello()? {
         error!("rgbd health check failed");
         return Err(anyhow!("rgbd health check failed"));
     } else {
         debug!("rgbd health check succeeded");
     }
 
-    Ok(client)
+    Ok(rgb_client)
 }
 
 fn progress(msg: String) {
@@ -36,7 +36,7 @@ fn progress(msg: String) {
 }
 
 pub fn register_contract(
-    client: &mut RgbClient,
+    rgb_client: &mut RgbClient,
     contract_str: &str,
 ) -> Result<(ContractValidity, ContractId)> {
     let contract = Contract::from_str(contract_str)?;
@@ -44,18 +44,18 @@ pub fn register_contract(
     info!(format!("Registering contract {}", contract_id));
 
     let force = false;
-    let status = client.register_contract(contract, force, progress)?;
+    let status = rgb_client.register_contract(contract, force, progress)?;
 
     Ok((status, contract_id))
 }
 
 pub fn transfer_compose(
-    client: &mut RgbClient,
+    rgb_client: &mut RgbClient,
     node_types: Vec<u16>,
     contract_id: ContractId,
     outpoints: Vec<OutPoint>,
 ) -> Result<InmemConsignment<TransferConsignment>> {
-    let transfer = client.consign(
+    let transfer = rgb_client.consign(
         contract_id,
         node_types,
         outpoints.into_iter().collect(),
@@ -65,11 +65,11 @@ pub fn transfer_compose(
 }
 
 pub fn transfer_finalize(
-    client: &mut RgbClient,
+    rgb_client: &mut RgbClient,
     psbt: Psbt,
     consignment: InmemConsignment<TransferConsignment>,
     endseals: Vec<SealEndpoint>,
 ) -> Result<TransferFinalize> {
-    let transfer = client.transfer(consignment, endseals, psbt, None, progress)?;
+    let transfer = rgb_client.transfer(consignment, endseals, psbt, None, progress)?;
     Ok(transfer)
 }

@@ -364,11 +364,11 @@ pub async fn send_assets(
     // let full_wallet = get_wallet(rgb_assets_descriptor, Some(btc_descriptor))?;
     let assets_wallet = get_wallet(rgb_assets_descriptor_xprv, None)?;
     synchronize_wallet(&assets_wallet).await?;
-    let abort = rgb_init().await;
-    let mut client = rgb_cli()?;
+    let (abort, abort_handle) = rgb_init().await;
+    let mut rgb_client = rgb_cli()?;
 
     let (consignment, tx, response) = transfer_asset(
-        &mut client,
+        &mut rgb_client,
         blinded_utxo,
         amount,
         asset_contract,
@@ -383,6 +383,7 @@ pub async fn send_assets(
     })?;
 
     abort.send(0)?;
+    abort_handle.abort();
 
     Ok((consignment, tx, response))
 }

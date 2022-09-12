@@ -384,6 +384,7 @@ dependencies = [
  "lazy_static",
  "lnpbp",
  "log",
+ "miniscript",
  "once_cell",
  "pretty_env_logger",
  "psbt",

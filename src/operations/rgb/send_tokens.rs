@@ -1,12 +1,18 @@
-use std::collections::{BTreeMap, BTreeSet};
-use std::str::FromStr;
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    str::FromStr,
+};
 
 use amplify::hex::ToHex;
 use anyhow::{anyhow, Result};
 use bdk::{database::AnyDatabase, descriptor::Descriptor, LocalUtxo, Wallet};
+use bitcoin::consensus;
+use bitcoin::psbt::PartiallySignedTransaction;
+// use bitcoin::secp256k1::Secp256k1;
 use bitcoin::{psbt::serialize::Serialize, OutPoint, Transaction};
 use bp::seals::txout::{CloseMethod, ExplicitSeal};
 use electrum_client::{Client as ElectrumClient, ElectrumApi};
+// use miniscript::psbt::PsbtExt;
 use regex::Regex;
 use rgb20::Asset;
 use rgb_core::IntoRevealedSeal;
@@ -24,18 +30,18 @@ use wallet::{
     descriptors::InputDescriptor, locks::LockTime, psbt::Psbt, scripts::taproot::DfsPath,
 };
 
-use crate::operations::rgb::rpc::transfer_finalize;
 use crate::operations::util::bech32_encode;
+use crate::operations::{bitcoin::sign_psbt, rgb::rpc::transfer_finalize};
 use crate::{
     data::{
         constants::BITCOIN_ELECTRUM_API_ASYNC,
         structs::{SealCoins, TransferResponse},
     },
-    debug, error, info,
-    operations::{
-        bitcoin::sign_psbt,
-        rgb::{register_contract, transfer_compose},
-    },
+    debug,
+    error,
+    info,
+    operations::rgb::{register_contract, transfer_compose},
+    // operations::bitcoin::sign_psbt,
     trace,
 };
 
@@ -46,7 +52,7 @@ pub enum OutpointFilter {
 }
 
 pub async fn transfer_asset(
-    client: &mut RgbClient,
+    rgb_client: &mut RgbClient,
     blinded_utxo: &str,
     amount: u64,
     asset_contract: &str, // rgb1...
@@ -61,7 +67,7 @@ pub async fn transfer_asset(
     let asset_utxos = assets_wallet.list_unspent()?;
 
     // RGB
-    let (contract_validity, contract_id) = register_contract(client, asset_contract)?;
+    let (contract_validity, contract_id) = register_contract(rgb_client, asset_contract)?;
     info!(format!("Contract validity: {contract_validity:?}"));
 
     // rgb-cli -n testnet transfer compose ${CONTRACT_ID} ${UTXO_SRC} ${CONSIGNMENT}
@@ -117,7 +123,7 @@ pub async fn transfer_asset(
         .collect();
 
     // Compose consignment from provided asset contract
-    let consignment = transfer_compose(client, vec![], contract_id, outpoints.clone())?;
+    let consignment = transfer_compose(rgb_client, vec![], contract_id, outpoints.clone())?;
 
     info!(format!("Parse blinded UTXO: {blinded_utxo}"));
     let utxob = match blinded_utxo.parse() {
@@ -361,7 +367,7 @@ pub async fn transfer_asset(
         .collect();
     info!("Getting outpoint state map");
     debug!(format!("Outpoints: {outpoints:#?}"));
-    let state_map = client.outpoint_state(outpoints, |msg| {
+    let state_map = rgb_client.outpoint_state(outpoints, |msg| {
         info!(msg);
     })?;
     debug!(format!("Outpoint state map: {state_map:#?}"));
@@ -425,7 +431,7 @@ pub async fn transfer_asset(
     info!(format!("Finalizing transfer for {}...", contract_id));
     let endseals = vec![SealEndpoint::try_from(utxob)?];
     let TransferFinalize { consignment, psbt } =
-        transfer_finalize(client, psbt, consignment, endseals)?;
+        transfer_finalize(rgb_client, psbt, consignment, endseals)?;
 
     // rgb-node -> bucketd/processor -> handle_finalize_transfer
     let consignment_data = consignment.strict_serialize()?;
@@ -451,7 +457,15 @@ pub async fn transfer_asset(
     // btc-hot sign ${PSBT} ${DIR}/testnet
     // btc-cold finalize --publish testnet ${PSBT}
     // BDK
-    let tx = sign_psbt(assets_wallet, psbt.into()).await?;
+
+    // Finalize PSBT?
+    let psbt = consensus::encode::deserialize::<PartiallySignedTransaction>(&psbt.serialize())?;
+    // let secp = Secp256k1::new();
+    // psbt.finalize_mut(&secp).map_err(|e| anyhow!("{e:?}"))?;
+
+    let tx = sign_psbt(assets_wallet, psbt).await?;
+    // let tx = psbt.extract_tx();
+
     let witness = format!("{tx:?}");
 
     Ok((
