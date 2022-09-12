@@ -57,6 +57,9 @@ jobs:
 
       - uses: Swatinem/rust-cache@v1
 
+      - name: Clear /tmp storm node
+        run: rm -rf /tmp/.storm_node
+
       - name: Test
         run: cargo test -- --nocapture
         env:
