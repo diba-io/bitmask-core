@@ -18,6 +18,6 @@ pub async fn sign_psbt(
         blockchain.broadcast(&tx).await?;
         Ok(tx)
     } else {
-        Err(Error::msg(""))
+        Err(Error::msg("Error signing PSBT"))
     }
 }

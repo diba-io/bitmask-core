@@ -127,7 +127,6 @@ pub struct TransferRequest {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TransferResponse {
     pub consignment: String,
-    pub disclosure: String,
     pub witness: String,
 }
 

@@ -1,15 +1,16 @@
-use std::{path::PathBuf, str::FromStr};
-
-use anyhow::Result;
-use tokio::{
-    sync::oneshot::{self, Sender},
-    task::spawn_blocking,
+use std::{
+    path::PathBuf,
+    str::FromStr,
+    sync::mpsc::{self, SyncSender},
 };
 
-use crate::{data::constants::BITCOIN_ELECTRUM_API, debug, info, trace};
+use anyhow::Result;
+use tokio::task::spawn_blocking;
 
-pub async fn rgb_init() -> Sender<()> {
-    let (tx, rx) = oneshot::channel::<()>();
+use crate::{data::constants::BITCOIN_ELECTRUM_API, debug, error, info, trace};
+
+pub async fn rgb_init() -> SyncSender<i32> {
+    let (tx, rx) = mpsc::sync_channel::<i32>(1);
 
     let stored = spawn_blocking(|| {
         stored().expect("start stored");
@@ -22,18 +23,22 @@ pub async fn rgb_init() -> Sender<()> {
     });
 
     // Await oneshot to abort threads
+
+    // tokio::spawn(async move {
+    //     match rx.recv().await {
     spawn_blocking(move || {
-        match rx.blocking_recv() {
-            Ok(_) => {
+        match rx.recv() {
+            Ok(shutdown) => {
                 info!("Aborting RGB daemon threads");
                 stored.abort();
                 stormd.abort();
                 rgbd.abort();
-                info!("Success! Exiting...");
-                std::process::exit(0);
+                info!("All threads aborted. Exiting...");
+                std::process::exit(shutdown);
             }
-            Err(_) => {
-                panic!("Error in rgb_init abort fn");
+            Err(e) => {
+                error!(format!("Error in rgb_init abort: {e}"));
+                panic!("Error in rgb_init abort");
             }
         };
     });

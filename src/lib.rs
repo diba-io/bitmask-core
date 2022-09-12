@@ -7,7 +7,7 @@ use anyhow::{anyhow, Result};
 use bdk::{wallet::AddressIndex::LastUnused, BlockTime};
 use bitcoin::{util::address::Address, OutPoint, Transaction, Txid};
 use bitcoin_hashes::{sha256, Hash};
-use operations::rgb::{register_contract, rgb_init};
+use rgb_std::{InmemConsignment, TransferConsignment};
 use serde::{Deserialize, Serialize};
 use serde_encrypt::{
     serialize::impls::BincodeSerializer, shared_key::SharedKey, traits::SerdeEncryptSharedKey,
@@ -22,14 +22,16 @@ pub mod web;
 
 use data::{
     constants,
-    structs::{AssetResponse, FundVaultDetails, SatsInvoice, ThinAsset, VaultData},
+    structs::{
+        AssetResponse, FundVaultDetails, SatsInvoice, ThinAsset, TransferResponse, VaultData,
+    },
 };
 
 use operations::{
     bitcoin::{create_transaction, get_wallet, new_mnemonic, save_mnemonic, synchronize_wallet},
     rgb::{
-        accept_transfer, blind_utxo, get_asset_by_genesis, get_assets, issue_asset,
-        validate_transfer,
+        accept_transfer, blind_utxo, get_asset_by_genesis, get_assets, issue_asset, rgb_cli,
+        rgb_init, transfer_asset, validate_transfer,
     },
 };
 
@@ -350,30 +352,39 @@ pub async fn get_assets_vault(assets_descriptor: &str) -> Result<FundVaultDetail
 
 pub async fn send_assets(
     rgb_assets_descriptor_xprv: &str,
-    _rgb_assets_descriptor_xpub: &str,
-    _blinded_utxo: &str,
-    _amount: u64,
+    rgb_assets_descriptor_xpub: &str,
+    blinded_utxo: &str,
+    amount: u64,
     asset_contract: &str,
-) -> Result<()> /*(ConsignmentDetails, Transaction, TransferResponse)*/ {
+) -> Result<(
+    InmemConsignment<TransferConsignment>,
+    Transaction,
+    TransferResponse,
+)> {
     // let full_wallet = get_wallet(rgb_assets_descriptor, Some(btc_descriptor))?;
     let assets_wallet = get_wallet(rgb_assets_descriptor_xprv, None)?;
     synchronize_wallet(&assets_wallet).await?;
     let abort = rgb_init().await;
-    let contract_validity = register_contract(asset_contract)?;
-    info!(format!("Contract validity: {contract_validity:?}"));
-    abort.send(()).unwrap();
+    let mut client = rgb_cli()?;
 
-    // let (consignment, tx, response) = transfer_asset(
-    //     blinded_utxo,
-    //     amount,
-    //     asset_contract,
-    //     &assets_wallet,
-    //     rgb_assets_descriptor_xpub,
-    // )
-    // .await?;
+    let (consignment, tx, response) = transfer_asset(
+        &mut client,
+        blinded_utxo,
+        amount,
+        asset_contract,
+        &assets_wallet,
+        rgb_assets_descriptor_xpub,
+    )
+    .await
+    .map_err(|e| {
+        abort.send(1).unwrap();
+        error!(format!("Error in send_asset: {e}"));
+        e
+    })?;
 
-    // Ok((consignment, tx, response))
-    Ok(())
+    abort.send(0)?;
+
+    Ok((consignment, tx, response))
 }
 
 pub async fn validate_transaction(consignment: &str, node_url: Option<String>) -> Result<()> {

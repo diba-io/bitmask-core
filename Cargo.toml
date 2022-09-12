@@ -65,6 +65,7 @@ bdk = { version = "0.22.0", features = [
 ], default-features = false }
 bitcoin_hashes = "0.10.0"
 bp-core = { version = "0.8.0", features = ["wallet"] }
+bech32 = "0.9.1"
 commit_verify = { version = "0.8.0", features = ["rand"] }
 electrum-client = "0.10.1"
 internet2 = { version = "0.8.0", features = ["keygen", "zmq"] }
