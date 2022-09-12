@@ -23,10 +23,7 @@ pub async fn rgb_init() -> SyncSender<i32> {
     });
 
     // Await oneshot to abort threads
-
-    // tokio::spawn(async move {
-    //     match rx.recv().await {
-    spawn_blocking(move || {
+    let _handle = spawn_blocking(move || {
         match rx.recv() {
             Ok(shutdown) => {
                 info!("Aborting RGB daemon threads");

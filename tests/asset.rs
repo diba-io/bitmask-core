@@ -102,8 +102,7 @@ async fn asset_import() -> Result<()> {
     debug!("Blinded UTXO: {:?}", blinded_utxo);
 
     info!("Transfer asset");
-    // let consignment_details =
-    send_assets(
+    let consignment_details = send_assets(
         &vault.rgb_assets_descriptor_xprv,
         &vault.rgb_assets_descriptor_xpub,
         &blinded_utxo.conceal,
@@ -112,7 +111,7 @@ async fn asset_import() -> Result<()> {
     )
     .await?;
 
-    // debug!("Transfer response: {:#?}", &consignment_details);
+    debug!("Transfer response: {:#?}", &consignment_details);
 
     Ok(())
 }

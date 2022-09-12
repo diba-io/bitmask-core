@@ -61,10 +61,6 @@ pub fn transfer_compose(
         outpoints.into_iter().collect(),
         progress,
     )?;
-
-    // let consignment_bytes = vec![];
-    // transfer.strict_encode(consignment_bytes)?;
-
     Ok(transfer)
 }
 
@@ -75,11 +71,5 @@ pub fn transfer_finalize(
     endseals: Vec<SealEndpoint>,
 ) -> Result<TransferFinalize> {
     let transfer = client.transfer(consignment, endseals, psbt, None, progress)?;
-
-    // use psbt::{serialize::Serialize, Psbt};
-    // use strict_encoding::StrictEncode;
-    // transfer.consignment.strict_serialize()?;
-    // let psbt_bytes = transfer.psbt.serialize();
-
     Ok(transfer)
 }
