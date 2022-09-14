@@ -1,18 +1,22 @@
 use std::{
     collections::{BTreeMap, BTreeSet},
+    fmt::Debug,
     str::FromStr,
 };
 
 use amplify::hex::ToHex;
-use anyhow::{anyhow, Result};
-use bdk::{database::AnyDatabase, descriptor::Descriptor, LocalUtxo, Wallet};
-use bitcoin::consensus;
+use anyhow::{anyhow, Error, Result};
+use bdk::{
+    database::AnyDatabase, descriptor::Descriptor, wallet::AddressIndex, FeeRate, LocalUtxo, Wallet,
+};
+use bitcoin::consensus::{encode::deserialize, serialize};
 use bitcoin::psbt::PartiallySignedTransaction;
-// use bitcoin::secp256k1::Secp256k1;
+use bitcoin::secp256k1::Secp256k1;
 use bitcoin::{psbt::serialize::Serialize, OutPoint, Transaction};
 use bp::seals::txout::{CloseMethod, ExplicitSeal};
 use electrum_client::{Client as ElectrumClient, ElectrumApi};
-// use miniscript::psbt::PsbtExt;
+use miniscript::psbt::PsbtExt;
+use psbt::serialize::Deserialize;
 use regex::Regex;
 use rgb20::Asset;
 use rgb_core::IntoRevealedSeal;
@@ -49,6 +53,21 @@ use crate::{
 pub enum OutpointFilter {
     All,
     Only(BTreeSet<OutPoint>),
+}
+
+fn handle_error<E: Debug>(e: E) -> Error {
+    error!(format!("{e:?}"));
+    anyhow!("{e:?}")
+}
+
+fn convert_bdk_psbt(psbt: &PartiallySignedTransaction) -> Result<Psbt> {
+    Ok(Psbt::deserialize(&serialize(&psbt))?)
+}
+
+fn convert_rgb_psbt(psbt: &Psbt) -> Result<PartiallySignedTransaction> {
+    Ok(deserialize::<PartiallySignedTransaction>(
+        &psbt.serialize(),
+    )?)
 }
 
 pub async fn transfer_asset(
@@ -189,7 +208,7 @@ pub async fn transfer_asset(
     debug!(format!("Change: {change:#?}"));
     debug!(format!("Inputs: {inputs:#?}"));
 
-    // Find an output that isn't being used as change
+    // Find an output that isn't being used by RGB
     let change_outputs: Vec<&LocalUtxo> = asset_utxos
         .iter()
         .filter(|asset_utxo| {
@@ -232,6 +251,7 @@ pub async fn transfer_asset(
     debug!(format!("Beneficiaries: {beneficiaries:#?}"));
     debug!(format!("Change allocated values: {change:#?}"));
 
+    // TODO: Support transferring multiple assets on the same UTXOs
     let transition: Transition = match asset.transfer(outpoints.clone(), beneficiaries, change) {
         Ok(t) => t,
         Err(err) => {
@@ -264,72 +284,87 @@ pub async fn transfer_asset(
 
     info!("Re-scanned network");
 
-    let outputs = vec![]; // TODO: not sure if this is correct
-    let allow_tapret_path = DfsPath::from_str("1")?;
+    // let outputs = vec![]; // TODO: not sure if this is correct
+    // let allow_tapret_path = DfsPath::from_str("1")?;
 
     // format BDK descriptor for RGB
-    let re = Regex::new(r"\(\[([0-9a-f]+)/(.+)](.+?)/").unwrap();
-    let cap = re.captures(bdk_rgb_assets_descriptor_xpub).unwrap();
-    let rgb_assets_descriptor = format!("tr(m=[{}]/{}=[{}]/*/*)", &cap[1], &cap[2], &cap[3]);
-    let rgb_assets_descriptor = rgb_assets_descriptor.replace('\'', "h");
+    // let re = Regex::new(r"\(\[([0-9a-f]+)/(.+)](.+?)/").unwrap();
+    // let cap = re.captures(bdk_rgb_assets_descriptor_xpub).unwrap();
+    // let rgb_assets_descriptor = format!("tr(m=[{}]/{}=[{}]/*/*)", &cap[1], &cap[2], &cap[3]);
+    // let rgb_assets_descriptor = rgb_assets_descriptor.replace('\'', "h");
 
-    debug!(format!(
-        "Creating descriptor wallet from RGB Tokens Descriptor: {rgb_assets_descriptor}"
-    ));
-    let descriptor = match Descriptor::from_str(&rgb_assets_descriptor) {
-        Ok(d) => d,
-        Err(err) => {
-            error!(format!(
-                "Error creating descriptor wallet from RGB Tokens Descriptor: {err}",
-            ));
-            return Err(anyhow!(
-                "Error creating descriptor wallet from RGB Tokens Descriptor"
-            ));
-        }
-    };
-    let fee = 500;
+    // debug!(format!(
+    //     "Creating descriptor wallet from RGB Tokens Descriptor: {rgb_assets_descriptor}"
+    // ));
+    // let descriptor = match Descriptor::from_str(&rgb_assets_descriptor) {
+    //     Ok(d) => d,
+    //     Err(err) => {
+    //         error!(format!(
+    //             "Error creating descriptor wallet from RGB Tokens Descriptor: {err}",
+    //         ));
+    //         return Err(anyhow!(
+    //             "Error creating descriptor wallet from RGB Tokens Descriptor"
+    //         ));
+    //     }
+    // };
+    // let fee = 500;
 
-    debug!("Constructing PSBT with...");
-    debug!(format!("outputs: {outputs:?}"));
-    debug!(format!("allow_tapret_path: {allow_tapret_path:?}"));
-    debug!(format!("descriptor: {descriptor:#?}"));
-    debug!(format!("fee: {fee:?}"));
+    // debug!("Constructing PSBT with...");
+    // debug!(format!("outputs: {outputs:?}"));
+    // debug!(format!("allow_tapret_path: {allow_tapret_path:?}"));
+    // debug!(format!("descriptor: {descriptor:#?}"));
+    // debug!(format!("fee: {fee:?}"));
 
-    let mut psbt = match Psbt::construct(
-        &descriptor,
-        &inputs,
-        &outputs,
-        0_u16,
-        fee,
-        Some(&allow_tapret_path),
-        &tx_map,
-    ) {
-        Ok(p) => p,
-        Err(err) => {
-            error!(format!(
-                "Error constructing PSBT from RGB Tokens Descriptor: {err}",
-            ));
-            return Err(anyhow!(
-                "Error constructing PSBT from RGB Tokens Descriptor"
-            ));
-        }
-    };
+    // let mut psbt = match Psbt::construct(
+    //     &descriptor,
+    //     &inputs,
+    //     &outputs,
+    //     0_u16,
+    //     fee,
+    //     Some(&allow_tapret_path),
+    //     &tx_map,
+    // ) {
+    //     Ok(p) => p,
+    //     Err(err) => {
+    //         error!(format!(
+    //             "Error constructing PSBT from RGB Tokens Descriptor: {err}",
+    //         ));
+    //         return Err(anyhow!(
+    //             "Error constructing PSBT from RGB Tokens Descriptor"
+    //         ));
+    //     }
+    // };
+
+    let change_address = assets_wallet.get_address(AddressIndex::New)?;
+    let input_outpoints: Vec<OutPoint> = inputs.iter().map(|input| input.outpoint).collect();
+    // let input_utxos: &[OutPoint] = &input_outpoints;
+    let mut builder = assets_wallet.build_tx();
+    builder
+        .add_utxos(&input_outpoints)
+        .map_err(handle_error)?
+        .manually_selected_only()
+        .drain_to(change_address.script_pubkey())
+        .fee_rate(FeeRate::from_sat_per_vb(1.5));
+    let (psbt, _) = builder.finish().map_err(handle_error)?;
 
     debug!(format!("PSBT successfully constructed: {psbt:#?}"));
 
-    psbt.fallback_locktime = Some(LockTime::from_str("none")?);
-    debug!(format!("Locktime set: {:#?}", psbt.fallback_locktime));
+    // psbt.fallback_locktime = Some(LockTime::from_str("none")?);
+    // debug!(format!("Locktime set: {:#?}", psbt.fallback_locktime));
 
     // Embed information about the contract into the PSBT
     // rgb-node -> cli/command -> ContractCommand::Embed
-    if psbt.has_rgb_contract(contract_id) {
-        info!(format!(
-            "Contract {contract_id} is already present in the PSBT"
-        ));
-        return Err(anyhow!(
-            "Contract {contract_id} is already present in the PSBT"
-        ));
-    }
+    // if psbt.has_rgb_contract(contract_id) {
+    //     info!(format!(
+    //         "Contract {contract_id} is already present in the PSBT"
+    //     ));
+    //     return Err(anyhow!(
+    //         "Contract {contract_id} is already present in the PSBT"
+    //     ));
+    // }
+
+    let mut psbt = convert_bdk_psbt(&psbt)?;
+
     psbt.set_rgb_contract(contract)?;
     debug!("RGB contract successfully set on PSBT");
 
@@ -450,20 +485,20 @@ pub async fn transfer_asset(
     debug!(format!(
         "RGB assets descriptor from BDK {bdk_rgb_assets_descriptor_xpub}"
     ));
-    debug!(format!(
-        "RGB assets descriptor formatted for RGB {rgb_assets_descriptor}"
-    ));
+    // debug!(format!(
+    //     "RGB assets descriptor formatted for RGB {rgb_assets_descriptor}"
+    // ));
 
     // btc-hot sign ${PSBT} ${DIR}/testnet
     // btc-cold finalize --publish testnet ${PSBT}
     // BDK
 
     // Finalize PSBT?
-    let psbt = consensus::encode::deserialize::<PartiallySignedTransaction>(&psbt.serialize())?;
+    // let mut psbt = consensus::encode::deserialize::<PartiallySignedTransaction>(&psbt.serialize())?;
     // let secp = Secp256k1::new();
-    // psbt.finalize_mut(&secp).map_err(|e| anyhow!("{e:?}"))?;
+    // psbt.finalize_mut(&secp).map_err(handle_error)?;
 
-    let tx = sign_psbt(assets_wallet, psbt).await?;
+    let tx = sign_psbt(assets_wallet, convert_rgb_psbt(&psbt)?).await?;
     // let tx = psbt.extract_tx();
 
     let witness = format!("{tx:?}");
