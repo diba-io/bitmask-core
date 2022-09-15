@@ -1,18 +1,20 @@
-#![allow(clippy::unused_unit)]
+#[macro_use]
+extern crate amplify;
+
 use std::str::FromStr;
 
-use anyhow::{format_err, Result};
-use bdk::{wallet::AddressIndex::LastUnused, BlockTime, TransactionDetails};
-use bitcoin::util::address::Address;
-use bitcoin::Txid;
+use anyhow::{anyhow, Result};
+use bdk::{wallet::AddressIndex::LastUnused, BlockTime};
+use bitcoin::{util::address::Address, OutPoint, Transaction, Txid};
+use bitcoin_hashes::{sha256, Hash};
+use operations::rgb::ConsignmentDetails;
 use serde::{Deserialize, Serialize};
 use serde_encrypt::{
     serialize::impls::BincodeSerializer, shared_key::SharedKey, traits::SerdeEncryptSharedKey,
     AsSharedKey, EncryptedMessage,
 };
-use sha2::{Digest, Sha256};
 
-mod data;
+pub mod data;
 mod operations;
 mod util;
 #[cfg(target_arch = "wasm32")]
@@ -20,100 +22,56 @@ pub mod web;
 
 use data::{
     constants,
-    structs::{Asset, OutPoint, SatsInvoice, ThinAsset, TransferResponse},
+    structs::{
+        AssetResponse, FundVaultDetails, SatsInvoice, ThinAsset, TransferResponse, VaultData,
+    },
 };
 
 use operations::{
-    bitcoin::{create_transaction, get_mnemonic, get_wallet, save_mnemonic},
-    rgb::{accept_transfer, blind_utxo, get_asset, get_assets, transfer_asset, validate_transfer},
+    bitcoin::{create_transaction, get_wallet, new_mnemonic, save_mnemonic, synchronize_wallet},
+    rgb::{
+        accept_transfer, blind_utxo, get_asset_by_genesis, get_assets, issue_asset,
+        /* rgb_address, */ transfer_asset, validate_transfer,
+    },
 };
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-#[serde(rename_all = "camelCase")]
-pub struct VaultData {
-    pub btc_descriptor: String,
-    pub btc_change_descriptor: String,
-    pub rgb_tokens_descriptor: String,
-    pub rgb_nfts_descriptor: String,
-    pub pubkey_hash: String,
-}
 
 impl SerdeEncryptSharedKey for VaultData {
     type S = BincodeSerializer<Self>; // you can specify serializer implementation (or implement it by yourself).
 }
 
-pub fn get_vault(password: String, encrypted_descriptors: String) -> Result<VaultData> {
-    let mut hasher = Sha256::new();
-
-    // write input message
-    hasher.update(password.as_bytes());
-
+pub fn get_vault(password: &str, encrypted_descriptors: &str) -> Result<VaultData> {
     // read hash digest and consume hasher
-    let result = hasher.finalize();
-    let shared_key: [u8; 32] = result
-        .as_slice()
-        .try_into()
-        .expect("slice with incorrect length");
-    let encrypted_descriptors: Vec<u8> = serde_json::from_str(&encrypted_descriptors).unwrap();
-    // STORAGE_KEY_DESCRIPTOR_ENCRYPTED
-    let encrypted_message = EncryptedMessage::deserialize(encrypted_descriptors);
-    match encrypted_message {
-        Ok(encrypted_message) => {
-            let vault_data =
-                VaultData::decrypt_owned(&encrypted_message, &SharedKey::from_array(shared_key));
-            match vault_data {
-                Ok(vault_data) => Ok(vault_data),
-                Err(e) => Err(format_err!("Error: {e}")),
-            }
-        }
-        Err(e) => Err(format_err!("Error: {e}")),
-    }
+    let hash = sha256::Hash::hash(password.as_bytes());
+    let shared_key: [u8; 32] = hash.into_inner();
+    let encrypted_descriptors: Vec<u8> = hex::decode(encrypted_descriptors)?;
+    let encrypted_message = EncryptedMessage::deserialize(encrypted_descriptors)?;
+    Ok(VaultData::decrypt_owned(
+        &encrypted_message,
+        &SharedKey::from_array(shared_key),
+    )?)
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct MnemonicSeedData {
     pub mnemonic: String,
-    pub serialized_encrypted_message: Vec<u8>,
+    pub serialized_encrypted_message: String,
 }
 
 pub fn get_mnemonic_seed(
-    encryption_password: String,
-    seed_password: String,
+    encryption_password: &str,
+    seed_password: &str,
 ) -> Result<MnemonicSeedData> {
-    let mut hasher = Sha256::new();
+    let hash = sha256::Hash::hash(encryption_password.as_bytes());
+    let shared_key: [u8; 32] = hash.into_inner();
 
-    // write input message
-    hasher.update(encryption_password.as_bytes());
-
-    // read hash digest and consume hasher
-    let hash = hasher.finalize();
-    let shared_key: [u8; 32] = hash
-        .as_slice()
-        .try_into()
-        .expect("slice with incorrect length");
-
-    let (
-        mnemonic,
-        btc_descriptor,
-        btc_change_descriptor,
-        rgb_tokens_descriptor,
-        rgb_nfts_descriptor,
-        pubkey_hash,
-    ) = get_mnemonic(&seed_password);
-    let vault_data = VaultData {
-        btc_descriptor,
-        btc_change_descriptor,
-        rgb_tokens_descriptor,
-        rgb_nfts_descriptor,
-        pubkey_hash,
-    };
+    let vault_data = new_mnemonic(seed_password)?;
     let encrypted_message = vault_data
         .encrypt(&SharedKey::from_array(shared_key))
         .unwrap();
-    let serialized_encrypted_message: Vec<u8> = encrypted_message.serialize();
+    let serialized_encrypted_message = hex::encode(&encrypted_message.serialize());
     let mnemonic_seed_data = MnemonicSeedData {
-        mnemonic,
+        mnemonic: vault_data.mnemonic,
         serialized_encrypted_message,
     };
 
@@ -121,42 +79,20 @@ pub fn get_mnemonic_seed(
 }
 
 pub fn save_mnemonic_seed(
-    mnemonic: String,
-    encryption_password: String,
-    seed_password: String,
+    mnemonic: &str,
+    encryption_password: &str,
+    seed_password: &str,
 ) -> Result<MnemonicSeedData> {
-    let mut hasher = Sha256::new();
+    let hash = sha256::Hash::hash(encryption_password.as_bytes());
+    let shared_key: [u8; 32] = hash.into_inner();
 
-    // write input message
-    hasher.update(encryption_password.as_bytes());
-
-    // read hash digest and consume hasher
-    let hash = hasher.finalize();
-    let shared_key: [u8; 32] = hash
-        .as_slice()
-        .try_into()
-        .expect("slice with incorrect length");
-
-    let (
-        btc_descriptor,
-        btc_change_descriptor,
-        rgb_tokens_descriptor,
-        rgb_nfts_descriptor,
-        pubkey_hash,
-    ) = save_mnemonic(&seed_password, mnemonic.clone());
-    let vault_data = VaultData {
-        btc_descriptor,
-        btc_change_descriptor,
-        rgb_tokens_descriptor,
-        rgb_nfts_descriptor,
-        pubkey_hash,
-    };
+    let vault_data = save_mnemonic(seed_password, mnemonic)?;
     let encrypted_message = vault_data
         .encrypt(&SharedKey::from_array(shared_key))
         .unwrap();
-    let serialized_encrypted_message: Vec<u8> = encrypted_message.serialize();
+    let serialized_encrypted_message = hex::encode(&encrypted_message.serialize());
     let mnemonic_seed_data = MnemonicSeedData {
-        mnemonic,
+        mnemonic: vault_data.mnemonic,
         serialized_encrypted_message,
     };
 
@@ -182,35 +118,28 @@ pub struct WalletTransaction {
 }
 
 pub async fn get_wallet_data(
-    descriptor: String,
-    change_descriptor: Option<String>,
+    descriptor: &str,
+    change_descriptor: Option<&str>,
 ) -> Result<WalletData> {
-    log!("get_wallet_data");
-    log!(&descriptor, format!("{:?}", &change_descriptor));
+    info!("get_wallet_data");
+    info!("descriptor:", &descriptor);
+    info!("change_descriptor:", format!("{:?}", &change_descriptor));
 
-    let wallet = get_wallet(descriptor, change_descriptor).await;
-    let address = wallet
-        .as_ref()
-        .unwrap()
-        .get_address(LastUnused)
-        .unwrap()
-        .to_string();
-    log!(&address);
-    let balance = wallet.as_ref().unwrap().get_balance().unwrap().to_string();
-    log!(&balance);
-    let unspent = wallet.as_ref().unwrap().list_unspent().unwrap_or_default();
+    let wallet = get_wallet(descriptor, change_descriptor)?;
+    synchronize_wallet(&wallet).await?;
+    let address = wallet.get_address(LastUnused).unwrap().to_string();
+    info!("address:", &address);
+    let balance = wallet.get_balance().unwrap().to_string();
+    info!("balance:", &balance);
+    let unspent = wallet.list_unspent().unwrap_or_default();
     let unspent: Vec<String> = unspent
         .into_iter()
         .map(|x| x.outpoint.to_string())
         .collect();
-    log!(format!("unspent: {unspent:#?}"));
+    trace!(format!("unspent: {unspent:#?}"));
 
-    let transactions = wallet
-        .as_ref()
-        .unwrap()
-        .list_transactions(false)
-        .unwrap_or_default();
-    log!(format!("transactions: {transactions:#?}"));
+    let transactions = wallet.list_transactions(false).unwrap_or_default();
+    trace!(format!("transactions: {transactions:#?}"));
 
     let transactions: Vec<WalletTransaction> = transactions
         .into_iter()
@@ -232,39 +161,49 @@ pub async fn get_wallet_data(
     })
 }
 
-pub async fn import_list_assets(node_url: Option<String>) -> Result<Vec<Asset>> {
-    log!("import_list_assets");
-    let assets = get_assets(node_url).await?;
-    log!(format!("get assets: {assets:#?}"));
+// pub fn get_rgb_address(descriptor_str: &str, index: u16, change: bool) -> Result<String> {
+//     rgb_address(descriptor_str, index, change)
+// }
+
+pub fn import_list_assets(contract: &str) -> Result<Vec<AssetResponse>> {
+    info!("import_list_assets");
+    let assets = get_assets(contract)?;
+    info!(format!("get assets: {assets:#?}"));
     Ok(assets)
 }
 
-pub async fn import_asset(
-    rgb_tokens_descriptor: String,
-    asset: Option<String>,
-    genesis: Option<String>,
-    node_url: Option<String>,
-) -> Result<ThinAsset> {
-    let wallet = get_wallet(rgb_tokens_descriptor, None).await;
-    let unspent = wallet.as_ref().unwrap().list_unspent().unwrap_or_default();
-    log!(format!("asset: {asset:#?}\tgenesis: {genesis:#?}"));
-    match asset {
-        Some(asset) => {
-            let asset = get_asset(Some(asset), None, unspent, node_url).await;
-            log!(format!("get asset {asset:#?}"));
-            match asset {
-                Ok(asset) => Ok(asset),
-                Err(e) => Err(format_err!("Server error: {e}")),
-            }
-        }
-        None => {
-            log!("genesis....");
-            match genesis {
-                Some(_genesis) => todo!("Import asset from genesis not yet implemented"),
-                None => Err(format_err!("Error: Unknown error in import_asset")),
-            }
-        }
-    }
+#[derive(Serialize, Deserialize)]
+pub struct CreateAssetResult {
+    pub genesis: String,   // in bech32m encoding
+    pub id: String,        // consignment ID
+    pub asset_id: String,  // consignment ID
+    pub schema_id: String, // consignment ID
+}
+
+pub fn create_asset(
+    ticker: &str,
+    name: &str,
+    precision: u8,
+    supply: u64,
+    utxo: &str,
+) -> Result<CreateAssetResult> {
+    let utxo = OutPoint::from_str(utxo)?;
+    let contract = issue_asset(ticker, name, precision, supply, utxo)?;
+    let genesis = contract.to_string();
+    let id = contract.id().to_string();
+    let asset_id = contract.contract_id().to_string();
+    let schema_id = contract.schema_id().to_string();
+    Ok(CreateAssetResult {
+        genesis,
+        id,
+        asset_id,
+        schema_id,
+    })
+}
+
+pub fn import_asset(genesis: &str) -> Result<ThinAsset> {
+    info!("Getting asset by genesis:", genesis);
+    get_asset_by_genesis(genesis)
 }
 
 #[derive(Serialize, Deserialize)]
@@ -273,23 +212,21 @@ struct TransactionData {
     utxo: OutPoint,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BlindingUtxo {
-    conceal: String,
-    blinding: String,
-    utxo: OutPoint,
+    pub conceal: String,
+    pub blinding: String,
+    pub utxo: OutPoint,
 }
 
-pub async fn set_blinded_utxo(
-    utxo_string: String,
-    node_url: Option<String>,
-) -> Result<BlindingUtxo> {
+pub fn set_blinded_utxo(utxo_string: &str) -> Result<BlindingUtxo> {
     let mut split = utxo_string.split(':');
     let utxo = OutPoint {
-        txid: split.next().unwrap().to_string(),
-        vout: split.next().unwrap().to_string().parse::<u32>().unwrap(),
+        txid: Txid::from_str(split.next().unwrap())?,
+        vout: split.next().unwrap().to_string().parse::<u32>()?,
     };
-    let (blind, utxo) = blind_utxo(utxo, node_url).await?;
+
+    let (blind, utxo) = blind_utxo(utxo)?;
 
     let blinding_utxo = BlindingUtxo {
         conceal: blind.conceal,
@@ -300,17 +237,32 @@ pub async fn set_blinded_utxo(
     Ok(blinding_utxo)
 }
 
+// pub fn get_blinded_utxo(rgb_descriptor: &str) -> Result<BlindingUtxo> {
+//     let rgb_wallet = get_wallet(rgb_descriptor, None)?;
+
+//     // ensure there's always a receive utxo
+
+//     let (blind, utxo) = blind_utxo(utxo)?;
+
+//     let blinding_utxo = BlindingUtxo {
+//         conceal: blind.conceal,
+//         blinding: blind.blinding,
+//         utxo,
+//     };
+
+//     Ok(blinding_utxo)
+// }
+
 pub async fn send_sats(
-    descriptor: String,
-    change_descriptor: String,
+    descriptor: &str,
+    change_descriptor: &str,
     address: String,
     amount: u64,
-) -> Result<TransactionDetails> {
+) -> Result<Transaction> {
     let address = Address::from_str(&(address));
 
-    let wallet = get_wallet(descriptor, Some(change_descriptor))
-        .await
-        .unwrap();
+    let wallet = get_wallet(descriptor, Some(change_descriptor))?;
+    synchronize_wallet(&wallet).await?;
 
     let transaction = create_transaction(
         vec![SatsInvoice {
@@ -325,108 +277,152 @@ pub async fn send_sats(
 }
 
 pub async fn fund_wallet(
-    descriptor: String,
-    change_descriptor: String,
-    address: String,
-    uda_address: String,
-) -> Result<TransactionDetails> {
-    let address = Address::from_str(&(address));
-    let uda_address = Address::from_str(&(uda_address));
+    descriptor: &str,
+    change_descriptor: &str,
+    address: &str,
+    uda_address: &str,
+) -> Result<FundVaultDetails> {
+    let address = Address::from_str(address);
+    let uda_address = Address::from_str(uda_address);
 
-    let wallet = get_wallet(descriptor, Some(change_descriptor))
-        .await
-        .unwrap();
-    let invoice = SatsInvoice {
+    let wallet = get_wallet(descriptor, Some(change_descriptor))?;
+    synchronize_wallet(&wallet).await?;
+
+    let asset_invoice = SatsInvoice {
         address: address.unwrap(),
-        amount: 2000,
+        amount: 294, // https://bitcoinops.org/en/newsletters/2021/10/20/#bitcoin-core-22863:~:text=%E2%97%8F%20Bitcoin%20Core,at%20this%20time
     };
     let uda_invoice = SatsInvoice {
         address: uda_address.unwrap(),
-        amount: 2000,
+        amount: 294,
     };
-    let transaction = create_transaction(
-        vec![invoice.clone(), invoice, uda_invoice.clone(), uda_invoice],
+
+    let details = create_transaction(
+        vec![
+            asset_invoice.clone(),
+            asset_invoice,
+            uda_invoice.clone(),
+            uda_invoice,
+        ],
         &wallet,
     )
     .await?;
 
-    Ok(transaction)
+    let txid = details.txid();
+    let outputs: Vec<String> = details
+        .output
+        .iter()
+        .enumerate()
+        .map(|(i, _)| format!("{txid}:{i}"))
+        .collect();
+
+    Ok(FundVaultDetails {
+        txid: txid.to_string(),
+        assets: outputs[0].clone(),
+        assets_change: outputs[1].clone(),
+        udas: outputs[2].clone(),
+        udas_change: outputs[3].clone(),
+    })
 }
 
-pub async fn send_tokens(
-    btc_descriptor: String,
-    btc_change_descriptor: String,
-    rgb_tokens_descriptor: String,
-    blinded_utxo: String,
+pub async fn get_assets_vault(assets_descriptor: &str) -> Result<FundVaultDetails> {
+    let assets_wallet = get_wallet(assets_descriptor, None)?;
+    synchronize_wallet(&assets_wallet).await?;
+
+    let asset_utxos = assets_wallet.list_unspent()?;
+
+    debug!(format!("Asset UTXOs: {asset_utxos:#?}"));
+
+    match asset_utxos.get(0) {
+        Some(asset_utxo) => {
+            let txid = asset_utxo.outpoint.txid.to_string();
+            let output = asset_utxo.outpoint.to_string();
+
+            Ok(FundVaultDetails {
+                txid,
+                assets: output.clone(), // TODO: Make it work with other UTXOs
+                assets_change: output.clone(),
+                udas: output.clone(),
+                udas_change: output,
+            })
+        }
+        None => Err(anyhow!("No asset UTXOs")),
+    }
+}
+
+pub async fn send_assets(
+    rgb_assets_descriptor_xprv: &str,
+    rgb_assets_descriptor_xpub: &str,
+    blinded_utxo: &str,
     amount: u64,
-    asset: ThinAsset,
-    node_url: Option<String>,
-) -> Result<TransferResponse> {
-    let assets_wallet = get_wallet(rgb_tokens_descriptor.clone(), None)
-        .await
-        .unwrap();
-    let full_wallet = get_wallet(rgb_tokens_descriptor.clone(), Some(btc_descriptor))
-        .await
-        .unwrap();
-    let full_change_wallet = get_wallet(rgb_tokens_descriptor, Some(btc_change_descriptor))
-        .await
-        .unwrap();
-    let consignment = transfer_asset(
+    asset_contract: &str,
+) -> Result<(ConsignmentDetails, /* Transaction, */ TransferResponse)> {
+    // let full_wallet = get_wallet(rgb_assets_descriptor, Some(btc_descriptor))?;
+    let assets_wallet = get_wallet(rgb_assets_descriptor_xprv, None)?;
+    synchronize_wallet(&assets_wallet).await?;
+
+    // try_join!(
+    //     synchronize_wallet(&full_wallet),
+    //     synchronize_wallet(&assets_wallet),
+    // )?;
+
+    let (consignment, /* tx, */ response) = transfer_asset(
         blinded_utxo,
         amount,
-        asset,
-        &full_wallet,
-        &full_change_wallet,
+        asset_contract,
         &assets_wallet,
-        node_url,
+        rgb_assets_descriptor_xpub,
     )
     .await?;
 
-    Ok(consignment)
+    Ok((consignment, /* tx, */ response))
 }
 
-pub async fn validate_transaction(consignment: String, node_url: Option<String>) -> Result<()> {
-    validate_transfer(consignment, node_url).await
+pub async fn validate_transaction(consignment: &str, node_url: Option<String>) -> Result<()> {
+    validate_transfer(consignment.to_owned(), node_url).await
 }
 
 pub async fn accept_transaction(
-    consignment: String,
-    txid: String,
+    consignment: &str,
+    txid: &str,
     vout: u32,
-    blinding: String,
+    blinding: &str,
     node_url: Option<String>,
 ) -> Result<String> {
+    let txid = Txid::from_str(txid)?;
+
     let transaction_data = TransactionData {
-        blinding,
+        blinding: blinding.to_owned(),
         utxo: OutPoint { txid, vout },
     };
     let accept = accept_transfer(
-        consignment,
+        consignment.to_owned(),
         transaction_data.utxo,
         transaction_data.blinding,
         node_url,
     )
     .await?;
-    log!("hola denueveo 3");
+    info!("Transaction accepted");
     Ok(accept)
 }
 
 pub async fn import_accept(
-    rgb_tokens_descriptor: String,
-    asset: String,
-    consignment: String,
-    txid: String,
+    asset_contract: &str,
+    consignment: &str,
+    txid: &str,
     vout: u32,
     blinding: String,
     node_url: Option<String>,
 ) -> Result<ThinAsset> {
+    let txid = Txid::from_str(txid)?;
+
     let transaction_data = TransactionData {
         blinding,
         utxo: OutPoint { txid, vout },
     };
 
     let accept = accept_transfer(
-        consignment,
+        consignment.to_owned(),
         transaction_data.utxo,
         transaction_data.blinding,
         node_url.clone(),
@@ -434,16 +430,21 @@ pub async fn import_accept(
     .await;
     match accept {
         Ok(_accept) => {
-            let wallet = get_wallet(rgb_tokens_descriptor, None).await;
-            let unspent = wallet.as_ref().unwrap().list_unspent().unwrap_or_default();
-            let asset = get_asset(Some(asset), None, unspent, node_url).await;
-            log!(format!("get asset {asset:#?}"));
+            let asset = import_asset(asset_contract);
+            info!(format!("get asset {asset:#?}"));
             asset
         }
         Err(e) => Err(e),
     }
 }
 
-pub fn switch_network(network_str: &str) {
-    constants::switch_network(network_str);
+pub async fn switch_network(network_str: &str) -> Result<()> {
+    constants::switch_network(network_str).await
+}
+
+pub fn get_network() -> Result<String> {
+    match constants::NETWORK.read() {
+        Ok(network) => Ok(network.to_string()),
+        Err(err) => Ok(err.to_string()),
+    }
 }

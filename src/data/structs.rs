@@ -1,5 +1,29 @@
-use bitcoin::util::address::Address;
+use bitcoin::{util::address::Address, OutPoint, Txid};
 use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct VaultData {
+    pub btc_descriptor_xprv: String,
+    pub btc_descriptor_xpub: String,
+    pub btc_change_descriptor_xprv: String,
+    pub btc_change_descriptor_xpub: String,
+    pub rgb_assets_descriptor_xprv: String,
+    pub rgb_assets_descriptor_xpub: String,
+    pub rgb_udas_descriptor_xprv: String,
+    pub rgb_udas_descriptor_xpub: String,
+    pub xpubkh: String,
+    pub mnemonic: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct FundVaultDetails {
+    pub txid: String,
+    pub assets: String,
+    pub assets_change: String,
+    pub udas: String,
+    pub udas_change: String,
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Issue {
@@ -23,10 +47,12 @@ pub struct Amount {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Allocation {
-    pub node_id: String,
     pub index: u32,
+    pub node_id: String,
     pub outpoint: String,
-    pub revealed_amount: Amount,
+    pub amount: Amount,
+    pub seal_vout: u32,
+    pub seal_txid: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -34,7 +60,7 @@ pub struct Inflation {}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct Asset {
+pub struct AssetResponse {
     pub genesis: String,
     pub id: String,
     pub ticker: String,
@@ -72,14 +98,7 @@ pub struct ThinAsset {
     pub name: String,
     pub description: String,
     pub allocations: Vec<Allocation>,
-    pub balance: Option<u64>,
-    pub dolar_balance: Option<u32>,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct OutPoint {
-    pub txid: String,
-    pub vout: u32,
+    pub balance: u64,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -90,9 +109,9 @@ pub struct BlindResponse {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SealCoins {
-    pub coins: u64,
+    pub amount: u64,
+    pub txid: Txid,
     pub vout: u32,
-    pub txid: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -109,7 +128,7 @@ pub struct TransferRequest {
 pub struct TransferResponse {
     pub consignment: String,
     pub disclosure: String,
-    pub witness: String,
+    // pub witness: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

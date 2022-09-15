@@ -1,97 +1,78 @@
-use std::{collections::HashMap, str::FromStr};
+use std::str::FromStr;
 
-use anyhow::{Error, Result};
-use serde::{Deserialize, Serialize};
+use anyhow::{anyhow, Result};
+use rgb20::Asset;
+use rgb_core::{
+    data::Revealed,
+    vm::embedded::constants::{FIELD_TYPE_NAME, FIELD_TYPE_TICKER},
+};
+use rgb_std::{Consignment, Contract, Node};
 
 use crate::{
-    data::{
-        constants::url,
-        structs::{Allocation, Asset, ExportRequestMini, ThinAsset},
-    },
-    log,
-    util::{get, post_json},
+    data::structs::{Allocation, Amount, AssetResponse, ThinAsset},
+    info,
 };
 
-trait FromString {
-    fn from_string(str: String) -> serde_json::Value;
-}
+pub fn get_asset_by_genesis(genesis: &str) -> Result<ThinAsset> {
+    let contract = Contract::from_str(genesis)?;
+    let asset = Asset::try_from(&contract)?;
 
-impl FromString for serde_json::Value {
-    fn from_string(str: String) -> serde_json::Value {
-        serde_json::Value::from_str(&str).unwrap()
-    }
-}
+    let id = contract.contract_id().to_string();
+    let metadata = contract.genesis().metadata();
 
-#[derive(Debug, Serialize, Deserialize)]
-struct Person {
-    first_name: String,
-    last_name: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct PersonResponse {
-    data: String,
-    method: String,
-    headers: HashMap<String, String>,
-}
-
-// fn print_type_of<T>(_: &T) {
-//     log!("{}", std::any::type_name::<T>())
-// }
-
-pub async fn get_asset(
-    asset: Option<String>,
-    _genesis: Option<String>,
-    unspent: Vec<bdk::LocalUtxo>,
-    node_url: Option<String>,
-) -> Result<ThinAsset> {
-    let asset_data = ExportRequestMini {
-        asset: asset.clone().unwrap(),
+    let ticker = match metadata.get(&FIELD_TYPE_TICKER).unwrap().get(0) {
+        Some(Revealed::AsciiString(ticker)) => ticker.to_string(),
+        _ => return Err(anyhow!("Error decoding asset ticker")),
     };
-    let (response, _) = match post_json(url("getasset", &node_url), &asset_data).await {
-        Ok(response) => response,
-        Err(e) => return Err(Error::msg(e)),
+    let name = match metadata.get(&FIELD_TYPE_NAME).unwrap().get(0) {
+        Some(Revealed::AsciiString(name)) => name.to_string(),
+        _ => return Err(anyhow!("Error decoding asset name")),
     };
-    log!(format!("response: {response:#?}"));
-    let assets: Vec<Asset> = serde_json::from_str(&response)?;
-    if assets.is_empty() {
-        return Err(Error::msg("Incorrect rgb id".to_string()));
-    }
-    let allocations: Vec<Allocation> = assets[0]
-        .known_allocations
-        .clone()
-        .into_iter()
-        .filter(|a| {
-            unspent
-                .clone()
-                .into_iter()
-                .any(|y| y.outpoint.to_string().eq(&a.outpoint))
+
+    // let allocations =
+    let allocations: Vec<Allocation> = asset
+        .known_coins()
+        .enumerate()
+        .map(|(index, coin)| {
+            let index = index as u32;
+            let outpoint = coin.outpoint.to_string();
+            let node_id = coin.outpoint.node_id.to_string();
+            let seal_txid = coin.seal.txid.to_string();
+            let seal_vout = coin.seal.vout;
+
+            let blinding = coin.state.blinding.to_string();
+            let value = coin.state.value;
+            let amount = Amount { value, blinding };
+
+            Allocation {
+                index,
+                outpoint,
+                node_id,
+                seal_txid,
+                seal_vout,
+                amount,
+            }
         })
         .collect();
-    log!(format!("allocations: {allocations:#?}"));
-    let amount = allocations
-        .clone()
-        .into_iter()
-        .map(|a| a.revealed_amount.value)
-        .reduce(|a, b| a + b);
-    log!(format!("amount: {amount:#?}"));
-    let thin_assets = ThinAsset {
-        id: asset.unwrap(),
-        ticker: assets[0].ticker.clone(),
-        name: assets[0].name.clone(),
-        description: assets[0].description.clone().unwrap(),
+
+    let balance = allocations
+        .iter()
+        .fold(0, |balance, alloc| balance + alloc.amount.value);
+
+    let asset = ThinAsset {
+        id,
+        ticker,
+        name,
+        description: "Unlisted asset".to_owned(),
         allocations,
-        balance: Some(amount.unwrap_or_default()),
-        dolar_balance: None,
+        balance,
     };
 
-    log!(format!("thin_assets: {thin_assets:?}"));
-    Ok(thin_assets)
+    info!(format!("Asset decoded from genesis: {asset:#?}"));
+
+    Ok(asset)
 }
 
-pub async fn get_assets(node_url: Option<String>) -> Result<Vec<Asset>> {
-    let (response, _) = get(url("list", &node_url)).await?;
-    log!(format!("listassets: {response:#?}"));
-    let assets: Vec<Asset> = serde_json::from_str(&response)?;
-    Ok(assets)
+pub fn get_assets(_contract: &str) -> Result<Vec<AssetResponse>> {
+    todo!("decode assets from contract(s)");
 }

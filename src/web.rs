@@ -99,10 +99,13 @@ pub fn get_wallet_data(descriptor: String, change_descriptor: Option<String>) ->
 }
 
 #[wasm_bindgen]
-pub fn import_list_assets(node_url: Option<String>) -> Promise {
+pub fn import_list_assets(xpubkh: String, encryption_secret: String, node_url: Option<String>) -> Promise {
     set_panic_hook();
 
     future_to_promise(async move {
+        todo!("make call to storage lambda, decrypt, then pass to import_list_assets");
+        let result = get(url(node_url)).await;
+
         match crate::import_list_assets(node_url).await {
             Ok(result) => Ok(JsValue::from_string(
                 serde_json::to_string(&result).unwrap(),
