@@ -22,19 +22,20 @@ mod util;
 #[cfg(target_arch = "wasm32")]
 pub mod web;
 
+#[cfg(not(target_arch = "wasm32"))]
+use data::structs::{AssetResponse, ThinAsset, TransferResponse};
 pub use data::{
     constants,
     structs::{FundVaultDetails, SatsInvoice, VaultData},
 };
-// use data::{AssetResponse, ThinAsset, TransferResponse};
 
 use operations::bitcoin::{
     create_transaction, get_wallet, new_mnemonic, save_mnemonic, synchronize_wallet,
 };
 #[cfg(not(target_arch = "wasm32"))]
 use operations::rgb::{
-    accept_transfer, blind_utxo, get_asset_by_genesis, get_assets, issue_asset, transfer_asset,
-    validate_transfer,
+    /* accept_transfer, */ blind_utxo, get_asset_by_genesis, get_assets, issue_asset,
+    transfer_asset, validate_transfer,
 };
 
 impl SerdeEncryptSharedKey for VaultData {
@@ -383,8 +384,8 @@ pub async fn send_assets(
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-pub async fn validate_transaction(consignment: &str, node_url: Option<String>) -> Result<()> {
-    validate_transfer(consignment.to_owned(), node_url).await
+pub async fn validate_transaction(consignment: &str) -> Result<()> {
+    validate_transfer(consignment.to_owned()).await
 }
 
 // TODO: implement accept_transfer in RGB ops
@@ -394,7 +395,6 @@ pub async fn validate_transaction(consignment: &str, node_url: Option<String>) -
 //     txid: &str,
 //     vout: u32,
 //     blinding: &str,
-//     node_url: Option<String>,
 // ) -> Result<String> {
 //     let txid = Txid::from_str(txid)?;
 

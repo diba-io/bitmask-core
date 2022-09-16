@@ -60,8 +60,8 @@ macro_rules! trace {
 
 #[allow(dead_code)]
 #[cfg(target_arch = "wasm32")]
-pub async fn post_json<T: Serialize>(url: String, body: &T) -> Result<(String, u16)> {
-    let response = Request::post(&url)
+pub async fn post_json<T: Serialize>(url: &str, body: &T) -> Result<(String, u16)> {
+    let response = Request::post(url)
         .body(serde_json::to_string(body)?)
         .header(
             "Content-Type",
@@ -82,8 +82,8 @@ pub async fn post_json<T: Serialize>(url: String, body: &T) -> Result<(String, u
 }
 
 #[cfg(target_arch = "wasm32")]
-pub async fn get(url: String) -> Result<(String, u16)> {
-    let response = Request::get(&url)
+pub async fn get(url: &str) -> Result<(String, u16)> {
+    let response = Request::get(url)
         .send()
         .await
         .context(format!("Error sending GET request to {}", url))?;
@@ -99,10 +99,10 @@ pub async fn get(url: String) -> Result<(String, u16)> {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-pub async fn post_json<T: Serialize>(url: String, body: &T) -> Result<(String, u16)> {
+pub async fn post_json<T: Serialize>(url: &str, body: &T) -> Result<(String, u16)> {
     let client = reqwest::Client::new();
     let response = client
-        .post(&url)
+        .post(url)
         .body(serde_json::to_string(body)?)
         .header(
             "Content-Type",
