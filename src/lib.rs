@@ -1,4 +1,5 @@
 #[macro_use]
+#[cfg(not(target_arch = "wasm32"))]
 extern crate amplify;
 
 use std::str::FromStr;
@@ -7,6 +8,7 @@ use anyhow::{anyhow, Result};
 use bdk::{wallet::AddressIndex::LastUnused, BlockTime};
 use bitcoin::{util::address::Address, OutPoint, Transaction, Txid};
 use bitcoin_hashes::{sha256, Hash};
+#[cfg(not(target_arch = "wasm32"))]
 use operations::rgb::ConsignmentDetails;
 use serde::{Deserialize, Serialize};
 use serde_encrypt::{
@@ -20,19 +22,19 @@ mod util;
 #[cfg(target_arch = "wasm32")]
 pub mod web;
 
-use data::{
+pub use data::{
     constants,
-    structs::{
-        AssetResponse, FundVaultDetails, SatsInvoice, ThinAsset, TransferResponse, VaultData,
-    },
+    structs::{FundVaultDetails, SatsInvoice, VaultData},
 };
+// use data::{AssetResponse, ThinAsset, TransferResponse};
 
-use operations::{
-    bitcoin::{create_transaction, get_wallet, new_mnemonic, save_mnemonic, synchronize_wallet},
-    rgb::{
-        accept_transfer, blind_utxo, get_asset_by_genesis, get_assets, issue_asset,
-        /* rgb_address, */ transfer_asset, validate_transfer,
-    },
+use operations::bitcoin::{
+    create_transaction, get_wallet, new_mnemonic, save_mnemonic, synchronize_wallet,
+};
+#[cfg(not(target_arch = "wasm32"))]
+use operations::rgb::{
+    accept_transfer, blind_utxo, get_asset_by_genesis, get_assets, issue_asset, transfer_asset,
+    validate_transfer,
 };
 
 impl SerdeEncryptSharedKey for VaultData {
@@ -119,7 +121,7 @@ pub struct WalletTransaction {
 
 pub async fn get_wallet_data(
     descriptor: &str,
-    change_descriptor: Option<&str>,
+    change_descriptor: Option<String>,
 ) -> Result<WalletData> {
     info!("get_wallet_data");
     info!("descriptor:", &descriptor);
@@ -161,12 +163,10 @@ pub async fn get_wallet_data(
     })
 }
 
-// pub fn get_rgb_address(descriptor_str: &str, index: u16, change: bool) -> Result<String> {
-//     rgb_address(descriptor_str, index, change)
-// }
-
-pub fn import_list_assets(contract: &str) -> Result<Vec<AssetResponse>> {
-    info!("import_list_assets");
+// TODO: this fn is only needed on desktop wallet
+#[cfg(not(target_arch = "wasm32"))]
+pub fn list_assets(contract: &str) -> Result<Vec<AssetResponse>> {
+    info!("list_assets");
     let assets = get_assets(contract)?;
     info!(format!("get assets: {assets:#?}"));
     Ok(assets)
@@ -180,6 +180,7 @@ pub struct CreateAssetResult {
     pub schema_id: String, // consignment ID
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub fn create_asset(
     ticker: &str,
     name: &str,
@@ -201,6 +202,7 @@ pub fn create_asset(
     })
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub fn import_asset(genesis: &str) -> Result<ThinAsset> {
     info!("Getting asset by genesis:", genesis);
     get_asset_by_genesis(genesis)
@@ -219,6 +221,7 @@ pub struct BlindingUtxo {
     pub utxo: OutPoint,
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub fn set_blinded_utxo(utxo_string: &str) -> Result<BlindingUtxo> {
     let mut split = utxo_string.split(':');
     let utxo = OutPoint {
@@ -256,12 +259,12 @@ pub fn set_blinded_utxo(utxo_string: &str) -> Result<BlindingUtxo> {
 pub async fn send_sats(
     descriptor: &str,
     change_descriptor: &str,
-    address: String,
+    address: &str,
     amount: u64,
 ) -> Result<Transaction> {
-    let address = Address::from_str(&(address));
+    let address = Address::from_str(address);
 
-    let wallet = get_wallet(descriptor, Some(change_descriptor))?;
+    let wallet = get_wallet(descriptor, Some(change_descriptor.to_owned()))?;
     synchronize_wallet(&wallet).await?;
 
     let transaction = create_transaction(
@@ -285,7 +288,7 @@ pub async fn fund_wallet(
     let address = Address::from_str(address);
     let uda_address = Address::from_str(uda_address);
 
-    let wallet = get_wallet(descriptor, Some(change_descriptor))?;
+    let wallet = get_wallet(descriptor, Some(change_descriptor.to_owned()))?;
     synchronize_wallet(&wallet).await?;
 
     let asset_invoice = SatsInvoice {
@@ -350,6 +353,7 @@ pub async fn get_assets_vault(assets_descriptor: &str) -> Result<FundVaultDetail
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub async fn send_assets(
     rgb_assets_descriptor_xprv: &str,
     rgb_assets_descriptor_xpub: &str,
@@ -378,65 +382,35 @@ pub async fn send_assets(
     Ok((consignment, /* tx, */ response))
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub async fn validate_transaction(consignment: &str, node_url: Option<String>) -> Result<()> {
     validate_transfer(consignment.to_owned(), node_url).await
 }
 
-pub async fn accept_transaction(
-    consignment: &str,
-    txid: &str,
-    vout: u32,
-    blinding: &str,
-    node_url: Option<String>,
-) -> Result<String> {
-    let txid = Txid::from_str(txid)?;
+// TODO: implement accept_transfer in RGB ops
+// #[cfg(not(target_arch = "wasm32"))]
+// pub async fn accept_transfer(
+//     consignment: &str,
+//     txid: &str,
+//     vout: u32,
+//     blinding: &str,
+//     node_url: Option<String>,
+// ) -> Result<String> {
+//     let txid = Txid::from_str(txid)?;
 
-    let transaction_data = TransactionData {
-        blinding: blinding.to_owned(),
-        utxo: OutPoint { txid, vout },
-    };
-    let accept = accept_transfer(
-        consignment.to_owned(),
-        transaction_data.utxo,
-        transaction_data.blinding,
-        node_url,
-    )
-    .await?;
-    info!("Transaction accepted");
-    Ok(accept)
-}
-
-pub async fn import_accept(
-    asset_contract: &str,
-    consignment: &str,
-    txid: &str,
-    vout: u32,
-    blinding: String,
-    node_url: Option<String>,
-) -> Result<ThinAsset> {
-    let txid = Txid::from_str(txid)?;
-
-    let transaction_data = TransactionData {
-        blinding,
-        utxo: OutPoint { txid, vout },
-    };
-
-    let accept = accept_transfer(
-        consignment.to_owned(),
-        transaction_data.utxo,
-        transaction_data.blinding,
-        node_url.clone(),
-    )
-    .await;
-    match accept {
-        Ok(_accept) => {
-            let asset = import_asset(asset_contract);
-            info!(format!("get asset {asset:#?}"));
-            asset
-        }
-        Err(e) => Err(e),
-    }
-}
+//     let transaction_data = TransactionData {
+//         blinding: blinding.to_owned(),
+//         utxo: OutPoint { txid, vout },
+//     };
+//     let accept = accept_transfer(
+//         consignment,
+//         transaction_data.utxo,
+//         transaction_data.blinding,
+//     )
+//     .await?;
+//     info!("Transaction accepted");
+//     Ok(accept)
+// }
 
 pub async fn switch_network(network_str: &str) -> Result<()> {
     constants::switch_network(network_str).await

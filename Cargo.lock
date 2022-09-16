@@ -194,6 +194,26 @@ dependencies = [
 
 [[package]]
 name = "bdk"
+version = "0.19.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ec2c4c49915b82a2576bc7dee83d2f274387904b79305e6ae8b622daa0b282c1"
+dependencies = [
+ "async-trait",
+ "bdk-macros",
+ "bitcoin",
+ "futures",
+ "js-sys",
+ "log",
+ "miniscript",
+ "rand 0.7.3",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
+name = "bdk"
 version = "0.22.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "14836e8b1312be32e46f5da47e1189c2239fa75f9237a0a7c7aea9ee7071a2bc"
@@ -349,7 +369,8 @@ dependencies = [
  "amplify",
  "anyhow",
  "base64-compat",
- "bdk",
+ "bdk 0.19.0",
+ "bdk 0.22.0",
  "bip39",
  "bitcoin",
  "bitcoin_hashes 0.10.0",

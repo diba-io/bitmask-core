@@ -58,6 +58,7 @@ macro_rules! trace {
     };
 }
 
+#[allow(dead_code)]
 #[cfg(target_arch = "wasm32")]
 pub async fn post_json<T: Serialize>(url: String, body: &T) -> Result<(String, u16)> {
     let response = Request::post(&url)
