@@ -42,7 +42,7 @@ async fn asset_import() -> Result<()> {
     info!("Get sats wallet data");
     let btc_wallet = get_wallet_data(
         &vault.btc_descriptor_xprv,
-        Some(&vault.btc_change_descriptor_xprv),
+        Some(vault.btc_change_descriptor_xprv),
     )
     .await?;
 
