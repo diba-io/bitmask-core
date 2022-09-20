@@ -1,9 +1,11 @@
+#![allow(unused_variables)]
 use js_sys::Promise;
 use serde::de::DeserializeOwned;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::{future_to_promise, JsFuture};
 
-use crate::data::structs::ThinAsset;
+use crate::{data::structs::ThinAsset, constants::{
+    BLINDED_UTXO_ENDPOINT, LIST_ASSETS_ENDPOINT, IMPORT_ASSET_ENDPOINT, SEND_ASSETS_ENDPOINT, ACCEPT_TRANSFER_ENDPOINT, VALIDATE_TRANSFER_ENDPOINT}, util::get};
 
 pub fn set_panic_hook() {
     // When the `console_error_panic_hook` feature is enabled, we can call the
@@ -43,7 +45,7 @@ pub fn get_vault(password: String, encrypted_descriptors: String) -> Promise {
     set_panic_hook();
 
     future_to_promise(async move {
-        match crate::get_vault(password, encrypted_descriptors) {
+        match crate::get_vault(&password, &encrypted_descriptors) {
             Ok(result) => Ok(JsValue::from_string(
                 serde_json::to_string(&result).unwrap(),
             )),
@@ -57,7 +59,7 @@ pub fn get_mnemonic_seed(encryption_password: String, seed_password: String) -> 
     set_panic_hook();
 
     future_to_promise(async move {
-        match crate::get_mnemonic_seed(encryption_password, seed_password) {
+        match crate::get_mnemonic_seed(&encryption_password, &seed_password) {
             Ok(result) => Ok(JsValue::from_string(
                 serde_json::to_string(&result).unwrap(),
             )),
@@ -75,7 +77,7 @@ pub fn save_mnemonic_seed(
     set_panic_hook();
 
     future_to_promise(async move {
-        match crate::save_mnemonic_seed(mnemonic, encryption_password, seed_password) {
+        match crate::save_mnemonic_seed(&mnemonic, &encryption_password, &seed_password) {
             Ok(result) => Ok(JsValue::from_string(
                 serde_json::to_string(&result).unwrap(),
             )),
@@ -89,7 +91,7 @@ pub fn get_wallet_data(descriptor: String, change_descriptor: Option<String>) ->
     set_panic_hook();
 
     future_to_promise(async move {
-        match crate::get_wallet_data(descriptor, change_descriptor).await {
+        match crate::get_wallet_data(&descriptor, change_descriptor).await {
             Ok(result) => Ok(JsValue::from_string(
                 serde_json::to_string(&result).unwrap(),
             )),
@@ -99,14 +101,13 @@ pub fn get_wallet_data(descriptor: String, change_descriptor: Option<String>) ->
 }
 
 #[wasm_bindgen]
-pub fn import_list_assets(xpubkh: String, encryption_secret: String, node_url: Option<String>) -> Promise {
+pub fn list_assets(xpubkh: String, encryption_secret: String) -> Promise {
     set_panic_hook();
 
     future_to_promise(async move {
-        todo!("make call to storage lambda, decrypt, then pass to import_list_assets");
-        let result = get(url(node_url)).await;
-
-        match crate::import_list_assets(node_url).await {
+        // TODO: make call to storage lambda, decrypt, then pass to list_assets
+        let result = get(&LIST_ASSETS_ENDPOINT).await;
+        match result {
             Ok(result) => Ok(JsValue::from_string(
                 serde_json::to_string(&result).unwrap(),
             )),
@@ -117,15 +118,13 @@ pub fn import_list_assets(xpubkh: String, encryption_secret: String, node_url: O
 
 #[wasm_bindgen]
 pub fn import_asset(
-    rgb_tokens_descriptor: String,
-    asset: Option<String>,
-    genesis: Option<String>,
-    node_url: Option<String>,
+    genesis: String,
 ) -> Promise {
     set_panic_hook();
 
     future_to_promise(async move {
-        match crate::import_asset(rgb_tokens_descriptor, asset, genesis, node_url).await {
+        let result = get(&IMPORT_ASSET_ENDPOINT).await;
+        match result {
             Ok(result) => Ok(JsValue::from_string(
                 serde_json::to_string(&result).unwrap(),
             )),
@@ -135,11 +134,12 @@ pub fn import_asset(
 }
 
 #[wasm_bindgen]
-pub fn set_blinded_utxo(utxo_string: String, node_url: Option<String>) -> Promise {
+pub fn set_blinded_utxo(utxo_string: String) -> Promise {
     set_panic_hook();
 
     future_to_promise(async move {
-        match crate::set_blinded_utxo(utxo_string, node_url).await {
+        let result = get(&BLINDED_UTXO_ENDPOINT).await;
+        match result {
             Ok(result) => Ok(JsValue::from_string(
                 serde_json::to_string(&result).unwrap(),
             )),
@@ -158,7 +158,7 @@ pub fn send_sats(
     set_panic_hook();
 
     future_to_promise(async move {
-        match crate::send_sats(descriptor, change_descriptor, address, amount).await {
+        match crate::send_sats(&descriptor, &change_descriptor, &address, amount).await {
             Ok(result) => Ok(JsValue::from_string(
                 serde_json::to_string(&result).unwrap(),
             )),
@@ -177,7 +177,7 @@ pub fn fund_wallet(
     set_panic_hook();
 
     future_to_promise(async move {
-        match crate::fund_wallet(descriptor, change_descriptor, address, uda_address).await {
+        match crate::fund_wallet(&descriptor, &change_descriptor, &address, &uda_address).await {
             Ok(result) => Ok(JsValue::from_string(
                 serde_json::to_string(&result).unwrap(),
             )),
@@ -194,23 +194,14 @@ pub fn send_tokens(
     blinded_utxo: String,
     amount: u64,
     asset: String,
-    node_url: Option<String>,
 ) -> Promise {
     set_panic_hook();
 
     let asset: ThinAsset = serde_json::from_str(&asset).unwrap();
 
     future_to_promise(async move {
-        match crate::send_tokens(
-            btc_descriptor,
-            btc_change_descriptor,
-            rgb_tokens_descriptor,
-            blinded_utxo,
-            amount,
-            asset,
-            node_url,
-        )
-        .await
+        let result = get(&SEND_ASSETS_ENDPOINT).await;
+        match result
         {
             Ok(result) => Ok(JsValue::from_string(
                 serde_json::to_string(&result).unwrap(),
@@ -221,11 +212,12 @@ pub fn send_tokens(
 }
 
 #[wasm_bindgen]
-pub fn validate_transaction(utxo_string: String, node_url: Option<String>) -> Promise {
+pub fn validate_transfer(utxo_string: String) -> Promise {
     set_panic_hook();
 
     future_to_promise(async move {
-        match crate::validate_transaction(utxo_string, node_url).await {
+        let result = get(&VALIDATE_TRANSFER_ENDPOINT).await;
+        match result{
             Ok(result) => Ok(JsValue::from_string(
                 serde_json::to_string(&result).unwrap(),
             )),
@@ -235,54 +227,16 @@ pub fn validate_transaction(utxo_string: String, node_url: Option<String>) -> Pr
 }
 
 #[wasm_bindgen]
-pub fn accept_transaction(
+pub fn accept_transfer(
     consignment: String,
     txid: String,
     vout: u32,
     blinding: String,
-    node_url: Option<String>,
 ) -> Promise {
     set_panic_hook();
     future_to_promise(async move {
-        match crate::accept_transaction(
-            consignment,
-            txid,
-            vout,
-            blinding,
-            node_url,
-        )
-        .await
-        {
-            Ok(result) => Ok(JsValue::from_string(
-                serde_json::to_string(&result).unwrap(),
-            )),
-            Err(err) => Err(JsValue::from_string(err.to_string())),
-        }
-    })
-}
-
-#[wasm_bindgen]
-pub fn import_accept(
-    rgb_tokens_descriptor: String,
-    asset: String,
-    consignment: String,
-    txid: String,
-    vout: u32,
-    blinding: String,
-    node_url: Option<String>,
-) -> Promise {
-    set_panic_hook();
-    future_to_promise(async move {
-        match crate::import_accept(
-            rgb_tokens_descriptor,
-            asset,
-            consignment,
-            txid,
-            vout,
-            blinding,
-            node_url,
-        )
-        .await
+        let result = get(&ACCEPT_TRANSFER_ENDPOINT).await;
+        match result
         {
             Ok(result) => Ok(JsValue::from_string(
                 serde_json::to_string(&result).unwrap(),

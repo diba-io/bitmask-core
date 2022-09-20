@@ -77,11 +77,13 @@ pub async fn switch_network(network_str: &str) -> Result<()> {
     Ok(())
 }
 
-/// Get a node URL, using the default node URL is none is provided
-pub fn url(path: &str, node_url: &Option<String>) -> String {
-    let node_url = match node_url {
-        Some(url) => url,
-        None => &NODE_SERVER_BASE_URL,
-    };
-    format!("{node_url}{path}")
-}
+// Lambda endpoints
+pub static ISSUE_ENDPOINT: Lazy<String> = Lazy::new(|| dot_env("ISSUE_ENDPOINT"));
+pub static BLINDED_UTXO_ENDPOINT: Lazy<String> = Lazy::new(|| dot_env("BLINDED_UTXO_ENDPOINT"));
+pub static IMPORT_ASSET_ENDPOINT: Lazy<String> = Lazy::new(|| dot_env("IMPORT_ASSET_ENDPOINT"));
+pub static LIST_ASSETS_ENDPOINT: Lazy<String> = Lazy::new(|| dot_env("LIST_ASSETS_ENDPOINT"));
+pub static SEND_ASSETS_ENDPOINT: Lazy<String> = Lazy::new(|| dot_env("SEND_ASSETS_ENDPOINT"));
+pub static ACCEPT_TRANSFER_ENDPOINT: Lazy<String> =
+    Lazy::new(|| dot_env("ACCEPT_TRANSFER_ENDPOINT"));
+pub static VALIDATE_TRANSFER_ENDPOINT: Lazy<String> =
+    Lazy::new(|| dot_env("VALIDATE_TRANSFER_ENDPOINT"));
