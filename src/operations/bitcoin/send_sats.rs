@@ -11,6 +11,7 @@ use crate::{
 pub async fn create_transaction(
     invoices: Vec<SatsInvoice>,
     wallet: &Wallet<AnyDatabase>,
+    fee_rate: Option<FeeRate>,
 ) -> Result<Transaction> {
     synchronize_wallet(wallet).await?;
     let (psbt, details) = {
@@ -18,7 +19,7 @@ pub async fn create_transaction(
         for invoice in invoices {
             builder.add_recipient(invoice.address.script_pubkey(), invoice.amount);
         }
-        builder.enable_rbf().fee_rate(FeeRate::from_sat_per_vb(1.0));
+        builder.enable_rbf().fee_rate(fee_rate.unwrap_or_default());
         builder.finish()?
     };
 
