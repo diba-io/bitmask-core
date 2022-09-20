@@ -45,17 +45,11 @@ async fn asset_import() {
     .await;
     let vault_data: VaultData = json_parse(&vault_str);
 
-    resolve(import_asset(
-        vault_data.rgb_tokens_descriptor.clone(),
-        Some(ASSET.to_owned()),
-        None,
-        None,
-    ))
-    .await;
+    resolve(import_asset(ASSET.to_owned())).await;
 
     // Get wallet data
     let wallet_str: JsValue = resolve(get_wallet_data(
-        vault_data.rgb_tokens_descriptor.clone(),
+        vault_data.rgb_assets_descriptor_xprv.clone(),
         None,
     ))
     .await;

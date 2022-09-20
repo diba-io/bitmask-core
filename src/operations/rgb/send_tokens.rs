@@ -1,13 +1,11 @@
-use std::collections::{BTreeMap, BTreeSet};
-use std::str::FromStr;
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    str::FromStr,
+};
 
-use amplify::hex::ToHex;
-use amplify::Wrapper;
+use amplify::{hex::ToHex, Wrapper};
 use anyhow::{anyhow, Result};
-use bdk::database::AnyDatabase;
-use bdk::LocalUtxo;
-// use bdk::sled::Serialize;
-use bdk::{descriptor::Descriptor, Wallet};
+use bdk::{database::AnyDatabase, descriptor::Descriptor, LocalUtxo, Wallet};
 use bitcoin::{psbt::serialize::Serialize, OutPoint, Transaction, Txid};
 use bp::seals::txout::{CloseMethod, ExplicitSeal};
 use commit_verify::lnpbp4::{self, MerkleBlock};
@@ -16,15 +14,13 @@ use electrum_client::{Client, ElectrumApi};
 use regex::Regex;
 use rgb20::Asset;
 use rgb_core::{Anchor, Extension, IntoRevealedSeal};
-use rgb_std::AssignedState;
 use rgb_std::{
     blank::BlankBundle,
     fungible::allocation::{AllocatedValue, UtxobValue},
-    psbt::RgbExt,
-    psbt::RgbInExt,
-    BundleId, Consignment, ConsignmentId, ConsignmentType, Contract, ContractId, ContractState,
-    ContractStateMap, Disclosure, Genesis, InmemConsignment, Node, NodeId, Schema, SchemaId,
-    SealEndpoint, Transition, TransitionBundle, Validator, Validity,
+    psbt::{RgbExt, RgbInExt},
+    AssignedState, BundleId, Consignment, ConsignmentId, ConsignmentType, Contract, ContractId,
+    ContractState, ContractStateMap, Disclosure, Genesis, InmemConsignment, Node, NodeId, Schema,
+    SchemaId, SealEndpoint, Transition, TransitionBundle, Validator, Validity,
 };
 use storm::{ChunkId, ChunkIdExt};
 use strict_encoding::{StrictDecode, StrictEncode};
@@ -32,18 +28,14 @@ use wallet::{
     descriptors::InputDescriptor, locks::LockTime, psbt::Psbt, scripts::taproot::DfsPath,
 };
 
-use crate::trace;
 use crate::{
     data::{
         constants::BITCOIN_ELECTRUM_API,
         structs::{SealCoins, TransferResponse},
     },
-    debug,
-    error,
-    info,
-    operations::bitcoin::synchronize_wallet,
-    // operations::bitcoin::sign_psbt,
-    warn,
+    debug, error, info,
+    operations::bitcoin::{sign_psbt, synchronize_wallet},
+    trace, warn,
 };
 
 #[derive(Clone, Ord, PartialOrd, Eq, PartialEq, Hash, Debug, StrictEncode, StrictDecode)]
@@ -483,7 +475,7 @@ pub async fn transfer_asset(
     asset_contract: &str, // rgb1...
     assets_wallet: &Wallet<AnyDatabase>,
     bdk_rgb_assets_descriptor_xpub: &str,
-) -> Result<(ConsignmentDetails, /* Transaction, */ TransferResponse)> {
+) -> Result<(ConsignmentDetails, Transaction, TransferResponse)> {
     // BDK
     info!("sync wallet");
     synchronize_wallet(assets_wallet).await?;

@@ -12,7 +12,7 @@ use crate::{
 
 pub fn get_wallet(
     descriptor: &str,
-    change_descriptor: Option<&str>,
+    change_descriptor: Option<String>,
 ) -> Result<Wallet<AnyDatabase>> {
     #[cfg(feature = "web")]
     #[cfg(not(target_arch = "wasm32"))]
@@ -43,7 +43,12 @@ pub fn get_wallet(
     let db = AnyDatabase::Memory(MemoryDatabase::default());
     debug!(format!("Using database: {db:?}"));
 
-    let wallet = Wallet::new(descriptor, change_descriptor, *NETWORK.read().unwrap(), db)?;
+    let wallet = Wallet::new(
+        descriptor,
+        change_descriptor.as_deref(),
+        *NETWORK.read().unwrap(),
+        db,
+    )?;
     debug!(format!("Using wallet: {wallet:?}"));
 
     Ok(wallet)
