@@ -3,6 +3,7 @@ use js_sys::Promise;
 use serde::de::DeserializeOwned;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::{future_to_promise, JsFuture};
+use bdk::FeeRate;
 
 use crate::{data::structs::ThinAsset, constants::{
     BLINDED_UTXO_ENDPOINT, LIST_ASSETS_ENDPOINT, IMPORT_ASSET_ENDPOINT, SEND_ASSETS_ENDPOINT, ACCEPT_TRANSFER_ENDPOINT, VALIDATE_TRANSFER_ENDPOINT}, util::get};
@@ -154,11 +155,12 @@ pub fn send_sats(
     change_descriptor: String,
     address: String,
     amount: u64,
+    fee_rate: Option<FeeRate>,
 ) -> Promise {
     set_panic_hook();
 
     future_to_promise(async move {
-        match crate::send_sats(&descriptor, &change_descriptor, &address, amount).await {
+        match crate::send_sats(&descriptor, &change_descriptor, &address, amount, fee_rate).await {
             Ok(result) => Ok(JsValue::from_string(
                 serde_json::to_string(&result).unwrap(),
             )),
@@ -173,11 +175,12 @@ pub fn fund_wallet(
     change_descriptor: String,
     address: String,
     uda_address: String,
+    fee_rate: Option<FeeRate>,
 ) -> Promise {
     set_panic_hook();
 
     future_to_promise(async move {
-        match crate::fund_wallet(&descriptor, &change_descriptor, &address, &uda_address).await {
+        match crate::fund_wallet(&descriptor, &change_descriptor, &address, &uda_address, fee_rate).await {
             Ok(result) => Ok(JsValue::from_string(
                 serde_json::to_string(&result).unwrap(),
             )),
