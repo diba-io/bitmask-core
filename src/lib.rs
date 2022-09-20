@@ -290,11 +290,11 @@ pub async fn fund_wallet(
 
     let asset_invoice = SatsInvoice {
         address: address.unwrap(),
-        amount: 294, // https://bitcoinops.org/en/newsletters/2021/10/20/#bitcoin-core-22863:~:text=%E2%97%8F%20Bitcoin%20Core,at%20this%20time
+        amount: 10000,
     };
     let uda_invoice = SatsInvoice {
         address: uda_address.unwrap(),
-        amount: 294,
+        amount: 10000,
     };
 
     let details = create_transaction(
