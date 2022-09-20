@@ -4,8 +4,14 @@ use serde::de::DeserializeOwned;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::{future_to_promise, JsFuture};
 
-use crate::{data::structs::ThinAsset, constants::{
-    BLINDED_UTXO_ENDPOINT, LIST_ASSETS_ENDPOINT, IMPORT_ASSET_ENDPOINT, SEND_ASSETS_ENDPOINT, ACCEPT_TRANSFER_ENDPOINT, VALIDATE_TRANSFER_ENDPOINT}, util::get};
+use crate::{
+    constants::{
+        ACCEPT_TRANSFER_ENDPOINT, BLINDED_UTXO_ENDPOINT, IMPORT_ASSET_ENDPOINT,
+        LIST_ASSETS_ENDPOINT, SEND_ASSETS_ENDPOINT, VALIDATE_TRANSFER_ENDPOINT,
+    },
+    data::structs::ThinAsset,
+    util::get,
+};
 
 pub fn set_panic_hook() {
     // When the `console_error_panic_hook` feature is enabled, we can call the
@@ -117,9 +123,7 @@ pub fn list_assets(xpubkh: String, encryption_secret: String) -> Promise {
 }
 
 #[wasm_bindgen]
-pub fn import_asset(
-    genesis: String,
-) -> Promise {
+pub fn import_asset(genesis: String) -> Promise {
     set_panic_hook();
 
     future_to_promise(async move {
@@ -201,8 +205,7 @@ pub fn send_tokens(
 
     future_to_promise(async move {
         let result = get(&SEND_ASSETS_ENDPOINT).await;
-        match result
-        {
+        match result {
             Ok(result) => Ok(JsValue::from_string(
                 serde_json::to_string(&result).unwrap(),
             )),
@@ -217,7 +220,7 @@ pub fn validate_transfer(utxo_string: String) -> Promise {
 
     future_to_promise(async move {
         let result = get(&VALIDATE_TRANSFER_ENDPOINT).await;
-        match result{
+        match result {
             Ok(result) => Ok(JsValue::from_string(
                 serde_json::to_string(&result).unwrap(),
             )),
@@ -227,17 +230,11 @@ pub fn validate_transfer(utxo_string: String) -> Promise {
 }
 
 #[wasm_bindgen]
-pub fn accept_transfer(
-    consignment: String,
-    txid: String,
-    vout: u32,
-    blinding: String,
-) -> Promise {
+pub fn accept_transfer(consignment: String, txid: String, vout: u32, blinding: String) -> Promise {
     set_panic_hook();
     future_to_promise(async move {
         let result = get(&ACCEPT_TRANSFER_ENDPOINT).await;
-        match result
-        {
+        match result {
             Ok(result) => Ok(JsValue::from_string(
                 serde_json::to_string(&result).unwrap(),
             )),
