@@ -70,6 +70,7 @@ async fn asset_import() -> Result<()> {
                 &vault.btc_change_descriptor_xprv,
                 &assets_wallet.address,
                 &udas_wallet.address,
+                None,
             )
             .await?;
             debug!("Fund vault details: {fund_vault_details:#?}");

@@ -5,7 +5,7 @@ extern crate amplify;
 use std::str::FromStr;
 
 use anyhow::{anyhow, Result};
-use bdk::{wallet::AddressIndex::LastUnused, BlockTime};
+use bdk::{wallet::AddressIndex::LastUnused, BlockTime, FeeRate};
 use bitcoin::{util::address::Address, OutPoint, Transaction, Txid};
 use bitcoin_hashes::{sha256, Hash};
 #[cfg(not(target_arch = "wasm32"))]
@@ -262,6 +262,7 @@ pub async fn send_sats(
     change_descriptor: &str,
     address: &str,
     amount: u64,
+    fee_rate: Option<FeeRate>,
 ) -> Result<Transaction> {
     let address = Address::from_str(address);
 
@@ -274,6 +275,7 @@ pub async fn send_sats(
             amount,
         }],
         &wallet,
+        fee_rate,
     )
     .await?;
 
@@ -285,6 +287,7 @@ pub async fn fund_wallet(
     change_descriptor: &str,
     address: &str,
     uda_address: &str,
+    fee_rate: Option<FeeRate>,
 ) -> Result<FundVaultDetails> {
     let address = Address::from_str(address);
     let uda_address = Address::from_str(uda_address);
@@ -309,6 +312,7 @@ pub async fn fund_wallet(
             uda_invoice,
         ],
         &wallet,
+        fee_rate,
     )
     .await?;
 
