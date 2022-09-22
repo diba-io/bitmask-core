@@ -288,6 +288,8 @@ pub async fn fund_wallet(
     address: &str,
     uda_address: &str,
     fee_rate: Option<FeeRate>,
+    asset_amount: u64,
+    uda_amount: u64,
 ) -> Result<FundVaultDetails> {
     let address = Address::from_str(address);
     let uda_address = Address::from_str(uda_address);
@@ -297,11 +299,11 @@ pub async fn fund_wallet(
 
     let asset_invoice = SatsInvoice {
         address: address.unwrap(),
-        amount: 10000,
+        amount: asset_amount,
     };
     let uda_invoice = SatsInvoice {
         address: uda_address.unwrap(),
-        amount: 10000,
+        amount: uda_amount,
     };
 
     let details = create_transaction(

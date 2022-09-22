@@ -71,6 +71,8 @@ async fn asset_import() -> Result<()> {
                 &assets_wallet.address,
                 &udas_wallet.address,
                 None,
+                10_000,
+                10_000,
             )
             .await?;
             debug!("Fund vault details: {fund_vault_details:#?}");
