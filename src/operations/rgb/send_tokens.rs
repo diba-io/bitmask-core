@@ -903,3 +903,15 @@ pub async fn transfer_asset(
         },
     ))
 }
+
+pub async fn rgb_tweaking(
+    asset: &str,
+    inputs: Vec<OutPoint>,
+    psbt: &mut Psbt,
+    new: BTreeSet<_>,
+    receiver: &str,
+    change: std::collections::BTreeMap<rgb_core::seal::Revealed, u64>,
+    amount: u64,
+) -> _ {
+    todo!()
+}

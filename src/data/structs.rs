@@ -132,6 +132,14 @@ pub struct TransferResponse {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct TransferLambdaResponse {
+    pub consignment: String,
+    pub disclosure: String,
+    pub txid: String,
+    pub witness: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ValidateRequest {
     pub consignment: String,
 }

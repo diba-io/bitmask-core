@@ -8,13 +8,17 @@ use anyhow::{anyhow, Result};
 use bdk::{wallet::AddressIndex::LastUnused, BlockTime};
 use bitcoin::{util::address::Address, OutPoint, Transaction, Txid};
 use bitcoin_hashes::{sha256, Hash};
+use data::structs::SealCoins;
+use data::structs::TransferLambdaResponse;
 #[cfg(not(target_arch = "wasm32"))]
-use operations::rgb::ConsignmentDetails;
+use operations::rgb::{rgb_tweaking, ConsignmentDetails};
+use psbt::Psbt;
 use serde::{Deserialize, Serialize};
 use serde_encrypt::{
     serialize::impls::BincodeSerializer, shared_key::SharedKey, traits::SerdeEncryptSharedKey,
     AsSharedKey, EncryptedMessage,
 };
+use std::collections::BTreeSet;
 
 pub mod data;
 mod operations;
@@ -375,6 +379,37 @@ pub async fn send_assets(
     .await?;
 
     Ok((consignment, tx, response))
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub async fn rgb_tweak(
+    receiver: &str,
+    amount: u64,
+    asset: &str,
+    inputs: Vec<OutPoint>,
+    _allocate: Vec<SealCoins>,
+    witness: &str,
+) -> Result<TransferLambdaResponse> {
+    let mut psbt = Psbt::from_str(witness)?;
+    let change: std::collections::BTreeMap<rgb_core::seal::Revealed, u64> =
+        std::collections::BTreeMap::new();
+    let (psbt, consignment, disclosure, txid) = rgb_tweaking(
+        asset,
+        inputs,
+        &mut psbt,
+        BTreeSet::new(),
+        receiver,
+        change,
+        amount,
+    )
+    .await?;
+    let transfer_response = TransferLambdaResponse {
+        consignment: consignment.to_string(),
+        disclosure: format!("{disclosure:?}"),
+        txid,
+        witness: psbt.to_string(),
+    };
+    Ok(transfer_response)
 }
 
 #[cfg(not(target_arch = "wasm32"))]
