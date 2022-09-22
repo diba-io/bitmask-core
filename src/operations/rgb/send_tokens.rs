@@ -920,7 +920,3 @@ pub async fn compose_rgb_psbt(
 ) -> _ {
     todo!()
 }
-
-pub async fn sign_and_send_psbt(_) -> _ {
-    todo!()
-}
