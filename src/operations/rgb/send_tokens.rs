@@ -501,7 +501,7 @@ pub async fn transfer_asset(
         allocations.append(&mut coins);
     }
 
-    trace!(format!("asset utxos {:#?}", &asset_utxos));
+    trace!(format!("asset utxos {asset_utxos:#?}"));
     debug!(format!("allocations {allocations:#?}"));
     debug!(format!("balance {balance}"));
 
