@@ -11,7 +11,7 @@ use bitcoin_hashes::{sha256, Hash};
 use data::structs::SealCoins;
 use data::structs::TransferLambdaResponse;
 #[cfg(not(target_arch = "wasm32"))]
-use operations::rgb::{rgb_tweaking, ConsignmentDetails};
+use operations::rgb::{compose_rgb_psbt, ConsignmentDetails};
 use psbt::Psbt;
 use serde::{Deserialize, Serialize};
 use serde_encrypt::{
@@ -393,7 +393,7 @@ pub async fn rgb_tweak(
     let mut psbt = Psbt::from_str(witness)?;
     let change: std::collections::BTreeMap<rgb_core::seal::Revealed, u64> =
         std::collections::BTreeMap::new();
-    let (psbt, consignment, disclosure, txid) = rgb_tweaking(
+    let (psbt, consignment, disclosure, txid) = compose_rgb_psbt(
         asset,
         inputs,
         &mut psbt,

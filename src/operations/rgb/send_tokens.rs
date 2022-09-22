@@ -475,6 +475,7 @@ pub async fn transfer_asset(
     assets_wallet: &Wallet<AnyDatabase>,
     bdk_rgb_assets_descriptor_xpub: &str,
 ) -> Result<(ConsignmentDetails, Transaction, TransferResponse)> {
+    // TODO: the pure bdk part before signing and sending must be the method compose_btc_psbt, the rgb part must be compose_rgb_psbt and then sign and send the corresponding method
     // BDK
     info!("sync wallet");
     synchronize_wallet(assets_wallet).await?;
@@ -904,7 +905,11 @@ pub async fn transfer_asset(
     ))
 }
 
-pub async fn rgb_tweaking(
+pub async fn compose_btc_psbt(_) -> _ {
+    todo!()
+}
+
+pub async fn compose_rgb_psbt(
     asset: &str,
     inputs: Vec<OutPoint>,
     psbt: &mut Psbt,
@@ -913,5 +918,9 @@ pub async fn rgb_tweaking(
     change: std::collections::BTreeMap<rgb_core::seal::Revealed, u64>,
     amount: u64,
 ) -> _ {
+    todo!()
+}
+
+pub async fn sign_and_send_psbt(_) -> _ {
     todo!()
 }

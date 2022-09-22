@@ -14,7 +14,7 @@ pub use create_psbt::create_psbt;
 pub use import_asset::{get_asset_by_genesis, get_assets};
 pub use issue_asset::issue_asset;
 pub use receive_tokens::blind_utxo;
-pub use send_tokens::{rgb_tweaking, transfer_asset, ConsignmentDetails};
+pub use send_tokens::{compose_rgb_psbt, transfer_asset, ConsignmentDetails};
 pub use validate_transaction::validate_transfer;
 
 pub use rgb_std::Contract;
