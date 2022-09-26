@@ -368,14 +368,15 @@ pub async fn send_assets(
     amount: u64,
     asset_contract: &str,
 ) -> Result<(ConsignmentDetails, Transaction, TransferResponse)> {
-    let assets_wallet = get_wallet(rgb_assets_descriptor_xprv, None)?;
-    synchronize_wallet(&assets_wallet).await?;
+    // let assets_wallet = get_wallet(rgb_assets_descriptor_xprv, None)?;
+    // synchronize_wallet(&assets_wallet).await?;
+    todo!("TODO: clientside transfer PSBT");
 
     let (consignment, tx, response) = transfer_asset(
         blinded_utxo,
         amount,
         asset_contract,
-        &assets_wallet,
+        // &assets_wallet,
         rgb_assets_descriptor_xpub,
     )
     .await?;

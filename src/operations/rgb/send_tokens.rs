@@ -472,7 +472,7 @@ pub async fn transfer_asset(
     blinded_utxo: &str,
     amount: u64,
     asset_contract: &str, // rgb1...
-    assets_wallet: &Wallet<AnyDatabase>,
+    // assets_wallet: &Wallet<AnyDatabase>, // TODO: move BDK stuff to a separate function to be called on the client
     bdk_rgb_assets_descriptor_xpub: &str,
 ) -> Result<(ConsignmentDetails, Transaction, TransferResponse)> {
     // BDK

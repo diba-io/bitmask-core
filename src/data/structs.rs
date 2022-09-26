@@ -33,6 +33,22 @@ pub struct Issue {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct IssueRequest {
+    /// The ticker of the asset
+    pub ticker: String,
+    /// The name of the asset
+    pub name: String,
+    /// Description of the asset (ID for the UDA)
+    pub description: String,
+    /// Precision of the asset
+    pub precision: u8,
+    /// Amount of the asset
+    pub supply: u64,
+    /// Utxo of the initial owner
+    pub utxo: OutPoint,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SatsInvoice {
     pub amount: u64,
     pub address: Address,
@@ -57,6 +73,11 @@ pub struct Allocation {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Inflation {}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct AssetRequest {
+    pub genesis: String,
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -99,6 +120,11 @@ pub struct ThinAsset {
     pub description: String,
     pub allocations: Vec<Allocation>,
     pub balance: u64,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct BlindRequest {
+    pub utxo: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
