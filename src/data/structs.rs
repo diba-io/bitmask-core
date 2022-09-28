@@ -142,7 +142,7 @@ pub struct SealCoins {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TransferRequest {
+pub struct TransferRequestExt {
     pub inputs: Vec<OutPoint>,
     pub allocate: Vec<SealCoins>,
     pub receiver: String,
@@ -152,7 +152,7 @@ pub struct TransferRequest {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TransferRequestExt {
+pub struct TransferRequest {
     pub rgb_assets_descriptor_xpub: String, // TODO: Privacy concerns. Not great, not terrible
     pub blinded_utxo: String,
     pub amount: u64,
@@ -161,14 +161,14 @@ pub struct TransferRequestExt {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TransferResponse {
+pub struct TransferResult {
     pub consignment: String,
     pub disclosure: String,
     pub txid: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TransferResponseExt {
+pub struct TransferResponse {
     pub consignment: String,
     pub psbt: String,
     pub disclosure: String,

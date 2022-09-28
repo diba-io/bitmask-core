@@ -27,12 +27,10 @@ mod util;
 pub mod web;
 
 #[cfg(not(target_arch = "wasm32"))]
-use data::structs::{
-    AssetResponse, ThinAsset, TransferRequestExt, TransferResponse, TransferResponseExt,
-};
+use data::structs::{AssetResponse, ThinAsset, TransferResult};
 pub use data::{
     constants,
-    structs::{FundVaultDetails, SatsInvoice, VaultData},
+    structs::{FundVaultDetails, SatsInvoice, TransferRequest, TransferResponse, VaultData},
 };
 use operations::bitcoin::{
     create_transaction, get_wallet, new_mnemonic, save_mnemonic, sign_psbt, synchronize_wallet,
@@ -42,7 +40,7 @@ use operations::rgb::{
     /* accept_transfer, */ blind_utxo, get_asset_by_genesis, get_assets, issue_asset,
     transfer_asset, validate_transfer,
 };
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(target_arch = "wasm32")]
 use util::post_json;
 
 impl SerdeEncryptSharedKey for VaultData {
@@ -373,7 +371,7 @@ pub async fn send_assets(
     blinded_utxo: &str,
     amount: u64,
     asset_contract: &str,
-) -> Result<TransferResponse> {
+) -> Result<TransferResult> {
     let assets_wallet = get_wallet(rgb_assets_descriptor_xprv, None)?;
     debug!("sync wallet");
     synchronize_wallet(&assets_wallet).await?;
@@ -381,19 +379,19 @@ pub async fn send_assets(
 
     let asset_utxos = assets_wallet.list_unspent()?;
 
-    // #[cfg(not(target_arch = "wasm32"))]
-    // let (_, consignment, psbt, disclosure) = transfer_assets(
-    //     rgb_assets_descriptor_xpub,
-    //     blinded_utxo,
-    //     amount,
-    //     asset_contract,
-    //     asset_utxos,
-    // )
-    // .await?;
     #[cfg(not(target_arch = "wasm32"))]
+    let (_, consignment, psbt, disclosure) = transfer_assets(
+        rgb_assets_descriptor_xpub,
+        blinded_utxo,
+        amount,
+        asset_contract,
+        asset_utxos,
+    )
+    .await?;
+    #[cfg(target_arch = "wasm32")]
     let (consignment, psbt, disclosure) = async {
         let endpoint = &constants::SEND_ASSETS_ENDPOINT;
-        let body = TransferRequestExt {
+        let body = TransferRequest {
             rgb_assets_descriptor_xpub: rgb_assets_descriptor_xpub.to_string(),
             blinded_utxo: blinded_utxo.to_string(),
             amount,
@@ -404,21 +402,22 @@ pub async fn send_assets(
         if status != 200 {
             return Err(anyhow!("Error calling {}", endpoint.as_str()));
         }
-        let TransferResponseExt {
+        let TransferResponse {
             consignment,
             psbt,
             disclosure,
         } = serde_json::from_str(&transfer_res)?;
-        let psbt = base64::decode(&psbt)?;
-        let psbt = deserialize_psbt(&psbt)?;
         Ok((consignment, psbt, disclosure))
     }
     .await?;
 
+    let psbt = base64::decode(&psbt)?;
+    let psbt = deserialize_psbt(&psbt)?;
+
     let tx = sign_psbt(&assets_wallet, psbt).await?;
     let txid = tx.txid().to_string();
 
-    Ok(TransferResponse {
+    Ok(TransferResult {
         consignment,
         disclosure,
         txid,
