@@ -6,7 +6,7 @@ use std::str::FromStr;
 
 #[cfg(target_arch = "wasm32")]
 use anyhow::anyhow;
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use bdk::{wallet::AddressIndex, BlockTime, FeeRate, LocalUtxo};
 #[cfg(not(target_arch = "wasm32"))]
 use bitcoin::consensus::serialize as serialize_psbt;
@@ -20,7 +20,10 @@ use serde_encrypt::{
     serialize::impls::BincodeSerializer, shared_key::SharedKey, traits::SerdeEncryptSharedKey,
     AsSharedKey, EncryptedMessage,
 };
-use tokio::try_join;
+use tokio::{
+    time::{sleep, Duration},
+    try_join,
+};
 
 pub mod data;
 mod operations;
@@ -376,6 +379,90 @@ pub async fn get_assets_vault(
 }
 
 #[allow(clippy::too_many_arguments)]
+pub async fn try_transfer(
+    btc_descriptor_xprv: &str,
+    btc_change_descriptor_xpub: &str,
+    rgb_assets_descriptor_xprv: &str,
+    rgb_assets_descriptor_xpub: &str,
+    blinded_utxo: &str,
+    amount: u64,
+    asset_contract: &str,
+    fee_rate: f32,
+) -> Result<(String, String, String)> {
+    let mut tries = 0;
+
+    while tries < 10 {
+        let btc_wallet = get_wallet(
+            btc_descriptor_xprv,
+            Some(btc_change_descriptor_xpub.to_owned()),
+        )?;
+        let assets_wallet = get_wallet(rgb_assets_descriptor_xprv, None)?;
+        info!("Sync wallets");
+        try_join!(
+            synchronize_wallet(&assets_wallet),
+            synchronize_wallet(&btc_wallet)
+        )?;
+        info!("Wallets synced");
+
+        // Get a list of UTXOs in the assets wallet
+        let asset_utxos = assets_wallet.list_unspent()?;
+        info!(format!(
+            "Found {} UTXOs in the assets wallet",
+            asset_utxos.len()
+        ));
+
+        // Create a new tx for the change output, to be bundled
+        let _dust_psbt = dust_tx(&btc_wallet, fee_rate, asset_utxos.get(0))?;
+        info!("Created dust PSBT");
+        info!("Creating transfer PSBT...");
+
+        #[cfg(not(target_arch = "wasm32"))]
+        let result = transfer_assets(
+            rgb_assets_descriptor_xpub,
+            blinded_utxo,
+            amount,
+            asset_contract,
+            asset_utxos,
+        )
+        .await;
+
+        #[cfg(target_arch = "wasm32")]
+        let result = async {
+            let endpoint = &constants::SEND_ASSETS_ENDPOINT;
+            let body = TransferRequest {
+                rgb_assets_descriptor_xpub: rgb_assets_descriptor_xpub.to_owned(),
+                blinded_utxo: blinded_utxo.to_owned(),
+                amount,
+                asset_contract: asset_contract.to_owned(),
+                asset_utxos,
+            };
+            let (transfer_res, status) = post_json(endpoint, &body).await?;
+            if status != 200 {
+                return Err(anyhow!("Error calling {}", endpoint.as_str()));
+            }
+            let TransferResponse {
+                consignment,
+                psbt,
+                disclosure,
+            } = serde_json::from_str(&transfer_res)?;
+            Ok((consignment, psbt, disclosure))
+        }
+        .await;
+
+        match result {
+            Ok(result) => return Ok(result),
+            Err(e) => {
+                tries += 1;
+                warn!(format!("Error: {e}. Try #{tries}..."));
+                sleep(Duration::from_millis(500)).await;
+            }
+        }
+    }
+
+    Err(anyhow!("Error in try_transfer... Exceeded retries limit."))
+}
+
+#[allow(clippy::too_many_arguments)]
 pub async fn send_assets(
     btc_descriptor_xprv: &str,
     btc_change_descriptor_xpub: &str,
@@ -386,66 +473,16 @@ pub async fn send_assets(
     asset_contract: &str,
     fee_rate: f32,
 ) -> Result<TransferResult> {
-    let btc_wallet = get_wallet(
+    let (consignment, psbt, disclosure) = try_transfer(
         btc_descriptor_xprv,
-        // None,
-        Some(btc_change_descriptor_xpub.to_owned()),
-    )?;
-    // let address = btc_wallet
-    //     .get_address(AddressIndex::LastUnused)?
-    //     .to_string();
-    // info!(format!("BTC wallet address: {address}"));
-    let assets_wallet = get_wallet(rgb_assets_descriptor_xprv, None)?;
-    info!("Sync wallets");
-    try_join!(
-        synchronize_wallet(&assets_wallet),
-        synchronize_wallet(&btc_wallet)
-    )?;
-    info!("Wallets synced");
-
-    // Get a list of UTXOs in the assets wallet
-    let asset_utxos = assets_wallet.list_unspent()?;
-    info!(format!(
-        "Found {} UTXOs in the assets wallet",
-        asset_utxos.len()
-    ));
-
-    // Create a new tx for the change output, to be bundled
-    let _dust_psbt = dust_tx(&btc_wallet, fee_rate, asset_utxos.get(0))?;
-    info!("Created dust PSBT");
-    info!("Creating transfer PSBT...");
-
-    #[cfg(not(target_arch = "wasm32"))]
-    let (consignment, psbt, disclosure) = transfer_assets(
+        btc_change_descriptor_xpub,
+        rgb_assets_descriptor_xprv,
         rgb_assets_descriptor_xpub,
         blinded_utxo,
         amount,
         asset_contract,
-        asset_utxos,
+        fee_rate,
     )
-    .await?;
-
-    #[cfg(target_arch = "wasm32")]
-    let (consignment, psbt, disclosure) = async {
-        let endpoint = &constants::SEND_ASSETS_ENDPOINT;
-        let body = TransferRequest {
-            rgb_assets_descriptor_xpub: rgb_assets_descriptor_xpub.to_owned(),
-            blinded_utxo: blinded_utxo.to_owned(),
-            amount,
-            asset_contract: asset_contract.to_owned(),
-            asset_utxos,
-        };
-        let (transfer_res, status) = post_json(endpoint, &body).await?;
-        if status != 200 {
-            return Err(anyhow!("Error calling {}", endpoint.as_str()));
-        }
-        let TransferResponse {
-            consignment,
-            psbt,
-            disclosure,
-        } = serde_json::from_str(&transfer_res)?;
-        Ok((consignment, psbt, disclosure))
-    }
     .await?;
 
     info!("Successfully created assets PSBT");
@@ -453,6 +490,7 @@ pub async fn send_assets(
     let psbt: PartiallySignedTransaction = deserialize_psbt(&psbt)?;
 
     info!("Signing and broadcasting transactions...");
+    let assets_wallet = get_wallet(rgb_assets_descriptor_xprv, None)?;
     let tx = sign_psbt(&assets_wallet, psbt).await?;
     let txid = tx.txid().to_string();
     info!(format!("transfer txid was {txid}"));
