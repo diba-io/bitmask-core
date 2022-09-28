@@ -679,7 +679,7 @@ pub async fn transfer_asset(
     let allow_tapret_path = DfsPath::from_str("1")?;
 
     // format BDK descriptor for RGB
-    let re = Regex::new(r"\(\[([0-9a-f]+)/(.+)](.+?)/").unwrap();
+    let re = Regex::new(r"\(\[([0-9a-f]+)/(.+)](.+?)/")?;
     let cap = re.captures(bdk_rgb_assets_descriptor_xpub).unwrap();
     let rgb_assets_descriptor = format!("tr(m=[{}]/{}=[{}]/*/*)", &cap[1], &cap[2], &cap[3]);
     let rgb_assets_descriptor = rgb_assets_descriptor.replace('\'', "h");
@@ -698,7 +698,8 @@ pub async fn transfer_asset(
             ));
         }
     };
-    let fee = 500;
+    // let fee = 143; // 1 sat/vByte for permanently spending dust TX
+    let fee = 500; // donate entire fee to miners for OpRet TODO: different behavior for TapRet
 
     debug!("Constructing PSBT with...");
     debug!(format!("outputs: {outputs:?}"));

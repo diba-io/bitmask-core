@@ -7,7 +7,7 @@ use std::str::FromStr;
 use anyhow::Result;
 #[cfg(not(target_arch = "wasm32"))]
 use bdk::LocalUtxo;
-use bdk::{wallet::AddressIndex::LastUnused, BlockTime, FeeRate};
+use bdk::{wallet::AddressIndex, BlockTime, FeeRate};
 #[cfg(not(target_arch = "wasm32"))]
 use bitcoin::consensus::serialize as serialize_psbt;
 use bitcoin::{
@@ -80,9 +80,7 @@ pub fn get_mnemonic_seed(
     let shared_key: [u8; 32] = hash.into_inner();
 
     let vault_data = new_mnemonic(seed_password)?;
-    let encrypted_message = vault_data
-        .encrypt(&SharedKey::from_array(shared_key))
-        .unwrap();
+    let encrypted_message = vault_data.encrypt(&SharedKey::from_array(shared_key))?;
     let serialized_encrypted_message = hex::encode(&encrypted_message.serialize());
     let mnemonic_seed_data = MnemonicSeedData {
         mnemonic: vault_data.mnemonic,
@@ -101,9 +99,7 @@ pub fn save_mnemonic_seed(
     let shared_key: [u8; 32] = hash.into_inner();
 
     let vault_data = save_mnemonic(seed_password, mnemonic)?;
-    let encrypted_message = vault_data
-        .encrypt(&SharedKey::from_array(shared_key))
-        .unwrap();
+    let encrypted_message = vault_data.encrypt(&SharedKey::from_array(shared_key))?;
     let serialized_encrypted_message = hex::encode(&encrypted_message.serialize());
     let mnemonic_seed_data = MnemonicSeedData {
         mnemonic: vault_data.mnemonic,
@@ -141,9 +137,9 @@ pub async fn get_wallet_data(
 
     let wallet = get_wallet(descriptor, change_descriptor)?;
     synchronize_wallet(&wallet).await?;
-    let address = wallet.get_address(LastUnused).unwrap().to_string();
+    let address = wallet.get_address(AddressIndex::LastUnused)?.to_string();
     info!("address:", &address);
-    let balance = wallet.get_balance().unwrap().to_string();
+    let balance = wallet.get_balance()?.to_string();
     info!("balance:", &balance);
     let unspent = wallet.list_unspent().unwrap_or_default();
     let unspent: Vec<String> = unspent
@@ -275,22 +271,15 @@ pub async fn send_sats(
     amount: u64,
     fee_rate: Option<f32>,
 ) -> Result<Transaction> {
-    let address = Address::from_str(address);
+    let address = Address::from_str(address)?;
 
     let wallet = get_wallet(descriptor, Some(change_descriptor.to_owned()))?;
     synchronize_wallet(&wallet).await?;
 
     let fee_rate = fee_rate.map(FeeRate::from_sat_per_vb);
 
-    let transaction = create_transaction(
-        vec![SatsInvoice {
-            address: address.unwrap(),
-            amount,
-        }],
-        &wallet,
-        fee_rate,
-    )
-    .await?;
+    let transaction =
+        create_transaction(vec![SatsInvoice { address, amount }], &wallet, fee_rate).await?;
 
     Ok(transaction)
 }
@@ -400,8 +389,13 @@ pub async fn send_assets(
 ) -> Result<TransferResult> {
     let btc_wallet = get_wallet(
         btc_descriptor_xprv,
+        // None,
         Some(btc_change_descriptor_xpub.to_owned()),
     )?;
+    let address = btc_wallet
+        .get_address(AddressIndex::LastUnused)?
+        .to_string();
+    info!(format!("BTC wallet address: {address}"));
     let assets_wallet = get_wallet(rgb_assets_descriptor_xprv, None)?;
     info!("Sync wallets");
     try_join!(
@@ -418,7 +412,7 @@ pub async fn send_assets(
     ));
 
     // Create a new tx for the change output, to be bundled
-    let dust_psbt = dust_tx(&btc_wallet, &assets_wallet, fee_rate)?;
+    let dust_psbt = dust_tx(&btc_wallet, fee_rate, asset_utxos.get(0))?;
     info!("Created dust PSBT");
     info!("Creating transfer PSBT...");
 
