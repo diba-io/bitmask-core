@@ -481,7 +481,6 @@ pub async fn transfer_asset(
 
     // rgb-cli -n testnet transfer compose ${CONTRACT_ID} ${UTXO_SRC} ${CONSIGNMENT}
     let contract = Contract::from_str(asset_contract)?;
-    debug!(format!("parsed contract: {contract}"));
     let asset = Asset::try_from(&contract)?;
     debug!(format!("asset from contract: {asset:#?}"));
 

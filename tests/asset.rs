@@ -51,7 +51,7 @@ async fn asset_transfer() -> Result<()> {
 
     assert!(
         !btc_wallet.transactions.is_empty(),
-        "List of transactions is not empty"
+        "List of transactions is empty (has this wallet been funded?)"
     );
 
     info!("Get assets wallet data");

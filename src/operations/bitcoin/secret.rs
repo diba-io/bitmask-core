@@ -68,6 +68,10 @@ pub fn get_mnemonic(mnemonic_phrase: Mnemonic, seed_password: &str) -> Result<Va
     let network = NETWORK.read().unwrap();
     let xprv = ExtendedPrivKey::new_master(*network, &seed)?;
 
+    let secp = Secp256k1::new();
+    let xpub = ExtendedPubKey::from_priv(&secp, &xprv);
+    let xpubkh = xpub.to_pub().pubkey_hash().to_string();
+
     let btc_descriptor_xprv = format!(
         "tr({})",
         get_descriptor::<Tap>(xprv, BTC_PATH, false, true)?
@@ -100,9 +104,6 @@ pub fn get_mnemonic(mnemonic_phrase: Mnemonic, seed_password: &str) -> Result<Va
         get_descriptor::<Tap>(xprv, RGB_UDAS_PATH, false, false)?
     );
 
-    let secp = Secp256k1::new();
-    let xpub = ExtendedPubKey::from_priv(&secp, &xprv);
-
     Ok(VaultData {
         btc_descriptor_xprv,
         btc_descriptor_xpub,
@@ -112,7 +113,7 @@ pub fn get_mnemonic(mnemonic_phrase: Mnemonic, seed_password: &str) -> Result<Va
         rgb_assets_descriptor_xpub,
         rgb_udas_descriptor_xprv,
         rgb_udas_descriptor_xpub,
-        xpubkh: xpub.to_pub().pubkey_hash().to_string(),
+        xpubkh,
         mnemonic: mnemonic_phrase.to_string(),
     })
 }
