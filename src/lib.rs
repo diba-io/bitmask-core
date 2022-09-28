@@ -4,23 +4,24 @@ extern crate amplify;
 
 use std::str::FromStr;
 
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 #[cfg(not(target_arch = "wasm32"))]
 use bdk::LocalUtxo;
 use bdk::{wallet::AddressIndex::LastUnused, BlockTime, FeeRate};
 #[cfg(not(target_arch = "wasm32"))]
 use bitcoin::consensus::serialize as serialize_psbt;
 use bitcoin::{
-    consensus::deserialize as deserialize_psbt, util::address::Address, OutPoint, Transaction, Txid,
+    consensus::deserialize as deserialize_psbt, psbt::PartiallySignedTransaction,
+    util::address::Address, OutPoint, Transaction, Txid,
 };
 use bitcoin_hashes::{sha256, Hash};
 #[cfg(not(target_arch = "wasm32"))]
-use operations::rgb::ConsignmentDetails;
 use serde::{Deserialize, Serialize};
 use serde_encrypt::{
     serialize::impls::BincodeSerializer, shared_key::SharedKey, traits::SerdeEncryptSharedKey,
     AsSharedKey, EncryptedMessage,
 };
+use tokio::try_join;
 
 pub mod data;
 mod operations;
@@ -29,23 +30,24 @@ mod util;
 pub mod web;
 
 #[cfg(not(target_arch = "wasm32"))]
-use data::structs::{AssetResponse, ThinAsset};
-pub use data::{
+use crate::data::structs::{AssetResponse, ThinAsset};
+pub use crate::data::{
     constants,
     structs::{
         FundVaultDetails, SatsInvoice, TransferRequest, TransferResponse, TransferResult, VaultData,
     },
 };
-use operations::bitcoin::{
-    create_transaction, get_wallet, new_mnemonic, save_mnemonic, sign_psbt, synchronize_wallet,
+use crate::operations::bitcoin::{
+    create_transaction, dust_tx, get_wallet, new_mnemonic, save_mnemonic, sign_psbt,
+    synchronize_wallet,
 };
 #[cfg(not(target_arch = "wasm32"))]
-use operations::rgb::{
+use crate::operations::rgb::{
     /* accept_transfer, */ blind_utxo, get_asset_by_genesis, get_assets, issue_asset,
     transfer_asset, validate_transfer,
 };
 #[cfg(target_arch = "wasm32")]
-use util::post_json;
+use crate::util::post_json;
 
 impl SerdeEncryptSharedKey for VaultData {
     type S = BincodeSerializer<Self>; // you can specify serializer implementation (or implement it by yourself).
@@ -293,27 +295,30 @@ pub async fn send_sats(
     Ok(transaction)
 }
 
-pub async fn fund_wallet(
-    descriptor: &str,
-    change_descriptor: &str,
-    address: &str,
+pub async fn fund_vault(
+    btc_descriptor_xprv: &str,
+    btc_change_descriptor_xprv: &str,
+    assets_address: &str,
     uda_address: &str,
     asset_amount: u64,
     uda_amount: u64,
     fee_rate: Option<f32>,
 ) -> Result<FundVaultDetails> {
-    let address = Address::from_str(address);
-    let uda_address = Address::from_str(uda_address);
+    let assets_address = Address::from_str(assets_address)?;
+    let uda_address = Address::from_str(uda_address)?;
 
-    let wallet = get_wallet(descriptor, Some(change_descriptor.to_owned()))?;
+    let wallet = get_wallet(
+        btc_descriptor_xprv,
+        Some(btc_change_descriptor_xprv.to_owned()),
+    )?;
     synchronize_wallet(&wallet).await?;
 
     let asset_invoice = SatsInvoice {
-        address: address.unwrap(),
+        address: assets_address,
         amount: asset_amount,
     };
     let uda_invoice = SatsInvoice {
-        address: uda_address.unwrap(),
+        address: uda_address,
         amount: uda_amount,
     };
 
@@ -340,55 +345,85 @@ pub async fn fund_wallet(
         .collect();
 
     Ok(FundVaultDetails {
-        txid: txid.to_string(),
-        assets: outputs[0].clone(),
-        assets_change: outputs[1].clone(),
-        udas: outputs[2].clone(),
-        udas_change: outputs[3].clone(),
+        assets_output: Some(outputs[0].to_owned()),
+        assets_change_output: Some(outputs[1].to_owned()),
+        udas_output: Some(outputs[2].to_owned()),
+        udas_change_output: Some(outputs[3].to_owned()),
     })
 }
 
-pub async fn get_assets_vault(assets_descriptor: &str) -> Result<FundVaultDetails> {
-    let assets_wallet = get_wallet(assets_descriptor, None)?;
-    synchronize_wallet(&assets_wallet).await?;
-
-    let asset_utxos = assets_wallet.list_unspent()?;
-
-    debug!(format!("Asset UTXOs: {asset_utxos:#?}"));
-
-    match asset_utxos.get(0) {
-        Some(asset_utxo) => {
-            let txid = asset_utxo.outpoint.txid.to_string();
-            let output = asset_utxo.outpoint.to_string();
-
-            Ok(FundVaultDetails {
-                txid,
-                assets: output.clone(), // TODO: Make it work with other UTXOs
-                assets_change: output.clone(),
-                udas: output.clone(),
-                udas_change: output,
-            })
-        }
-        None => Err(anyhow!("No asset UTXOs")),
-    }
+fn utxo_string(utxo: &LocalUtxo) -> String {
+    utxo.outpoint.to_string()
 }
 
+pub async fn get_assets_vault(
+    rgb_assets_descriptor_xpub: &str,
+    rgb_udas_descriptor_xpub: &str,
+) -> Result<FundVaultDetails> {
+    let assets_wallet = get_wallet(rgb_assets_descriptor_xpub, None)?;
+    let udas_wallet = get_wallet(rgb_udas_descriptor_xpub, None)?;
+
+    try_join!(
+        synchronize_wallet(&assets_wallet),
+        synchronize_wallet(&udas_wallet)
+    )?;
+
+    let assets_utxos = assets_wallet.list_unspent()?;
+    let uda_utxos = udas_wallet.list_unspent()?;
+
+    debug!(format!("Asset UTXOs: {assets_utxos:#?}"));
+    debug!(format!("UDA UTXOs: {uda_utxos:#?}"));
+
+    let assets_output = assets_utxos.get(0).map(utxo_string);
+    let assets_change_output = assets_utxos.get(1).map(utxo_string);
+    let udas_output = uda_utxos.get(0).map(utxo_string);
+    let udas_change_output = uda_utxos.get(1).map(utxo_string);
+
+    Ok(FundVaultDetails {
+        assets_output,
+        assets_change_output,
+        udas_output,
+        udas_change_output,
+    })
+}
+
+#[allow(clippy::too_many_arguments)]
 pub async fn send_assets(
+    btc_descriptor_xprv: &str,
+    btc_change_descriptor_xpub: &str,
     rgb_assets_descriptor_xprv: &str,
     rgb_assets_descriptor_xpub: &str,
     blinded_utxo: &str,
     amount: u64,
     asset_contract: &str,
+    fee_rate: f32,
 ) -> Result<TransferResult> {
+    let btc_wallet = get_wallet(
+        btc_descriptor_xprv,
+        Some(btc_change_descriptor_xpub.to_owned()),
+    )?;
     let assets_wallet = get_wallet(rgb_assets_descriptor_xprv, None)?;
-    debug!("sync wallet");
-    synchronize_wallet(&assets_wallet).await?;
-    debug!("wallet synced");
+    info!("Sync wallets");
+    try_join!(
+        synchronize_wallet(&assets_wallet),
+        synchronize_wallet(&btc_wallet)
+    )?;
+    info!("Wallets synced");
 
+    // Get a list of UTXOs in the assets wallet
     let asset_utxos = assets_wallet.list_unspent()?;
+    info!(format!(
+        "Found {} UTXOs in the assets wallet",
+        asset_utxos.len()
+    ));
+
+    // Create a new tx for the change output, to be bundled
+    let dust_psbt = dust_tx(&btc_wallet, &assets_wallet, fee_rate)?;
+    info!("Created dust PSBT");
+    info!("Creating transfer PSBT...");
 
     #[cfg(not(target_arch = "wasm32"))]
-    let (_, consignment, psbt, disclosure) = transfer_assets(
+    let (consignment, psbt, disclosure) = transfer_assets(
         rgb_assets_descriptor_xpub,
         blinded_utxo,
         amount,
@@ -396,14 +431,15 @@ pub async fn send_assets(
         asset_utxos,
     )
     .await?;
+
     #[cfg(target_arch = "wasm32")]
     let (consignment, psbt, disclosure) = async {
         let endpoint = &constants::SEND_ASSETS_ENDPOINT;
         let body = TransferRequest {
-            rgb_assets_descriptor_xpub: rgb_assets_descriptor_xpub.to_string(),
-            blinded_utxo: blinded_utxo.to_string(),
+            rgb_assets_descriptor_xpub: rgb_assets_descriptor_xpub.to_owned(),
+            blinded_utxo: blinded_utxo.to_owned(),
             amount,
-            asset_contract: asset_contract.to_string(),
+            asset_contract: asset_contract.to_owned(),
             asset_utxos,
         };
         let (transfer_res, status) = post_json(endpoint, &body).await?;
@@ -419,11 +455,20 @@ pub async fn send_assets(
     }
     .await?;
 
+    info!("Successfully created assets PSBT");
     let psbt = base64::decode(&psbt)?;
-    let psbt = deserialize_psbt(&psbt)?;
+    let psbt: PartiallySignedTransaction = deserialize_psbt(&psbt)?;
 
+    info!("Signing and broadcasting transactions...");
     let tx = sign_psbt(&assets_wallet, psbt).await?;
     let txid = tx.txid().to_string();
+
+    let dust_tx = sign_psbt(&btc_wallet, dust_psbt).await?;
+    let dust_txid = dust_tx.txid().to_string();
+
+    info!(format!(
+        "Finished, transfer txid was {txid}, and dust txid was {dust_txid}"
+    ));
 
     Ok(TransferResult {
         consignment,
@@ -440,12 +485,11 @@ pub async fn transfer_assets(
     asset_contract: &str,
     asset_utxos: Vec<LocalUtxo>,
 ) -> Result<(
-    ConsignmentDetails,
     String, // base64 sten consignment
     String, // base64 bitcoin encoded psbt
     String, // json
 )> {
-    let (consignment_details, consignment, psbt, disclosure) = transfer_asset(
+    let (consignment, psbt, disclosure) = transfer_asset(
         rgb_assets_descriptor_xpub,
         blinded_utxo,
         amount,
@@ -459,7 +503,7 @@ pub async fn transfer_assets(
     let psbt = base64::encode(&psbt);
     let disclosure = serde_json::to_string(&disclosure)?;
 
-    Ok((consignment_details, consignment, psbt, disclosure))
+    Ok((consignment, psbt, disclosure))
 }
 
 #[cfg(not(target_arch = "wasm32"))]

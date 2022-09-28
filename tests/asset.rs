@@ -4,7 +4,7 @@ use std::env;
 
 use anyhow::Result;
 use bitmask_core::{
-    create_asset, fund_wallet, get_assets_vault, get_network, get_vault, get_wallet_data,
+    create_asset, fund_vault, get_assets_vault, get_network, get_vault, get_wallet_data,
     import_asset, save_mnemonic_seed, send_assets, set_blinded_utxo,
 };
 use log::{debug, info};
@@ -19,9 +19,12 @@ const SUPPLY: u64 = 1000;
 
 /// Test asset import
 #[tokio::test]
-async fn asset_import() -> Result<()> {
+async fn asset_transfer() -> Result<()> {
     if env::var("RUST_LOG").is_err() {
-        env::set_var("RUST_LOG", "bitmask_core=debug,asset=debug");
+        env::set_var(
+            "RUST_LOG",
+            "bitmask_core=debug,bitmask_core::operations::rgb::send_tokens=trace,asset=debug",
+        );
     }
 
     pretty_env_logger::init();
@@ -58,26 +61,28 @@ async fn asset_import() -> Result<()> {
     let udas_wallet = get_wallet_data(&vault.rgb_udas_descriptor_xpub, None).await?;
 
     info!("Check assets vault");
-    let send_assets_utxo = match get_assets_vault(&vault.rgb_assets_descriptor_xpub).await {
-        Ok(fund_vault_details) => {
-            info!("Found existing UTXO");
-            fund_vault_details.assets
-        }
-        Err(err) => {
-            info!("Funding vault... {}", err);
-            let fund_vault_details = fund_wallet(
+    let fund_vault_details = get_assets_vault(
+        &vault.rgb_assets_descriptor_xpub,
+        &vault.rgb_udas_descriptor_xpub,
+    )
+    .await?;
+
+    let send_assets_utxo = match fund_vault_details.assets_change_output {
+        Some(send_assets_utxo) => send_assets_utxo,
+        None => {
+            info!("Missing an asset UTXO in vault. Funding vault...");
+            let fund_vault_details = fund_vault(
                 &vault.btc_descriptor_xprv,
                 &vault.btc_change_descriptor_xprv,
                 &assets_wallet.address,
                 &udas_wallet.address,
-                10_000,
-                10_000,
-                None,
+                546,
+                546,
+                Some(3.0),
             )
             .await?;
             debug!("Fund vault details: {fund_vault_details:#?}");
-
-            fund_vault_details.assets
+            fund_vault_details.assets_output.unwrap()
         }
     };
 
@@ -99,11 +104,14 @@ async fn asset_import() -> Result<()> {
 
     info!("Transfer asset");
     let consignment_details = send_assets(
+        &vault.btc_descriptor_xprv,
+        &vault.btc_change_descriptor_xpub,
         &vault.rgb_assets_descriptor_xprv,
         &vault.rgb_assets_descriptor_xpub,
         &blinded_utxo.conceal,
         100,
         &issued_asset.genesis,
+        3.0,
     )
     .await?;
 

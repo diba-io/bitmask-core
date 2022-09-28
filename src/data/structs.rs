@@ -19,11 +19,10 @@ pub struct VaultData {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct FundVaultDetails {
-    pub txid: String,
-    pub assets: String,
-    pub assets_change: String,
-    pub udas: String,
-    pub udas_change: String,
+    pub assets_output: Option<String>,
+    pub assets_change_output: Option<String>,
+    pub udas_output: Option<String>,
+    pub udas_change_output: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

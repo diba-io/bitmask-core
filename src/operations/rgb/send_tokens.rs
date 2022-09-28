@@ -473,7 +473,6 @@ pub async fn transfer_asset(
     asset_contract: &str, // rgbc1...
     asset_utxos: Vec<LocalUtxo>,
 ) -> Result<(
-    ConsignmentDetails,
     Vec<u8>, // sten consignment bytes
     PartiallySignedTransaction,
     Disclosure,
@@ -617,9 +616,9 @@ pub async fn transfer_asset(
 
     // If there's no free outputs, the user needs to run fund vault again.
     if change_outputs.is_empty() {
-        error!("no free outputs, the user needs to run fund vault again");
+        error!("No free outputs, the user needs to run fund vault again");
         return Err(anyhow!(
-            "no free outputs, the user needs to run fund vault again"
+            "No free outputs, the user needs to run fund vault again"
         ));
     }
     let change_output = change_outputs.get(0).unwrap();
@@ -889,10 +888,5 @@ pub async fn transfer_asset(
     // btc-cold finalize --publish testnet ${PSBT}
     // (This is done by the client methods that call this method)
 
-    Ok((
-        process_consignment(&consignment, true).await?,
-        consignment.strict_serialize()?,
-        psbt.into(),
-        disclosure,
-    ))
+    Ok((consignment.strict_serialize()?, psbt.into(), disclosure))
 }

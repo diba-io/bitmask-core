@@ -9,7 +9,10 @@ use axum::{
 };
 use bitmask_core::{
     create_asset,
-    data::structs::{AssetRequest, BlindRequest, IssueRequest, TransferRequest, ValidateRequest},
+    data::structs::{
+        AssetRequest, BlindRequest, IssueRequest, TransferRequest, TransferResponse,
+        ValidateRequest,
+    },
     import_asset, set_blinded_utxo, transfer_assets, validate_transaction,
 };
 use log::info;
@@ -40,7 +43,7 @@ async fn import(Json(asset): Json<AssetRequest>) -> Result<impl IntoResponse, Ap
 
 #[axum_macros::debug_handler]
 async fn transfer(Json(transfer): Json<TransferRequest>) -> Result<impl IntoResponse, AppError> {
-    let transfer_res = transfer_assets(
+    let (consignment, psbt, disclosure) = transfer_assets(
         &transfer.rgb_assets_descriptor_xpub,
         &transfer.blinded_utxo,
         transfer.amount,
@@ -48,6 +51,12 @@ async fn transfer(Json(transfer): Json<TransferRequest>) -> Result<impl IntoResp
         transfer.asset_utxos,
     )
     .await?;
+
+    let transfer_res = TransferResponse {
+        consignment,
+        psbt,
+        disclosure,
+    };
 
     Ok((StatusCode::OK, Json(transfer_res)))
 }
