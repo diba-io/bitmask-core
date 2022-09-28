@@ -10,6 +10,7 @@ pub async fn sign_psbt(
 ) -> Result<Transaction> {
     debug!("Signing PSBT...");
     let finalized = wallet.sign(&mut psbt, SignOptions::default())?;
+    debug!(format!("Finalized: {finalized}"));
     if finalized {
         debug!("Signed PSBT:", base64::encode(&serialize(&psbt)));
         let tx = psbt.extract_tx();
@@ -18,6 +19,6 @@ pub async fn sign_psbt(
         blockchain.broadcast(&tx).await?;
         Ok(tx)
     } else {
-        Err(Error::msg(""))
+        Err(Error::msg("Could not finalize when signing PSBT"))
     }
 }

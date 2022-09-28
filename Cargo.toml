@@ -14,10 +14,15 @@ repository = "https://github.com/rgb-products/bitmask-core"
 [lib]
 crate-type = ["cdylib", "rlib"]
 
+[[bin]]
+name = "bitmaskd"
+required-features = ["server"]
+
 [features]
 default = []
 sqlite = []
 web = []
+server = ["tokio/full"]
 
 [dependencies]
 anyhow = "1.0.44"
@@ -44,7 +49,7 @@ pretty_env_logger = "0.4.0"
 bdk = { version = "0.22.0", features = [
     "use-esplora-reqwest",
     "async-interface",
-], default-features = false, git = "https://github.com/afilini/bdk.git", branch = "fix/taproot-non-witness-utxo" }
+], default-features = false, git = "https://github.com/bitcoindevkit/bdk.git", rev = "92ad4876c40c8499d46000c53f19f77d50c9ab14" }
 gloo-console = "0.2.1"
 gloo-net = "0.2.0"
 js-sys = "0.3.55"
@@ -56,13 +61,16 @@ rand = { version = "^0.6", features = ["wasm-bindgen"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 amplify = "3.13.0"
+axum = "0.5.16"
+axum-macros = "0.2.3"
 bdk = { version = "0.22.0", features = [
     "use-esplora-reqwest",
     "sqlite-bundled",
     "async-interface",
     "reqwest-default-tls",
-], default-features = false, git = "https://github.com/afilini/bdk.git", branch = "fix/taproot-non-witness-utxo" }
+], default-features = false, git = "https://github.com/bitcoindevkit/bdk.git", rev = "92ad4876c40c8499d46000c53f19f77d50c9ab14" }
 bp-core = { version = "0.8.0", features = ["wallet"] }
+carbonado = "0.1.1"
 commit_verify = { version = "0.8.0", features = ["rand"] }
 descriptor-wallet = { version = "0.8.3", features = ["descriptors", "serde"] }
 electrum-client = "0.10.1"

@@ -1,3 +1,4 @@
+use bdk::LocalUtxo;
 use bitcoin::{util::address::Address, OutPoint, Txid};
 use serde::{Deserialize, Serialize};
 
@@ -18,11 +19,10 @@ pub struct VaultData {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct FundVaultDetails {
-    pub txid: String,
-    pub assets: String,
-    pub assets_change: String,
-    pub udas: String,
-    pub udas_change: String,
+    pub assets_output: Option<String>,
+    pub assets_change_output: Option<String>,
+    pub udas_output: Option<String>,
+    pub udas_change_output: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -30,6 +30,22 @@ pub struct Issue {
     pub id: String,
     pub amount: u64,
     pub origin: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct IssueRequest {
+    /// The ticker of the asset
+    pub ticker: String,
+    /// The name of the asset
+    pub name: String,
+    /// Description of the asset (ID for the UDA)
+    pub description: String,
+    /// Precision of the asset
+    pub precision: u8,
+    /// Amount of the asset
+    pub supply: u64,
+    /// Utxo of the initial owner
+    pub utxo: OutPoint,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -57,6 +73,11 @@ pub struct Allocation {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Inflation {}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct AssetRequest {
+    pub genesis: String,
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -102,6 +123,11 @@ pub struct ThinAsset {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct BlindRequest {
+    pub utxo: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BlindResponse {
     pub blinding: String,
     pub conceal: String,
@@ -115,7 +141,7 @@ pub struct SealCoins {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TransferRequest {
+pub struct TransferRequestExt {
     pub inputs: Vec<OutPoint>,
     pub allocate: Vec<SealCoins>,
     pub receiver: String,
@@ -125,10 +151,26 @@ pub struct TransferRequest {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TransferResponse {
+pub struct TransferRequest {
+    pub rgb_assets_descriptor_xpub: String, // TODO: Privacy concerns. Not great, not terrible
+    pub blinded_utxo: String,
+    pub amount: u64,
+    pub asset_contract: String,
+    pub asset_utxos: Vec<LocalUtxo>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct TransferResult {
     pub consignment: String,
     pub disclosure: String,
     pub txid: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct TransferResponse {
+    pub consignment: String,
+    pub psbt: String,
+    pub disclosure: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

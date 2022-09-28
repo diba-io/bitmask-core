@@ -29,3 +29,11 @@ If there are issues compiling, be sure to check you're compiling with the latest
 
 1. Lint against wasm32: `cargo clippy --target wasm32-unknown-unknown`
 2. Run tests in browser: `TEST_WALLET_SEED="replace with a 12 word mnemonic for a wallet containing testnet sats" wasm-pack test --headless --chrome`
+
+## Run
+
+To run the bitmaskd node with REST server, either for testing the web wallet, or simply for increased privacy:
+
+`cargo install --features=server --path .`
+
+Then run `bitmaskd`.

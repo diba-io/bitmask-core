@@ -5,8 +5,11 @@ use std::{
 
 use amplify::{hex::ToHex, Wrapper};
 use anyhow::{anyhow, Result};
-use bdk::{database::AnyDatabase, descriptor::Descriptor, LocalUtxo, Wallet};
-use bitcoin::{psbt::serialize::Serialize, OutPoint, Transaction, Txid};
+use bdk::{descriptor::Descriptor, LocalUtxo};
+use bitcoin::{
+    psbt::{serialize::Serialize, PartiallySignedTransaction},
+    OutPoint, Txid,
+};
 use bp::seals::txout::{CloseMethod, ExplicitSeal};
 use commit_verify::lnpbp4::{self, MerkleBlock};
 use electrum_client::{Client, ElectrumApi};
@@ -19,7 +22,7 @@ use rgb_std::{
     psbt::{RgbExt, RgbInExt},
     AssignedState, BundleId, Consignment, ConsignmentId, ConsignmentType, Contract, ContractId,
     ContractState, ContractStateMap, Disclosure, Genesis, InmemConsignment, Node, NodeId, Schema,
-    SchemaId, SealEndpoint, Transition, TransitionBundle, Validator, Validity,
+    SchemaId, SealEndpoint, TransferConsignment, Transition, TransitionBundle, Validator, Validity,
 };
 use storm::{ChunkId, ChunkIdExt};
 use strict_encoding::{StrictDecode, StrictEncode};
@@ -28,13 +31,8 @@ use wallet::{
 };
 
 use crate::{
-    data::{
-        constants::BITCOIN_ELECTRUM_API,
-        structs::{SealCoins, TransferResponse},
-    },
-    debug, error, info,
-    operations::bitcoin::{sign_psbt, synchronize_wallet},
-    trace, warn,
+    data::{constants::BITCOIN_ELECTRUM_API, structs::SealCoins},
+    debug, error, info, trace, warn,
 };
 
 #[derive(Clone, Ord, PartialOrd, Eq, PartialEq, Hash, Debug, StrictEncode, StrictDecode)]
@@ -469,24 +467,20 @@ fn outpoint_state(
 }
 
 pub async fn transfer_asset(
+    bdk_rgb_assets_descriptor_xpub: &str,
     blinded_utxo: &str,
     amount: u64,
-    asset_contract: &str, // rgb1...
-    assets_wallet: &Wallet<AnyDatabase>,
-    bdk_rgb_assets_descriptor_xpub: &str,
-) -> Result<(ConsignmentDetails, Transaction, TransferResponse)> {
-    // BDK
-    info!("sync wallet");
-    synchronize_wallet(assets_wallet).await?;
-    info!("wallet synced");
-    let asset_utxos = assets_wallet.list_unspent()?;
-
+    asset_contract: &str, // rgbc1...
+    asset_utxos: Vec<LocalUtxo>,
+) -> Result<(
+    Vec<u8>, // sten consignment bytes
+    PartiallySignedTransaction,
+    Disclosure,
+)> {
     debug!(format!("asset_contract: {asset_contract}"));
 
-    // RGB
     // rgb-cli -n testnet transfer compose ${CONTRACT_ID} ${UTXO_SRC} ${CONSIGNMENT}
     let contract = Contract::from_str(asset_contract)?;
-    debug!(format!("parsed contract: {contract}"));
     let asset = Asset::try_from(&contract)?;
     debug!(format!("asset from contract: {asset:#?}"));
 
@@ -537,8 +531,10 @@ pub async fn transfer_asset(
         .collect();
 
     // Compose consignment from provided asset contract
-    let (mut consignment, consignment_details) =
-        compose_consignment(&contract, outpoints.clone()).await?;
+    let (mut consignment, consignment_details): (
+        InmemConsignment<TransferConsignment>,
+        ConsignmentDetails,
+    ) = compose_consignment(&contract, outpoints.clone()).await?;
 
     info!(format!("Parse blinded UTXO: {blinded_utxo}"));
     let utxob = match blinded_utxo.parse() {
@@ -619,9 +615,9 @@ pub async fn transfer_asset(
 
     // If there's no free outputs, the user needs to run fund vault again.
     if change_outputs.is_empty() {
-        error!("no free outputs, the user needs to run fund vault again");
+        error!("No free outputs, the user needs to run fund vault again");
         return Err(anyhow!(
-            "no free outputs, the user needs to run fund vault again"
+            "No free outputs, the user needs to run fund vault again"
         ));
     }
     let change_output = change_outputs.get(0).unwrap();
@@ -683,7 +679,7 @@ pub async fn transfer_asset(
     let allow_tapret_path = DfsPath::from_str("1")?;
 
     // format BDK descriptor for RGB
-    let re = Regex::new(r"\(\[([0-9a-f]+)/(.+)](.+?)/").unwrap();
+    let re = Regex::new(r"\(\[([0-9a-f]+)/(.+)](.+?)/")?;
     let cap = re.captures(bdk_rgb_assets_descriptor_xpub).unwrap();
     let rgb_assets_descriptor = format!("tr(m=[{}]/{}=[{}]/*/*)", &cap[1], &cap[2], &cap[3]);
     let rgb_assets_descriptor = rgb_assets_descriptor.replace('\'', "h");
@@ -702,7 +698,8 @@ pub async fn transfer_asset(
             ));
         }
     };
-    let fee = 500;
+    // let fee = 143; // 1 sat/vByte for permanently spending dust TX
+    let fee = 500; // donate entire fee to miners for OpRet TODO: different behavior for TapRet
 
     debug!("Constructing PSBT with...");
     debug!(format!("outputs: {outputs:?}"));
@@ -889,17 +886,7 @@ pub async fn transfer_asset(
 
     // btc-hot sign ${PSBT} ${DIR}/testnet
     // btc-cold finalize --publish testnet ${PSBT}
-    let tx = sign_psbt(assets_wallet, psbt.into()).await?;
+    // (This is done by the client methods that call this method)
 
-    let txid = tx.txid().to_string();
-
-    Ok((
-        process_consignment(&consignment, true).await?,
-        tx,
-        TransferResponse {
-            consignment: consignment.to_string(),
-            disclosure: serde_json::to_string(&disclosure)?,
-            txid,
-        },
-    ))
+    Ok((consignment.strict_serialize()?, psbt.into(), disclosure))
 }

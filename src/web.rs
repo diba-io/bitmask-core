@@ -1,5 +1,4 @@
 #![allow(unused_variables)]
-use bdk::FeeRate;
 use js_sys::Promise;
 use serde::de::DeserializeOwned;
 use wasm_bindgen::prelude::*;
@@ -159,7 +158,7 @@ pub fn send_sats(
     change_descriptor: String,
     address: String,
     amount: u64,
-    fee_rate: Option<FeeRate>,
+    fee_rate: Option<f32>,
 ) -> Promise {
     set_panic_hook();
 
@@ -174,21 +173,25 @@ pub fn send_sats(
 }
 
 #[wasm_bindgen]
-pub fn fund_wallet(
+pub fn fund_vault(
     descriptor: String,
     change_descriptor: String,
     address: String,
     uda_address: String,
-    fee_rate: Option<FeeRate>,
+    asset_amount: u64,
+    uda_amount: u64,
+    fee_rate: Option<f32>,
 ) -> Promise {
     set_panic_hook();
 
     future_to_promise(async move {
-        match crate::fund_wallet(
+        match crate::fund_vault(
             &descriptor,
             &change_descriptor,
             &address,
             &uda_address,
+            asset_amount,
+            uda_amount,
             fee_rate,
         )
         .await

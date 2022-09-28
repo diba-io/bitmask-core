@@ -69,14 +69,13 @@ pub async fn post_json<T: Serialize>(url: &str, body: &T) -> Result<(String, u16
         )
         .send()
         .await
-        .context(format!("Error sending JSON POST request to {}", url))?;
+        .context(format!("Error sending JSON POST request to {url}"))?;
 
     let status_code = response.status();
 
-    let response_text = response
-        .text()
-        .await
-        .context("Error in handling server response")?;
+    let response_text = response.text().await.context(format!(
+        "Error in parsing server response for POST JSON request to {url}"
+    ))?;
 
     Ok((response_text, status_code))
 }
@@ -86,14 +85,13 @@ pub async fn get(url: &str) -> Result<(String, u16)> {
     let response = Request::get(url)
         .send()
         .await
-        .context(format!("Error sending GET request to {}", url))?;
+        .context(format!("Error sending GET request to {url}"))?;
 
     let status_code = response.status();
 
-    let response_text = response
-        .text()
-        .await
-        .context("Error in handling server response")?;
+    let response_text = response.text().await.context(format!(
+        "Error in parsing server response for GET request to {url}"
+    ))?;
 
     Ok((response_text, status_code))
 }
@@ -110,14 +108,32 @@ pub async fn post_json<T: Serialize>(url: &str, body: &T) -> Result<(String, u16
         )
         .send()
         .await
-        .context(format!("Error sending JSON POST request to {}", url))?;
+        .context(format!("Error sending JSON POST request to {url}"))?;
 
     let status_code = response.status().as_u16();
 
-    let response_text = response
-        .text()
+    let response_text = response.text().await.context(format!(
+        "Error in parsing server response for POST JSON request to {url}"
+    ))?;
+
+    Ok((response_text, status_code))
+}
+
+#[allow(dead_code)]
+#[cfg(not(target_arch = "wasm32"))]
+pub async fn get(url: &str) -> Result<(String, u16)> {
+    let client = reqwest::Client::new();
+    let response = client
+        .get(url)
+        .send()
         .await
-        .context("Error in handling server response")?;
+        .context(format!("Error sending GET request to {url}"))?;
+
+    let status_code = response.status().as_u16();
+
+    let response_text = response.text().await.context(format!(
+        "Error in parsing server response for GET request to {url}"
+    ))?;
 
     Ok((response_text, status_code))
 }

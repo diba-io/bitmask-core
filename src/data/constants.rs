@@ -56,7 +56,7 @@ pub static NETWORK: Lazy<RwLock<Network>> = Lazy::new(|| {
 
 // See: https://docs.rs/bitcoin/0.27.1/src/bitcoin/network/constants.rs.html#62-75
 pub async fn switch_network(network_str: &str) -> Result<()> {
-    let network = Network::from_str(network_str).unwrap();
+    let network = Network::from_str(network_str)?;
 
     *BITCOIN_EXPLORER_API.write().unwrap() = match network {
         Network::Bitcoin => BITCOIN_EXPLORER_API_MAINNET.to_owned(),
