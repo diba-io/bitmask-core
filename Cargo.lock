@@ -312,7 +312,7 @@ dependencies = [
 [[package]]
 name = "bdk"
 version = "0.22.0"
-source = "git+https://github.com/afilini/bdk.git?branch=fix/taproot-non-witness-utxo#5e9965fca7fb50708af0d293a9f6cd27d0c85fed"
+source = "git+https://github.com/bitcoindevkit/bdk.git?rev=92ad4876c40c8499d46000c53f19f77d50c9ab14#92ad4876c40c8499d46000c53f19f77d50c9ab14"
 dependencies = [
  "ahash",
  "async-trait",
