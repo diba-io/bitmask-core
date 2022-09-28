@@ -19,7 +19,7 @@ name = "bitmaskd"
 required-features = ["server"]
 
 [features]
-default = ["server"]
+default = []
 sqlite = []
 web = []
 server = ["tokio/full"]

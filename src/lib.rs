@@ -5,11 +5,13 @@ extern crate amplify;
 use std::str::FromStr;
 
 use anyhow::{anyhow, Result};
-use bdk::{wallet::AddressIndex::LastUnused, BlockTime, FeeRate, LocalUtxo};
+#[cfg(not(target_arch = "wasm32"))]
+use bdk::LocalUtxo;
+use bdk::{wallet::AddressIndex::LastUnused, BlockTime, FeeRate};
+#[cfg(not(target_arch = "wasm32"))]
+use bitcoin::consensus::serialize as serialize_psbt;
 use bitcoin::{
-    consensus::{deserialize as deserialize_psbt, serialize as serialize_psbt},
-    util::address::Address,
-    OutPoint, Transaction, Txid,
+    consensus::deserialize as deserialize_psbt, util::address::Address, OutPoint, Transaction, Txid,
 };
 use bitcoin_hashes::{sha256, Hash};
 #[cfg(not(target_arch = "wasm32"))]
@@ -27,10 +29,12 @@ mod util;
 pub mod web;
 
 #[cfg(not(target_arch = "wasm32"))]
-use data::structs::{AssetResponse, ThinAsset, TransferResult};
+use data::structs::{AssetResponse, ThinAsset};
 pub use data::{
     constants,
-    structs::{FundVaultDetails, SatsInvoice, TransferRequest, TransferResponse, VaultData},
+    structs::{
+        FundVaultDetails, SatsInvoice, TransferRequest, TransferResponse, TransferResult, VaultData,
+    },
 };
 use operations::bitcoin::{
     create_transaction, get_wallet, new_mnemonic, save_mnemonic, sign_psbt, synchronize_wallet,
@@ -267,12 +271,14 @@ pub async fn send_sats(
     change_descriptor: &str,
     address: &str,
     amount: u64,
-    fee_rate: Option<FeeRate>,
+    fee_rate: Option<f32>,
 ) -> Result<Transaction> {
     let address = Address::from_str(address);
 
     let wallet = get_wallet(descriptor, Some(change_descriptor.to_owned()))?;
     synchronize_wallet(&wallet).await?;
+
+    let fee_rate = fee_rate.map(FeeRate::from_sat_per_vb);
 
     let transaction = create_transaction(
         vec![SatsInvoice {
@@ -292,9 +298,9 @@ pub async fn fund_wallet(
     change_descriptor: &str,
     address: &str,
     uda_address: &str,
-    fee_rate: Option<FeeRate>,
     asset_amount: u64,
     uda_amount: u64,
+    fee_rate: Option<f32>,
 ) -> Result<FundVaultDetails> {
     let address = Address::from_str(address);
     let uda_address = Address::from_str(uda_address);
@@ -310,6 +316,8 @@ pub async fn fund_wallet(
         address: uda_address.unwrap(),
         amount: uda_amount,
     };
+
+    let fee_rate = fee_rate.map(FeeRate::from_sat_per_vb);
 
     let details = create_transaction(
         vec![
