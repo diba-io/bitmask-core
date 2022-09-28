@@ -4,10 +4,10 @@ extern crate amplify;
 
 use std::str::FromStr;
 
+#[cfg(target_arch = "wasm32")]
+use anyhow::anyhow;
 use anyhow::Result;
-#[cfg(not(target_arch = "wasm32"))]
-use bdk::LocalUtxo;
-use bdk::{wallet::AddressIndex, BlockTime, FeeRate};
+use bdk::{wallet::AddressIndex, BlockTime, FeeRate, LocalUtxo};
 #[cfg(not(target_arch = "wasm32"))]
 use bitcoin::consensus::serialize as serialize_psbt;
 use bitcoin::{
@@ -15,7 +15,6 @@ use bitcoin::{
     util::address::Address, OutPoint, Transaction, Txid,
 };
 use bitcoin_hashes::{sha256, Hash};
-#[cfg(not(target_arch = "wasm32"))]
 use serde::{Deserialize, Serialize};
 use serde_encrypt::{
     serialize::impls::BincodeSerializer, shared_key::SharedKey, traits::SerdeEncryptSharedKey,

@@ -173,7 +173,7 @@ pub fn send_sats(
 }
 
 #[wasm_bindgen]
-pub fn fund_wallet(
+pub fn fund_vault(
     descriptor: String,
     change_descriptor: String,
     address: String,
@@ -185,7 +185,7 @@ pub fn fund_wallet(
     set_panic_hook();
 
     future_to_promise(async move {
-        match crate::fund_wallet(
+        match crate::fund_vault(
             &descriptor,
             &change_descriptor,
             &address,
