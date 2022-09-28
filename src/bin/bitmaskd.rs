@@ -9,9 +9,12 @@ use axum::{
 };
 use bitmask_core::{
     create_asset,
-    data::structs::{AssetRequest, BlindRequest, IssueRequest, TransferRequest, ValidateRequest},
-    import_asset, send_assets, set_blinded_utxo, validate_transaction,
+    data::structs::{
+        AssetRequest, BlindRequest, IssueRequest, TransferRequestExt, ValidateRequest,
+    },
+    import_asset, set_blinded_utxo, transfer_assets, validate_transaction,
 };
+use log::info;
 
 async fn issue(Json(issue): Json<IssueRequest>) -> Result<impl IntoResponse, AppError> {
     let issue_res = create_asset(
@@ -37,13 +40,14 @@ async fn import(Json(asset): Json<AssetRequest>) -> Result<impl IntoResponse, Ap
     Ok((StatusCode::OK, Json(asset_res)))
 }
 
-async fn transfer(Json(transfer): Json<TransferRequest>) -> Result<impl IntoResponse, AppError> {
-    let (_, _, transfer_res) = send_assets(
-        "TODO: clientside transfer PSBT",
-        "",
-        "",
+#[axum_macros::debug_handler]
+async fn transfer(Json(transfer): Json<TransferRequestExt>) -> Result<impl IntoResponse, AppError> {
+    let transfer_res = transfer_assets(
+        &transfer.rgb_assets_descriptor_xpub,
+        &transfer.blinded_utxo,
         transfer.amount,
-        "",
+        &transfer.asset_contract,
+        transfer.asset_utxos,
     )
     .await?;
 
@@ -51,9 +55,9 @@ async fn transfer(Json(transfer): Json<TransferRequest>) -> Result<impl IntoResp
 }
 
 async fn validate(Json(validate): Json<ValidateRequest>) -> Result<impl IntoResponse, AppError> {
-    let asset_res = validate_transaction(&validate.consignment).await?;
+    validate_transaction(&validate.consignment).await?;
 
-    Ok((StatusCode::OK, Json(asset_res)))
+    Ok(StatusCode::OK)
 }
 
 #[tokio::main]
@@ -68,10 +72,13 @@ async fn main() -> Result<()> {
         .route("/issue", post(issue))
         .route("/blind", post(blind))
         .route("/import", post(import))
-        .route("/transfer", post(transfer)) // TODO: needs clientside transfer PSBT
+        .route("/transfer", post(transfer))
         .route("/validate", post(validate));
 
     let addr = SocketAddr::from(([127, 0, 0, 1], 7070));
+
+    info!("bitmaskd REST server successfully running at {addr}");
+
     axum::Server::bind(&addr)
         .serve(app.into_make_service())
         .await?;

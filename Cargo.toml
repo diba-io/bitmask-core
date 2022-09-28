@@ -14,10 +14,15 @@ repository = "https://github.com/rgb-products/bitmask-core"
 [lib]
 crate-type = ["cdylib", "rlib"]
 
+[[bin]]
+name = "bitmaskd"
+required-features = ["server"]
+
 [features]
-default = []
+default = ["server"]
 sqlite = []
 web = []
+server = ["tokio/full"]
 
 [dependencies]
 anyhow = "1.0.44"
@@ -57,6 +62,7 @@ rand = { version = "^0.6", features = ["wasm-bindgen"] }
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 amplify = "3.13.0"
 axum = "0.5.16"
+axum-macros = "0.2.3"
 bdk = { version = "0.22.0", features = [
     "use-esplora-reqwest",
     "sqlite-bundled",
@@ -64,6 +70,7 @@ bdk = { version = "0.22.0", features = [
     "reqwest-default-tls",
 ], default-features = false, git = "https://github.com/afilini/bdk.git", branch = "fix/taproot-non-witness-utxo" }
 bp-core = { version = "0.8.0", features = ["wallet"] }
+carbonado = "0.1.1"
 commit_verify = { version = "0.8.0", features = ["rand"] }
 descriptor-wallet = { version = "0.8.3", features = ["descriptors", "serde"] }
 electrum-client = "0.10.1"

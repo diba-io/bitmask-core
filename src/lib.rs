@@ -5,8 +5,12 @@ extern crate amplify;
 use std::str::FromStr;
 
 use anyhow::{anyhow, Result};
-use bdk::{wallet::AddressIndex::LastUnused, BlockTime, FeeRate};
-use bitcoin::{util::address::Address, OutPoint, Transaction, Txid};
+use bdk::{wallet::AddressIndex::LastUnused, BlockTime, FeeRate, LocalUtxo};
+use bitcoin::{
+    consensus::{deserialize as deserialize_psbt, serialize as serialize_psbt},
+    util::address::Address,
+    OutPoint, Transaction, Txid,
+};
 use bitcoin_hashes::{sha256, Hash};
 #[cfg(not(target_arch = "wasm32"))]
 use operations::rgb::ConsignmentDetails;
@@ -23,20 +27,23 @@ mod util;
 pub mod web;
 
 #[cfg(not(target_arch = "wasm32"))]
-use data::structs::{AssetResponse, ThinAsset, TransferResponse};
+use data::structs::{
+    AssetResponse, ThinAsset, TransferRequestExt, TransferResponse, TransferResponseExt,
+};
 pub use data::{
     constants,
     structs::{FundVaultDetails, SatsInvoice, VaultData},
 };
-
 use operations::bitcoin::{
-    create_transaction, get_wallet, new_mnemonic, save_mnemonic, synchronize_wallet,
+    create_transaction, get_wallet, new_mnemonic, save_mnemonic, sign_psbt, synchronize_wallet,
 };
 #[cfg(not(target_arch = "wasm32"))]
 use operations::rgb::{
     /* accept_transfer, */ blind_utxo, get_asset_by_genesis, get_assets, issue_asset,
     transfer_asset, validate_transfer,
 };
+#[cfg(not(target_arch = "wasm32"))]
+use util::post_json;
 
 impl SerdeEncryptSharedKey for VaultData {
     type S = BincodeSerializer<Self>; // you can specify serializer implementation (or implement it by yourself).
@@ -360,28 +367,92 @@ pub async fn get_assets_vault(assets_descriptor: &str) -> Result<FundVaultDetail
     }
 }
 
-#[cfg(not(target_arch = "wasm32"))]
 pub async fn send_assets(
     rgb_assets_descriptor_xprv: &str,
     rgb_assets_descriptor_xpub: &str,
     blinded_utxo: &str,
     amount: u64,
     asset_contract: &str,
-) -> Result<(ConsignmentDetails, Transaction, TransferResponse)> {
-    // let assets_wallet = get_wallet(rgb_assets_descriptor_xprv, None)?;
-    // synchronize_wallet(&assets_wallet).await?;
-    todo!("TODO: clientside transfer PSBT");
+) -> Result<TransferResponse> {
+    let assets_wallet = get_wallet(rgb_assets_descriptor_xprv, None)?;
+    debug!("sync wallet");
+    synchronize_wallet(&assets_wallet).await?;
+    debug!("wallet synced");
 
-    let (consignment, tx, response) = transfer_asset(
+    let asset_utxos = assets_wallet.list_unspent()?;
+
+    // #[cfg(not(target_arch = "wasm32"))]
+    // let (_, consignment, psbt, disclosure) = transfer_assets(
+    //     rgb_assets_descriptor_xpub,
+    //     blinded_utxo,
+    //     amount,
+    //     asset_contract,
+    //     asset_utxos,
+    // )
+    // .await?;
+    #[cfg(not(target_arch = "wasm32"))]
+    let (consignment, psbt, disclosure) = async {
+        let endpoint = &constants::SEND_ASSETS_ENDPOINT;
+        let body = TransferRequestExt {
+            rgb_assets_descriptor_xpub: rgb_assets_descriptor_xpub.to_string(),
+            blinded_utxo: blinded_utxo.to_string(),
+            amount,
+            asset_contract: asset_contract.to_string(),
+            asset_utxos,
+        };
+        let (transfer_res, status) = post_json(endpoint, &body).await?;
+        if status != 200 {
+            return Err(anyhow!("Error calling {}", endpoint.as_str()));
+        }
+        let TransferResponseExt {
+            consignment,
+            psbt,
+            disclosure,
+        } = serde_json::from_str(&transfer_res)?;
+        let psbt = base64::decode(&psbt)?;
+        let psbt = deserialize_psbt(&psbt)?;
+        Ok((consignment, psbt, disclosure))
+    }
+    .await?;
+
+    let tx = sign_psbt(&assets_wallet, psbt).await?;
+    let txid = tx.txid().to_string();
+
+    Ok(TransferResponse {
+        consignment,
+        disclosure,
+        txid,
+    })
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub async fn transfer_assets(
+    rgb_assets_descriptor_xpub: &str, // TODO: Privacy concerns. Not great, not terrible
+    blinded_utxo: &str,
+    amount: u64,
+    asset_contract: &str,
+    asset_utxos: Vec<LocalUtxo>,
+) -> Result<(
+    ConsignmentDetails,
+    String, // base64 sten consignment
+    String, // base64 bitcoin encoded psbt
+    String, // json
+)> {
+    let (consignment_details, consignment, psbt, disclosure) = transfer_asset(
+        rgb_assets_descriptor_xpub,
         blinded_utxo,
         amount,
         asset_contract,
-        // &assets_wallet,
-        rgb_assets_descriptor_xpub,
+        asset_utxos,
     )
     .await?;
 
-    Ok((consignment, tx, response))
+    let consignment = base64::encode(&consignment);
+    let psbt = serialize_psbt(&psbt);
+    let psbt = base64::encode(&psbt);
+    let disclosure = serde_json::to_string(&disclosure)?;
+
+    Ok((consignment_details, consignment, psbt, disclosure))
 }
 
 #[cfg(not(target_arch = "wasm32"))]

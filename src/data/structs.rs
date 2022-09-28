@@ -1,3 +1,4 @@
+use bdk::LocalUtxo;
 use bitcoin::{util::address::Address, OutPoint, Txid};
 use serde::{Deserialize, Serialize};
 
@@ -151,10 +152,26 @@ pub struct TransferRequest {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct TransferRequestExt {
+    pub rgb_assets_descriptor_xpub: String, // TODO: Privacy concerns. Not great, not terrible
+    pub blinded_utxo: String,
+    pub amount: u64,
+    pub asset_contract: String,
+    pub asset_utxos: Vec<LocalUtxo>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TransferResponse {
     pub consignment: String,
     pub disclosure: String,
     pub txid: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct TransferResponseExt {
+    pub consignment: String,
+    pub psbt: String,
+    pub disclosure: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
