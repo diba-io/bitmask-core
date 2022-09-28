@@ -4,8 +4,8 @@ use std::env;
 
 use anyhow::Result;
 use bitmask_core::{
-    create_asset, fund_vault, get_assets_vault, get_network, get_vault, get_wallet_data,
-    import_asset, save_mnemonic_seed, send_assets, set_blinded_utxo,
+    create_asset, fund_vault, get_assets_vault, get_mnemonic_seed, get_network, get_vault,
+    get_wallet_data, import_asset, save_mnemonic_seed, send_assets, send_sats, set_blinded_utxo,
 };
 use log::{debug, info};
 
@@ -32,38 +32,66 @@ async fn asset_transfer() -> Result<()> {
     let network = get_network()?;
     info!("Asset test on {network}");
 
-    info!("Import wallet");
-    let mnemonic = env!("TEST_WALLET_SEED", "TEST_WALLET_SEED variable not set");
-    let mnemonic_data = save_mnemonic_seed(mnemonic, ENCRYPTION_PASSWORD, SEED_PASSWORD)?;
+    info!("Import wallets");
+    let main_mnemonic = env!("TEST_WALLET_SEED", "TEST_WALLET_SEED variable not set");
+    let main_mnemonic_data = save_mnemonic_seed(main_mnemonic, ENCRYPTION_PASSWORD, SEED_PASSWORD)?;
 
-    info!("Get vault properties");
-    let vault = get_vault(
+    let main_vault = get_vault(
         ENCRYPTION_PASSWORD,
-        &mnemonic_data.serialized_encrypted_message,
+        &main_mnemonic_data.serialized_encrypted_message,
+    )?;
+
+    let main_btc_wallet = get_wallet_data(
+        &main_vault.btc_descriptor_xprv,
+        Some(main_vault.btc_change_descriptor_xprv.clone()),
+    )
+    .await?;
+
+    info!("Main vault address: {}", main_btc_wallet.address);
+
+    assert!(
+        !main_btc_wallet.transactions.is_empty(),
+        "Main wallet transactions list is empty (has this wallet been funded?)"
+    );
+
+    info!("Create an ephemeral wallet from fresh mnemonic for purposes of the test");
+    let tmp_mnemonic = get_mnemonic_seed(ENCRYPTION_PASSWORD, SEED_PASSWORD)?;
+
+    info!("Get ephemeral vault properties");
+    let tmp_vault = get_vault(
+        ENCRYPTION_PASSWORD,
+        &tmp_mnemonic.serialized_encrypted_message,
     )?;
 
     info!("Get sats wallet data");
     let btc_wallet = get_wallet_data(
-        &vault.btc_descriptor_xprv,
-        Some(vault.btc_change_descriptor_xprv.clone()),
+        &tmp_vault.btc_descriptor_xprv,
+        Some(tmp_vault.btc_change_descriptor_xprv.clone()),
     )
     .await?;
 
-    assert!(
-        !btc_wallet.transactions.is_empty(),
-        "List of transactions is empty (has this wallet been funded?)"
-    );
+    info!("Fund ephemeral wallet");
+    let tx = send_sats(
+        &main_vault.btc_descriptor_xprv,
+        &main_vault.btc_change_descriptor_xprv,
+        &btc_wallet.address,
+        5000,
+        Some(1.0),
+    )
+    .await?;
+
+    debug!("Ephemeral wallet funding tx: {tx:?}");
 
     info!("Get assets wallet data");
-    let assets_wallet = get_wallet_data(&vault.rgb_assets_descriptor_xpub, None).await?;
+    let assets_wallet = get_wallet_data(&tmp_vault.rgb_assets_descriptor_xpub, None).await?;
 
     info!("Get UDAs wallet data");
-    let udas_wallet = get_wallet_data(&vault.rgb_udas_descriptor_xpub, None).await?;
+    let udas_wallet = get_wallet_data(&tmp_vault.rgb_udas_descriptor_xpub, None).await?;
 
     info!("Check assets vault");
     let fund_vault_details = get_assets_vault(
-        &vault.rgb_assets_descriptor_xpub,
-        &vault.rgb_udas_descriptor_xpub,
+        &tmp_vault.rgb_assets_descriptor_xpub,
+        &tmp_vault.rgb_udas_descriptor_xpub,
     )
     .await?;
 
@@ -72,8 +100,8 @@ async fn asset_transfer() -> Result<()> {
         None => {
             info!("Missing an asset UTXO in vault. Funding vault...");
             let fund_vault_details = fund_vault(
-                &vault.btc_descriptor_xprv,
-                &vault.btc_change_descriptor_xprv,
+                &tmp_vault.btc_descriptor_xprv,
+                &tmp_vault.btc_change_descriptor_xprv,
                 &assets_wallet.address,
                 &udas_wallet.address,
                 546,
@@ -104,10 +132,10 @@ async fn asset_transfer() -> Result<()> {
 
     info!("Transfer asset");
     let consignment_details = send_assets(
-        &vault.btc_descriptor_xprv,
-        &vault.btc_change_descriptor_xpub,
-        &vault.rgb_assets_descriptor_xprv,
-        &vault.rgb_assets_descriptor_xpub,
+        &tmp_vault.btc_descriptor_xprv,
+        &tmp_vault.btc_change_descriptor_xpub,
+        &tmp_vault.rgb_assets_descriptor_xprv,
+        &tmp_vault.rgb_assets_descriptor_xpub,
         &blinded_utxo.conceal,
         100,
         &issued_asset.genesis,

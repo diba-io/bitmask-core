@@ -391,10 +391,10 @@ pub async fn send_assets(
         // None,
         Some(btc_change_descriptor_xpub.to_owned()),
     )?;
-    let address = btc_wallet
-        .get_address(AddressIndex::LastUnused)?
-        .to_string();
-    info!(format!("BTC wallet address: {address}"));
+    // let address = btc_wallet
+    //     .get_address(AddressIndex::LastUnused)?
+    //     .to_string();
+    // info!(format!("BTC wallet address: {address}"));
     let assets_wallet = get_wallet(rgb_assets_descriptor_xprv, None)?;
     info!("Sync wallets");
     try_join!(
@@ -411,7 +411,7 @@ pub async fn send_assets(
     ));
 
     // Create a new tx for the change output, to be bundled
-    let dust_psbt = dust_tx(&btc_wallet, fee_rate, asset_utxos.get(0))?;
+    let _dust_psbt = dust_tx(&btc_wallet, fee_rate, asset_utxos.get(0))?;
     info!("Created dust PSBT");
     info!("Creating transfer PSBT...");
 
@@ -455,13 +455,11 @@ pub async fn send_assets(
     info!("Signing and broadcasting transactions...");
     let tx = sign_psbt(&assets_wallet, psbt).await?;
     let txid = tx.txid().to_string();
+    info!(format!("transfer txid was {txid}"));
 
-    let dust_tx = sign_psbt(&btc_wallet, dust_psbt).await?;
-    let dust_txid = dust_tx.txid().to_string();
-
-    info!(format!(
-        "Finished, transfer txid was {txid}, and dust txid was {dust_txid}"
-    ));
+    // let dust_tx = sign_psbt(&btc_wallet, dust_psbt).await?;
+    // let dust_txid = dust_tx.txid().to_string();
+    // info!(format!("dust txid was {dust_txid}"));
 
     Ok(TransferResult {
         consignment,
