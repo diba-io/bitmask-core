@@ -7,9 +7,8 @@ use wasm_bindgen_futures::{future_to_promise, JsFuture};
 use crate::{
     constants::{
         ACCEPT_TRANSFER_ENDPOINT, BLINDED_UTXO_ENDPOINT, IMPORT_ASSET_ENDPOINT,
-        LIST_ASSETS_ENDPOINT, SEND_ASSETS_ENDPOINT, VALIDATE_TRANSFER_ENDPOINT,
+        LIST_ASSETS_ENDPOINT, VALIDATE_TRANSFER_ENDPOINT,
     },
-    data::structs::ThinAsset,
     util::get,
 };
 
@@ -204,22 +203,32 @@ pub fn fund_vault(
     })
 }
 
+#[allow(clippy::too_many_arguments)]
 #[wasm_bindgen]
-pub fn send_tokens(
-    btc_descriptor: String,
-    btc_change_descriptor: String,
-    rgb_tokens_descriptor: String,
+pub fn send_assets(
+    btc_descriptor_xprv: String,
+    btc_change_descriptor_xpub: String,
+    rgb_assets_descriptor_xprv: String,
+    rgb_assets_descriptor_xpub: String,
     blinded_utxo: String,
     amount: u64,
-    asset: String,
+    asset_contract: String,
+    fee_rate: f32,
 ) -> Promise {
     set_panic_hook();
 
-    let asset: ThinAsset = serde_json::from_str(&asset).unwrap();
-
     future_to_promise(async move {
-        let result = get(&SEND_ASSETS_ENDPOINT).await;
-        match result {
+           match crate::send_assets(
+            &btc_descriptor_xprv,
+            &btc_change_descriptor_xpub,
+            &rgb_assets_descriptor_xprv,
+            &rgb_assets_descriptor_xpub,
+            &blinded_utxo,
+            amount,
+            &asset_contract,
+            fee_rate,
+        )
+        .await {
             Ok(result) => Ok(JsValue::from_string(
                 serde_json::to_string(&result).unwrap(),
             )),

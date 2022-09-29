@@ -168,6 +168,7 @@ async fn import_test_wallet() {
         vault_data.btc_change_descriptor_xprv,
         wallet_data.address,
         1_000,
+        None,
     ))
     .await;
 

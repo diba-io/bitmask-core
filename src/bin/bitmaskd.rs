@@ -13,7 +13,7 @@ use bitmask_core::{
         AssetRequest, BlindRequest, IssueRequest, TransferRequest, TransferResponse,
         ValidateRequest,
     },
-    import_asset, set_blinded_utxo, transfer_assets, validate_transaction,
+    get_blinded_utxo, import_asset, transfer_assets, validate_transaction,
 };
 use log::info;
 
@@ -30,7 +30,7 @@ async fn issue(Json(issue): Json<IssueRequest>) -> Result<impl IntoResponse, App
 }
 
 async fn blind(Json(blind): Json<BlindRequest>) -> Result<impl IntoResponse, AppError> {
-    let blind_res = set_blinded_utxo(&blind.utxo)?;
+    let blind_res = get_blinded_utxo(&blind.utxo)?;
 
     Ok((StatusCode::OK, Json(blind_res)))
 }

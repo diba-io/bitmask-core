@@ -4,8 +4,8 @@ use std::env;
 
 use anyhow::Result;
 use bitmask_core::{
-    create_asset, fund_vault, get_assets_vault, get_mnemonic_seed, get_network, get_vault,
-    get_wallet_data, import_asset, save_mnemonic_seed, send_assets, send_sats, set_blinded_utxo,
+    create_asset, fund_vault, get_assets_vault, get_blinded_utxo, get_mnemonic_seed, get_network,
+    get_vault, get_wallet_data, import_asset, save_mnemonic_seed, send_assets, send_sats,
 };
 use log::{debug, info};
 
@@ -126,7 +126,7 @@ async fn asset_transfer() -> Result<()> {
     assert_eq!(issued_asset.asset_id, imported_asset.id, "Asset IDs match");
 
     info!("Get a blinded UTXO");
-    let blinded_utxo = set_blinded_utxo(&send_assets_utxo)?;
+    let blinded_utxo = get_blinded_utxo(&send_assets_utxo)?;
 
     debug!("Blinded UTXO: {:?}", blinded_utxo);
 

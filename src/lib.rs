@@ -30,6 +30,8 @@ pub mod web;
 
 #[cfg(not(target_arch = "wasm32"))]
 use crate::data::structs::{AssetResponse, ThinAsset};
+#[cfg(target_arch = "wasm32")]
+use crate::data::structs::{BlindRequest, BlindResponse};
 pub use crate::data::{
     constants,
     structs::{
@@ -229,14 +231,10 @@ pub struct BlindingUtxo {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-pub fn set_blinded_utxo(utxo_string: &str) -> Result<BlindingUtxo> {
-    let mut split = utxo_string.split(':');
-    let utxo = OutPoint {
-        txid: Txid::from_str(split.next().unwrap())?,
-        vout: split.next().unwrap().to_string().parse::<u32>()?,
-    };
+pub fn get_blinded_utxo(utxo_string: OutPoint) -> Result<BlindingUtxo> {
+    let utxo = OutPoint::from_str(utxo_string)?;
 
-    let (blind, utxo) = blind_utxo(utxo)?;
+    let blind = blind_utxo(utxo)?;
 
     let blinding_utxo = BlindingUtxo {
         conceal: blind.conceal,
@@ -244,6 +242,25 @@ pub fn set_blinded_utxo(utxo_string: &str) -> Result<BlindingUtxo> {
         utxo,
     };
 
+    Ok(blinding_utxo)
+}
+
+#[cfg(target_arch = "wasm32")]
+pub async fn get_blinded_utxo(utxo_string: &str) -> Result<BlindingUtxo> {
+    let utxo = OutPoint::from_str(utxo_string)?;
+
+    let endpoint = &constants::BLINDED_UTXO_ENDPOINT;
+    let body = BlindRequest { utxo };
+    let (blind_res, status) = post_json(endpoint, &body).await?;
+    if status != 200 {
+        return Err(anyhow!("Error calling {}", endpoint.as_str()));
+    }
+    let BlindResponse { conceal, blinding } = serde_json::from_str(&blind_res)?;
+    let blinding_utxo = BlindingUtxo {
+        conceal,
+        blinding,
+        utxo,
+    };
     Ok(blinding_utxo)
 }
 

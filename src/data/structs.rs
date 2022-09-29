@@ -124,7 +124,7 @@ pub struct ThinAsset {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BlindRequest {
-    pub utxo: String,
+    pub utxo: OutPoint,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
