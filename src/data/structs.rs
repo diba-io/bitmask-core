@@ -57,7 +57,7 @@ pub struct SatsInvoice {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Amount {
     pub value: u64,
-    pub blinding: String,
+    pub blinding: u64,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -76,7 +76,7 @@ pub struct Inflation {}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct AssetRequest {
-    pub genesis: String,
+    pub asset: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

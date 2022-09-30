@@ -468,6 +468,7 @@ dependencies = [
  "axum-macros",
  "base64-compat",
  "bdk",
+ "bech32 0.9.1",
  "bip39",
  "bitcoin",
  "bitcoin_hashes 0.10.0",

@@ -4,7 +4,6 @@ extern crate amplify;
 
 use std::str::FromStr;
 
-#[cfg(target_arch = "wasm32")]
 use anyhow::anyhow;
 use anyhow::Result;
 use bdk::{wallet::AddressIndex, BlockTime, FeeRate, LocalUtxo};
@@ -24,18 +23,19 @@ use tokio::try_join;
 
 pub mod data;
 mod operations;
-mod util;
+pub mod util;
 #[cfg(target_arch = "wasm32")]
 pub mod web;
 
 #[cfg(not(target_arch = "wasm32"))]
-use crate::data::structs::{AssetResponse, ThinAsset};
+use crate::data::structs::AssetResponse;
 #[cfg(target_arch = "wasm32")]
-use crate::data::structs::{BlindRequest, BlindResponse};
+use crate::data::structs::{AssetRequest, BlindRequest, BlindResponse};
 pub use crate::data::{
     constants,
     structs::{
-        FundVaultDetails, SatsInvoice, TransferRequest, TransferResponse, TransferResult, VaultData,
+        FundVaultDetails, SatsInvoice, ThinAsset, TransferRequest, TransferResponse,
+        TransferResult, VaultData,
     },
 };
 use crate::operations::bitcoin::{
@@ -212,9 +212,30 @@ pub fn create_asset(
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-pub fn import_asset(genesis: &str) -> Result<ThinAsset> {
-    info!("Getting asset by genesis:", genesis);
-    get_asset_by_genesis(genesis)
+pub fn import_asset(asset: &str) -> Result<ThinAsset> {
+    match asset.as_bytes() {
+        [b'r', b'g', b'b', b'1', ..] => Ok(todo!()),
+        [b'r', b'g', b'b', b'c', b'1', ..] => {
+            info!("Getting asset by contract genesis:", asset);
+            get_asset_by_genesis(asset)
+        }
+        _ => Err(anyhow!("Asset did not match expected format")),
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+pub async fn import_asset(asset: &str) -> Result<ThinAsset> {
+    info!("Getting asset:", asset);
+    let endpoint = &constants::IMPORT_ASSET_ENDPOINT;
+    let body = AssetRequest {
+        asset: asset.to_owned(),
+    };
+    let (blind_res, status) = post_json(endpoint, &body).await?;
+    if status != 200 {
+        return Err(anyhow!("Error calling {}", endpoint.as_str()));
+    }
+    let asset_res: ThinAsset = serde_json::from_str(&blind_res)?;
+    Ok(asset_res)
 }
 
 #[derive(Serialize, Deserialize)]
@@ -261,6 +282,7 @@ pub async fn get_blinded_utxo(utxo_string: &str) -> Result<BlindingUtxo> {
         blinding,
         utxo,
     };
+
     Ok(blinding_utxo)
 }
 

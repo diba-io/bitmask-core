@@ -122,7 +122,7 @@ pub fn list_assets(xpubkh: String, encryption_secret: String) -> Promise {
 }
 
 #[wasm_bindgen]
-pub fn import_asset(genesis: String) -> Promise {
+pub fn import_asset(asset: String) -> Promise {
     set_panic_hook();
 
     future_to_promise(async move {
@@ -253,7 +253,7 @@ pub fn validate_transfer(utxo_string: String) -> Promise {
 }
 
 #[wasm_bindgen]
-pub fn accept_transfer(consignment: String, txid: String, vout: u32, blinding: String) -> Promise {
+pub fn accept_transfer(consignment: String, blinding: String) -> Promise {
     set_panic_hook();
     future_to_promise(async move {
         let result = get(&ACCEPT_TRANSFER_ENDPOINT).await;

@@ -40,7 +40,7 @@ pub fn get_asset_by_genesis(genesis: &str) -> Result<ThinAsset> {
             let seal_txid = coin.seal.txid.to_string();
             let seal_vout = coin.seal.vout;
 
-            let blinding = coin.state.blinding.to_string();
+            let blinding = coin.state.blinding;
             let value = coin.state.value;
             let amount = Amount { value, blinding };
 

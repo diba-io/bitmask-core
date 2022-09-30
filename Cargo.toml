@@ -27,6 +27,7 @@ server = ["tokio/full"]
 [dependencies]
 anyhow = "1.0.44"
 base64 = { package = "base64-compat", version = "1.0.0" }
+bech32 = "0.9.1"
 bip39 = "1.0.1"
 bitcoin = "0.28.1"
 bitcoin_hashes = "0.10.0"
