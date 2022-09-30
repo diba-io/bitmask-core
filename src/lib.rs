@@ -252,7 +252,7 @@ pub struct BlindingUtxo {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-pub fn get_blinded_utxo(utxo_string: OutPoint) -> Result<BlindingUtxo> {
+pub fn get_blinded_utxo(utxo_string: &str) -> Result<BlindingUtxo> {
     let utxo = OutPoint::from_str(utxo_string)?;
 
     let blind = blind_utxo(utxo)?;
