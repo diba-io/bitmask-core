@@ -1,6 +1,5 @@
 use bdk::LocalUtxo;
 use bitcoin::{util::address::Address, OutPoint, Txid};
-use rgb_core::value::BlindingFactor;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -58,7 +57,7 @@ pub struct SatsInvoice {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Amount {
     pub value: u64,
-    pub blinding: BlindingFactor,
+    pub blinding: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

@@ -29,7 +29,6 @@ pub fn get_asset_by_genesis(genesis: &str) -> Result<ThinAsset> {
         _ => return Err(anyhow!("Error decoding asset name")),
     };
 
-    // let allocations =
     let allocations: Vec<Allocation> = asset
         .known_coins()
         .enumerate()
@@ -40,7 +39,7 @@ pub fn get_asset_by_genesis(genesis: &str) -> Result<ThinAsset> {
             let seal_txid = coin.seal.txid.to_string();
             let seal_vout = coin.seal.vout;
 
-            let blinding = coin.state.blinding;
+            let blinding = coin.state.blinding.to_string();
             let value = coin.state.value;
             let amount = Amount { value, blinding };
 
