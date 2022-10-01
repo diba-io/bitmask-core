@@ -5,10 +5,10 @@ use wasm_bindgen_test::*;
 
 use bitmask_core::{
     web::{
-        get_vault, get_wallet_data, import_asset, json_parse, resolve, save_mnemonic_seed,
-        set_panic_hook,
+        get_encrypted_wallet, get_wallet_data, import_asset, json_parse, resolve,
+        save_mnemonic_seed, set_panic_hook,
     },
-    MnemonicSeedData, VaultData, WalletData,
+    MnemonicSeedData, WalletData, WalletData,
 };
 
 wasm_bindgen_test_configure!(run_in_browser);
@@ -38,7 +38,7 @@ async fn asset_import() {
         serde_json::to_string(&mnemonic_data.serialized_encrypted_message).unwrap();
 
     // Get vault properties
-    let vault_str: JsValue = resolve(get_vault(
+    let vault_str: JsValue = resolve(get_encrypted_wallet(
         ENCRYPTION_PASSWORD.to_owned(),
         encrypted_descriptors,
     ))

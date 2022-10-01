@@ -34,8 +34,8 @@ use crate::data::structs::{AssetRequest, BlindRequest, BlindResponse};
 pub use crate::data::{
     constants,
     structs::{
-        FundVaultDetails, SatsInvoice, ThinAsset, TransferRequest, TransferResponse,
-        TransferResult, VaultData,
+        EncryptedWalletData, FundVaultDetails, SatsInvoice, ThinAsset, TransferRequest,
+        TransferResponse, TransferResult,
     },
 };
 use crate::operations::bitcoin::{
@@ -50,17 +50,20 @@ use crate::operations::rgb::{
 #[cfg(target_arch = "wasm32")]
 use crate::util::post_json;
 
-impl SerdeEncryptSharedKey for VaultData {
+impl SerdeEncryptSharedKey for EncryptedWalletData {
     type S = BincodeSerializer<Self>; // you can specify serializer implementation (or implement it by yourself).
 }
 
-pub fn get_vault(password: &str, encrypted_descriptors: &str) -> Result<VaultData> {
+pub fn get_encrypted_wallet(
+    password: &str,
+    encrypted_descriptors: &str,
+) -> Result<EncryptedWalletData> {
     // read hash digest and consume hasher
     let hash = sha256::Hash::hash(password.as_bytes());
     let shared_key: [u8; 32] = hash.into_inner();
     let encrypted_descriptors: Vec<u8> = hex::decode(encrypted_descriptors)?;
     let encrypted_message = EncryptedMessage::deserialize(encrypted_descriptors)?;
-    Ok(VaultData::decrypt_owned(
+    Ok(EncryptedWalletData::decrypt_owned(
         &encrypted_message,
         &SharedKey::from_array(shared_key),
     )?)
@@ -80,11 +83,11 @@ pub fn get_mnemonic_seed(
     let hash = sha256::Hash::hash(encryption_password.as_bytes());
     let shared_key: [u8; 32] = hash.into_inner();
 
-    let vault_data = new_mnemonic(seed_password)?;
-    let encrypted_message = vault_data.encrypt(&SharedKey::from_array(shared_key))?;
+    let encrypted_wallet_data = new_mnemonic(seed_password)?;
+    let encrypted_message = encrypted_wallet_data.encrypt(&SharedKey::from_array(shared_key))?;
     let serialized_encrypted_message = hex::encode(&encrypted_message.serialize());
     let mnemonic_seed_data = MnemonicSeedData {
-        mnemonic: vault_data.mnemonic,
+        mnemonic: encrypted_wallet_data.mnemonic,
         serialized_encrypted_message,
     };
 
@@ -115,7 +118,7 @@ pub struct WalletData {
     pub address: String,
     pub balance: String,
     pub transactions: Vec<WalletTransaction>,
-    pub unspent: Vec<String>,
+    pub utxos: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Default)]
@@ -142,12 +145,9 @@ pub async fn get_wallet_data(
     info!("address:", &address);
     let balance = wallet.get_balance()?.to_string();
     info!("balance:", &balance);
-    let unspent = wallet.list_unspent().unwrap_or_default();
-    let unspent: Vec<String> = unspent
-        .into_iter()
-        .map(|x| x.outpoint.to_string())
-        .collect();
-    trace!(format!("unspent: {unspent:#?}"));
+    let utxos = wallet.list_unspent().unwrap_or_default();
+    let utxos: Vec<String> = utxos.into_iter().map(|x| x.outpoint.to_string()).collect();
+    trace!(format!("unspent: {utxos:#?}"));
 
     let transactions = wallet.list_transactions(false).unwrap_or_default();
     trace!(format!("transactions: {transactions:#?}"));
@@ -168,7 +168,7 @@ pub async fn get_wallet_data(
         address,
         balance,
         transactions,
-        unspent,
+        utxos,
     })
 }
 
@@ -211,24 +211,55 @@ pub fn create_asset(
     })
 }
 
+pub async fn get_utxos(
+    descriptor: &str,
+    change_descriptor: Option<String>,
+) -> Result<Vec<LocalUtxo>> {
+    let rgb_wallet = get_wallet(descriptor, change_descriptor)?;
+    synchronize_wallet(&rgb_wallet).await?;
+    let utxos = rgb_wallet.list_unspent()?;
+
+    Ok(utxos)
+}
+
+pub fn parse_outpoints(outpoints: Vec<String>) -> Result<Vec<OutPoint>> {
+    outpoints
+        .into_iter()
+        .map(|outpoint| OutPoint::from_str(&outpoint).map_err(|e| anyhow!(e)))
+        .collect()
+}
+
+pub fn utxos_to_outpoints(utxos: Vec<LocalUtxo>) -> Vec<String> {
+    utxos
+        .into_iter()
+        .map(|utxo| utxo.outpoint.to_string())
+        .collect()
+}
+
 #[cfg(not(target_arch = "wasm32"))]
-pub fn import_asset(asset: &str) -> Result<ThinAsset> {
+pub fn import_asset(asset: &str, utxos: Vec<String>) -> Result<ThinAsset> {
+    let utxos = parse_outpoints(utxos)?;
+
     match asset.as_bytes() {
         [b'r', b'g', b'b', b'1', ..] => Ok(todo!()),
         [b'r', b'g', b'b', b'c', b'1', ..] => {
             info!("Getting asset by contract genesis:", asset);
-            get_asset_by_genesis(asset)
+            get_asset_by_genesis(asset, &utxos)
         }
         _ => Err(anyhow!("Asset did not match expected format")),
     }
 }
 
 #[cfg(target_arch = "wasm32")]
-pub async fn import_asset(asset: &str) -> Result<ThinAsset> {
+pub async fn import_asset(asset: &str, rgb_descriptor_xpub: &str) -> Result<ThinAsset> {
     info!("Getting asset:", asset);
+    let utxos = get_utxos(rgb_descriptor_xpub, None).await?;
+    let utxos = utxos_to_outpoints(utxos);
+
     let endpoint = &constants::IMPORT_ASSET_ENDPOINT;
     let body = AssetRequest {
         asset: asset.to_owned(),
+        utxos,
     };
     let (blind_res, status) = post_json(endpoint, &body).await?;
     if status != 200 {

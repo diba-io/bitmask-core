@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
-pub struct VaultData {
+pub struct EncryptedWalletData {
     pub btc_descriptor_xprv: String,
     pub btc_descriptor_xpub: String,
     pub btc_change_descriptor_xprv: String,
@@ -77,6 +77,7 @@ pub struct Inflation {}
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct AssetRequest {
     pub asset: String,
+    pub utxos: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -120,11 +121,12 @@ pub struct ThinAsset {
     pub description: String,
     pub allocations: Vec<Allocation>,
     pub balance: u64,
+    pub genesis: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BlindRequest {
-    pub utxo: OutPoint,
+    pub utxo: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

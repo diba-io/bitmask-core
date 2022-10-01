@@ -36,7 +36,7 @@ async fn blind(Json(blind): Json<BlindRequest>) -> Result<impl IntoResponse, App
 }
 
 async fn import(Json(asset): Json<AssetRequest>) -> Result<impl IntoResponse, AppError> {
-    let asset_res = import_asset(&asset.asset)?;
+    let asset_res = import_asset(&asset.asset, asset.utxos)?;
 
     Ok((StatusCode::OK, Json(asset_res)))
 }

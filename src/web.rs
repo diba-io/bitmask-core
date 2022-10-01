@@ -46,11 +46,11 @@ impl FromString for JsValue {
 }
 
 #[wasm_bindgen]
-pub fn get_vault(password: String, encrypted_descriptors: String) -> Promise {
+pub fn get_encrypted_wallet(password: String, encrypted_descriptors: String) -> Promise {
     set_panic_hook();
 
     future_to_promise(async move {
-        match crate::get_vault(&password, &encrypted_descriptors) {
+        match crate::get_encrypted_wallet(&password, &encrypted_descriptors) {
             Ok(result) => Ok(JsValue::from_string(
                 serde_json::to_string(&result).unwrap(),
             )),
