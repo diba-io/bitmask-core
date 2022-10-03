@@ -93,7 +93,7 @@ async fn import_and_open_wallet() {
         ADDRESS.to_owned(),
         "parsed wallet data matches address"
     );
-    assert_eq!(wallet_data.balance, "0");
+    assert_eq!(wallet_data.balance.confirmed, 0);
     assert_eq!(wallet_data.transactions, vec![]);
 
     // Set blinded UTXOs
@@ -140,11 +140,7 @@ async fn import_test_wallet() {
     let wallet_data: WalletData = json_parse(&wallet_str);
 
     assert!(
-        wallet_data
-            .balance
-            .parse::<f64>()
-            .expect("parsed wallet balance")
-            > 0.0,
+        wallet_data.balance.confirmed > 0,
         "test wallet balance is greater than zero"
     );
     assert!(

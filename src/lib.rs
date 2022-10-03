@@ -124,9 +124,9 @@ pub async fn get_wallet_data(
     let wallet = get_wallet(descriptor, change_descriptor)?;
     synchronize_wallet(&wallet).await?;
     let address = wallet.get_address(AddressIndex::LastUnused)?.to_string();
-    info!("address:", &address);
-    let balance = wallet.get_balance()?.to_string();
-    info!("balance:", &balance);
+    info!(format!("address: {address}"));
+    let balance = wallet.get_balance()?;
+    info!(format!("balance: {balance:?}"));
     let utxos = wallet.list_unspent().unwrap_or_default();
     let utxos: Vec<String> = utxos.into_iter().map(|x| x.outpoint.to_string()).collect();
     trace!(format!("unspent: {utxos:#?}"));

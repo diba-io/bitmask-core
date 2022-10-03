@@ -1,4 +1,4 @@
-use bdk::{BlockTime, LocalUtxo};
+use bdk::{Balance, BlockTime, LocalUtxo};
 use bitcoin::{util::address::Address, OutPoint, Txid};
 use serde::{Deserialize, Serialize};
 
@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "camelCase")]
 pub struct WalletData {
     pub address: String,
-    pub balance: String,
+    pub balance: Balance,
     pub transactions: Vec<WalletTransaction>,
     pub utxos: Vec<String>,
 }

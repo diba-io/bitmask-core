@@ -1,6 +1,6 @@
 [package]
 name = "bitmask-core"
-version = "0.4.0-alpha.2"
+version = "0.4.0-alpha.3"
 authors = [
     "Jose D Robles <jd.robles@gmail.com>",
     "Hunter Trujillo <cryptoquick@pm.me>",
