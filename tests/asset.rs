@@ -134,7 +134,7 @@ async fn asset_transfer() -> Result<()> {
     info!("Transfer asset");
     let consignment_details = send_assets(
         &tmp_vault.btc_descriptor_xprv,
-        &tmp_vault.btc_change_descriptor_xpub,
+        &tmp_vault.btc_change_descriptor_xprv,
         &tmp_vault.rgb_assets_descriptor_xprv,
         &tmp_vault.rgb_assets_descriptor_xpub,
         &blinded_utxo.conceal,

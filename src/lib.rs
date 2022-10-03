@@ -302,7 +302,9 @@ pub async fn get_blinded_utxo(utxo_string: &str) -> Result<BlindingUtxo> {
     let utxo = OutPoint::from_str(utxo_string)?;
 
     let endpoint = &constants::BLINDED_UTXO_ENDPOINT;
-    let body = BlindRequest { utxo };
+    let body = BlindRequest {
+        utxo: utxo.to_string(),
+    };
     let (blind_res, status) = post_json(endpoint, &body).await?;
     if status != 200 {
         return Err(anyhow!("Error calling {}", endpoint.as_str()));
@@ -448,7 +450,7 @@ pub async fn get_assets_vault(
 #[allow(clippy::too_many_arguments)]
 pub async fn send_assets(
     btc_descriptor_xprv: &str,
-    btc_change_descriptor_xpub: &str,
+    btc_change_descriptor_xprv: &str,
     rgb_assets_descriptor_xprv: &str,
     rgb_assets_descriptor_xpub: &str,
     blinded_utxo: &str,
@@ -459,7 +461,7 @@ pub async fn send_assets(
     let btc_wallet = get_wallet(
         btc_descriptor_xprv,
         // None,
-        Some(btc_change_descriptor_xpub.to_owned()),
+        Some(btc_change_descriptor_xprv.to_owned()),
     )?;
     // let address = btc_wallet
     //     .get_address(AddressIndex::LastUnused)?

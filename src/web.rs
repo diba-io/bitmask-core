@@ -5,10 +5,7 @@ use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::{future_to_promise, JsFuture};
 
 use crate::{
-    constants::{
-        ACCEPT_TRANSFER_ENDPOINT, BLINDED_UTXO_ENDPOINT, IMPORT_ASSET_ENDPOINT,
-        LIST_ASSETS_ENDPOINT, VALIDATE_TRANSFER_ENDPOINT,
-    },
+    constants::{ACCEPT_TRANSFER_ENDPOINT, LIST_ASSETS_ENDPOINT, VALIDATE_TRANSFER_ENDPOINT},
     util::get,
 };
 
@@ -122,12 +119,11 @@ pub fn list_assets(xpubkh: String, encryption_secret: String) -> Promise {
 }
 
 #[wasm_bindgen]
-pub fn import_asset(asset: String) -> Promise {
+pub fn import_asset(asset: String, rgb_descriptor_xpub: String) -> Promise {
     set_panic_hook();
 
     future_to_promise(async move {
-        let result = get(&IMPORT_ASSET_ENDPOINT).await;
-        match result {
+        match crate::import_asset(&asset, &rgb_descriptor_xpub).await {
             Ok(result) => Ok(JsValue::from_string(
                 serde_json::to_string(&result).unwrap(),
             )),
@@ -137,12 +133,11 @@ pub fn import_asset(asset: String) -> Promise {
 }
 
 #[wasm_bindgen]
-pub fn set_blinded_utxo(utxo_string: String) -> Promise {
+pub fn get_blinded_utxo(utxo_string: String) -> Promise {
     set_panic_hook();
 
     future_to_promise(async move {
-        let result = get(&BLINDED_UTXO_ENDPOINT).await;
-        match result {
+        match crate::get_blinded_utxo(&utxo_string).await {
             Ok(result) => Ok(JsValue::from_string(
                 serde_json::to_string(&result).unwrap(),
             )),
@@ -207,7 +202,7 @@ pub fn fund_vault(
 #[wasm_bindgen]
 pub fn send_assets(
     btc_descriptor_xprv: String,
-    btc_change_descriptor_xpub: String,
+    btc_change_descriptor_xprv: String,
     rgb_assets_descriptor_xprv: String,
     rgb_assets_descriptor_xpub: String,
     blinded_utxo: String,
@@ -220,7 +215,7 @@ pub fn send_assets(
     future_to_promise(async move {
            match crate::send_assets(
             &btc_descriptor_xprv,
-            &btc_change_descriptor_xpub,
+            &btc_change_descriptor_xprv,
             &rgb_assets_descriptor_xprv,
             &rgb_assets_descriptor_xpub,
             &blinded_utxo,

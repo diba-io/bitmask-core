@@ -12,7 +12,7 @@ use bitmask_core::{
         get_encrypted_wallet, get_mnemonic_seed, get_wallet_data, json_parse, resolve,
         save_mnemonic_seed, send_sats, set_panic_hook, to_string,
     },
-    MnemonicSeedData, WalletData, WalletData,
+    EncryptedWalletData, MnemonicSeedData, WalletData,
 };
 
 wasm_bindgen_test_configure!(run_in_browser);
@@ -63,17 +63,20 @@ async fn import_and_open_wallet() {
     let encrypted_descriptors =
         serde_json::to_string(&mnemonic_data.serialized_encrypted_message).unwrap();
 
-    // Get vault properties
-    let vault_str: JsValue = resolve(get_encrypted_wallet(
+    // Get encrypted wallet properties
+    let encrypted_wallet_str: JsValue = resolve(get_encrypted_wallet(
         ENCRYPTION_PASSWORD.to_owned(),
         encrypted_descriptors,
     ))
     .await;
-    let vault_data: VaultData = json_parse(&vault_str);
+    let encrypted_wallet_data: EncryptedWalletData = json_parse(&encrypted_wallet_str);
 
-    assert_eq!(vault_data.btc_descriptor_xprv, DESCRIPTOR);
-    assert_eq!(vault_data.btc_change_descriptor_xprv, CHANGE_DESCRIPTOR);
-    assert_eq!(vault_data.xpubkh, PUBKEY_HASH);
+    assert_eq!(encrypted_wallet_data.btc_descriptor_xprv, DESCRIPTOR);
+    assert_eq!(
+        encrypted_wallet_data.btc_change_descriptor_xprv,
+        CHANGE_DESCRIPTOR
+    );
+    assert_eq!(encrypted_wallet_data.xpubkh, PUBKEY_HASH);
 
     // Get wallet data
     let wallet_str: JsValue = resolve(get_wallet_data(
@@ -124,12 +127,12 @@ async fn import_test_wallet() {
         encrypted_descriptors,
     ))
     .await;
-    let vault_data: VaultData = json_parse(&vault_str);
+    let encrypted_wallet_data: EncryptedWalletData = json_parse(&vault_str);
 
     // Get wallet data
     let wallet_str: JsValue = resolve(get_wallet_data(
-        vault_data.btc_descriptor_xprv.clone(),
-        Some(vault_data.btc_change_descriptor_xprv.clone()),
+        encrypted_wallet_data.btc_descriptor_xprv.clone(),
+        Some(encrypted_wallet_data.btc_change_descriptor_xprv.clone()),
     ))
     .await;
 
@@ -164,8 +167,8 @@ async fn import_test_wallet() {
 
     // Test sending a transaction back to itself for a thousand sats
     let tx_details = resolve(send_sats(
-        vault_data.btc_descriptor_xprv,
-        vault_data.btc_change_descriptor_xprv,
+        encrypted_wallet_data.btc_descriptor_xprv,
+        encrypted_wallet_data.btc_change_descriptor_xprv,
         wallet_data.address,
         1_000,
         None,
