@@ -1,6 +1,26 @@
-use bdk::LocalUtxo;
+use bdk::{BlockTime, LocalUtxo};
 use bitcoin::{util::address::Address, OutPoint, Txid};
 use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WalletData {
+    pub address: String,
+    pub balance: String,
+    pub transactions: Vec<WalletTransaction>,
+    pub utxos: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct WalletTransaction {
+    pub txid: Txid,
+    pub received: u64,
+    pub sent: u64,
+    pub fee: Option<u64>,
+    pub confirmed: bool,
+    pub confirmation_time: Option<BlockTime>,
+}
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]

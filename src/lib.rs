@@ -6,12 +6,12 @@ use std::str::FromStr;
 
 use anyhow::anyhow;
 use anyhow::Result;
-use bdk::{wallet::AddressIndex, BlockTime, FeeRate, LocalUtxo};
+use bdk::{wallet::AddressIndex, FeeRate, LocalUtxo};
 #[cfg(not(target_arch = "wasm32"))]
 use bitcoin::consensus::serialize as serialize_psbt;
 use bitcoin::{
     consensus::deserialize as deserialize_psbt, psbt::PartiallySignedTransaction,
-    util::address::Address, OutPoint, Transaction, Txid,
+    util::address::Address, OutPoint, Transaction,
 };
 use bitcoin_hashes::{sha256, Hash};
 use serde::{Deserialize, Serialize};
@@ -35,7 +35,7 @@ pub use crate::data::{
     constants,
     structs::{
         EncryptedWalletData, FundVaultDetails, SatsInvoice, ThinAsset, TransferRequest,
-        TransferResponse, TransferResult,
+        TransferResponse, TransferResult, WalletData, WalletTransaction,
     },
 };
 use crate::operations::bitcoin::{
@@ -111,24 +111,6 @@ pub fn save_mnemonic_seed(
     };
 
     Ok(mnemonic_seed_data)
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct WalletData {
-    pub address: String,
-    pub balance: String,
-    pub transactions: Vec<WalletTransaction>,
-    pub utxos: Vec<String>,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Default)]
-pub struct WalletTransaction {
-    pub txid: Txid,
-    pub received: u64,
-    pub sent: u64,
-    pub fee: Option<u64>,
-    pub confirmed: bool,
-    pub confirmation_time: Option<BlockTime>,
 }
 
 pub async fn get_wallet_data(
