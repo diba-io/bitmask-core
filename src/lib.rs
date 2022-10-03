@@ -241,6 +241,7 @@ pub fn import_asset(asset: &str, utxos: Vec<String>) -> Result<ThinAsset> {
     let utxos = parse_outpoints(utxos)?;
 
     match asset.as_bytes() {
+        #[allow(unreachable_code)]
         [b'r', b'g', b'b', b'1', ..] => Ok(todo!()),
         [b'r', b'g', b'b', b'c', b'1', ..] => {
             info!("Getting asset by contract genesis:", asset);

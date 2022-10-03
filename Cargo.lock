@@ -311,19 +311,19 @@ dependencies = [
 
 [[package]]
 name = "bdk"
-version = "0.22.0"
-source = "git+https://github.com/bitcoindevkit/bdk.git?rev=a8cf34e8094353c88606f28154854ca6e9f676fe#a8cf34e8094353c88606f28154854ca6e9f676fe"
+version = "0.23.0"
+source = "git+https://github.com/bitcoindevkit/bdk.git?rev=7de8be46c04128328d8dbd1de7b29033a290fde8#7de8be46c04128328d8dbd1de7b29033a290fde8"
 dependencies = [
  "ahash",
  "async-trait",
  "bdk-macros",
  "bitcoin",
+ "esplora-client",
  "futures",
  "js-sys",
  "log",
  "miniscript",
  "rand 0.7.3",
- "reqwest",
  "rusqlite",
  "serde",
  "serde_json",
@@ -460,7 +460,7 @@ checksum = "bef38d45163c2f1dde094a7dfd33ccf595c92905c8f8f4fdc18d06fb1037718a"
 
 [[package]]
 name = "bitmask-core"
-version = "0.4.0-alpha.1"
+version = "0.4.0-alpha.2"
 dependencies = [
  "amplify",
  "anyhow",
@@ -903,9 +903,9 @@ dependencies = [
 
 [[package]]
 name = "ctr"
-version = "0.9.1"
+version = "0.9.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0d14f329cfbaf5d0e06b5e87fff7e265d2673c5ea7d2c27691a2c107db1442a0"
+checksum = "0369ee1ad671834580515889b80f2ea915f23b8be8d0daa4bbaf2ac5c7590835"
 dependencies = [
  "cipher 0.4.3",
 ]
@@ -1138,6 +1138,18 @@ dependencies = [
  "log",
  "regex",
  "termcolor",
+]
+
+[[package]]
+name = "esplora-client"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7fe8d4f87f145afbd22b19673be46fe5fb72a948fab2f3a84231f20f28c36959"
+dependencies = [
+ "bitcoin",
+ "log",
+ "reqwest",
+ "serde",
 ]
 
 [[package]]
@@ -2083,7 +2095,7 @@ dependencies = [
  "cfg-if",
  "libc",
  "redox_syscall",
- "smallvec 1.9.0",
+ "smallvec 1.10.0",
  "windows-sys",
 ]
 
@@ -2634,7 +2646,7 @@ dependencies = [
  "hashlink",
  "libsqlite3-sys",
  "memchr",
- "smallvec 1.9.0",
+ "smallvec 1.10.0",
 ]
 
 [[package]]
@@ -2955,9 +2967,9 @@ dependencies = [
 
 [[package]]
 name = "smallvec"
-version = "1.9.0"
+version = "1.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2fd0db749597d91ff862fd1d55ea87f7855a744a8425a64695b6fca237d1dad1"
+checksum = "a507befe795404456341dfab10cef66ead4c041f62b8b11bbb92bffe5d0953e0"
 
 [[package]]
 name = "snap"
