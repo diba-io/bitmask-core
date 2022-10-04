@@ -1,10 +1,30 @@
-use bdk::LocalUtxo;
+use bdk::{Balance, BlockTime, LocalUtxo};
 use bitcoin::{util::address::Address, OutPoint, Txid};
 use serde::{Deserialize, Serialize};
 
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WalletData {
+    pub address: String,
+    pub balance: Balance,
+    pub transactions: Vec<WalletTransaction>,
+    pub utxos: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct WalletTransaction {
+    pub txid: Txid,
+    pub received: u64,
+    pub sent: u64,
+    pub fee: Option<u64>,
+    pub confirmed: bool,
+    pub confirmation_time: Option<BlockTime>,
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
-pub struct VaultData {
+pub struct EncryptedWalletData {
     pub btc_descriptor_xprv: String,
     pub btc_descriptor_xpub: String,
     pub btc_change_descriptor_xprv: String,
@@ -76,7 +96,8 @@ pub struct Inflation {}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct AssetRequest {
-    pub genesis: String,
+    pub asset: String,
+    pub utxos: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -120,6 +141,7 @@ pub struct ThinAsset {
     pub description: String,
     pub allocations: Vec<Allocation>,
     pub balance: u64,
+    pub genesis: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

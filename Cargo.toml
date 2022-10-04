@@ -1,6 +1,6 @@
 [package]
 name = "bitmask-core"
-version = "0.4.0"
+version = "0.4.0-alpha.3"
 authors = [
     "Jose D Robles <jd.robles@gmail.com>",
     "Hunter Trujillo <cryptoquick@pm.me>",
@@ -27,6 +27,7 @@ server = ["tokio/full"]
 [dependencies]
 anyhow = "1.0.44"
 base64 = { package = "base64-compat", version = "1.0.0" }
+bech32 = "0.9.1"
 bip39 = "1.0.1"
 bitcoin = "0.28.1"
 bitcoin_hashes = "0.10.0"
@@ -46,10 +47,10 @@ tokio = { version = "1.20.1", features = ["macros", "sync"] }
 pretty_env_logger = "0.4.0"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-bdk = { version = "0.22.0", features = [
+bdk = { version = "0.23.0-rc.1", features = [
     "use-esplora-reqwest",
     "async-interface",
-], default-features = false, git = "https://github.com/bitcoindevkit/bdk.git", rev = "92ad4876c40c8499d46000c53f19f77d50c9ab14" }
+], default-features = false, git = "https://github.com/bitcoindevkit/bdk.git", rev = "7de8be46c04128328d8dbd1de7b29033a290fde8" }
 gloo-console = "0.2.1"
 gloo-net = "0.2.0"
 js-sys = "0.3.55"
@@ -63,12 +64,12 @@ rand = { version = "^0.6", features = ["wasm-bindgen"] }
 amplify = "3.13.0"
 axum = "0.5.16"
 axum-macros = "0.2.3"
-bdk = { version = "0.22.0", features = [
+bdk = { version = "0.23.0-rc.1", features = [
     "use-esplora-reqwest",
     "sqlite-bundled",
     "async-interface",
     "reqwest-default-tls",
-], default-features = false, git = "https://github.com/bitcoindevkit/bdk.git", rev = "92ad4876c40c8499d46000c53f19f77d50c9ab14" }
+], default-features = false, git = "https://github.com/bitcoindevkit/bdk.git", rev = "7de8be46c04128328d8dbd1de7b29033a290fde8" }
 bp-core = { version = "0.8.0", features = ["wallet"] }
 carbonado = "0.1.1"
 commit_verify = { version = "0.8.0", features = ["rand"] }

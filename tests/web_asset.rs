@@ -5,10 +5,10 @@ use wasm_bindgen_test::*;
 
 use bitmask_core::{
     web::{
-        get_vault, get_wallet_data, import_asset, json_parse, resolve, save_mnemonic_seed,
-        set_panic_hook,
+        get_encrypted_wallet, get_wallet_data, import_asset, json_parse, resolve,
+        save_mnemonic_seed, set_panic_hook,
     },
-    MnemonicSeedData, VaultData, WalletData,
+    EncryptedWalletData, MnemonicSeedData, WalletData,
 };
 
 wasm_bindgen_test_configure!(run_in_browser);
@@ -38,18 +38,22 @@ async fn asset_import() {
         serde_json::to_string(&mnemonic_data.serialized_encrypted_message).unwrap();
 
     // Get vault properties
-    let vault_str: JsValue = resolve(get_vault(
+    let wallet_data_str: JsValue = resolve(get_encrypted_wallet(
         ENCRYPTION_PASSWORD.to_owned(),
         encrypted_descriptors,
     ))
     .await;
-    let vault_data: VaultData = json_parse(&vault_str);
+    let encrypted_wallet_data: EncryptedWalletData = json_parse(&wallet_data_str);
 
-    resolve(import_asset(ASSET.to_owned())).await;
+    resolve(import_asset(
+        ASSET.to_owned(),
+        encrypted_wallet_data.rgb_assets_descriptor_xpub.clone(),
+    ))
+    .await;
 
     // Get wallet data
     let wallet_str: JsValue = resolve(get_wallet_data(
-        vault_data.rgb_assets_descriptor_xprv.clone(),
+        encrypted_wallet_data.rgb_assets_descriptor_xprv.clone(),
         None,
     ))
     .await;

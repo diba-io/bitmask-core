@@ -5,7 +5,7 @@ use rgb_core::seal;
 
 use crate::{data::structs::BlindResponse, info};
 
-pub fn blind_utxo(utxo: OutPoint) -> Result<(BlindResponse, OutPoint)> {
+pub fn blind_utxo(utxo: OutPoint) -> Result<BlindResponse> {
     let seal = seal::Revealed::new(CloseMethod::TapretFirst, utxo);
 
     let result = BlindResponse {
@@ -15,5 +15,5 @@ pub fn blind_utxo(utxo: OutPoint) -> Result<(BlindResponse, OutPoint)> {
 
     info!(format!("Blind result: {result:#?}"));
 
-    Ok((result, utxo))
+    Ok(result)
 }

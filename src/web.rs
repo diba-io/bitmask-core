@@ -5,11 +5,7 @@ use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::{future_to_promise, JsFuture};
 
 use crate::{
-    constants::{
-        ACCEPT_TRANSFER_ENDPOINT, BLINDED_UTXO_ENDPOINT, IMPORT_ASSET_ENDPOINT,
-        LIST_ASSETS_ENDPOINT, SEND_ASSETS_ENDPOINT, VALIDATE_TRANSFER_ENDPOINT,
-    },
-    data::structs::ThinAsset,
+    constants::{ACCEPT_TRANSFER_ENDPOINT, LIST_ASSETS_ENDPOINT, VALIDATE_TRANSFER_ENDPOINT},
     util::get,
 };
 
@@ -47,11 +43,11 @@ impl FromString for JsValue {
 }
 
 #[wasm_bindgen]
-pub fn get_vault(password: String, encrypted_descriptors: String) -> Promise {
+pub fn get_encrypted_wallet(password: String, encrypted_descriptors: String) -> Promise {
     set_panic_hook();
 
     future_to_promise(async move {
-        match crate::get_vault(&password, &encrypted_descriptors) {
+        match crate::get_encrypted_wallet(&password, &encrypted_descriptors) {
             Ok(result) => Ok(JsValue::from_string(
                 serde_json::to_string(&result).unwrap(),
             )),
@@ -123,12 +119,11 @@ pub fn list_assets(xpubkh: String, encryption_secret: String) -> Promise {
 }
 
 #[wasm_bindgen]
-pub fn import_asset(genesis: String) -> Promise {
+pub fn import_asset(asset: String, rgb_descriptor_xpub: String) -> Promise {
     set_panic_hook();
 
     future_to_promise(async move {
-        let result = get(&IMPORT_ASSET_ENDPOINT).await;
-        match result {
+        match crate::import_asset(&asset, &rgb_descriptor_xpub).await {
             Ok(result) => Ok(JsValue::from_string(
                 serde_json::to_string(&result).unwrap(),
             )),
@@ -138,12 +133,11 @@ pub fn import_asset(genesis: String) -> Promise {
 }
 
 #[wasm_bindgen]
-pub fn set_blinded_utxo(utxo_string: String) -> Promise {
+pub fn get_blinded_utxo(utxo_string: String) -> Promise {
     set_panic_hook();
 
     future_to_promise(async move {
-        let result = get(&BLINDED_UTXO_ENDPOINT).await;
-        match result {
+        match crate::get_blinded_utxo(&utxo_string).await {
             Ok(result) => Ok(JsValue::from_string(
                 serde_json::to_string(&result).unwrap(),
             )),
@@ -204,22 +198,32 @@ pub fn fund_vault(
     })
 }
 
+#[allow(clippy::too_many_arguments)]
 #[wasm_bindgen]
-pub fn send_tokens(
-    btc_descriptor: String,
-    btc_change_descriptor: String,
-    rgb_tokens_descriptor: String,
+pub fn send_assets(
+    btc_descriptor_xprv: String,
+    btc_change_descriptor_xprv: String,
+    rgb_assets_descriptor_xprv: String,
+    rgb_assets_descriptor_xpub: String,
     blinded_utxo: String,
     amount: u64,
-    asset: String,
+    asset_contract: String,
+    fee_rate: f32,
 ) -> Promise {
     set_panic_hook();
 
-    let asset: ThinAsset = serde_json::from_str(&asset).unwrap();
-
     future_to_promise(async move {
-        let result = get(&SEND_ASSETS_ENDPOINT).await;
-        match result {
+           match crate::send_assets(
+            &btc_descriptor_xprv,
+            &btc_change_descriptor_xprv,
+            &rgb_assets_descriptor_xprv,
+            &rgb_assets_descriptor_xpub,
+            &blinded_utxo,
+            amount,
+            &asset_contract,
+            fee_rate,
+        )
+        .await {
             Ok(result) => Ok(JsValue::from_string(
                 serde_json::to_string(&result).unwrap(),
             )),
@@ -244,7 +248,7 @@ pub fn validate_transfer(utxo_string: String) -> Promise {
 }
 
 #[wasm_bindgen]
-pub fn accept_transfer(consignment: String, txid: String, vout: u32, blinding: String) -> Promise {
+pub fn accept_transfer(consignment: String, blinding: String) -> Promise {
     set_panic_hook();
     future_to_promise(async move {
         let result = get(&ACCEPT_TRANSFER_ENDPOINT).await;

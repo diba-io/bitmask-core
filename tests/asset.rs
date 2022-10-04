@@ -4,8 +4,9 @@ use std::env;
 
 use anyhow::Result;
 use bitmask_core::{
-    create_asset, fund_vault, get_assets_vault, get_mnemonic_seed, get_network, get_vault,
-    get_wallet_data, import_asset, save_mnemonic_seed, send_assets, send_sats, set_blinded_utxo,
+    create_asset, fund_vault, get_assets_vault, get_blinded_utxo, get_encrypted_wallet,
+    get_mnemonic_seed, get_network, get_wallet_data, import_asset, save_mnemonic_seed, send_assets,
+    send_sats,
 };
 use log::{debug, info};
 
@@ -36,7 +37,7 @@ async fn asset_transfer() -> Result<()> {
     let main_mnemonic = env!("TEST_WALLET_SEED", "TEST_WALLET_SEED variable not set");
     let main_mnemonic_data = save_mnemonic_seed(main_mnemonic, ENCRYPTION_PASSWORD, SEED_PASSWORD)?;
 
-    let main_vault = get_vault(
+    let main_vault = get_encrypted_wallet(
         ENCRYPTION_PASSWORD,
         &main_mnemonic_data.serialized_encrypted_message,
     )?;
@@ -58,7 +59,7 @@ async fn asset_transfer() -> Result<()> {
     let tmp_mnemonic = get_mnemonic_seed(ENCRYPTION_PASSWORD, SEED_PASSWORD)?;
 
     info!("Get ephemeral vault properties");
-    let tmp_vault = get_vault(
+    let tmp_vault = get_encrypted_wallet(
         ENCRYPTION_PASSWORD,
         &tmp_mnemonic.serialized_encrypted_message,
     )?;
@@ -121,19 +122,19 @@ async fn asset_transfer() -> Result<()> {
     debug!("Asset data: {asset_data}");
 
     info!("Import asset");
-    let imported_asset = import_asset(&issued_asset.genesis)?;
+    let imported_asset = import_asset(&issued_asset.genesis, udas_wallet.utxos)?;
 
     assert_eq!(issued_asset.asset_id, imported_asset.id, "Asset IDs match");
 
     info!("Get a blinded UTXO");
-    let blinded_utxo = set_blinded_utxo(&send_assets_utxo)?;
+    let blinded_utxo = get_blinded_utxo(&send_assets_utxo)?;
 
     debug!("Blinded UTXO: {:?}", blinded_utxo);
 
     info!("Transfer asset");
     let consignment_details = send_assets(
         &tmp_vault.btc_descriptor_xprv,
-        &tmp_vault.btc_change_descriptor_xpub,
+        &tmp_vault.btc_change_descriptor_xprv,
         &tmp_vault.rgb_assets_descriptor_xprv,
         &tmp_vault.rgb_assets_descriptor_xpub,
         &blinded_utxo.conceal,

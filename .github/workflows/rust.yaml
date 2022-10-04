@@ -21,7 +21,7 @@ jobs:
       - uses: Swatinem/rust-cache@v1
 
       - name: Lint
-        run: cargo clippy --lib -- -D warnings
+        run: cargo clippy --lib --all-features -- -D warnings
 
   lint-wasm:
     runs-on: ubuntu-latest

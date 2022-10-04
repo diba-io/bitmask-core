@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+use bech32::{decode, encode, FromBase32, ToBase32, Variant};
 #[cfg(target_arch = "wasm32")]
 use gloo_net::http::Request;
 use serde::Serialize;
@@ -136,4 +137,17 @@ pub async fn get(url: &str) -> Result<(String, u16)> {
     ))?;
 
     Ok((response_text, status_code))
+}
+
+pub fn bech32_encode(hrp: &str, bytes: &[u8]) -> Result<String> {
+    Ok(encode(hrp, bytes.to_base32(), Variant::Bech32)?)
+}
+
+pub fn bech32m_encode(hrp: &str, bytes: &[u8]) -> Result<String> {
+    Ok(encode(hrp, bytes.to_base32(), Variant::Bech32m)?)
+}
+
+pub fn bech32_decode(bech32_str: &str) -> Result<(String, Vec<u8>, Variant)> {
+    let (hrp, words, variant) = decode(bech32_str)?;
+    Ok((hrp, Vec::<u8>::from_base32(&words)?, variant))
 }

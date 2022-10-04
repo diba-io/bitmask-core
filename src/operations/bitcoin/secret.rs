@@ -11,7 +11,7 @@ use bitcoin::{secp256k1::Secp256k1, util::bip32::ChildNumber};
 
 use crate::data::{
     constants::{BTC_PATH, NETWORK, RGB_ASSETS_PATH, RGB_UDAS_PATH},
-    structs::VaultData,
+    structs::EncryptedWalletData,
 };
 
 fn get_random_buf() -> Result<[u8; 16], getrandom::Error> {
@@ -51,18 +51,18 @@ fn get_descriptor<C: ScriptContext>(
     }
 }
 
-pub fn new_mnemonic(seed_password: &str) -> Result<VaultData> {
+pub fn new_mnemonic(seed_password: &str) -> Result<EncryptedWalletData> {
     let entropy = get_random_buf()?;
     let mnemonic_phrase = Mnemonic::from_entropy(&entropy)?;
     get_mnemonic(mnemonic_phrase, seed_password)
 }
 
-pub fn save_mnemonic(seed_password: &str, mnemonic: &str) -> Result<VaultData> {
+pub fn save_mnemonic(seed_password: &str, mnemonic: &str) -> Result<EncryptedWalletData> {
     let mnemonic_phrase = Mnemonic::from_str(mnemonic).expect("Parse mnemonic seed phrase");
     get_mnemonic(mnemonic_phrase, seed_password)
 }
 
-pub fn get_mnemonic(mnemonic_phrase: Mnemonic, seed_password: &str) -> Result<VaultData> {
+pub fn get_mnemonic(mnemonic_phrase: Mnemonic, seed_password: &str) -> Result<EncryptedWalletData> {
     let seed = mnemonic_phrase.to_seed_normalized(seed_password);
 
     let network = NETWORK.read().unwrap();
@@ -104,7 +104,7 @@ pub fn get_mnemonic(mnemonic_phrase: Mnemonic, seed_password: &str) -> Result<Va
         get_descriptor::<Tap>(xprv, RGB_UDAS_PATH, false, false)?
     );
 
-    Ok(VaultData {
+    Ok(EncryptedWalletData {
         btc_descriptor_xprv,
         btc_descriptor_xpub,
         btc_change_descriptor_xprv,
