@@ -131,8 +131,15 @@ pub async fn get_wallet_data(
     let utxos: Vec<String> = utxos.into_iter().map(|x| x.outpoint.to_string()).collect();
     trace!(format!("unspent: {utxos:#?}"));
 
-    let transactions = wallet.list_transactions(false).unwrap_or_default();
+    let mut transactions = wallet.list_transactions(false).unwrap_or_default();
     trace!(format!("transactions: {transactions:#?}"));
+
+    transactions.sort_by(|a, b| {
+        b.confirmation_time
+            .as_ref()
+            .map(|t| t.height)
+            .cmp(&a.confirmation_time.as_ref().map(|t| t.height))
+    });
 
     let transactions: Vec<WalletTransaction> = transactions
         .into_iter()
