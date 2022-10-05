@@ -59,7 +59,6 @@ macro_rules! trace {
     };
 }
 
-#[allow(dead_code)]
 #[cfg(target_arch = "wasm32")]
 pub async fn post_json<T: Serialize>(url: &str, body: &T) -> Result<(String, u16)> {
     let response = Request::post(url)
@@ -120,7 +119,6 @@ pub async fn post_json<T: Serialize>(url: &str, body: &T) -> Result<(String, u16
     Ok((response_text, status_code))
 }
 
-#[allow(dead_code)]
 #[cfg(not(target_arch = "wasm32"))]
 pub async fn get(url: &str) -> Result<(String, u16)> {
     let client = reqwest::Client::new();
