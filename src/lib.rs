@@ -105,14 +105,14 @@ pub fn get_mnemonic_seed(
 }
 
 pub fn save_mnemonic_seed(
-    mnemonic: &str,
+    mnemonic_phrase: &str,
     encryption_password: &str,
     seed_password: &str,
 ) -> Result<MnemonicSeedData> {
     let hash = sha256::Hash::hash(encryption_password.as_bytes());
     let shared_key: [u8; 32] = hash.into_inner();
 
-    let vault_data = save_mnemonic(seed_password, mnemonic)?;
+    let vault_data = save_mnemonic(mnemonic_phrase, seed_password)?;
     let encrypted_message = vault_data.encrypt(&SharedKey::from_array(shared_key))?;
     let serialized_encrypted_message = hex::encode(&encrypted_message.serialize());
     let mnemonic_seed_data = MnemonicSeedData {

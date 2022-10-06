@@ -21,6 +21,7 @@ const SEED_PASSWORD: &str = "";
 const ASSET: &str = "rgb1g2antx89ypjuat7jdth35d8xgqserckrhj9elkrhxhjhxch8sxqqguzmh6"; // BUX
 
 /// Test asset import
+#[ignore]
 #[wasm_bindgen_test]
 async fn asset_import() {
     set_panic_hook();
