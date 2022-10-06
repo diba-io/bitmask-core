@@ -27,28 +27,38 @@ pub mod util;
 #[cfg(target_arch = "wasm32")]
 pub mod web;
 
+// Desktop
 #[cfg(not(target_arch = "wasm32"))]
-use crate::data::structs::AssetResponse;
-#[cfg(target_arch = "wasm32")]
-use crate::data::structs::{AssetRequest, BlindRequest, BlindResponse};
-pub use crate::data::{
-    constants,
-    structs::{
-        EncryptedWalletData, FundVaultDetails, SatsInvoice, ThinAsset, TransferRequest,
-        TransferResponse, TransferResult, WalletData, WalletTransaction,
+pub use crate::{
+    data::structs::AssetResponse,
+    operations::rgb::{
+        /* accept_transfer, */ blind_utxo, get_asset_by_genesis, get_assets, issue_asset,
+        transfer_asset, validate_transfer,
     },
 };
-use crate::operations::bitcoin::{
-    create_transaction, dust_tx, get_wallet, new_mnemonic, save_mnemonic, sign_psbt,
-    synchronize_wallet,
-};
-#[cfg(not(target_arch = "wasm32"))]
-use crate::operations::rgb::{
-    /* accept_transfer, */ blind_utxo, get_asset_by_genesis, get_assets, issue_asset,
-    transfer_asset, validate_transfer,
-};
+// Web
 #[cfg(target_arch = "wasm32")]
-use crate::util::post_json;
+pub use crate::{
+    data::{
+        constants::get_url,
+        structs::{AssetRequest, BlindRequest, BlindResponse, TransferRequest, TransferResponse},
+    },
+    util::post_json,
+};
+// Isomorphic
+pub use crate::{
+    data::{
+        constants::{switch_host, switch_network, NETWORK},
+        structs::{
+            EncryptedWalletData, FundVaultDetails, SatsInvoice, ThinAsset, TransferResult,
+            WalletData, WalletTransaction,
+        },
+    },
+    operations::bitcoin::{
+        create_transaction, dust_tx, get_wallet, new_mnemonic, save_mnemonic, sign_psbt,
+        synchronize_wallet,
+    },
+};
 
 impl SerdeEncryptSharedKey for EncryptedWalletData {
     type S = BincodeSerializer<Self>; // you can specify serializer implementation (or implement it by yourself).
@@ -161,7 +171,6 @@ pub async fn get_wallet_data(
     })
 }
 
-// TODO: this fn is only needed on desktop wallet
 #[cfg(not(target_arch = "wasm32"))]
 pub fn list_assets(contract: &str) -> Result<Vec<AssetResponse>> {
     info!("list_assets");
@@ -169,6 +178,8 @@ pub fn list_assets(contract: &str) -> Result<Vec<AssetResponse>> {
     info!(format!("get assets: {assets:#?}"));
     Ok(assets)
 }
+
+// TODO: web list_assets
 
 #[derive(Serialize, Deserialize)]
 pub struct CreateAssetResult {
@@ -246,7 +257,7 @@ pub async fn import_asset(asset: &str, rgb_descriptor_xpub: &str) -> Result<Thin
     let utxos = get_utxos(rgb_descriptor_xpub, None).await?;
     let utxos = utxos_to_outpoints(utxos);
 
-    let endpoint = &constants::IMPORT_ASSET_ENDPOINT;
+    let endpoint = &get_url("import").await;
     let body = AssetRequest {
         asset: asset.to_owned(),
         utxos,
@@ -291,7 +302,7 @@ pub fn get_blinded_utxo(utxo_string: &str) -> Result<BlindingUtxo> {
 pub async fn get_blinded_utxo(utxo_string: &str) -> Result<BlindingUtxo> {
     let utxo = OutPoint::from_str(utxo_string)?;
 
-    let endpoint = &constants::BLINDED_UTXO_ENDPOINT;
+    let endpoint = &get_url("blind").await;
     let body = BlindRequest {
         utxo: utxo.to_string(),
     };
@@ -489,7 +500,7 @@ pub async fn send_assets(
 
     #[cfg(target_arch = "wasm32")]
     let (consignment, psbt, disclosure) = async {
-        let endpoint = &constants::SEND_ASSETS_ENDPOINT;
+        let endpoint = &get_url("send").await;
         let body = TransferRequest {
             rgb_assets_descriptor_xpub: rgb_assets_descriptor_xpub.to_owned(),
             blinded_utxo: blinded_utxo.to_owned(),
@@ -588,12 +599,8 @@ pub async fn validate_transaction(consignment: &str) -> Result<()> {
 //     Ok(accept)
 // }
 
-pub async fn switch_network(network_str: &str) -> Result<()> {
-    constants::switch_network(network_str).await
-}
-
 pub fn get_network() -> Result<String> {
-    match constants::NETWORK.read() {
+    match NETWORK.read() {
         Ok(network) => Ok(network.to_string()),
         Err(err) => Ok(err.to_string()),
     }

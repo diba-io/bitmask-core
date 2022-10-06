@@ -4,11 +4,6 @@ use serde::de::DeserializeOwned;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::{future_to_promise, JsFuture};
 
-use crate::{
-    constants::{ACCEPT_TRANSFER_ENDPOINT, LIST_ASSETS_ENDPOINT, VALIDATE_TRANSFER_ENDPOINT},
-    util::get,
-};
-
 pub fn set_panic_hook() {
     // When the `console_error_panic_hook` feature is enabled, we can call the
     // `set_panic_hook` function at least once during initialization, and then
@@ -102,21 +97,20 @@ pub fn get_wallet_data(descriptor: String, change_descriptor: Option<String>) ->
     })
 }
 
-#[wasm_bindgen]
-pub fn list_assets(xpubkh: String, encryption_secret: String) -> Promise {
-    set_panic_hook();
+// #[wasm_bindgen]
+// pub fn list_assets(xpubkh: String, encryption_secret: String) -> Promise {
+//     set_panic_hook();
 
-    future_to_promise(async move {
-        // TODO: make call to storage lambda, decrypt, then pass to list_assets
-        let result = get(&LIST_ASSETS_ENDPOINT).await;
-        match result {
-            Ok(result) => Ok(JsValue::from_string(
-                serde_json::to_string(&result).unwrap(),
-            )),
-            Err(err) => Err(JsValue::from_string(err.to_string())),
-        }
-    })
-}
+//     future_to_promise(async move {
+//         // TODO: make call to storage lambda, decrypt, then pass to list_assets
+//         match crate::list_assets(&asset, &rgb_descriptor_xpub).await {
+//             Ok(result) => Ok(JsValue::from_string(
+//                 serde_json::to_string(&result).unwrap(),
+//             )),
+//             Err(err) => Err(JsValue::from_string(err.to_string())),
+//         }
+//     })
+// }
 
 #[wasm_bindgen]
 pub fn import_asset(asset: String, rgb_descriptor_xpub: String) -> Promise {
@@ -232,31 +226,31 @@ pub fn send_assets(
     })
 }
 
-#[wasm_bindgen]
-pub fn validate_transfer(utxo_string: String) -> Promise {
-    set_panic_hook();
+// #[wasm_bindgen]
+// pub fn validate_transfer(utxo_string: String) -> Promise {
+//     set_panic_hook();
 
-    future_to_promise(async move {
-        let result = get(&VALIDATE_TRANSFER_ENDPOINT).await;
-        match result {
-            Ok(result) => Ok(JsValue::from_string(
-                serde_json::to_string(&result).unwrap(),
-            )),
-            Err(err) => Err(JsValue::from_string(err.to_string())),
-        }
-    })
-}
+//     future_to_promise(async move {
+//         let result = get(&VALIDATE_TRANSFER_ENDPOINT).await;
+//         match result {
+//             Ok(result) => Ok(JsValue::from_string(
+//                 serde_json::to_string(&result).unwrap(),
+//             )),
+//             Err(err) => Err(JsValue::from_string(err.to_string())),
+//         }
+//     })
+// }
 
-#[wasm_bindgen]
-pub fn accept_transfer(consignment: String, blinding: String) -> Promise {
-    set_panic_hook();
-    future_to_promise(async move {
-        let result = get(&ACCEPT_TRANSFER_ENDPOINT).await;
-        match result {
-            Ok(result) => Ok(JsValue::from_string(
-                serde_json::to_string(&result).unwrap(),
-            )),
-            Err(err) => Err(JsValue::from_string(err.to_string())),
-        }
-    })
-}
+// #[wasm_bindgen]
+// pub fn accept_transfer(consignment: String, blinding: String) -> Promise {
+//     set_panic_hook();
+//     future_to_promise(async move {
+//         let result = get(&ACCEPT_TRANSFER_ENDPOINT).await;
+//         match result {
+//             Ok(result) => Ok(JsValue::from_string(
+//                 serde_json::to_string(&result).unwrap(),
+//             )),
+//             Err(err) => Err(JsValue::from_string(err.to_string())),
+//         }
+//     })
+// }

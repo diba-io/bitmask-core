@@ -1,9 +1,9 @@
-use anyhow::Result;
 use std::{env, str::FromStr, sync::RwLock};
-use tokio::sync::RwLock as AsyncRwLock;
 
+use anyhow::Result;
 use bitcoin::Network;
 use once_cell::sync::Lazy;
+use tokio::sync::RwLock as AsyncRwLock;
 
 fn dot_env(key: &str) -> String {
     let env_file = include_str!("../../.env");
@@ -77,13 +77,14 @@ pub async fn switch_network(network_str: &str) -> Result<()> {
     Ok(())
 }
 
-// Lambda endpoints
-pub static ISSUE_ENDPOINT: Lazy<String> = Lazy::new(|| dot_env("ISSUE_ENDPOINT"));
-pub static BLINDED_UTXO_ENDPOINT: Lazy<String> = Lazy::new(|| dot_env("BLINDED_UTXO_ENDPOINT"));
-pub static IMPORT_ASSET_ENDPOINT: Lazy<String> = Lazy::new(|| dot_env("IMPORT_ASSET_ENDPOINT"));
-pub static LIST_ASSETS_ENDPOINT: Lazy<String> = Lazy::new(|| dot_env("LIST_ASSETS_ENDPOINT"));
-pub static SEND_ASSETS_ENDPOINT: Lazy<String> = Lazy::new(|| dot_env("SEND_ASSETS_ENDPOINT"));
-pub static ACCEPT_TRANSFER_ENDPOINT: Lazy<String> =
-    Lazy::new(|| dot_env("ACCEPT_TRANSFER_ENDPOINT"));
-pub static VALIDATE_TRANSFER_ENDPOINT: Lazy<String> =
-    Lazy::new(|| dot_env("VALIDATE_TRANSFER_ENDPOINT"));
+pub static NODE_HOST: Lazy<AsyncRwLock<String>> =
+    Lazy::new(|| AsyncRwLock::new(dot_env("NODE_HOST")));
+
+pub async fn get_url(path: &str) -> String {
+    let node_host = NODE_HOST.read().await;
+    format!("{node_host}/{path}")
+}
+
+pub async fn switch_host(host: &str) {
+    *NODE_HOST.write().await = host.to_owned();
+}
