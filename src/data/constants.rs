@@ -87,3 +87,6 @@ pub static ACCEPT_TRANSFER_ENDPOINT: Lazy<String> =
     Lazy::new(|| dot_env("ACCEPT_TRANSFER_ENDPOINT"));
 pub static VALIDATE_TRANSFER_ENDPOINT: Lazy<String> =
     Lazy::new(|| dot_env("VALIDATE_TRANSFER_ENDPOINT"));
+
+// lightning
+pub static LNDHUB_ENDPOINT: Lazy<String> = Lazy::new(|| dot_env("LNDHUB_ENDPOINT"));
