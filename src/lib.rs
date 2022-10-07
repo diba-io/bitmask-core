@@ -22,7 +22,7 @@ use serde_encrypt::{
 use tokio::try_join;
 
 pub mod data;
-mod operations;
+pub mod operations;
 pub mod util;
 #[cfg(target_arch = "wasm32")]
 pub mod web;
