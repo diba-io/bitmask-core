@@ -97,15 +97,13 @@ pub async fn get(url: &str) -> Result<(String, u16)> {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-pub async fn post_json<T: Serialize>(url: &str, body: &T) -> Result<(String, u16)> {
+pub async fn post_json<T: Serialize>(url: &str, body: &Option<T>) -> Result<(String, u16)> {
     let client = reqwest::Client::new();
-    let response = client
-        .post(url)
-        .body(serde_json::to_string(body)?)
-        .header(
-            "Content-Type",
-            "application/x-www-form-urlencoded; charset=UTF-8",
-        )
+    let mut response = client.post(url);
+    if let Some(b) = body {
+        response = response.json(&b);
+    }
+    let response = response
         .send()
         .await
         .context(format!("Error sending JSON POST request to {url}"))?;
@@ -120,10 +118,11 @@ pub async fn post_json<T: Serialize>(url: &str, body: &T) -> Result<(String, u16
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-pub async fn get(url: &str) -> Result<(String, u16)> {
+pub async fn get(url: &str, token: &str) -> Result<(String, u16)> {
     let client = reqwest::Client::new();
     let response = client
         .get(url)
+        .bearer_auth(token)
         .send()
         .await
         .context(format!("Error sending GET request to {url}"))?;
