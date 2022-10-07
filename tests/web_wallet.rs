@@ -22,10 +22,10 @@ const MNEMONIC: &str =
 const ENCRYPTION_PASSWORD: &str = "hunter2";
 const SEED_PASSWORD: &str = "";
 
-const DESCRIPTOR: &str = "wpkh([a4a469b0/84'/1'/0'/0]tprv8haHNLCCjhGAdYZinundP58hLrv6325kQGpv2mdE2wfb9WkvqXGVj5fFuqfpJSDS1AQCBGLvjrLszHPHUqewVQeYCiecySr4FSHqzStedLM/*)";
-const CHANGE_DESCRIPTOR: &str = "wpkh([a4a469b0/84'/1'/0'/1]tprv8haHNLCCjhGAiUUDixqL9yMdZMTi8a9pNdLSBg92QkZUHCKEc4Uo2Rg4uZPHGtDheJvpLvwLm8hXErKbCXe96kD453jHYtBJkmLNGNYV9Yx/*)";
+const DESCRIPTOR: &str = "tr([a4a469b0/86'/1'/0']tprv8gM7m1SkWiAK7v1B1cxP5843bd7fqbEr4JU3r9P2ZiN5C8uiM2nuxStGctYXLY6zVKYM4qRd37QDn1iiMkt4pqopgWCht5eq6d3ZFPYh2VS/0/*)";
+const CHANGE_DESCRIPTOR: &str = "tr([a4a469b0/86'/1'/0']tprv8gM7m1SkWiAK7v1B1cxP5843bd7fqbEr4JU3r9P2ZiN5C8uiM2nuxStGctYXLY6zVKYM4qRd37QDn1iiMkt4pqopgWCht5eq6d3ZFPYh2VS/1/*)";
 const PUBKEY_HASH: &str = "a4a469b0a03e479500ad438b44a45c8ba3246482";
-const ADDRESS: &str = "tb1qh89unmzv905qpm8c3u84wa42jr290mjkxyc5an";
+const ADDRESS: &str = "tb1pjy3xavhaut6qjkkggh5k87qj7d9am8d02ug8astan54538dcthkqqg6zf5";
 
 /// Tests for Wallet Creation Workflow
 
@@ -60,13 +60,11 @@ async fn import_and_open_wallet() {
     .await;
 
     let mnemonic_data: MnemonicSeedData = json_parse(&mnemonic_data_str);
-    let encrypted_descriptors =
-        serde_json::to_string(&mnemonic_data.serialized_encrypted_message).unwrap();
 
     // Get encrypted wallet properties
     let encrypted_wallet_str: JsValue = resolve(get_encrypted_wallet(
         ENCRYPTION_PASSWORD.to_owned(),
-        encrypted_descriptors,
+        mnemonic_data.serialized_encrypted_message,
     ))
     .await;
     let encrypted_wallet_data: EncryptedWalletData = json_parse(&encrypted_wallet_str);
@@ -89,16 +87,11 @@ async fn import_and_open_wallet() {
     let wallet_data: WalletData = json_parse(&wallet_str);
 
     assert_eq!(
-        wallet_data.address,
-        ADDRESS.to_owned(),
+        &wallet_data.address, ADDRESS,
         "parsed wallet data matches address"
     );
-    assert_eq!(wallet_data.balance.confirmed, 0);
-    assert_eq!(wallet_data.transactions, vec![]);
-
-    // Set blinded UTXOs
-    // todo!("Same but with blinded_utxo?");
-    // resolve(set_blinded_utxos("[]".to_owned(), "{}".to_owned())).await;
+    assert!(wallet_data.balance.confirmed > 0);
+    assert!(!wallet_data.transactions.is_empty());
 }
 
 /// Can import the testing mnemonic
@@ -118,13 +111,11 @@ async fn import_test_wallet() {
     .await;
 
     let mnemonic_data: MnemonicSeedData = json_parse(&mnemonic_data_str);
-    let encrypted_descriptors =
-        serde_json::to_string(&mnemonic_data.serialized_encrypted_message).unwrap();
 
     // Get vault properties
     let vault_str: JsValue = resolve(get_encrypted_wallet(
         ENCRYPTION_PASSWORD.to_owned(),
-        encrypted_descriptors,
+        mnemonic_data.serialized_encrypted_message,
     ))
     .await;
     let encrypted_wallet_data: EncryptedWalletData = json_parse(&vault_str);
@@ -167,7 +158,7 @@ async fn import_test_wallet() {
         encrypted_wallet_data.btc_change_descriptor_xprv,
         wallet_data.address,
         1_000,
-        None,
+        Some(1.0),
     ))
     .await;
 

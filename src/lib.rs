@@ -86,6 +86,7 @@ pub struct MnemonicSeedData {
     pub serialized_encrypted_message: String,
 }
 
+// TODO: should probably be called "new_mnemonic_seed"
 pub fn get_mnemonic_seed(
     encryption_password: &str,
     seed_password: &str,
