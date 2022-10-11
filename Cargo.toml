@@ -47,7 +47,7 @@ tokio = { version = "1.20.1", features = ["macros", "sync"] }
 pretty_env_logger = "0.4.0"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-bdk = { version = "0.23.0-rc.1", features = [
+bdk = { version = "0.23", features = [
     "use-esplora-async",
     "async-interface",
 ], default-features = false, git = "https://github.com/bitcoindevkit/bdk.git", rev = "7de8be46c04128328d8dbd1de7b29033a290fde8" }
@@ -64,7 +64,7 @@ rand = { version = "^0.6", features = ["wasm-bindgen"] }
 amplify = "3.13.0"
 axum = "0.5.16"
 axum-macros = "0.2.3"
-bdk = { version = "0.23.0-rc.1", features = [
+bdk = { version = "0.23", features = [
     "use-esplora-async",
     "async-interface",
     "reqwest-default-tls",
