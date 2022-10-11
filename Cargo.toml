@@ -77,7 +77,7 @@ descriptor-wallet = { version = "0.8.3", features = ["descriptors", "serde"] }
 electrum-client = "0.10.1"
 lnpbp = "0.8.0"
 psbt = { version = "0.8.5", features = ["sign", "miniscript", "serde"] }
-reqwest = { version = "0.11.11", features = ["json"] }
+reqwest = { version = "0.11.12", features = ["json"] }
 rgb-core = { package = "rgb-core", version = "0.8.0", features = ["serde"] }
 rgb-std = { package = "rgb-std", version = "0.8.0", features = [
     "serde",
