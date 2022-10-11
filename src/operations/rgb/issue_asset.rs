@@ -8,7 +8,7 @@ use rgb_core::Consignment;
 use rgb_std::{fungible::allocation::OutpointValue, Contract};
 use stens::AsciiString;
 
-use crate::{constants::NETWORK, debug, info};
+use crate::{data::constants::NETWORK, debug, info};
 
 fn ticker_validator(ticker: &str) -> Result<()> {
     info!(format!("Validating ticker: {ticker}"));

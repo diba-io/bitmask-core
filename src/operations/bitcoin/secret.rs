@@ -57,9 +57,9 @@ pub fn new_mnemonic(seed_password: &str) -> Result<EncryptedWalletData> {
     get_mnemonic(mnemonic_phrase, seed_password)
 }
 
-pub fn save_mnemonic(seed_password: &str, mnemonic: &str) -> Result<EncryptedWalletData> {
-    let mnemonic_phrase = Mnemonic::from_str(mnemonic).expect("Parse mnemonic seed phrase");
-    get_mnemonic(mnemonic_phrase, seed_password)
+pub fn save_mnemonic(mnemonic_phrase: &str, seed_password: &str) -> Result<EncryptedWalletData> {
+    let mnemonic = Mnemonic::from_str(mnemonic_phrase).expect("Parse mnemonic seed phrase");
+    get_mnemonic(mnemonic, seed_password)
 }
 
 pub fn get_mnemonic(mnemonic_phrase: Mnemonic, seed_password: &str) -> Result<EncryptedWalletData> {

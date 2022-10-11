@@ -1,14 +1,18 @@
 use anyhow::Result;
 
 use crate::{
-    constants::VALIDATE_TRANSFER_ENDPOINT, data::structs::ValidateRequest, info, util::post_json,
+    data::{constants::get_endpoint, structs::ValidateRequest},
+    info,
+    util::post_json,
 };
 
+#[allow(unused_variables, unreachable_code)]
 pub async fn validate_transfer(consignment: String) -> Result<()> {
     //TODO: review
     let validate_request = ValidateRequest { consignment };
 
-    let (response, _) = post_json(&VALIDATE_TRANSFER_ENDPOINT, &validate_request).await?;
+    todo!("this code actually loops... there's no implementation");
+    let (response, _) = post_json(&get_endpoint("validate").await, &validate_request).await?;
 
     // parse into generic JSON value
     // let result = serde_json::from_str(&response)?;

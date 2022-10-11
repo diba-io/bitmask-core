@@ -33,24 +33,24 @@ bitcoin = "0.28.1"
 bitcoin_hashes = "0.10.0"
 console_error_panic_hook = "0.1.6"
 directories = "4.0"
-futures = "0.3.17"
+futures = "0.3"
 getrandom = { version = "0.2.3", features = ["js"] }
 hex = "0.4.3"
 lazy_static = "1.4.0"
-log = "0.4.17"
+log = "0.4"
 once_cell = "1.9.0"
 regex = "1"
-serde = "1.0.130"
-serde_json = "1.0.68"
+serde = "1"
+serde_json = "1"
 serde-encrypt = "0.7.0"
-tokio = { version = "1.20.1", features = ["macros", "sync"] }
+tokio = { version = "1", features = ["macros", "sync"] }
 pretty_env_logger = "0.4.0"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-bdk = { version = "0.23.0-rc.1", features = [
-    "use-esplora-reqwest",
+bdk = { version = "0.23", features = [
+    "use-esplora-async",
     "async-interface",
-], default-features = false, git = "https://github.com/bitcoindevkit/bdk.git", rev = "7de8be46c04128328d8dbd1de7b29033a290fde8" }
+], default-features = false }
 gloo-console = "0.2.1"
 gloo-net = "0.2.0"
 js-sys = "0.3.55"
@@ -64,12 +64,12 @@ rand = { version = "^0.6", features = ["wasm-bindgen"] }
 amplify = "3.13.0"
 axum = "0.5.16"
 axum-macros = "0.2.3"
-bdk = { version = "0.23.0-rc.1", features = [
-    "use-esplora-reqwest",
-    "sqlite-bundled",
+bdk = { version = "0.23", features = [
+    "use-esplora-async",
     "async-interface",
     "reqwest-default-tls",
-], default-features = false, git = "https://github.com/bitcoindevkit/bdk.git", rev = "7de8be46c04128328d8dbd1de7b29033a290fde8" }
+    "sqlite-bundled",
+], default-features = false }
 bp-core = { version = "0.8.0", features = ["wallet"] }
 carbonado = "0.1.1"
 commit_verify = { version = "0.8.0", features = ["rand"] }
@@ -77,7 +77,7 @@ descriptor-wallet = { version = "0.8.3", features = ["descriptors", "serde"] }
 electrum-client = "0.10.1"
 lnpbp = "0.8.0"
 psbt = { version = "0.8.5", features = ["sign", "miniscript", "serde"] }
-reqwest = { version = "0.11.11", features = ["json"] }
+reqwest = { version = "0.11.12", features = ["json"] }
 rgb-core = { package = "rgb-core", version = "0.8.0", features = ["serde"] }
 rgb-std = { package = "rgb-std", version = "0.8.0", features = [
     "serde",
@@ -96,4 +96,4 @@ strict_encoding = { version = "0.8.1", features = [
 wasm-bindgen-test = "0.3.13"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
-tokio = { version = "1.20.1", features = ["full"] }
+tokio = { version = "1", features = ["full"] }

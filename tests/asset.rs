@@ -77,7 +77,7 @@ async fn asset_transfer() -> Result<()> {
         &main_vault.btc_change_descriptor_xprv,
         &btc_wallet.address,
         5000,
-        Some(1.0),
+        Some(1.1),
     )
     .await?;
 
