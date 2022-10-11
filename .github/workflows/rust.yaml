@@ -11,14 +11,14 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: stable
 
-      - uses: Swatinem/rust-cache@v1
+      - uses: Swatinem/rust-cache@v2
 
       - name: Lint
         run: cargo clippy --lib --all-features -- -D warnings
@@ -27,14 +27,14 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: stable
 
-      - uses: Swatinem/rust-cache@v1
+      - uses: Swatinem/rust-cache@v2
       - uses: jetli/wasm-pack-action@v0.3.0
 
       - name: Add wasm32 target
@@ -48,14 +48,14 @@ jobs:
     needs: lint
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: stable
 
-      - uses: Swatinem/rust-cache@v1
+      - uses: Swatinem/rust-cache@v2
 
       - name: Test
         run: cargo test -- --nocapture
@@ -68,14 +68,14 @@ jobs:
   #   needs: lint-wasm
 
   #   steps:
-  #     - uses: actions/checkout@v2
+  #     - uses: actions/checkout@v3
 
   #     - uses: actions-rs/toolchain@v1
   #       with:
   #         profile: minimal
   #         toolchain: stable
 
-  #     - uses: Swatinem/rust-cache@v1
+  #     - uses: Swatinem/rust-cache@v2
   #     - uses: jetli/wasm-pack-action@v0.3.0
 
   #     - name: Add wasm32 target
