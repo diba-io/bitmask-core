@@ -40,7 +40,7 @@ pub use crate::{
 #[cfg(target_arch = "wasm32")]
 pub use crate::{
     data::{
-        constants::get_url,
+        constants::get_endpoint,
         structs::{AssetRequest, BlindRequest, BlindResponse, TransferRequest, TransferResponse},
     },
     util::post_json,
@@ -258,7 +258,7 @@ pub async fn import_asset(asset: &str, rgb_descriptor_xpub: &str) -> Result<Thin
     let utxos = get_utxos(rgb_descriptor_xpub, None).await?;
     let utxos = utxos_to_outpoints(utxos);
 
-    let endpoint = &get_url("import").await;
+    let endpoint = &get_endpoint("import").await;
     let body = AssetRequest {
         asset: asset.to_owned(),
         utxos,
@@ -303,7 +303,7 @@ pub fn get_blinded_utxo(utxo_string: &str) -> Result<BlindingUtxo> {
 pub async fn get_blinded_utxo(utxo_string: &str) -> Result<BlindingUtxo> {
     let utxo = OutPoint::from_str(utxo_string)?;
 
-    let endpoint = &get_url("blind").await;
+    let endpoint = &get_endpoint("blind").await;
     let body = BlindRequest {
         utxo: utxo.to_string(),
     };
@@ -501,7 +501,7 @@ pub async fn send_assets(
 
     #[cfg(target_arch = "wasm32")]
     let (consignment, psbt, disclosure) = async {
-        let endpoint = &get_url("send").await;
+        let endpoint = &get_endpoint("send").await;
         let body = TransferRequest {
             rgb_assets_descriptor_xpub: rgb_assets_descriptor_xpub.to_owned(),
             blinded_utxo: blinded_utxo.to_owned(),

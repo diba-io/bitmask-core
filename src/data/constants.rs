@@ -80,7 +80,7 @@ pub async fn switch_network(network_str: &str) -> Result<()> {
 pub static NODE_HOST: Lazy<AsyncRwLock<String>> =
     Lazy::new(|| AsyncRwLock::new(dot_env("NODE_HOST")));
 
-pub async fn get_url(path: &str) -> String {
+pub async fn get_endpoint(path: &str) -> String {
     let node_host = NODE_HOST.read().await;
     format!("{node_host}/{path}")
 }
