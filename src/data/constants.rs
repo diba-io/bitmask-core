@@ -54,7 +54,15 @@ pub static NETWORK: Lazy<RwLock<Network>> = Lazy::new(|| {
     RwLock::new(Network::Testnet) // TODO: Change default to mainnet
 });
 
-// See: https://docs.rs/bitcoin/0.27.1/src/bitcoin/network/constants.rs.html#62-75
+pub fn get_network() -> Result<String> {
+    match NETWORK.read() {
+        Ok(network) => Ok(network.to_string()),
+        Err(err) => Ok(err.to_string()),
+    }
+}
+
+/// Switch Bitcoin network
+/// For options, see: https://docs.rs/bitcoin/0.27.1/src/bitcoin/network/constants.rs.html#62-75
 pub async fn switch_network(network_str: &str) -> Result<()> {
     let network = Network::from_str(network_str)?;
 

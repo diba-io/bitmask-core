@@ -206,7 +206,7 @@ pub fn send_assets(
     set_panic_hook();
 
     future_to_promise(async move {
-           match crate::send_assets(
+        match crate::send_assets(
             &btc_descriptor_xprv,
             &btc_change_descriptor_xprv,
             &rgb_assets_descriptor_xprv,
@@ -216,7 +216,8 @@ pub fn send_assets(
             &asset_contract,
             fee_rate,
         )
-        .await {
+        .await
+        {
             Ok(result) => Ok(JsValue::from_string(
                 serde_json::to_string(&result).unwrap(),
             )),
@@ -253,3 +254,53 @@ pub fn send_assets(
 //         }
 //     })
 // }
+
+#[wasm_bindgen]
+pub fn get_network() -> Promise {
+    set_panic_hook();
+
+    future_to_promise(async move {
+        match crate::get_network() {
+            Ok(result) => Ok(JsValue::from_string(
+                serde_json::to_string(&result).unwrap(),
+            )),
+            Err(err) => Err(JsValue::from_string(err.to_string())),
+        }
+    })
+}
+
+#[wasm_bindgen]
+pub fn switch_network(network_str: String) -> Promise {
+    set_panic_hook();
+
+    future_to_promise(async move {
+        match crate::switch_network(&network_str).await {
+            Ok(result) => Ok(JsValue::from_string(
+                serde_json::to_string(&result).unwrap(),
+            )),
+            Err(err) => Err(JsValue::from_string(err.to_string())),
+        }
+    })
+}
+
+#[wasm_bindgen]
+pub fn get_endpoint(path: String) -> Promise {
+    set_panic_hook();
+
+    future_to_promise(async move {
+        let result = crate::get_endpoint(&path).await;
+        Ok(JsValue::from_string(
+            serde_json::to_string(&result).unwrap(),
+        ))
+    })
+}
+
+#[wasm_bindgen]
+pub fn switch_host(host: String) -> Promise {
+    set_panic_hook();
+
+    future_to_promise(async move {
+        crate::switch_host(&host).await;
+        Ok(JsValue::UNDEFINED)
+    })
+}

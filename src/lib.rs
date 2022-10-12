@@ -39,16 +39,13 @@ pub use crate::{
 // Web
 #[cfg(target_arch = "wasm32")]
 pub use crate::{
-    data::{
-        constants::get_endpoint,
-        structs::{AssetRequest, BlindRequest, BlindResponse, TransferRequest, TransferResponse},
-    },
+    data::structs::{AssetRequest, BlindRequest, BlindResponse, TransferRequest, TransferResponse},
     util::post_json,
 };
 // Isomorphic
 pub use crate::{
     data::{
-        constants::{switch_host, switch_network, NETWORK},
+        constants::{get_endpoint, get_network, switch_host, switch_network},
         structs::{
             EncryptedWalletData, FundVaultDetails, SatsInvoice, ThinAsset, TransferResult,
             WalletData, WalletTransaction,
@@ -599,10 +596,3 @@ pub async fn validate_transaction(consignment: &str) -> Result<()> {
 //     info!("Transaction accepted");
 //     Ok(accept)
 // }
-
-pub fn get_network() -> Result<String> {
-    match NETWORK.read() {
-        Ok(network) => Ok(network.to_string()),
-        Err(err) => Ok(err.to_string()),
-    }
-}
