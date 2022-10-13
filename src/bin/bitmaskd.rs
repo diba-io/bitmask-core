@@ -24,7 +24,7 @@ async fn issue(Json(issue): Json<IssueRequest>) -> Result<impl IntoResponse, App
         &issue.name,
         issue.precision,
         issue.supply,
-        &issue.utxo.to_string(),
+        &issue.utxo,
     )?;
 
     Ok((StatusCode::OK, Json(issue_res)))

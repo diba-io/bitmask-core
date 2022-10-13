@@ -191,6 +191,34 @@ pub fn fund_vault(
     })
 }
 
+#[wasm_bindgen]
+pub fn create_asset(
+    ticker: String,
+    name: String,
+    precision: u8,
+    supply: u64,
+    utxo: String,
+) -> Promise {
+    set_panic_hook();
+
+    future_to_promise(async move {
+        match crate::create_asset(
+            &ticker,
+            &name,
+            precision,
+            supply,
+            &utxo,
+        )
+        .await
+        {
+            Ok(result) => Ok(JsValue::from_string(
+                serde_json::to_string(&result).unwrap(),
+            )),
+            Err(err) => Err(JsValue::from_string(err.to_string())),
+        }
+    })
+}
+
 #[allow(clippy::too_many_arguments)]
 #[wasm_bindgen]
 pub fn send_assets(

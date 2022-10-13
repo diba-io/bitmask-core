@@ -39,7 +39,9 @@ pub use crate::{
 // Web
 #[cfg(target_arch = "wasm32")]
 pub use crate::{
-    data::structs::{AssetRequest, BlindRequest, BlindResponse, TransferRequest, TransferResponse},
+    data::structs::{
+        AssetRequest, BlindRequest, BlindResponse, IssueRequest, TransferRequest, TransferResponse,
+    },
     util::post_json,
 };
 // Isomorphic
@@ -201,6 +203,43 @@ pub fn create_asset(
     let id = contract.id().to_string();
     let asset_id = contract.contract_id().to_string();
     let schema_id = contract.schema_id().to_string();
+
+    Ok(CreateAssetResult {
+        genesis,
+        id,
+        asset_id,
+        schema_id,
+    })
+}
+
+#[cfg(target_arch = "wasm32")]
+pub async fn create_asset(
+    ticker: &str,
+    name: &str,
+    precision: u8,
+    supply: u64,
+    utxo: &str,
+) -> Result<CreateAssetResult> {
+    let endpoint = &get_endpoint("issue").await;
+    let body = IssueRequest {
+        ticker: ticker.to_owned(),
+        name: name.to_owned(),
+        description: "TODO".to_owned(),
+        precision,
+        supply,
+        utxo: utxo.to_owned(),
+    };
+    let (issue_res, status) = post_json(endpoint, &body).await?;
+    if status != 200 {
+        return Err(anyhow!("Error calling {endpoint}"));
+    }
+    let CreateAssetResult {
+        genesis,
+        id,
+        asset_id,
+        schema_id,
+    } = serde_json::from_str(&issue_res)?;
+
     Ok(CreateAssetResult {
         genesis,
         id,
@@ -262,12 +301,29 @@ pub async fn import_asset(asset: &str, rgb_descriptor_xpub: &str) -> Result<Thin
         asset: asset.to_owned(),
         utxos,
     };
-    let (blind_res, status) = post_json(endpoint, &body).await?;
+    let (asset_res, status) = post_json(endpoint, &body).await?;
     if status != 200 {
-        return Err(anyhow!("Error calling {}", endpoint.as_str()));
+        return Err(anyhow!("Error calling {endpoint}"));
     }
-    let asset_res: ThinAsset = serde_json::from_str(&blind_res)?;
-    Ok(asset_res)
+    let ThinAsset {
+        id,
+        ticker,
+        name,
+        description,
+        allocations,
+        balance,
+        genesis,
+    } = serde_json::from_str(&asset_res)?;
+
+    Ok(ThinAsset {
+        id,
+        ticker,
+        name,
+        description,
+        allocations,
+        balance,
+        genesis,
+    })
 }
 
 #[derive(Serialize, Deserialize)]
@@ -308,7 +364,7 @@ pub async fn get_blinded_utxo(utxo_string: &str) -> Result<BlindingUtxo> {
     };
     let (blind_res, status) = post_json(endpoint, &body).await?;
     if status != 200 {
-        return Err(anyhow!("Error calling {}", endpoint.as_str()));
+        return Err(anyhow!("Error calling {endpoint}"));
     }
     let BlindResponse { conceal, blinding } = serde_json::from_str(&blind_res)?;
     let blinding_utxo = BlindingUtxo {
@@ -510,7 +566,7 @@ pub async fn send_assets(
         };
         let (transfer_res, status) = post_json(endpoint, &body).await?;
         if status != 200 {
-            return Err(anyhow!("Error calling {}", endpoint.as_str()));
+            return Err(anyhow!("Error calling {endpoint}"));
         }
         let TransferResponse {
             consignment,
