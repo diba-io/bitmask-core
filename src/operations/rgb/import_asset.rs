@@ -70,7 +70,6 @@ pub fn get_asset_by_genesis(genesis: &str, asset_utxos: &Vec<OutPoint>) -> Resul
         id,
         ticker,
         name,
-        description: "Unlisted asset".to_owned(),
         allocations,
         balance,
         genesis: genesis.to_owned(),
