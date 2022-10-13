@@ -505,6 +505,7 @@ dependencies = [
  "storm-core",
  "strict_encoding",
  "tokio",
+ "tower-http",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "wasm-bindgen-test",
