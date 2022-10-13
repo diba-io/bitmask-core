@@ -138,6 +138,7 @@ pub struct ThinAsset {
     pub id: String,
     pub ticker: String,
     pub name: String,
+    pub description: String,
     pub allocations: Vec<Allocation>,
     pub balance: u64,
     pub genesis: String,
