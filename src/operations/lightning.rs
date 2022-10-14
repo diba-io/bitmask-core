@@ -5,41 +5,48 @@ use crate::{
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
+/// Lightning wallet credentials
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Credentials {
     pub login: String,
     pub password: String,
 }
 
+/// Lightning wallet tokens
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Tokens {
     pub refresh_token: String,
     pub access_token: String,
 }
 
+/// Add invoice request
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AddInvoiceReq {
     pub memo: String,
     pub amt: String,
 }
 
+/// Add invoice response
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AddInvoiceRes {
     pub payment_request: String,
 }
 
+/// User balance response
 #[derive(Debug, Serialize, Deserialize)]
 pub struct BalanceRes {
     #[serde(rename = "BTC")]
     pub btc: Balance,
 }
 
+/// User balance
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Balance {
     #[serde(rename = "AvailableBalance")]
     pub available_balance: u64,
 }
 
+/// Lightning Invoice decoded
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct Invoice {
     pub destination: String,
@@ -54,10 +61,13 @@ pub struct Invoice {
     pub route_hints: Vec<Hint>,
 }
 
+/// Pay invoice response
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PayInvoiceRes {
     pub payment_preimage: String,
 }
+
+/// Pay invoice error
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PayInvoiceError {
     pub error: bool,
@@ -65,6 +75,7 @@ pub struct PayInvoiceError {
     pub message: String,
 }
 
+/// Lightning invoice hint
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct Hint {
     pub node_id: String,
@@ -74,16 +85,19 @@ pub struct Hint {
     pub cltv_expiry_delta: String,
 }
 
+/// Invoice request
 #[derive(Debug, Serialize, Deserialize)]
 pub struct InvoiceReq {
     pub invoice: String,
 }
 
+/// Payment request
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PaymentRequest {
     pub pay_req: String,
 }
 
+/// Creates a new lightning custodial wallet
 pub async fn create_wallet() -> Result<Credentials> {
     let endpoint = LNDHUB_ENDPOINT.to_string();
     let create_url = format!("{endpoint}/create");
@@ -93,6 +107,7 @@ pub async fn create_wallet() -> Result<Credentials> {
     Ok(creds)
 }
 
+/// Get a auth tokens
 pub async fn auth(creds: Credentials) -> Result<Tokens> {
     let endpoint = LNDHUB_ENDPOINT.to_string();
     let auth_url = format!("{endpoint}/auth");
@@ -102,6 +117,7 @@ pub async fn auth(creds: Credentials) -> Result<Tokens> {
     Ok(tokens)
 }
 
+/// Creates a lightning invoice
 pub async fn create_invoice(description: &str, amount: u64, token: &str) -> Result<String> {
     let endpoint = LNDHUB_ENDPOINT.to_string();
     let url = format!("{endpoint}/addinvoice");
@@ -115,6 +131,7 @@ pub async fn create_invoice(description: &str, amount: u64, token: &str) -> Resu
     Ok(invoice.payment_request)
 }
 
+/// Decode a lightning invoice (bolt11)
 pub async fn decode_invoice(invoice: &str, token: &str) -> Result<Invoice> {
     let endpoint = LNDHUB_ENDPOINT.to_string();
     let url = format!("{endpoint}/decodeinvoice?invoice={invoice}");
@@ -124,6 +141,7 @@ pub async fn decode_invoice(invoice: &str, token: &str) -> Result<Invoice> {
     Ok(invoice)
 }
 
+/// Get user lightning balance
 pub async fn get_balance(token: &str) -> Result<BalanceRes> {
     let endpoint = LNDHUB_ENDPOINT.to_string();
     let url = format!("{endpoint}/balance");
@@ -133,6 +151,7 @@ pub async fn get_balance(token: &str) -> Result<BalanceRes> {
     Ok(invoice)
 }
 
+/// Pay a lightning invoice
 pub async fn pay_invoice(invoice: &str, token: &str) -> Result<String> {
     let endpoint = LNDHUB_ENDPOINT.to_string();
     let url = format!("{endpoint}/payinvoice");
