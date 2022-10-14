@@ -1,3 +1,5 @@
+#![cfg(not(target_arch = "wasm32"))]
+
 use crate::{
     data::constants::LNDHUB_ENDPOINT,
     util::{get, post_json_auth},
