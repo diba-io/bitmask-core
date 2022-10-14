@@ -1,6 +1,6 @@
 use anyhow::Result;
 use bitmask_core::operations::lightning::{
-    auth, create_invoice, create_wallet, decode_invoice, get_balance, pay_invoice,
+    auth, create_invoice, create_wallet, decode_invoice, get_balance, get_txs, pay_invoice, Tx,
 };
 use log::info;
 use regex::Regex;
@@ -76,6 +76,15 @@ pub async fn pay_invoice_test() -> Result<()> {
     let response = pay_invoice(&invoice, &bob_tokens.access_token).await?;
     // assert_eq!(balance.btc.available_balance, 838);
     info!("pay_invoice: {response:#?}");
+
+    Ok(())
+}
+
+#[tokio::test]
+pub async fn get_txs_test() -> Result<()> {
+    let txs: Vec<Tx> = get_txs(TOKEN_ACCOUNT_WITH_BALANCE, 0, 0).await?;
+
+    info!("get_txs_test: {txs:#?}");
 
     Ok(())
 }

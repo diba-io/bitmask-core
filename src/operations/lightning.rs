@@ -97,6 +97,27 @@ pub struct PaymentRequest {
     pub pay_req: String,
 }
 
+/// Lightning transaction
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Tx {
+    pub payment_preimage: String,
+    pub payment_hash: PaymentHash,
+    #[serde(rename = "type")]
+    pub _type: String,
+    pub fee: u64,
+    pub value: u64,
+    pub timestamp: String,
+    pub memo: String,
+}
+
+/// Payment hash
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PaymentHash {
+    #[serde(rename = "type")]
+    pub _type: String,
+    pub data: [u8; 32],
+}
+
 /// Creates a new lightning custodial wallet
 pub async fn create_wallet() -> Result<Credentials> {
     let endpoint = LNDHUB_ENDPOINT.to_string();
@@ -166,4 +187,14 @@ pub async fn pay_invoice(invoice: &str, token: &str) -> Result<String> {
     // let r: PayInvoiceError = serde_json::from_str(&response)?;
 
     Ok(response)
+}
+
+/// Get successful lightning transactions user made. Order newest to oldest.
+pub async fn get_txs(token: &str, limit: u32, offset: u32) -> Result<Vec<Tx>> {
+    let endpoint = LNDHUB_ENDPOINT.to_string();
+    let url = format!("{endpoint}/gettxs?limit={}&offset={}", limit, offset);
+    let (response, _) = get(&url, Some(token)).await?;
+    let txs = serde_json::from_str(&response)?;
+
+    Ok(txs)
 }
