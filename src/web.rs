@@ -192,6 +192,24 @@ pub fn fund_vault(
 }
 
 #[wasm_bindgen]
+pub fn get_assets_vault(
+    rgb_assets_descriptor_xpub: String,
+    rgb_udas_descriptor_xpub: String,
+) -> Promise {
+    set_panic_hook();
+
+    future_to_promise(async move {
+        match crate::get_assets_vault(&rgb_assets_descriptor_xpub, &rgb_udas_descriptor_xpub).await
+        {
+            Ok(result) => Ok(JsValue::from_string(
+                serde_json::to_string(&result).unwrap(),
+            )),
+            Err(err) => Err(JsValue::from_string(err.to_string())),
+        }
+    })
+}
+
+#[wasm_bindgen]
 pub fn create_asset(
     ticker: String,
     name: String,
