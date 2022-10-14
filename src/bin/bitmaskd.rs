@@ -2,7 +2,7 @@ use std::{env, net::SocketAddr};
 
 use anyhow::Result;
 use axum::{
-    http::{HeaderValue, Method, StatusCode},
+    http::StatusCode,
     response::{IntoResponse, Response},
     routing::post,
     Json, Router,
