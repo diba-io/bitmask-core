@@ -90,17 +90,17 @@ async fn asset_transfer() -> Result<()> {
     let udas_wallet = get_wallet_data(&tmp_vault.rgb_udas_descriptor_xpub, None).await?;
 
     info!("Check assets vault");
-    let fund_vault_details = get_assets_vault(
+    let assets_vault_details = get_assets_vault(
         &tmp_vault.rgb_assets_descriptor_xpub,
         &tmp_vault.rgb_udas_descriptor_xpub,
     )
     .await?;
 
-    let send_assets_utxo = match fund_vault_details.assets_change_output {
+    let send_assets_utxo = match assets_vault_details.assets_change_output {
         Some(send_assets_utxo) => send_assets_utxo,
         None => {
             info!("Missing an asset UTXO in vault. Funding vault...");
-            let fund_vault_details = fund_vault(
+            let assets_vault_details = fund_vault(
                 &tmp_vault.btc_descriptor_xprv,
                 &tmp_vault.btc_change_descriptor_xprv,
                 &assets_wallet.address,
@@ -110,8 +110,8 @@ async fn asset_transfer() -> Result<()> {
                 Some(3.0),
             )
             .await?;
-            debug!("Fund vault details: {fund_vault_details:#?}");
-            fund_vault_details.assets_output.unwrap()
+            debug!("Fund vault details: {assets_vault_details:#?}");
+            assets_vault_details.assets_output.unwrap()
         }
     };
 

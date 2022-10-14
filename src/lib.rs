@@ -491,10 +491,16 @@ pub async fn get_assets_vault(
     debug!(format!("Asset UTXOs: {assets_utxos:#?}"));
     debug!(format!("UDA UTXOs: {uda_utxos:#?}"));
 
-    let assets_output = assets_utxos.get(0).map(utxo_string);
-    let assets_change_output = assets_utxos.get(1).map(utxo_string);
-    let udas_output = uda_utxos.get(0).map(utxo_string);
-    let udas_change_output = uda_utxos.get(1).map(utxo_string);
+    let mut assets_utxos: Vec<String> = assets_utxos.iter().map(utxo_string).collect();
+    assets_utxos.sort();
+
+    let mut uda_utxos: Vec<String> = uda_utxos.iter().map(utxo_string).collect();
+    uda_utxos.sort();
+
+    let assets_output = assets_utxos.get(0).map(|u| u.to_owned());
+    let assets_change_output = assets_utxos.get(1).map(|u| u.to_owned());
+    let udas_output = uda_utxos.get(0).map(|u| u.to_owned());
+    let udas_change_output = uda_utxos.get(1).map(|u| u.to_owned());
 
     Ok(FundVaultDetails {
         assets_output,
