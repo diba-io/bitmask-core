@@ -61,18 +61,18 @@ pub struct Invoice {
     pub route_hints: Vec<Hint>,
 }
 
-/// Pay invoice response
+/// Pay invoice response & error
 #[derive(Debug, Serialize, Deserialize)]
-pub struct PayInvoiceRes {
-    pub payment_preimage: String,
-}
-
-/// Pay invoice error
-#[derive(Debug, Serialize, Deserialize)]
-pub struct PayInvoiceError {
-    pub error: bool,
-    pub code: u8,
-    pub message: String,
+#[serde(untagged)]
+pub enum PayInvoice {
+    Result {
+        payment_preimage: String,
+    },
+    Error {
+        error: bool,
+        code: u8,
+        message: String,
+    },
 }
 
 /// Lightning invoice hint
@@ -181,24 +181,28 @@ pub async fn pay_invoice(invoice: &str, token: &str) -> Result<String> {
     };
     let (response, _) = post_json_auth(&url, &Some(req), Some(token)).await?;
 
-    match serde_json::from_str::<PayInvoiceError>(&response) {
+    match serde_json::from_str::<PayInvoice>(&response) {
         Ok(response) => {
-            if response.error {
-                // handle error response
-                Err(anyhow!("Error in payinvoice: {}", response.message))
-            } else {
-                unreachable!()
+            match response {
+                PayInvoice::Result { payment_preimage } => {
+                    // handle result response
+                    Ok(payment_preimage)
+                }
+                PayInvoice::Error {
+                    error,
+                    code: _,
+                    message,
+                } => {
+                    if error {
+                        // handle error response
+                        Err(anyhow!("Error in payinvoice: {message}"))
+                    } else {
+                        unreachable!("Unexpected error response from payinvoice with no error")
+                    }
+                }
             }
         }
-        Err(_e) => match serde_json::from_str::<PayInvoiceRes>(&response) {
-            Ok(response) => {
-                // handle invoice response
-                Ok(response.payment_preimage)
-            }
-            Err(_) => {
-                unreachable!()
-            }
-        },
+        Err(e) => Err(anyhow!("Error parsing payinvoice response: {e}")),
     }
 }
 
