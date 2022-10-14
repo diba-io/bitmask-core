@@ -12,12 +12,7 @@ pub async fn validate_transfer(consignment: String) -> Result<()> {
     let validate_request = ValidateRequest { consignment };
 
     todo!("this code actually loops... there's no implementation");
-    let (response, _) = post_json(
-        &get_endpoint("validate").await,
-        &Some(validate_request),
-        None,
-    )
-    .await?;
+    let (response, _) = post_json(&get_endpoint("validate").await, &validate_request).await?;
 
     // parse into generic JSON value
     // let result = serde_json::from_str(&response)?;

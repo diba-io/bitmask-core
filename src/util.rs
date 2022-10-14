@@ -97,7 +97,27 @@ pub async fn get(url: &str) -> Result<(String, u16)> {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-pub async fn post_json<T: Serialize>(
+pub async fn post_json<T: Serialize>(url: &str, body: &T) -> Result<(String, u16)> {
+    let client = reqwest::Client::new();
+    let response = client
+        .post(url)
+        .body(serde_json::to_string(body)?)
+        .header("Content-Type", "application/json; charset=UTF-8")
+        .send()
+        .await
+        .context(format!("Error sending JSON POST request to {url}"))?;
+
+    let status_code = response.status().as_u16();
+
+    let response_text = response.text().await.context(format!(
+        "Error in parsing server response for POST JSON request to {url}"
+    ))?;
+
+    Ok((response_text, status_code))
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub async fn post_json_auth<T: Serialize>(
     url: &str,
     body: &Option<T>,
     token: Option<&str>,
