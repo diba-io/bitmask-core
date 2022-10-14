@@ -441,31 +441,37 @@ pub async fn fund_vault(
 
     let fee_rate = fee_rate.map(FeeRate::from_sat_per_vb);
 
-    let details = create_transaction(
-        vec![
-            asset_invoice.clone(),
-            asset_invoice,
-            uda_invoice.clone(),
-            uda_invoice,
-        ],
+    let asset_tx_details = create_transaction(
+        vec![asset_invoice.clone(), asset_invoice],
         &wallet,
         fee_rate,
     )
     .await?;
 
-    let txid = details.txid();
-    let outputs: Vec<String> = details
+    let uda_tx_details =
+        create_transaction(vec![uda_invoice.clone(), uda_invoice], &wallet, fee_rate).await?;
+
+    let asset_txid = asset_tx_details.txid();
+    let asset_outputs: Vec<String> = asset_tx_details
         .output
         .iter()
         .enumerate()
-        .map(|(i, _)| format!("{txid}:{i}"))
+        .map(|(i, _)| format!("{asset_txid}:{i}"))
+        .collect();
+
+    let uda_txid = uda_tx_details.txid();
+    let uda_outputs: Vec<String> = uda_tx_details
+        .output
+        .iter()
+        .enumerate()
+        .map(|(i, _)| format!("{uda_txid}:{i}"))
         .collect();
 
     Ok(FundVaultDetails {
-        assets_output: Some(outputs[0].to_owned()),
-        assets_change_output: Some(outputs[1].to_owned()),
-        udas_output: Some(outputs[2].to_owned()),
-        udas_change_output: Some(outputs[3].to_owned()),
+        assets_output: Some(asset_outputs[0].to_owned()),
+        assets_change_output: Some(asset_outputs[1].to_owned()),
+        udas_output: Some(uda_outputs[0].to_owned()),
+        udas_change_output: Some(uda_outputs[1].to_owned()),
     })
 }
 
