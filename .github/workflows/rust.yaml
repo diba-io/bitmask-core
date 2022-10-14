@@ -39,7 +39,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - name: Lint
-        run: cargo clippy --lib --all-features -- -D warnings | clippy-action-fmt
+        run: cargo clippy --lib --all-features -- -D warnings
         # run: cargo clippy --lib --all-features -q --message-format=json -- -D warnings | clippy-action-fmt
 
   lint-wasm:
@@ -61,7 +61,7 @@ jobs:
         run: rustup target add wasm32-unknown-unknown
 
       - name: Lint (wasm32)
-        run: cargo clippy --target wasm32-unknown-unknown --lib -- -D warnings | clippy-action-fmt
+        run: cargo clippy --target wasm32-unknown-unknown --lib -- -D warnings
         # run: cargo clippy --target wasm32-unknown-unknown --lib -q --message-format=json -- -D warnings | clippy-action-fmt
 
   isomorphic:
