@@ -2,7 +2,7 @@ use crate::{
     data::constants::LNDHUB_ENDPOINT,
     util::{get, post_json_auth},
 };
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 
 /// Lightning wallet credentials
@@ -180,13 +180,26 @@ pub async fn pay_invoice(invoice: &str, token: &str) -> Result<String> {
         invoice: invoice.to_string(),
     };
     let (response, _) = post_json_auth(&url, &Some(req), Some(token)).await?;
-    match serde_json::from_str::<PayInvoiceRes>(&response) {
-        Ok(response) => Ok(response),
-        Err(e) => Err(e),
-    }
-    let r: PayInvoiceError = serde_json::from_str(&response)?;
 
-    Ok(response)
+    match serde_json::from_str::<PayInvoiceError>(&response) {
+        Ok(response) => {
+            if response.error {
+                // handle error response
+                Err(anyhow!("Error in payinvoice: {}", response.message))
+            } else {
+                unreachable!()
+            }
+        }
+        Err(_e) => match serde_json::from_str::<PayInvoiceRes>(&response) {
+            Ok(response) => {
+                // handle invoice response
+                Ok(response.payment_preimage)
+            }
+            Err(_) => {
+                unreachable!()
+            }
+        },
+    }
 }
 
 /// Get successful lightning transactions user made. Order newest to oldest.
