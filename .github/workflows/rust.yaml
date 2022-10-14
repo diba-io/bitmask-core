@@ -7,7 +7,7 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  lint:
+  format:
     runs-on: ubuntu-latest
 
     steps:
@@ -20,8 +20,27 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
+      - name: Check Formatting
+        run: cargo fmt --all -- --check
+
+
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+
+      # - uses: olix0r/cargo-action-fmt@release/v1.0.0
+      - uses: Swatinem/rust-cache@v2
+
       - name: Lint
         run: cargo clippy --lib --all-features -- -D warnings
+        # run: cargo clippy --lib --all-features -q --message-format=json -- -D warnings | clippy-action-fmt
 
   lint-wasm:
     runs-on: ubuntu-latest
@@ -34,14 +53,16 @@ jobs:
           profile: minimal
           toolchain: stable
 
-      - uses: Swatinem/rust-cache@v2
+      # - uses: olix0r/cargo-action-fmt@release/v1.0.0
       - uses: jetli/wasm-pack-action@v0.3.0
+      - uses: Swatinem/rust-cache@v2
 
       - name: Add wasm32 target
         run: rustup target add wasm32-unknown-unknown
 
       - name: Lint (wasm32)
         run: cargo clippy --target wasm32-unknown-unknown --lib -- -D warnings
+        # run: cargo clippy --target wasm32-unknown-unknown --lib -q --message-format=json -- -D warnings | clippy-action-fmt
 
   isomorphic:
     runs-on: ubuntu-latest

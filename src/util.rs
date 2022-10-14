@@ -63,10 +63,7 @@ macro_rules! trace {
 pub async fn post_json<T: Serialize>(url: &str, body: &T) -> Result<(String, u16)> {
     let response = Request::post(url)
         .body(serde_json::to_string(body)?)
-        .header(
-            "Content-Type",
-            "application/x-www-form-urlencoded; charset=UTF-8",
-        )
+        .header("Content-Type", "application/json; charset=UTF-8")
         .send()
         .await
         .context(format!("Error sending JSON POST request to {url}"))?;
@@ -102,10 +99,7 @@ pub async fn post_json<T: Serialize>(url: &str, body: &T) -> Result<(String, u16
     let response = client
         .post(url)
         .body(serde_json::to_string(body)?)
-        .header(
-            "Content-Type",
-            "application/x-www-form-urlencoded; charset=UTF-8",
-        )
+        .header("Content-Type", "application/json; charset=UTF-8")
         .send()
         .await
         .context(format!("Error sending JSON POST request to {url}"))?;

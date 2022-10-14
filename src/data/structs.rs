@@ -65,7 +65,7 @@ pub struct IssueRequest {
     /// Amount of the asset
     pub supply: u64,
     /// Utxo of the initial owner
-    pub utxo: OutPoint,
+    pub utxo: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -207,8 +207,9 @@ pub struct AcceptRequest {
     pub blinding_factor: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct EncloseForgetRequest {
-    pub outpoints: Vec<OutPoint>,
-    pub disclosure: String,
-}
+// TODO: unused?
+// #[derive(Serialize, Deserialize, Debug, Clone)]
+// pub struct EncloseForgetRequest {
+//     pub outpoints: Vec<OutPoint>,
+//     pub disclosure: String,
+// }
