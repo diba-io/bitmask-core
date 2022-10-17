@@ -16,6 +16,7 @@ use bitmask_core::{
     get_blinded_utxo, import_asset, transfer_assets, validate_transaction,
 };
 use log::info;
+use tower_http::cors::CorsLayer;
 
 async fn issue(Json(issue): Json<IssueRequest>) -> Result<impl IntoResponse, AppError> {
     let issue_res = create_asset(
@@ -23,7 +24,7 @@ async fn issue(Json(issue): Json<IssueRequest>) -> Result<impl IntoResponse, App
         &issue.name,
         issue.precision,
         issue.supply,
-        &issue.utxo.to_string(),
+        &issue.utxo,
     )?;
 
     Ok((StatusCode::OK, Json(issue_res)))
@@ -80,7 +81,8 @@ async fn main() -> Result<()> {
         .route("/blind", post(blind))
         .route("/import", post(import))
         .route("/transfer", post(transfer))
-        .route("/validate", post(validate));
+        .route("/validate", post(validate))
+        .layer(CorsLayer::permissive());
 
     let addr = SocketAddr::from(([127, 0, 0, 1], 7070));
 

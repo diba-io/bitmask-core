@@ -39,16 +39,15 @@ pub use crate::{
 // Web
 #[cfg(target_arch = "wasm32")]
 pub use crate::{
-    data::{
-        constants::get_endpoint,
-        structs::{AssetRequest, BlindRequest, BlindResponse, TransferRequest, TransferResponse},
+    data::structs::{
+        AssetRequest, BlindRequest, BlindResponse, IssueRequest, TransferRequest, TransferResponse,
     },
     util::post_json,
 };
 // Isomorphic
 pub use crate::{
     data::{
-        constants::{switch_host, switch_network, NETWORK},
+        constants::{get_endpoint, get_network, switch_host, switch_network},
         structs::{
             EncryptedWalletData, FundVaultDetails, SatsInvoice, ThinAsset, TransferResult,
             WalletData, WalletTransaction,
@@ -204,6 +203,43 @@ pub fn create_asset(
     let id = contract.id().to_string();
     let asset_id = contract.contract_id().to_string();
     let schema_id = contract.schema_id().to_string();
+
+    Ok(CreateAssetResult {
+        genesis,
+        id,
+        asset_id,
+        schema_id,
+    })
+}
+
+#[cfg(target_arch = "wasm32")]
+pub async fn create_asset(
+    ticker: &str,
+    name: &str,
+    precision: u8,
+    supply: u64,
+    utxo: &str,
+) -> Result<CreateAssetResult> {
+    let endpoint = &get_endpoint("issue").await;
+    let body = IssueRequest {
+        ticker: ticker.to_owned(),
+        name: name.to_owned(),
+        description: "TODO".to_owned(),
+        precision,
+        supply,
+        utxo: utxo.to_owned(),
+    };
+    let (issue_res, status) = post_json(endpoint, &body).await?;
+    if status != 200 {
+        return Err(anyhow!("Error calling {endpoint}"));
+    }
+    let CreateAssetResult {
+        genesis,
+        id,
+        asset_id,
+        schema_id,
+    } = serde_json::from_str(&issue_res)?;
+
     Ok(CreateAssetResult {
         genesis,
         id,
@@ -243,7 +279,9 @@ pub fn import_asset(asset: &str, utxos: Vec<String>) -> Result<ThinAsset> {
 
     match asset.as_bytes() {
         #[allow(unreachable_code)]
-        [b'r', b'g', b'b', b'1', ..] => Ok(todo!()),
+        [b'r', b'g', b'b', b'1', ..] => Ok(todo!(
+            "asset persistence for asset_import not yet implemented"
+        )),
         [b'r', b'g', b'b', b'c', b'1', ..] => {
             info!("Getting asset by contract genesis:", asset);
             get_asset_by_genesis(asset, &utxos)
@@ -263,12 +301,29 @@ pub async fn import_asset(asset: &str, rgb_descriptor_xpub: &str) -> Result<Thin
         asset: asset.to_owned(),
         utxos,
     };
-    let (blind_res, status) = post_json(endpoint, &body).await?;
+    let (asset_res, status) = post_json(endpoint, &body).await?;
     if status != 200 {
-        return Err(anyhow!("Error calling {}", endpoint.as_str()));
+        return Err(anyhow!("Error calling {endpoint}"));
     }
-    let asset_res: ThinAsset = serde_json::from_str(&blind_res)?;
-    Ok(asset_res)
+    let ThinAsset {
+        id,
+        ticker,
+        name,
+        description,
+        allocations,
+        balance,
+        genesis,
+    } = serde_json::from_str(&asset_res)?;
+
+    Ok(ThinAsset {
+        id,
+        ticker,
+        name,
+        description,
+        allocations,
+        balance,
+        genesis,
+    })
 }
 
 #[derive(Serialize, Deserialize)]
@@ -309,7 +364,7 @@ pub async fn get_blinded_utxo(utxo_string: &str) -> Result<BlindingUtxo> {
     };
     let (blind_res, status) = post_json(endpoint, &body).await?;
     if status != 200 {
-        return Err(anyhow!("Error calling {}", endpoint.as_str()));
+        return Err(anyhow!("Error calling {endpoint}"));
     }
     let BlindResponse { conceal, blinding } = serde_json::from_str(&blind_res)?;
     let blinding_utxo = BlindingUtxo {
@@ -386,31 +441,37 @@ pub async fn fund_vault(
 
     let fee_rate = fee_rate.map(FeeRate::from_sat_per_vb);
 
-    let details = create_transaction(
-        vec![
-            asset_invoice.clone(),
-            asset_invoice,
-            uda_invoice.clone(),
-            uda_invoice,
-        ],
+    let asset_tx_details = create_transaction(
+        vec![asset_invoice.clone(), asset_invoice],
         &wallet,
         fee_rate,
     )
     .await?;
 
-    let txid = details.txid();
-    let outputs: Vec<String> = details
+    let uda_tx_details =
+        create_transaction(vec![uda_invoice.clone(), uda_invoice], &wallet, fee_rate).await?;
+
+    let asset_txid = asset_tx_details.txid();
+    let asset_outputs: Vec<String> = asset_tx_details
         .output
         .iter()
         .enumerate()
-        .map(|(i, _)| format!("{txid}:{i}"))
+        .map(|(i, _)| format!("{asset_txid}:{i}"))
+        .collect();
+
+    let uda_txid = uda_tx_details.txid();
+    let uda_outputs: Vec<String> = uda_tx_details
+        .output
+        .iter()
+        .enumerate()
+        .map(|(i, _)| format!("{uda_txid}:{i}"))
         .collect();
 
     Ok(FundVaultDetails {
-        assets_output: Some(outputs[0].to_owned()),
-        assets_change_output: Some(outputs[1].to_owned()),
-        udas_output: Some(outputs[2].to_owned()),
-        udas_change_output: Some(outputs[3].to_owned()),
+        assets_output: Some(asset_outputs[0].to_owned()),
+        assets_change_output: Some(asset_outputs[1].to_owned()),
+        udas_output: Some(uda_outputs[0].to_owned()),
+        udas_change_output: Some(uda_outputs[1].to_owned()),
     })
 }
 
@@ -436,10 +497,16 @@ pub async fn get_assets_vault(
     debug!(format!("Asset UTXOs: {assets_utxos:#?}"));
     debug!(format!("UDA UTXOs: {uda_utxos:#?}"));
 
-    let assets_output = assets_utxos.get(0).map(utxo_string);
-    let assets_change_output = assets_utxos.get(1).map(utxo_string);
-    let udas_output = uda_utxos.get(0).map(utxo_string);
-    let udas_change_output = uda_utxos.get(1).map(utxo_string);
+    let mut assets_utxos: Vec<String> = assets_utxos.iter().map(utxo_string).collect();
+    assets_utxos.sort();
+
+    let mut uda_utxos: Vec<String> = uda_utxos.iter().map(utxo_string).collect();
+    uda_utxos.sort();
+
+    let assets_output = assets_utxos.get(0).map(|u| u.to_owned());
+    let assets_change_output = assets_utxos.get(1).map(|u| u.to_owned());
+    let udas_output = uda_utxos.get(0).map(|u| u.to_owned());
+    let udas_change_output = uda_utxos.get(1).map(|u| u.to_owned());
 
     Ok(FundVaultDetails {
         assets_output,
@@ -511,7 +578,7 @@ pub async fn send_assets(
         };
         let (transfer_res, status) = post_json(endpoint, &body).await?;
         if status != 200 {
-            return Err(anyhow!("Error calling {}", endpoint.as_str()));
+            return Err(anyhow!("Error calling {endpoint}"));
         }
         let TransferResponse {
             consignment,
@@ -599,10 +666,3 @@ pub async fn validate_transaction(consignment: &str) -> Result<()> {
 //     info!("Transaction accepted");
 //     Ok(accept)
 // }
-
-pub fn get_network() -> Result<String> {
-    match NETWORK.read() {
-        Ok(network) => Ok(network.to_string()),
-        Err(err) => Ok(err.to_string()),
-    }
-}

@@ -1,8 +1,10 @@
+#![cfg(not(target_arch = "wasm32"))]
+
 use crate::{
     data::constants::LNDHUB_ENDPOINT,
-    util::{get, post_json},
+    util::{get, post_json_auth},
 };
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 
 /// Lightning wallet credentials
@@ -61,18 +63,18 @@ pub struct Invoice {
     pub route_hints: Vec<Hint>,
 }
 
-/// Pay invoice response
+/// Pay invoice response & error
 #[derive(Debug, Serialize, Deserialize)]
-pub struct PayInvoiceRes {
-    pub payment_preimage: String,
-}
-
-/// Pay invoice error
-#[derive(Debug, Serialize, Deserialize)]
-pub struct PayInvoiceError {
-    pub error: bool,
-    pub code: u8,
-    pub message: String,
+#[serde(untagged)]
+pub enum PayInvoice {
+    Result {
+        payment_preimage: String,
+    },
+    Error {
+        error: bool,
+        code: u8,
+        message: String,
+    },
 }
 
 /// Lightning invoice hint
@@ -122,7 +124,7 @@ pub struct PaymentHash {
 pub async fn create_wallet() -> Result<Credentials> {
     let endpoint = LNDHUB_ENDPOINT.to_string();
     let create_url = format!("{endpoint}/create");
-    let (response, _) = post_json::<Credentials>(&create_url, &None, None).await?;
+    let (response, _) = post_json_auth::<Credentials>(&create_url, &None, None).await?;
     let creds: Credentials = serde_json::from_str(&response)?;
 
     Ok(creds)
@@ -132,7 +134,7 @@ pub async fn create_wallet() -> Result<Credentials> {
 pub async fn auth(creds: Credentials) -> Result<Tokens> {
     let endpoint = LNDHUB_ENDPOINT.to_string();
     let auth_url = format!("{endpoint}/auth");
-    let (response, _) = post_json(&auth_url, &Some(creds), None).await?;
+    let (response, _) = post_json_auth(&auth_url, &Some(creds), None).await?;
     let tokens: Tokens = serde_json::from_str(&response)?;
 
     Ok(tokens)
@@ -146,7 +148,7 @@ pub async fn create_invoice(description: &str, amount: u64, token: &str) -> Resu
         memo: description.to_string(),
         amt: amount.to_string(),
     };
-    let (response, _) = post_json(&url, &Some(req), Some(token)).await?;
+    let (response, _) = post_json_auth(&url, &Some(req), Some(token)).await?;
     let invoice: AddInvoiceRes = serde_json::from_str(&response)?;
 
     Ok(invoice.payment_request)
@@ -179,14 +181,31 @@ pub async fn pay_invoice(invoice: &str, token: &str) -> Result<String> {
     let req = InvoiceReq {
         invoice: invoice.to_string(),
     };
-    let (response, _) = post_json(&url, &Some(req), Some(token)).await?;
-    // match serde_json::from_str::<PayInvoiceRes>(&response) {
-    //     Ok(response) => Ok(response),
-    //     Err(e) => Err(e),
-    // }
-    // let r: PayInvoiceError = serde_json::from_str(&response)?;
+    let (response, _) = post_json_auth(&url, &Some(req), Some(token)).await?;
 
-    Ok(response)
+    match serde_json::from_str::<PayInvoice>(&response) {
+        Ok(response) => {
+            match response {
+                PayInvoice::Result { payment_preimage } => {
+                    // handle result response
+                    Ok(payment_preimage)
+                }
+                PayInvoice::Error {
+                    error,
+                    code: _,
+                    message,
+                } => {
+                    if error {
+                        // handle error response
+                        Err(anyhow!("Error in payinvoice: {message}"))
+                    } else {
+                        unreachable!("Unexpected error response from payinvoice with no error")
+                    }
+                }
+            }
+        }
+        Err(e) => Err(anyhow!("Error parsing payinvoice response: {e}")),
+    }
 }
 
 /// Get successful lightning transactions user made. Order newest to oldest.

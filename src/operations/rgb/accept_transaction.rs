@@ -16,8 +16,7 @@ pub async fn accept_transfer(
         blinding_factor,
     };
     info!("here);");
-    let (response, _) =
-        post_json(&get_endpoint("accept").await, &Some(accept_request), None).await?;
+    let (response, _) = post_json(&get_endpoint("accept").await, &accept_request).await?;
     info!(format!("accept transfer result: {response:?}"));
     Ok(response)
 }
