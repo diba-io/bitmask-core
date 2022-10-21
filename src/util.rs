@@ -70,7 +70,7 @@ pub async fn post_json<T: Serialize>(url: &str, body: &T) -> Result<(String, u16
         .await
         .context(format!("Error sending JSON POST request to {url}"))?;
 
-    let status_code = response.status();
+    let status_code = response.status().as_u16();
 
     let response_text = response.text().await.context(format!(
         "Error in parsing server response for POST JSON request to {url}"
