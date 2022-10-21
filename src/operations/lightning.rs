@@ -181,7 +181,7 @@ where
 pub async fn create_wallet() -> Result<Credentials> {
     let endpoint = LNDHUB_ENDPOINT.to_string();
     let create_url = format!("{endpoint}/create");
-    let (response, _) = post_json_auth::<Credentials>(&create_url, &None, None).await?;
+    let response = post_json_auth::<Credentials>(&create_url, &None, None).await?;
     let creds: Credentials = serde_json::from_str(&response)?;
 
     Ok(creds)
@@ -191,7 +191,7 @@ pub async fn create_wallet() -> Result<Credentials> {
 pub async fn auth(creds: Credentials) -> Result<Tokens> {
     let endpoint = LNDHUB_ENDPOINT.to_string();
     let auth_url = format!("{endpoint}/auth");
-    let (response, _) = post_json_auth(&auth_url, &Some(creds), None).await?;
+    let response = post_json_auth(&auth_url, &Some(creds), None).await?;
     let tokens: Tokens = serde_json::from_str(&response)?;
 
     Ok(tokens)
@@ -205,7 +205,7 @@ pub async fn create_invoice(description: &str, amount: u64, token: &str) -> Resu
         memo: description.to_string(),
         amt: amount.to_string(),
     };
-    let (response, _) = post_json_auth(&url, &Some(req), Some(token)).await?;
+    let response = post_json_auth(&url, &Some(req), Some(token)).await?;
     let invoice: AddInvoiceRes = serde_json::from_str(&response)?;
 
     Ok(invoice.payment_request)
@@ -215,7 +215,7 @@ pub async fn create_invoice(description: &str, amount: u64, token: &str) -> Resu
 pub async fn decode_invoice(invoice: &str, token: &str) -> Result<Invoice> {
     let endpoint = LNDHUB_ENDPOINT.to_string();
     let url = format!("{endpoint}/decodeinvoice?invoice={invoice}");
-    let (response, _) = get(&url, Some(token)).await?;
+    let response = get(&url, Some(token)).await?;
     let invoice: Invoice = serde_json::from_str(&response)?;
 
     Ok(invoice)
@@ -225,7 +225,7 @@ pub async fn decode_invoice(invoice: &str, token: &str) -> Result<Invoice> {
 pub async fn get_balance(token: &str) -> Result<BalanceRes> {
     let endpoint = LNDHUB_ENDPOINT.to_string();
     let url = format!("{endpoint}/balance");
-    let (response, _) = get(&url, Some(token)).await?;
+    let response = get(&url, Some(token)).await?;
     let invoice: BalanceRes = serde_json::from_str(&response)?;
 
     Ok(invoice)
@@ -238,7 +238,7 @@ pub async fn pay_invoice(invoice: &str, token: &str) -> Result<PayInvoiceMessage
     let req = InvoiceReq {
         invoice: invoice.to_string(),
     };
-    let (response, _) = post_json_auth(&url, &Some(req), Some(token)).await?;
+    let response = post_json_auth(&url, &Some(req), Some(token)).await?;
     let response: PayInvoiceMessage = serde_json::from_str(&response)?;
 
     Ok(response)
@@ -248,7 +248,7 @@ pub async fn pay_invoice(invoice: &str, token: &str) -> Result<PayInvoiceMessage
 pub async fn get_txs(token: &str, limit: u32, offset: u32) -> Result<Vec<Tx>> {
     let endpoint = LNDHUB_ENDPOINT.to_string();
     let url = format!("{endpoint}/gettxs?limit={}&offset={}", limit, offset);
-    let (response, _) = get(&url, Some(token)).await?;
+    let response = get(&url, Some(token)).await?;
     let txs = serde_json::from_str(&response)?;
 
     Ok(txs)
