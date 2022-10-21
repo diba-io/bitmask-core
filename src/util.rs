@@ -1,7 +1,5 @@
 use anyhow::{Context, Result};
 use bech32::{decode, encode, FromBase32, ToBase32, Variant};
-#[cfg(target_arch = "wasm32")]
-use gloo_net::http::Request;
 use serde::Serialize;
 
 #[macro_export]
@@ -61,7 +59,9 @@ macro_rules! trace {
 
 #[cfg(target_arch = "wasm32")]
 pub async fn post_json<T: Serialize>(url: &str, body: &T) -> Result<(String, u16)> {
-    let response = Request::post(url)
+    let client = reqwest::Client::new();
+    let response = client
+        .post(url)
         .body(serde_json::to_string(body)?)
         .header("Content-Type", "application/json; charset=UTF-8")
         .send()
