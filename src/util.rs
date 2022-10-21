@@ -1,5 +1,7 @@
 use anyhow::{Context, Result};
 use bech32::{decode, encode, FromBase32, ToBase32, Variant};
+#[cfg(target_arch = "wasm32")]
+use reqwest;
 use serde::Serialize;
 
 #[macro_export]
