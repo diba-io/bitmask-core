@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use bech32::{decode, encode, FromBase32, ToBase32, Variant};
 #[cfg(target_arch = "wasm32")]
-use gloo_net::http::Request;
+use reqwest;
 use serde::Serialize;
 
 #[macro_export]
@@ -61,14 +61,16 @@ macro_rules! trace {
 
 #[cfg(target_arch = "wasm32")]
 pub async fn post_json<T: Serialize>(url: &str, body: &T) -> Result<(String, u16)> {
-    let response = Request::post(url)
+    let client = reqwest::Client::new();
+    let response = client
+        .post(url)
         .body(serde_json::to_string(body)?)
         .header("Content-Type", "application/json; charset=UTF-8")
         .send()
         .await
         .context(format!("Error sending JSON POST request to {url}"))?;
 
-    let status_code = response.status();
+    let status_code = response.status().as_u16();
 
     let response_text = response.text().await.context(format!(
         "Error in parsing server response for POST JSON request to {url}"
@@ -78,19 +80,51 @@ pub async fn post_json<T: Serialize>(url: &str, body: &T) -> Result<(String, u16
 }
 
 #[cfg(target_arch = "wasm32")]
-pub async fn get(url: &str) -> Result<(String, u16)> {
-    let response = Request::get(url)
+pub async fn get(url: &str, token: Option<&str>) -> Result<String> {
+    let client = reqwest::Client::new();
+    let mut response = client.get(url);
+    if let Some(t) = token {
+        response = response.bearer_auth(t);
+    }
+    let response = response
         .send()
         .await
         .context(format!("Error sending GET request to {url}"))?;
-
-    let status_code = response.status();
 
     let response_text = response.text().await.context(format!(
         "Error in parsing server response for GET request to {url}"
     ))?;
 
-    Ok((response_text, status_code))
+    Ok(response_text)
+}
+
+#[cfg(target_arch = "wasm32")]
+pub async fn post_json_auth<T: Serialize>(
+    url: &str,
+    body: &Option<T>,
+    token: Option<&str>,
+) -> Result<String> {
+    let client = reqwest::Client::new();
+    let mut response = client.post(url);
+
+    if let Some(b) = body {
+        response = response.json(&b);
+    }
+
+    if let Some(t) = token {
+        response = response.bearer_auth(t);
+    }
+
+    let response = response
+        .send()
+        .await
+        .context(format!("Error sending JSON POST request to {url}"))?;
+
+    let response_text = response.text().await.context(format!(
+        "Error in parsing server response for POST JSON request to {url}"
+    ))?;
+
+    Ok(response_text)
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -114,21 +148,51 @@ pub async fn post_json<T: Serialize>(url: &str, body: &T) -> Result<(String, u16
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-pub async fn get(url: &str) -> Result<(String, u16)> {
+pub async fn post_json_auth<T: Serialize>(
+    url: &str,
+    body: &Option<T>,
+    token: Option<&str>,
+) -> Result<String> {
     let client = reqwest::Client::new();
-    let response = client
-        .get(url)
+    let mut response = client.post(url);
+
+    if let Some(b) = body {
+        response = response.json(&b);
+    }
+
+    if let Some(t) = token {
+        response = response.bearer_auth(t);
+    }
+
+    let response = response
+        .send()
+        .await
+        .context(format!("Error sending JSON POST request to {url}"))?;
+
+    let response_text = response.text().await.context(format!(
+        "Error in parsing server response for POST JSON request to {url}"
+    ))?;
+
+    Ok(response_text)
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub async fn get(url: &str, token: Option<&str>) -> Result<String> {
+    let client = reqwest::Client::new();
+    let mut response = client.get(url);
+    if let Some(t) = token {
+        response = response.bearer_auth(t);
+    }
+    let response = response
         .send()
         .await
         .context(format!("Error sending GET request to {url}"))?;
-
-    let status_code = response.status().as_u16();
 
     let response_text = response.text().await.context(format!(
         "Error in parsing server response for GET request to {url}"
     ))?;
 
-    Ok((response_text, status_code))
+    Ok(response_text)
 }
 
 pub fn bech32_encode(hrp: &str, bytes: &[u8]) -> Result<String> {

@@ -96,3 +96,6 @@ pub async fn get_endpoint(path: &str) -> String {
 pub async fn switch_host(host: &str) {
     *NODE_HOST.write().await = host.to_owned();
 }
+
+// lightning
+pub static LNDHUB_ENDPOINT: Lazy<String> = Lazy::new(|| dot_env("LNDHUB_ENDPOINT"));
