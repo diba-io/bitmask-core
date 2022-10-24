@@ -1,3 +1,4 @@
+#![cfg(feature = "server")]
 use std::{env, net::SocketAddr};
 
 use anyhow::Result;
