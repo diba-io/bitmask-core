@@ -1,5 +1,6 @@
 use bdk::{Balance, BlockTime, LocalUtxo};
 use bitcoin::{util::address::Address, OutPoint, Txid};
+use rgb_core::validation::Status;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
@@ -205,6 +206,12 @@ pub struct AcceptRequest {
     pub consignment: String,
     pub outpoint: OutPoint,
     pub blinding_factor: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct AcceptResponse {
+    pub id: String,
+    pub info: Status,
 }
 
 // TODO: unused?

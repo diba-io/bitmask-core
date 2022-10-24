@@ -30,10 +30,10 @@ pub mod web;
 // Desktop
 #[cfg(not(target_arch = "wasm32"))]
 pub use crate::{
-    data::structs::AssetResponse,
+    data::structs::{AcceptResponse, AssetResponse},
     operations::rgb::{
-        /* accept_transfer, */ blind_utxo, get_asset_by_genesis, get_assets, issue_asset,
-        transfer_asset, validate_transfer,
+        self, blind_utxo, get_asset_by_genesis, get_assets, issue_asset, transfer_asset,
+        validate_transfer,
     },
 };
 // Web
@@ -643,26 +643,9 @@ pub async fn validate_transaction(consignment: &str) -> Result<()> {
     validate_transfer(consignment.to_owned()).await
 }
 
-// TODO: implement accept_transfer in RGB ops
-// #[cfg(not(target_arch = "wasm32"))]
-// pub async fn accept_transfer(
-//     consignment: &str,
-//     txid: &str,
-//     vout: u32,
-//     blinding: &str,
-// ) -> Result<String> {
-//     let txid = Txid::from_str(txid)?;
-
-//     let transaction_data = TransactionData {
-//         blinding: blinding.to_owned(),
-//         utxo: OutPoint { txid, vout },
-//     };
-//     let accept = accept_transfer(
-//         consignment,
-//         transaction_data.utxo,
-//         transaction_data.blinding,
-//     )
-//     .await?;
-//     info!("Transaction accepted");
-//     Ok(accept)
-// }
+#[cfg(not(target_arch = "wasm32"))]
+pub async fn accept_transfer(consignment: &str) -> Result<AcceptResponse> {
+    let (id, info) = rgb::accept_transfer(consignment).await?;
+    info!("Transaction accepted");
+    Ok(AcceptResponse { id, info })
+}
