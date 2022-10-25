@@ -76,7 +76,7 @@ carbonado = "0.1.1"
 commit_verify = { version = "0.8.0", features = ["rand"] }
 descriptor-wallet = { version = "0.8.3", features = ["descriptors", "serde"] }
 electrum-client = "0.10.1"
-lnpbp = "0.8.0"
+lnpbp = { version = "0.8.0", features = ["all"] }
 psbt = { version = "0.8.5", features = ["sign", "miniscript", "serde"] }
 rgb-core = { package = "rgb-core", version = "0.8.0", features = ["serde"] }
 rgb-std = { package = "rgb-std", version = "0.8.0", features = [

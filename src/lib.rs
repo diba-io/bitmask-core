@@ -35,6 +35,7 @@ pub use crate::{
         self, blind_utxo, get_asset_by_genesis, get_assets, issue_asset, transfer_asset,
         validate_transfer,
     },
+    // util::bech32m_encode,
 };
 // Web
 #[cfg(target_arch = "wasm32")]
@@ -184,9 +185,9 @@ pub fn list_assets(contract: &str) -> Result<Vec<AssetResponse>> {
 #[derive(Serialize, Deserialize)]
 pub struct CreateAssetResult {
     pub genesis: String,   // in bech32m encoding
-    pub id: String,        // consignment ID
-    pub asset_id: String,  // consignment ID
-    pub schema_id: String, // consignment ID
+    pub id: String,        // contract ID
+    pub asset_id: String,  // asset ID
+    pub schema_id: String, // schema ID (i.e., RGB20)
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -617,10 +618,12 @@ pub async fn transfer_assets(
     asset_contract: &str,
     asset_utxos: Vec<LocalUtxo>,
 ) -> Result<(
-    String, // base64 sten consignment
+    String, // bech32m compressed sten consignment
     String, // base64 bitcoin encoded psbt
     String, // json
 )> {
+    use lnpbp::bech32::ToBech32String;
+
     let (consignment, psbt, disclosure) = transfer_asset(
         rgb_assets_descriptor_xpub,
         blinded_utxo,
@@ -630,7 +633,9 @@ pub async fn transfer_assets(
     )
     .await?;
 
-    let consignment = base64::encode(&consignment);
+    // TODO: pending https://github.com/RGB-WG/rgb-std/pull/7
+    let consignment = consignment.to_bech32_string();
+    // let consignment = bech32m_encode("rgbc", &consignment)?;
     let psbt = serialize_psbt(&psbt);
     let psbt = base64::encode(&psbt);
     let disclosure = serde_json::to_string(&disclosure)?;
