@@ -40,7 +40,8 @@ pub use crate::{
 #[cfg(target_arch = "wasm32")]
 pub use crate::{
     data::structs::{
-        AssetRequest, BlindRequest, BlindResponse, IssueRequest, TransferRequest, TransferResponse,
+        AcceptRequest, AcceptResponse, AssetRequest, BlindRequest, BlindResponse, IssueRequest,
+        TransferRequest, TransferResponse,
     },
     util::post_json,
 };
@@ -648,5 +649,19 @@ pub async fn transfer_assets(
 pub async fn accept_transfer(consignment: &str) -> Result<AcceptResponse> {
     let (id, info) = rgb::accept_transfer(consignment).await?;
     info!("Transaction accepted");
+
     Ok(AcceptResponse { id, info })
+}
+
+#[cfg(target_arch = "wasm32")]
+pub async fn accept_transfer(consignment: &str) -> Result<AcceptResponse> {
+    let endpoint = &get_endpoint("accept").await;
+    let body = AcceptRequest {
+        consignment: consignment.to_owned(),
+    };
+    let (transfer_res, status) = post_json(endpoint, &body).await?;
+    if status != 200 {
+        return Err(anyhow!("Error calling {endpoint}"));
+    }
+    Ok(serde_json::from_str(&transfer_res)?)
 }
