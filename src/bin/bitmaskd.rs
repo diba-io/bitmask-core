@@ -9,12 +9,11 @@ use axum::{
     Json, Router,
 };
 use bitmask_core::{
-    create_asset,
+    accept_transfer, create_asset,
     data::structs::{
-        AssetRequest, BlindRequest, IssueRequest, TransferRequest, TransferResponse,
-        ValidateRequest,
+        AcceptRequest, AssetRequest, BlindRequest, IssueRequest, TransferRequest, TransferResponse,
     },
-    get_blinded_utxo, import_asset, transfer_assets, validate_transaction,
+    get_blinded_utxo, import_asset, transfer_assets,
 };
 use log::info;
 use tower_http::cors::CorsLayer;
@@ -63,8 +62,8 @@ async fn transfer(Json(transfer): Json<TransferRequest>) -> Result<impl IntoResp
     Ok((StatusCode::OK, Json(transfer_res)))
 }
 
-async fn validate(Json(validate): Json<ValidateRequest>) -> Result<impl IntoResponse, AppError> {
-    validate_transaction(&validate.consignment).await?;
+async fn accept(Json(accept): Json<AcceptRequest>) -> Result<impl IntoResponse, AppError> {
+    accept_transfer(&accept.consignment).await?;
 
     Ok(StatusCode::OK)
 }
@@ -82,7 +81,7 @@ async fn main() -> Result<()> {
         .route("/blind", post(blind))
         .route("/import", post(import))
         .route("/transfer", post(transfer))
-        .route("/validate", post(validate))
+        .route("/accept", post(accept))
         .layer(CorsLayer::permissive());
 
     let addr = SocketAddr::from(([127, 0, 0, 1], 7070));

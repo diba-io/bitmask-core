@@ -1,5 +1,6 @@
 use bdk::{Balance, BlockTime, LocalUtxo};
 use bitcoin::{util::address::Address, OutPoint, Txid};
+#[cfg(not(target_arch = "wasm32"))]
 use rgb_core::validation::Status;
 use serde::{Deserialize, Serialize};
 
@@ -208,6 +209,7 @@ pub struct AcceptRequest {
     pub blinding_factor: String,
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct AcceptResponse {
     pub id: String,

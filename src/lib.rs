@@ -35,7 +35,6 @@ pub use crate::{
         self, blind_utxo, get_asset_by_genesis, get_assets, issue_asset, transfer_asset,
         validate_transfer,
     },
-    // util::bech32m_encode,
 };
 // Web
 #[cfg(target_arch = "wasm32")]
@@ -643,11 +642,6 @@ pub async fn transfer_assets(
     let disclosure = serde_json::to_string(&disclosure)?;
 
     Ok((consignment, psbt, disclosure))
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-pub async fn validate_transaction(consignment: &str) -> Result<()> {
-    validate_transfer(consignment.to_owned()).await
 }
 
 #[cfg(not(target_arch = "wasm32"))]
