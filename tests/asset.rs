@@ -152,7 +152,7 @@ async fn asset_transfer() -> Result<()> {
     let accept_details = accept_transfer(&consignment_details.consignment).await?;
     debug!("Accept response: {:#?}", &accept_details);
 
-    assert_eq!(accept_details.id, issued_asset.id, "RGB IDs match");
+    assert_eq!(accept_details.id, issued_asset.asset_id, "RGB IDs match");
 
     Ok(())
 }

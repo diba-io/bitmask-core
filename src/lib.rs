@@ -622,7 +622,8 @@ pub async fn transfer_assets(
     String, // base64 bitcoin encoded psbt
     String, // json
 )> {
-    use lnpbp::bech32::ToBech32String;
+    // use lnpbp::bech32::ToBech32String;
+    use strict_encoding::strict_serialize;
 
     let (consignment, psbt, disclosure) = transfer_asset(
         rgb_assets_descriptor_xpub,
@@ -634,8 +635,9 @@ pub async fn transfer_assets(
     .await?;
 
     // TODO: pending https://github.com/RGB-WG/rgb-std/pull/7
-    let consignment = consignment.to_bech32_string();
-    // let consignment = bech32m_encode("rgbc", &consignment)?;
+    // let consignment = consignment.to_bech32_string();
+    let consignment = strict_serialize(&consignment)?;
+    let consignment = util::bech32m_zip_encode("rgbc", &consignment)?;
     let psbt = serialize_psbt(&psbt);
     let psbt = base64::encode(&psbt);
     let disclosure = serde_json::to_string(&disclosure)?;

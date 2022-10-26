@@ -203,6 +203,39 @@ pub fn bech32m_encode(hrp: &str, bytes: &[u8]) -> Result<String> {
     Ok(encode(hrp, bytes.to_base32(), Variant::Bech32m)?)
 }
 
+pub const RAW_DATA_ENCODING_DEFLATE: u8 = 1u8;
+
+#[cfg(not(target_arch = "wasm32"))]
+pub fn bech32m_zip_encode(hrp: &str, bytes: &[u8]) -> Result<String> {
+    use deflate::{write::DeflateEncoder, Compression};
+    use std::io::Write;
+
+    // We initialize writer with a version byte, indicating deflation
+    // algorithm used
+    let writer = vec![RAW_DATA_ENCODING_DEFLATE];
+    let mut encoder = DeflateEncoder::new(writer, Compression::Best);
+    encoder
+        .write_all(bytes)
+        .expect("in-memory strict encoder failure");
+    let bytes = encoder.finish().expect("zip algorithm failure");
+
+    Ok(encode(hrp, bytes.to_base32(), Variant::Bech32m)?)
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub fn bech32m_zip_decode(bech32_str: &str) -> Result<Vec<u8>> {
+    use anyhow::anyhow;
+
+    let (_, data, _) = bech32_decode(bech32_str)?;
+    match *data[..].first().unwrap() {
+        RAW_DATA_ENCODING_DEFLATE => {
+            let decoded = inflate::inflate_bytes(&data[1..]).map_err(|e| anyhow!(e))?;
+            Ok(decoded)
+        }
+        _ => Err(anyhow!("Unknown version")),
+    }
+}
+
 pub fn bech32_decode(bech32_str: &str) -> Result<(String, Vec<u8>, Variant)> {
     let (hrp, words, variant) = decode(bech32_str)?;
     Ok((hrp, Vec::<u8>::from_base32(&words)?, variant))
