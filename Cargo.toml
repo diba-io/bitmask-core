@@ -71,9 +71,12 @@ bdk = { version = "0.23", features = [
     "reqwest-default-tls",
     "sqlite-bundled",
 ], default-features = false }
-bp-core = { version = "0.8.0", features = ["wallet"] }
+bp-core = { version = "0.8.0", features = ["psbt", "wallet"] }
 carbonado = "0.1.1"
 commit_verify = { version = "0.8.0", features = ["rand"] }
+# commit_verify = { version = "0.9.0", features = [
+#     "rand",
+# ], git = "https://github.com/LNP-BP/client_side_validation.git", branch = "bitcoin-0.29" }
 descriptor-wallet = { version = "0.8.3", features = ["descriptors", "serde"] }
 deflate = { version = "1.0.0" }
 inflate = { version = "0.4.5" }

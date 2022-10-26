@@ -11,20 +11,27 @@ use bitcoin::{
     OutPoint, Txid,
 };
 use bp::seals::txout::{CloseMethod, ExplicitSeal};
-use commit_verify::lnpbp4::{self, MerkleBlock};
+use commit_verify::{
+    lnpbp4::{self, MerkleBlock},
+    CommitConceal,
+};
 use electrum_client::{Client, ElectrumApi};
 use regex::Regex;
 use rgb20::Asset;
-use rgb_core::{Anchor, Extension, IntoRevealedSeal};
+use rgb_core::{
+    schema::OwnedRightType, Anchor, Assignment, Extension, IntoRevealedSeal, OwnedRights,
+    PedersenStrategy, TypedAssignments,
+};
 use rgb_std::{
     blank::BlankBundle,
     fungible::allocation::{AllocatedValue, UtxobValue},
     psbt::{RgbExt, RgbInExt},
+    seal::Revealed,
     AssignedState, BundleId, Consignment, ConsignmentId, ConsignmentType, Contract, ContractId,
     ContractState, ContractStateMap, Disclosure, Genesis, InmemConsignment, Node, NodeId, Schema,
     SchemaId, SealEndpoint, TransferConsignment, Transition, TransitionBundle, Validator, Validity,
 };
-use storm::{ChunkId, ChunkIdExt};
+use storm::{chunk::ChunkIdExt, ChunkId};
 use strict_encoding::{StrictDecode, StrictEncode};
 use wallet::{
     descriptors::InputDescriptor, locks::LockTime, psbt::Psbt, scripts::taproot::DfsPath,
@@ -50,12 +57,122 @@ impl OutpointFilter {
     }
 }
 
+// rgb-node - rpc/src/reveal
+#[derive(From, PartialEq, Eq, Debug, Clone, StrictEncode, StrictDecode)]
+pub struct Reveal {
+    /// Outpoint blinding factor (generated when the utxo blinded was created)
+    pub blinding_factor: u64,
+
+    /// Locally-controlled outpoint (specified when the utxo blinded was created)
+    pub outpoint: OutPoint,
+
+    /// method (specified when the utxo blinded was created)
+    pub close_method: CloseMethod,
+}
+
+impl std::fmt::Display for Reveal {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}@{}#{}",
+            self.close_method, self.outpoint, self.blinding_factor
+        )
+    }
+}
+
+/// Parses a blinding factor.
+fn parse_blind(s: &str) -> Result<u64, ParseRevealError> {
+    s.parse().map_err(ParseRevealError::BlindingFactor)
+}
+
+impl ::core::str::FromStr for Reveal {
+    type Err = ParseRevealError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        // 9 + 19 + 1 + 64 + 1 + 10
+        if s.len() > 97 {
+            return Err(ParseRevealError::TooLong);
+        }
+        let find_method = s.find('@');
+        if find_method == None {
+            return Err(ParseRevealError::Format);
+        }
+
+        let colon_method = find_method.unwrap();
+        if colon_method == 0 || colon_method == s.len() - 1 {
+            return Err(ParseRevealError::Format);
+        }
+
+        let find_blind = s.find('#');
+        if find_blind == None {
+            return Err(ParseRevealError::Format);
+        }
+
+        let colon_blind = find_blind.unwrap();
+        if colon_blind == 0 || colon_blind == s.len() - 1 {
+            return Err(ParseRevealError::Format);
+        }
+
+        Ok(Reveal {
+            close_method: match CloseMethod::from_str(&s[..colon_method]) {
+                Ok(it) => it,
+                Err(_) => return Err(ParseRevealError::CloseMethod),
+            },
+            outpoint: match OutPoint::from_str(&s[colon_method + 1..colon_blind]) {
+                Ok(it) => it,
+                Err(_) => return Err(ParseRevealError::Outpoint),
+            },
+            blinding_factor: parse_blind(&s[colon_blind + 1..])?,
+        })
+    }
+}
+
+/// An error in parsing an OutPoint.
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub enum ParseRevealError {
+    /// Error in outpoint part.
+    CloseMethod,
+    /// Error in outpoint part.
+    Outpoint,
+    /// Error in blinding factor part.
+    BlindingFactor(::core::num::ParseIntError),
+    /// Error in general format.
+    Format,
+    /// Size exceeds max.
+    TooLong,
+}
+
+impl std::fmt::Display for ParseRevealError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match *self {
+            ParseRevealError::CloseMethod => write!(f, "error parsing CloseMethod"),
+            ParseRevealError::Outpoint => write!(f, "error parsing OutPoint"),
+            ParseRevealError::BlindingFactor(ref e) => {
+                write!(f, "error parsing blinding_factor: {}", e)
+            }
+            ParseRevealError::Format => {
+                write!(f, "Reveal not in <blind_factor>@<txid>:<vout> format")
+            }
+            ParseRevealError::TooLong => write!(f, "reveal should be at most 95 digits"),
+        }
+    }
+}
+
+impl ::std::error::Error for ParseRevealError {
+    fn cause(&self) -> Option<&dyn ::std::error::Error> {
+        match *self {
+            ParseRevealError::BlindingFactor(ref e) => Some(e),
+            _ => None,
+        }
+    }
+}
+
 #[derive(serde::Serialize, Debug, Clone)]
 pub struct ConsignmentDetails {
     transitions: BTreeMap<NodeId, Transition>,
     transition_witness: BTreeMap<NodeId, Txid>,
     anchors: BTreeMap<Txid, Anchor<MerkleBlock>>,
-    bundles: BTreeMap<Txid, TransitionBundle>,
+    bundles: BTreeMap<ChunkId, TransitionBundle>,
     contract_transitions: BTreeMap<ChunkId, BTreeSet<NodeId>>,
     outpoints: BTreeMap<ChunkId, BTreeSet<NodeId>>,
     node_contracts: BTreeMap<NodeId, ContractId>,
@@ -75,11 +192,12 @@ pub struct ConsignmentDetails {
 async fn process_consignment<C: ConsignmentType>(
     consignment: &InmemConsignment<C>,
     force: bool,
+    reveal: Option<Reveal>,
 ) -> Result<ConsignmentDetails> {
     let mut transitions: BTreeMap<NodeId, Transition> = Default::default();
     let mut transition_witness: BTreeMap<NodeId, Txid> = Default::default();
     let mut anchors: BTreeMap<Txid, Anchor<MerkleBlock>> = Default::default();
-    let mut bundles: BTreeMap<Txid, TransitionBundle> = Default::default();
+    let mut bundles: BTreeMap<ChunkId, TransitionBundle> = Default::default();
     let mut contract_transitions: BTreeMap<ChunkId, BTreeSet<NodeId>> = Default::default();
     let mut outpoints: BTreeMap<ChunkId, BTreeSet<NodeId>> = Default::default();
     let mut node_contracts: BTreeMap<NodeId, ContractId> = Default::default();
@@ -141,6 +259,36 @@ async fn process_consignment<C: ConsignmentType>(
         schemata.insert(root_schema.schema_id(), root_schema);
     }
 
+    if let Some(Reveal {
+        blinding_factor,
+        outpoint,
+        close_method,
+    }) = reveal
+    {
+        let reveal_outpoint = Revealed {
+            method: close_method,
+            blinding: blinding_factor,
+            txid: Some(outpoint.txid),
+            vout: outpoint.vout as u32,
+        };
+
+        let concealed_seals = consignment
+            .endpoints()
+            .filter(|&&(_, seal)| reveal_outpoint.to_concealed_seal() == seal.commit_conceal())
+            .clone();
+
+        if concealed_seals.count() == 0 {
+            error!(
+                "The provided outpoint and blinding factors does not match with outpoint from \
+                 the consignment"
+            );
+            Err(anyhow!(
+                "The provided outpoint and blinding factors does not match with outpoint from \
+            the consignment"
+            ))?
+        }
+    };
+
     let genesis = consignment.genesis();
     info!("Indexing genesis");
     debug!(format!("Genesis: {genesis:#?}"));
@@ -187,12 +335,69 @@ async fn process_consignment<C: ConsignmentType>(
             info!(format!("Processing state transition {node_id}"));
             debug!(format!("State transition: {transition:?}"));
 
-            state.add_transition(witness_txid, transition);
+            // TODO: refactoring this and move to rgb-core
+            let new_transition = match reveal {
+                Some(Reveal {
+                    blinding_factor,
+                    outpoint,
+                    close_method,
+                }) => {
+                    let reveal_outpoint = Revealed {
+                        method: close_method,
+                        blinding: blinding_factor,
+                        txid: Some(outpoint.txid),
+                        vout: outpoint.vout as u32,
+                    };
+
+                    let mut owned_rights: BTreeMap<OwnedRightType, TypedAssignments> = bmap! {};
+                    for (owned_type, assignments) in transition.owned_rights().iter() {
+                        let outpoints = assignments.to_value_assignments();
+
+                        let mut revealed_assignment: Vec<Assignment<PedersenStrategy>> = empty!();
+
+                        for out in outpoints {
+                            if out.commit_conceal().to_confidential_seal()
+                                != reveal_outpoint.to_concealed_seal()
+                            {
+                                revealed_assignment.push(out);
+                            } else {
+                                let accept = match out.as_revealed_state() {
+                                    Some(seal) => Assignment::Revealed {
+                                        seal: reveal_outpoint,
+                                        state: *seal,
+                                    },
+                                    _ => out,
+                                };
+                                revealed_assignment.push(accept);
+                            }
+                        }
+
+                        owned_rights
+                            .insert(*owned_type, TypedAssignments::Value(revealed_assignment));
+                    }
+
+                    let tmp: Transition = Transition::with(
+                        transition.transition_type(),
+                        transition.metadata().clone(),
+                        transition.parent_public_rights().clone(),
+                        OwnedRights::from(owned_rights),
+                        transition.public_rights().clone(),
+                        transition.parent_owned_rights().clone(),
+                    );
+
+                    tmp
+                }
+                _ => transition.to_owned(),
+            };
+
+            trace!(format!("State transition: {:?}", new_transition));
+            state.add_transition(witness_txid, &new_transition);
+
             debug!(format!("Contract state now is {state:?}"));
 
             debug!("Storing state transition data");
-            revealed.insert(transition.clone(), inputs.clone());
-            transitions.insert(node_id, transition.clone());
+            revealed.insert(new_transition.clone(), inputs.clone());
+            transitions.insert(node_id, new_transition.clone());
             transition_witness.insert(node_id, witness_txid);
 
             debug!("Indexing transition");
@@ -204,7 +409,7 @@ async fn process_consignment<C: ConsignmentType>(
 
             node_contracts.insert(node_id, contract_id);
 
-            for seal in transition.revealed_seals().unwrap_or_default() {
+            for seal in new_transition.filter_revealed_seals() {
                 let index_id = ChunkId::with_fixed_fragments(
                     seal.txid.expect("seal should contain revealed txid"),
                     seal.vout,
@@ -216,16 +421,14 @@ async fn process_consignment<C: ConsignmentType>(
             }
         }
 
-        // let mut bundle_data = BTreeMap::new();
-        // for (node_id, inputs) in data {
-        //     bundle_data.insert(node_id, inputs.clone());
-        // }
-
         let data = TransitionBundle::with(revealed, concealed)
             .expect("enough data should be available to create bundle");
 
-        bundles.insert(witness_txid, data);
+        // bundles.insert(witness_txid, data);
+        let chunk_id = ChunkId::with_fixed_fragments(contract_id, witness_txid);
+        bundles.insert(chunk_id, data);
     }
+
     for extension in consignment.state_extensions() {
         let node_id = extension.node_id();
         info!(format!("Processing state extension {node_id}"));
@@ -313,7 +516,8 @@ impl Collector {
                 bundle
             } else {
                 let anchor: &Anchor<lnpbp4::MerkleBlock> = anchors.get(witness_txid).unwrap();
-                let bundle: TransitionBundle = bundles.get(witness_txid).unwrap().to_owned();
+                let chunk_id = ChunkId::with_fixed_fragments(*contract_id, *witness_txid);
+                let bundle: TransitionBundle = bundles.get(&chunk_id).unwrap().to_owned();
                 let anchor = anchor.to_merkle_proof(*contract_id)?;
                 self.anchored_bundles
                     .insert(*witness_txid, (anchor, bundle));
@@ -388,9 +592,10 @@ impl Collector {
 async fn compose_consignment<T: ConsignmentType>(
     contract: &Contract,
     utxos: Vec<OutPoint>,
+    reveal: Option<Reveal>,
 ) -> Result<(InmemConsignment<T>, ConsignmentDetails)> {
     info!("Composing consignment");
-    let consignment_details = process_consignment(contract, true).await?;
+    let consignment_details = process_consignment(contract, true, reveal).await?;
     debug!("Consignment successfully processed");
     let details = consignment_details.clone();
 
@@ -534,7 +739,7 @@ pub async fn transfer_asset(
     let (mut consignment, consignment_details): (
         InmemConsignment<TransferConsignment>,
         ConsignmentDetails,
-    ) = compose_consignment(&contract, outpoints.clone()).await?;
+    ) = compose_consignment(&contract, outpoints.clone(), None).await?;
 
     info!(format!("Parse blinded UTXO: {blinded_utxo}"));
     let utxob = match blinded_utxo.parse() {
@@ -732,10 +937,6 @@ pub async fn transfer_asset(
     psbt.fallback_locktime = Some(LockTime::from_str("none")?);
     debug!(format!("Locktime set: {:#?}", psbt.fallback_locktime));
 
-    // Embed information about the contract into the PSBT
-    psbt.set_rgb_contract(contract)?;
-    debug!("RGB contract successfully set on PSBT");
-
     // Embed information about the state transition into the PSBT
     // rgb-cli -n testnet transfer combine ${CONTRACT_ID} ${TRANSITION} ${PSBT} ${UTXO_SRC}
     // rgb-node -> cli/command -> TransferCommand::Combine
@@ -778,6 +979,10 @@ pub async fn transfer_asset(
         if cid == contract_id {
             continue;
         }
+        // Embed information about the contract into the PSBT
+        let (contract, _) = compose_consignment(&contract, vec![], None).await?;
+        psbt.set_rgb_contract(contract)?;
+        debug!("RGB contract successfully set on PSBT");
         let blank_bundle = TransitionBundle::blank(&outpoint_map, &bmap! {})?;
         for (transition, indexes) in blank_bundle.revealed_iter() {
             debug!(format!("Pushing RGB transition: {transition:#?}"));
