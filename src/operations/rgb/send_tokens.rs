@@ -295,7 +295,11 @@ async fn process_consignment<C: ConsignmentType>(
 
     for seal in genesis.revealed_seals().unwrap_or_default() {
         debug!(format!("Adding outpoint for seal {seal}"));
-        let index_id = ChunkId::with_fixed_fragments(seal.txid, seal.vout);
+        let index_id = ChunkId::with_fixed_fragments(
+            seal.txid
+                .expect("genesis with vout-based seal which passed schema validation"),
+            seal.vout,
+        );
         debug!(format!("index id: {index_id}"));
         let success = outpoints
             .entry(index_id)
@@ -509,7 +513,6 @@ impl Collector {
                 continue;
             }
             let transition: &Transition = transitions.get(&transition_id).unwrap();
-
             let witness_txid: &Txid = transition_witness.get(&transition_id).unwrap();
 
             let bundle = if let Some((_, bundle)) = self.anchored_bundles.get_mut(witness_txid) {
@@ -669,6 +672,84 @@ fn outpoint_state(
     }
 
     Ok(res)
+}
+
+fn process_disclosure(
+    consignment_details: &mut ConsignmentDetails,
+    disclosure: Disclosure,
+) -> Result<()> {
+    for (_anchor_id, (anchor, bundle_map)) in disclosure.anchored_bundles().iter() {
+        for (contract_id, bundle) in bundle_map {
+            let state: &mut ContractState = consignment_details
+                .contracts
+                .get_mut(contract_id)
+                .expect("state absent");
+            trace!(format!("Starting with contract state {state:?}"));
+
+            let bundle_id = bundle.bundle_id();
+            let witness_txid = anchor.txid;
+            debug!(format!(
+                "Processing anchored bundle {bundle_id} for txid {witness_txid}",
+            ));
+            trace!(format!("Anchor: {anchor:?}"));
+            trace!(format!("Bundle: {bundle:?}"));
+            consignment_details
+                .anchors
+                .insert(anchor.txid, anchor.to_owned());
+            let concealed: BTreeMap<NodeId, BTreeSet<u16>> = bundle
+                .concealed_iter()
+                .map(|(id, set)| (*id, set.clone()))
+                .collect();
+            let mut revealed: BTreeMap<Transition, BTreeSet<u16>> = bmap!();
+            for (transition, inputs) in bundle.revealed_iter() {
+                let node_id = transition.node_id();
+                let transition_type = transition.transition_type();
+                debug!(format!("Processing state transition {node_id}"));
+                trace!(format!("State transition: {transition:?}"));
+
+                state.add_transition(witness_txid, transition);
+                trace!(format!("Contract state now is {state:?}"));
+
+                trace!("Storing state transition data");
+                revealed.insert(transition.clone(), inputs.to_owned());
+                consignment_details
+                    .transitions
+                    .insert(node_id, transition.to_owned());
+                consignment_details
+                    .transition_witness
+                    .insert(node_id, witness_txid.to_owned());
+
+                trace!("Indexing transition");
+                let index_id = ChunkId::with_fixed_fragments(*contract_id, transition_type);
+                consignment_details
+                    .contract_transitions
+                    .entry(index_id)
+                    .or_insert(BTreeSet::new())
+                    .insert(node_id);
+                consignment_details
+                    .node_contracts
+                    .insert(node_id, contract_id.to_owned());
+
+                for seal in transition.filter_revealed_seals() {
+                    let index_id = ChunkId::with_fixed_fragments(
+                        seal.txid.expect("seal should contain revealed txid"),
+                        seal.vout,
+                    );
+                    consignment_details
+                        .outpoints
+                        .entry(index_id)
+                        .or_insert(BTreeSet::new())
+                        .insert(node_id);
+                }
+            }
+            let data = TransitionBundle::with(revealed, concealed)
+                .expect("enough data should be available to create bundle");
+            let chunk_id = ChunkId::with_fixed_fragments(*contract_id, witness_txid);
+            consignment_details.bundles.insert(chunk_id, data);
+        }
+    }
+
+    Ok(())
 }
 
 pub async fn transfer_asset(
@@ -1048,7 +1129,10 @@ pub async fn transfer_asset(
 
     // 2. Extract contract-related state transition from PSBT and put it into consignment.
     info!("2. Extract contract-related state transition from PSBT and put it into consignment.");
-    let bundle = bundles.remove(&contract_id).unwrap();
+    let witness_txid = anchor.txid;
+    let chunk_id = ChunkId::with_fixed_fragments(contract_id, witness_txid);
+    debug!(format!("Extracting bundle with id: {chunk_id}"));
+    let bundle = bundles.remove(chunk_id.as_ref()).unwrap();
     let bundle_id = bundle.bundle_id();
     consignment.push_anchored_bundle(anchor.to_merkle_proof(contract_id)?, bundle)?;
 
