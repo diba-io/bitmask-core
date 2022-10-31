@@ -1,4 +1,7 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    fmt::Debug,
+};
 
 use amplify::Wrapper;
 use anyhow::{anyhow, Result};
@@ -233,7 +236,7 @@ async fn process_consignment<C: ConsignmentType>(
     info!(format!(
         "Storing consignment {consignment_id} into database"
     ));
-    trace!(format!("Schema: {schema:#?}"));
+    // trace!(format!("Schema: {schema:#?}"));
     schemata.insert(schema_id, schema.clone());
     if let Some(root_schema) = root_schema.clone() {
         debug!(format!("Root schema: {root_schema:#?}"));
@@ -293,7 +296,12 @@ async fn process_consignment<C: ConsignmentType>(
     debug!("Storing contract self-reference");
     node_contracts.insert(NodeId::from_inner(contract_id.into_inner()), contract_id);
 
-    for (anchor, bundle) in consignment.anchored_bundles() {
+    let anchored_bundles = consignment.anchored_bundles();
+    trace!(format!(
+        "Processing anchored bundles: {anchored_bundles:#?}"
+    ));
+
+    for (anchor, bundle) in anchored_bundles {
         let bundle_id = bundle.bundle_id();
         let witness_txid = anchor.txid;
         info!(format!(
@@ -387,6 +395,7 @@ async fn process_consignment<C: ConsignmentType>(
 
             debug!("Indexing transition");
             let index_id = ChunkId::with_fixed_fragments(contract_id, transition_type);
+            trace!(format!("index_id: {index_id:?}"));
             contract_transitions
                 .entry(index_id)
                 .or_insert(BTreeSet::new())
@@ -411,6 +420,7 @@ async fn process_consignment<C: ConsignmentType>(
 
         // bundles.insert(witness_txid, data);
         let chunk_id = ChunkId::with_fixed_fragments(contract_id, witness_txid);
+        trace!(format!("Insert bundle with chunk_id: {chunk_id:?}"));
         bundles.insert(chunk_id, data);
     }
 
@@ -477,7 +487,7 @@ impl Collector {
     pub fn process(
         &mut self,
         consignment_details: &ConsignmentDetails,
-        node_ids: impl IntoIterator<Item = NodeId>,
+        node_ids: impl IntoIterator<Item = NodeId> + Debug,
         outpoint_filter: &OutpointFilter,
     ) -> Result<()> {
         let ConsignmentDetails {
@@ -488,6 +498,8 @@ impl Collector {
             contract_id,
             ..
         } = consignment_details;
+
+        trace!(format!("Iterating over node ids: {node_ids:#?}"));
 
         for transition_id in node_ids {
             if transition_id.to_vec() == contract_id.to_vec() {
@@ -501,6 +513,7 @@ impl Collector {
             } else {
                 let anchor: &Anchor<lnpbp4::MerkleBlock> = anchors.get(witness_txid).unwrap();
                 let chunk_id = ChunkId::with_fixed_fragments(*contract_id, *witness_txid);
+                trace!(format!("Retrieving chunk_id from bundle: {chunk_id:?}"));
                 let bundle: TransitionBundle = bundles.get(&chunk_id).unwrap().to_owned();
                 let anchor = anchor.to_merkle_proof(*contract_id)?;
                 self.anchored_bundles

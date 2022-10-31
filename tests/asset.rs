@@ -24,7 +24,7 @@ async fn asset_transfer() -> Result<()> {
     if env::var("RUST_LOG").is_err() {
         env::set_var(
             "RUST_LOG",
-            "bitmask_core=debug,bitmask_core::operations::rgb::send_tokens=trace,asset=debug",
+            "bitmask_core=debug,bitmask_core::operations::rgb=trace,asset=debug",
         );
     }
 

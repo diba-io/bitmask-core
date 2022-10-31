@@ -301,13 +301,17 @@ pub async fn transfer_asset(
     psbt.fallback_locktime = Some(LockTime::from_str("none")?);
     debug!(format!("Locktime set: {:#?}", psbt.fallback_locktime));
 
+    // Embed information about the contract into the PSBT
+    psbt.set_rgb_contract(contract.clone())?;
+    debug!("RGB contract successfully set on PSBT");
+
     // Embed information about the state transition into the PSBT
     // rgb-cli -n testnet transfer combine ${CONTRACT_ID} ${TRANSITION} ${PSBT} ${UTXO_SRC}
     // rgb-node -> cli/command -> TransferCommand::Combine
     let node_id = transition.node_id();
     debug!(format!("Using Node ID: {node_id}"));
     psbt.push_rgb_transition(transition)?;
-    info!("Pushed state RGB state transition onto PSBT");
+    info!("Pushed RGB state transition onto PSBT");
 
     let contract_id = consignment_details.contract_id;
     debug!(format!("Using contract_id: {contract_id}"));
@@ -414,7 +418,7 @@ pub async fn transfer_asset(
     info!("2. Extract contract-related state transition from PSBT and put it into consignment.");
     let witness_txid = anchor.txid;
     let chunk_id = ChunkId::with_fixed_fragments(contract_id, witness_txid);
-    debug!(format!("Extracting bundle with id: {chunk_id}"));
+    trace!(format!("Extracting bundle with id: {chunk_id:?}"));
     let bundle = bundles.remove(chunk_id.as_ref()).unwrap();
     let bundle_id = bundle.bundle_id();
     consignment.push_anchored_bundle(anchor.to_merkle_proof(contract_id)?, bundle)?;
