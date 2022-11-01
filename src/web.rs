@@ -264,34 +264,19 @@ pub fn send_assets(
     })
 }
 
-// #[wasm_bindgen]
-// pub fn validate_transfer(utxo_string: String) -> Promise {
-//     set_panic_hook();
+#[wasm_bindgen]
+pub fn accept_transfer(consignment: String) -> Promise {
+    set_panic_hook();
 
-//     future_to_promise(async move {
-//         let result = get(&VALIDATE_TRANSFER_ENDPOINT).await;
-//         match result {
-//             Ok(result) => Ok(JsValue::from_string(
-//                 serde_json::to_string(&result).unwrap(),
-//             )),
-//             Err(err) => Err(JsValue::from_string(err.to_string())),
-//         }
-//     })
-// }
-
-// #[wasm_bindgen]
-// pub fn accept_transfer(consignment: String, blinding: String) -> Promise {
-//     set_panic_hook();
-//     future_to_promise(async move {
-//         let result = get(&ACCEPT_TRANSFER_ENDPOINT).await;
-//         match result {
-//             Ok(result) => Ok(JsValue::from_string(
-//                 serde_json::to_string(&result).unwrap(),
-//             )),
-//             Err(err) => Err(JsValue::from_string(err.to_string())),
-//         }
-//     })
-// }
+    future_to_promise(async move {
+        match crate::accept_transfer(&consignment).await {
+            Ok(result) => Ok(JsValue::from_string(
+                serde_json::to_string(&result).unwrap(),
+            )),
+            Err(err) => Err(JsValue::from_string(err.to_string())),
+        }
+    })
+}
 
 #[wasm_bindgen]
 pub fn get_network() -> Promise {

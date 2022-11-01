@@ -30,17 +30,18 @@ pub mod web;
 // Desktop
 #[cfg(not(target_arch = "wasm32"))]
 pub use crate::{
-    data::structs::AssetResponse,
+    data::structs::{AcceptResponse, AssetResponse},
     operations::rgb::{
-        /* accept_transfer, */ blind_utxo, get_asset_by_genesis, get_assets, issue_asset,
-        transfer_asset, validate_transfer,
+        self, blind_utxo, get_asset_by_genesis, get_assets, issue_asset, transfer_asset,
+        validate_transfer,
     },
 };
 // Web
 #[cfg(target_arch = "wasm32")]
 pub use crate::{
     data::structs::{
-        AssetRequest, BlindRequest, BlindResponse, IssueRequest, TransferRequest, TransferResponse,
+        AcceptRequest, AcceptResponse, AssetRequest, BlindRequest, BlindResponse, IssueRequest,
+        TransferRequest, TransferResponse,
     },
     util::post_json,
 };
@@ -184,9 +185,9 @@ pub fn list_assets(contract: &str) -> Result<Vec<AssetResponse>> {
 #[derive(Serialize, Deserialize)]
 pub struct CreateAssetResult {
     pub genesis: String,   // in bech32m encoding
-    pub id: String,        // consignment ID
-    pub asset_id: String,  // consignment ID
-    pub schema_id: String, // consignment ID
+    pub id: String,        // contract ID
+    pub asset_id: String,  // asset ID
+    pub schema_id: String, // schema ID (i.e., RGB20)
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -617,10 +618,13 @@ pub async fn transfer_assets(
     asset_contract: &str,
     asset_utxos: Vec<LocalUtxo>,
 ) -> Result<(
-    String, // base64 sten consignment
+    String, // bech32m compressed sten consignment
     String, // base64 bitcoin encoded psbt
     String, // json
 )> {
+    // use lnpbp::bech32::ToBech32String;
+    use strict_encoding::strict_serialize;
+
     let (consignment, psbt, disclosure) = transfer_asset(
         rgb_assets_descriptor_xpub,
         blinded_utxo,
@@ -630,7 +634,10 @@ pub async fn transfer_assets(
     )
     .await?;
 
-    let consignment = base64::encode(&consignment);
+    // TODO: pending https://github.com/RGB-WG/rgb-std/pull/7
+    // let consignment = consignment.to_bech32_string();
+    let consignment = strict_serialize(&consignment)?;
+    let consignment = util::bech32m_zip_encode("rgbc", &consignment)?;
     let psbt = serialize_psbt(&psbt);
     let psbt = base64::encode(&psbt);
     let disclosure = serde_json::to_string(&disclosure)?;
@@ -639,30 +646,22 @@ pub async fn transfer_assets(
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-pub async fn validate_transaction(consignment: &str) -> Result<()> {
-    validate_transfer(consignment.to_owned()).await
+pub async fn accept_transfer(consignment: &str) -> Result<AcceptResponse> {
+    let (id, info) = rgb::accept_transfer(consignment).await?;
+    info!("Transaction accepted");
+
+    Ok(AcceptResponse { id, info })
 }
 
-// TODO: implement accept_transfer in RGB ops
-// #[cfg(not(target_arch = "wasm32"))]
-// pub async fn accept_transfer(
-//     consignment: &str,
-//     txid: &str,
-//     vout: u32,
-//     blinding: &str,
-// ) -> Result<String> {
-//     let txid = Txid::from_str(txid)?;
-
-//     let transaction_data = TransactionData {
-//         blinding: blinding.to_owned(),
-//         utxo: OutPoint { txid, vout },
-//     };
-//     let accept = accept_transfer(
-//         consignment,
-//         transaction_data.utxo,
-//         transaction_data.blinding,
-//     )
-//     .await?;
-//     info!("Transaction accepted");
-//     Ok(accept)
-// }
+#[cfg(target_arch = "wasm32")]
+pub async fn accept_transfer(consignment: &str) -> Result<AcceptResponse> {
+    let endpoint = &get_endpoint("accept").await;
+    let body = AcceptRequest {
+        consignment: consignment.to_owned(),
+    };
+    let (transfer_res, status) = post_json(endpoint, &body).await?;
+    if status != 200 {
+        return Err(anyhow!("Error calling {endpoint}"));
+    }
+    Ok(serde_json::from_str(&transfer_res)?)
+}

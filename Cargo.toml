@@ -1,9 +1,10 @@
 [package]
 name = "bitmask-core"
-version = "0.4.0-alpha.5"
+version = "0.4.0"
 authors = [
-    "Jose D Robles <jd.robles@gmail.com>",
-    "Hunter Trujillo <cryptoquick@pm.me>",
+    "Jose Diego Robles <jose@diba.io>",
+    "Hunter Trujillo <hunter@diba.io>",
+    "Francisco Calderón <francisco@diba.io>",
 ]
 description = "Core functionality for the BitMask wallet"
 edition = "2021"
@@ -75,8 +76,10 @@ bp-core = { version = "0.8.0", features = ["wallet"] }
 carbonado = "0.1.1"
 commit_verify = { version = "0.8.0", features = ["rand"] }
 descriptor-wallet = { version = "0.8.3", features = ["descriptors", "serde"] }
+deflate = { version = "1.0.0" }
+inflate = { version = "0.4.5" }
 electrum-client = "0.10.1"
-lnpbp = "0.8.0"
+lnpbp = { version = "0.8.0", features = ["all"] }
 psbt = { version = "0.8.5", features = ["sign", "miniscript", "serde"] }
 rgb-core = { package = "rgb-core", version = "0.8.0", features = ["serde"] }
 rgb-std = { package = "rgb-std", version = "0.8.0", features = [

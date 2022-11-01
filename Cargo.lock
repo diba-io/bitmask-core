@@ -295,6 +295,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "base58"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6107fe1be6682a68940da878d9e9f5e90ca5745b3dec9fd1bb393c8777d4f581"
+
+[[package]]
 name = "base64"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -461,7 +467,7 @@ checksum = "bef38d45163c2f1dde094a7dfd33ccf595c92905c8f8f4fdc18d06fb1037718a"
 
 [[package]]
 name = "bitmask-core"
-version = "0.4.0-alpha.5"
+version = "0.4.0"
 dependencies = [
  "amplify",
  "anyhow",
@@ -477,6 +483,7 @@ dependencies = [
  "carbonado",
  "commit_verify",
  "console_error_panic_hook",
+ "deflate",
  "descriptor-wallet",
  "directories",
  "electrum-client",
@@ -485,6 +492,7 @@ dependencies = [
  "gloo-console",
  "gloo-net",
  "hex",
+ "inflate",
  "js-sys",
  "lazy_static",
  "lnpbp",
@@ -1921,10 +1929,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b07eb5fb3c023b0ef83455236cea943f8f355451f9a1f3e2518e4543eaf8b905"
 dependencies = [
  "amplify",
+ "base58",
+ "base64-compat",
+ "clap",
  "lnpbp_bech32",
  "lnpbp_chain",
+ "lnpbp_elgamal",
  "serde",
+ "serde_json",
  "serde_with",
+ "serde_yaml",
 ]
 
 [[package]]
@@ -1957,6 +1971,17 @@ dependencies = [
  "serde",
  "serde_with",
  "strict_encoding",
+]
+
+[[package]]
+name = "lnpbp_elgamal"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a79b645768f4b7acdd32b63ae088ceaa81405890bdbc0ac17572b5d33a89aa45"
+dependencies = [
+ "amplify",
+ "bitcoin_hashes 0.10.0",
+ "secp256k1",
 ]
 
 [[package]]

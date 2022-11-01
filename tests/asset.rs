@@ -4,9 +4,9 @@ use std::env;
 
 use anyhow::Result;
 use bitmask_core::{
-    create_asset, fund_vault, get_assets_vault, get_blinded_utxo, get_encrypted_wallet,
-    get_mnemonic_seed, get_network, get_wallet_data, import_asset, save_mnemonic_seed, send_assets,
-    send_sats,
+    accept_transfer, create_asset, fund_vault, get_assets_vault, get_blinded_utxo,
+    get_encrypted_wallet, get_mnemonic_seed, get_network, get_wallet_data, import_asset,
+    save_mnemonic_seed, send_assets, send_sats,
 };
 use log::{debug, info};
 
@@ -147,6 +147,12 @@ async fn asset_transfer() -> Result<()> {
     .await?;
 
     debug!("Transfer response: {:#?}", &consignment_details);
+
+    info!("Accept transfer");
+    let accept_details = accept_transfer(&consignment_details.consignment).await?;
+    debug!("Accept response: {:#?}", &accept_details);
+
+    assert_eq!(accept_details.id, issued_asset.asset_id, "RGB IDs match");
 
     Ok(())
 }

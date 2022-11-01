@@ -473,7 +473,7 @@ pub async fn transfer_asset(
     asset_contract: &str, // rgbc1...
     asset_utxos: Vec<LocalUtxo>,
 ) -> Result<(
-    Vec<u8>, // sten consignment bytes
+    InmemConsignment<TransferConsignment>,
     PartiallySignedTransaction,
     Disclosure,
 )> {
@@ -888,5 +888,5 @@ pub async fn transfer_asset(
     // btc-cold finalize --publish testnet ${PSBT}
     // (This is done by the client methods that call this method)
 
-    Ok((consignment.strict_serialize()?, psbt.into(), disclosure))
+    Ok((consignment, psbt.into(), disclosure))
 }
