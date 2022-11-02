@@ -22,7 +22,6 @@ use rgb_std::{
     AssignedState, Contract, Disclosure, InmemConsignment, Node, SealEndpoint, TransferConsignment,
     TransitionBundle,
 };
-use storm::{chunk::ChunkIdExt, ChunkId};
 use strict_encoding::StrictEncode;
 use wallet::{
     descriptors::InputDescriptor, locks::LockTime, psbt::Psbt, scripts::taproot::DfsPath,
@@ -416,10 +415,10 @@ pub async fn transfer_asset(
 
     // 2. Extract contract-related state transition from PSBT and put it into consignment.
     info!("2. Extract contract-related state transition from PSBT and put it into consignment.");
-    let witness_txid = anchor.txid;
-    let chunk_id = ChunkId::with_fixed_fragments(contract_id, witness_txid);
-    trace!(format!("Extracting bundle with id: {chunk_id:?}"));
-    let bundle = bundles.remove(chunk_id.as_ref()).unwrap();
+    trace!(format!(
+        "Extracting bundle with contract id: {contract_id:?}"
+    ));
+    let bundle = bundles.remove(&contract_id).unwrap();
     let bundle_id = bundle.bundle_id();
     consignment.push_anchored_bundle(anchor.to_merkle_proof(contract_id)?, bundle)?;
 
