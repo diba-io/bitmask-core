@@ -504,10 +504,10 @@ pub async fn get_assets_vault(
     let mut uda_utxos: Vec<String> = uda_utxos.iter().map(utxo_string).collect();
     uda_utxos.sort();
 
-    let assets_output = assets_utxos.get(0).map(|u| u.to_owned());
-    let assets_change_output = assets_utxos.get(1).map(|u| u.to_owned());
-    let udas_output = uda_utxos.get(0).map(|u| u.to_owned());
-    let udas_change_output = uda_utxos.get(1).map(|u| u.to_owned());
+    let assets_change_output = assets_utxos.pop();
+    let assets_output = assets_utxos.pop();
+    let udas_change_output = uda_utxos.pop();
+    let udas_output = uda_utxos.pop();
 
     Ok(FundVaultDetails {
         assets_output,
