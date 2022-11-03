@@ -6,7 +6,7 @@ use anyhow::Result;
 use serde::{Deserialize, Deserializer, Serialize};
 
 /// Lightning wallet credentials
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Credentials {
     pub login: String,
     pub password: String,

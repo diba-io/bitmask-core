@@ -336,3 +336,17 @@ pub fn switch_host(host: String) -> Promise {
         Ok(JsValue::UNDEFINED)
     })
 }
+
+#[wasm_bindgen]
+pub fn ln_create_wallet() -> Promise {
+    set_panic_hook();
+
+    future_to_promise(async move {
+        match crate::create_wallet().await {
+            Ok(result) => Ok(JsValue::from_string(
+                serde_json::to_string(&result).unwrap(),
+            )),
+            Err(err) => Err(JsValue::from_string(err.to_string())),
+        }
+    })
+}

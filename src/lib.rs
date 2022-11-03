@@ -54,9 +54,12 @@ pub use crate::{
             WalletData, WalletTransaction,
         },
     },
-    operations::bitcoin::{
-        create_transaction, dust_tx, get_wallet, new_mnemonic, save_mnemonic, sign_psbt,
-        synchronize_wallet,
+    operations::{
+        bitcoin::{
+            create_transaction, dust_tx, get_wallet, new_mnemonic, save_mnemonic, sign_psbt,
+            synchronize_wallet,
+        },
+        lightning::create_wallet,
     },
 };
 
