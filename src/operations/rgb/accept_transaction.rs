@@ -1,12 +1,19 @@
 use anyhow::Result;
+use commit_verify::CommitConceal;
 use electrum_client::Client;
-use rgb_core::Validator;
+use rgb_core::{seal::Revealed, Consignment, Validator};
 use rgb_std::{validation::Status, InmemConsignment, TransferConsignment};
 use strict_encoding::strict_deserialize;
 
-use crate::{data::constants::BITCOIN_ELECTRUM_API, debug, info, util::bech32m_zip_decode};
+use crate::{
+    data::constants::BITCOIN_ELECTRUM_API, debug, info, rgb::shared::Reveal,
+    util::bech32m_zip_decode,
+};
 
-pub async fn accept_transfer(consignment: &str) -> Result<(String, Status)> {
+pub async fn accept_transfer(
+    consignment: &str,
+    reveal: Option<Reveal>,
+) -> Result<(String, Status, bool)> {
     let url = BITCOIN_ELECTRUM_API.read().await;
     let electrum_client = Client::new(&url)?;
     debug!(format!("Electrum client connected to {url}"));
@@ -18,5 +25,28 @@ pub async fn accept_transfer(consignment: &str) -> Result<(String, Status)> {
     info!(format!("accept transfer result: {status:?}"));
     let id = consignment.contract_id().to_string();
 
-    Ok((id, status))
+    if let Some(Reveal {
+        blinding_factor,
+        outpoint,
+        close_method,
+    }) = reveal
+    {
+        let reveal_outpoint = Revealed {
+            method: close_method,
+            blinding: blinding_factor,
+            txid: Some(outpoint.txid),
+            vout: outpoint.vout as u32,
+        };
+
+        let concealed_seals = consignment
+            .endpoints()
+            .filter(|&&(_, seal)| reveal_outpoint.to_concealed_seal() == seal.commit_conceal())
+            .clone();
+
+        if concealed_seals.count() == 0 {
+            return Ok((id, status, false));
+        }
+    };
+
+    Ok((id, status, true))
 }
