@@ -7,7 +7,7 @@ mod import_asset;
 mod issue_asset;
 mod receive_tokens;
 mod send_tokens;
-pub mod shared;
+mod shared;
 mod validate_transaction;
 
 pub use accept_transaction::accept_transfer;
