@@ -1,3 +1,4 @@
+use crate::Reveal;
 use bdk::{Balance, BlockTime, LocalUtxo};
 use bitcoin::{util::address::Address, OutPoint, Txid};
 #[cfg(not(target_arch = "wasm32"))]
@@ -205,8 +206,7 @@ pub struct ValidateRequest {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct AcceptRequest {
     pub consignment: String,
-    // pub outpoint: OutPoint,
-    // pub blinding_factor: String,
+    pub reveal: Option<Reveal>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

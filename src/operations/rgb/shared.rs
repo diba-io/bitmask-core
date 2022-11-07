@@ -42,7 +42,17 @@ impl OutpointFilter {
 }
 
 // rgb-node - rpc/src/reveal
-#[derive(From, PartialEq, Eq, Debug, Clone, StrictEncode, StrictDecode)]
+#[derive(
+    crate::Serialize,
+    crate::Deserialize,
+    From,
+    PartialEq,
+    Eq,
+    Debug,
+    Clone,
+    StrictEncode,
+    StrictDecode,
+)]
 pub struct Reveal {
     /// Outpoint blinding factor (generated when the utxo blinded was created)
     pub blinding_factor: u64,

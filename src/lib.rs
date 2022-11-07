@@ -655,10 +655,11 @@ pub async fn accept_transfer(consignment: &str, reveal: Option<Reveal>) -> Resul
 }
 
 #[cfg(target_arch = "wasm32")]
-pub async fn accept_transfer(consignment: &str) -> Result<AcceptResponse> {
+pub async fn accept_transfer(consignment: &str, reveal: Reveal) -> Result<AcceptResponse> {
     let endpoint = &get_endpoint("accept").await;
     let body = AcceptRequest {
         consignment: consignment.to_owned(),
+        reveal
     };
     let (transfer_res, status) = post_json(endpoint, &body).await?;
     if status != 200 {
