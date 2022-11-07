@@ -1,4 +1,5 @@
 #![allow(unused_variables)]
+use crate::lightning;
 use js_sys::Promise;
 use serde::de::DeserializeOwned;
 use wasm_bindgen::prelude::*;
@@ -342,7 +343,91 @@ pub fn ln_create_wallet() -> Promise {
     set_panic_hook();
 
     future_to_promise(async move {
-        match crate::create_wallet().await {
+        match lightning::create_wallet().await {
+            Ok(result) => Ok(JsValue::from_string(
+                serde_json::to_string(&result).unwrap(),
+            )),
+            Err(err) => Err(JsValue::from_string(err.to_string())),
+        }
+    })
+}
+
+#[wasm_bindgen]
+pub fn ln_auth(login: String, password: String) -> Promise {
+    set_panic_hook();
+
+    future_to_promise(async move {
+        match lightning::auth(login, password).await {
+            Ok(result) => Ok(JsValue::from_string(
+                serde_json::to_string(&result).unwrap(),
+            )),
+            Err(err) => Err(JsValue::from_string(err.to_string())),
+        }
+    })
+}
+
+#[wasm_bindgen]
+pub fn ln_create_invoice(description: String, amount: u64, token: String) -> Promise {
+    set_panic_hook();
+
+    future_to_promise(async move {
+        match lightning::create_invoice(description, amount, token).await {
+            Ok(result) => Ok(JsValue::from_string(
+                serde_json::to_string(&result).unwrap(),
+            )),
+            Err(err) => Err(JsValue::from_string(err.to_string())),
+        }
+    })
+}
+
+#[wasm_bindgen]
+pub fn ln_decode_invoice(invoice: String, token: String) -> Promise {
+    set_panic_hook();
+
+    future_to_promise(async move {
+        match lightning::decode_invoice(invoice, token).await {
+            Ok(result) => Ok(JsValue::from_string(
+                serde_json::to_string(&result).unwrap(),
+            )),
+            Err(err) => Err(JsValue::from_string(err.to_string())),
+        }
+    })
+}
+
+#[wasm_bindgen]
+pub fn ln_get_balance(token: String) -> Promise {
+    set_panic_hook();
+
+    future_to_promise(async move {
+        match lightning::get_balance(token).await {
+            Ok(result) => Ok(JsValue::from_string(
+                serde_json::to_string(&result).unwrap(),
+            )),
+            Err(err) => Err(JsValue::from_string(err.to_string())),
+        }
+    })
+}
+
+#[wasm_bindgen]
+pub fn ln_get_txs(token: String, limit: u32, offset: u32) -> Promise {
+    set_panic_hook();
+
+    future_to_promise(async move {
+        match lightning::get_txs(token, limit, offset).await {
+            Ok(result) => Ok(JsValue::from_string(
+                serde_json::to_string(&result).unwrap(),
+            )),
+            Err(err) => Err(JsValue::from_string(err.to_string())),
+        }
+    })
+}
+
+#[wasm_bindgen]
+pub fn ln_pay_invoice(invoice: String, token: String) -> Promise {
+    set_panic_hook();
+
+    future_to_promise(async move {
+        match lightning::pay_invoice(invoice, token).await {
             Ok(result) => Ok(JsValue::from_string(
                 serde_json::to_string(&result).unwrap(),
             )),

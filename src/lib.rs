@@ -59,7 +59,7 @@ pub use crate::{
             create_transaction, dust_tx, get_wallet, new_mnemonic, save_mnemonic, sign_psbt,
             synchronize_wallet,
         },
-        lightning::create_wallet,
+        lightning,
     },
 };
 
