@@ -4,7 +4,6 @@ extern crate amplify;
 
 use std::str::FromStr;
 
-use crate::rgb::shared::Reveal;
 use anyhow::anyhow;
 use anyhow::Result;
 use bdk::{wallet::AddressIndex, FeeRate, LocalUtxo};
@@ -649,9 +648,12 @@ pub async fn transfer_assets(
 #[cfg(not(target_arch = "wasm32"))]
 pub async fn accept_transfer(consignment: &str, reveal: &str) -> Result<AcceptResponse> {
     let (id, info, valid) = rgb::accept_transfer(consignment, reveal).await?;
-    info!("Transaction accepted");
-
-    Ok(AcceptResponse { id, info })
+    if valid {
+        info!("Transaction accepted");
+        Ok(AcceptResponse { id, info })
+    } else {
+        Err(anyhow!("Incorrect seals. id: {} stratus: {}", id, info))
+    }
 }
 
 #[cfg(target_arch = "wasm32")]
