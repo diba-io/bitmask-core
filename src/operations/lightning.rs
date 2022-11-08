@@ -130,12 +130,14 @@ pub enum PayInvoiceMessage {
     },
 }
 
+/// An optional TLV record that signals the use of an MPP payment.
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct MppRecord {
     pub total_amt_msat: String,
     pub payment_addr: PaymentHash,
 }
 
+/// Contains details concerning the specific forwarding details at each hop.
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Hop {
     pub chan_id: String,
@@ -150,6 +152,7 @@ pub struct Hop {
     pub mpp_record: MppRecord,
 }
 
+/// Route that should be used to attempt to complete the payment
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PaymentRoute {
     pub hops: Vec<Hop>,
