@@ -647,7 +647,7 @@ pub async fn transfer_assets(
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-pub async fn accept_transfer(consignment: &str, reveal: Option<Reveal>) -> Result<AcceptResponse> {
+pub async fn accept_transfer(consignment: &str, reveal: &str) -> Result<AcceptResponse> {
     let (id, info, valid) = rgb::accept_transfer(consignment, reveal).await?;
     info!("Transaction accepted");
 
@@ -655,11 +655,11 @@ pub async fn accept_transfer(consignment: &str, reveal: Option<Reveal>) -> Resul
 }
 
 #[cfg(target_arch = "wasm32")]
-pub async fn accept_transfer(consignment: &str, reveal: Reveal) -> Result<AcceptResponse> {
+pub async fn accept_transfer(consignment: &str, reveal: &str) -> Result<AcceptResponse> {
     let endpoint = &get_endpoint("accept").await;
     let body = AcceptRequest {
         consignment: consignment.to_owned(),
-        reveal
+        reveal: reveal.to_owned(),
     };
     let (transfer_res, status) = post_json(endpoint, &body).await?;
     if status != 200 {

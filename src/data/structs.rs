@@ -206,7 +206,7 @@ pub struct ValidateRequest {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct AcceptRequest {
     pub consignment: String,
-    pub reveal: Option<Reveal>,
+    pub reveal: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
