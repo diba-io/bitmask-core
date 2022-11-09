@@ -270,9 +270,18 @@ pub fn accept_transfer(consignment: String, reveal: String) -> Promise {
 
     future_to_promise(async move {
         match crate::accept_transfer(&consignment, &reveal).await {
-            Ok(result) => Ok(JsValue::from_string(
-                serde_json::to_string(&result).unwrap(),
-            )),
+            Ok(result) => {
+                if result.valid {
+                    Ok(JsValue::from_string(
+                        serde_json::to_string(&result).unwrap(),
+                    ))
+                } else {
+                    Err(JsValue::from_string(format!(
+                        "invalid due to erroneous endpoints with id {}",
+                        result.id
+                    )))
+                }
+            }
             Err(err) => Err(JsValue::from_string(err.to_string())),
         }
     })

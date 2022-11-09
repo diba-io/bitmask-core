@@ -650,7 +650,7 @@ pub async fn accept_transfer(consignment: &str, reveal: &str) -> Result<AcceptRe
     let (id, info, valid) = rgb::accept_transfer(consignment, reveal).await?;
     if valid {
         info!("Transaction accepted");
-        Ok(AcceptResponse { id, info })
+        Ok(AcceptResponse { id, info, valid })
     } else {
         Err(anyhow!("Incorrect seals. id: {} stratus: {}", id, info))
     }

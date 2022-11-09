@@ -213,6 +213,7 @@ pub struct AcceptResponse {
     pub id: String,
     #[cfg(not(target_arch = "wasm32"))]
     pub info: Status,
+    pub valid: bool,
 }
 
 // TODO: unused?
