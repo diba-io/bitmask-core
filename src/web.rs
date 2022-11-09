@@ -357,7 +357,7 @@ pub fn ln_auth(login: String, password: String) -> Promise {
     set_panic_hook();
 
     future_to_promise(async move {
-        match lightning::auth(login, password).await {
+        match lightning::auth(&login, &password).await {
             Ok(result) => Ok(JsValue::from_string(
                 serde_json::to_string(&result).unwrap(),
             )),
@@ -371,7 +371,7 @@ pub fn ln_create_invoice(description: String, amount: u64, token: String) -> Pro
     set_panic_hook();
 
     future_to_promise(async move {
-        match lightning::create_invoice(description, amount, token).await {
+        match lightning::create_invoice(&description, amount, &token).await {
             Ok(result) => Ok(JsValue::from_string(
                 serde_json::to_string(&result).unwrap(),
             )),
@@ -385,7 +385,7 @@ pub fn ln_decode_invoice(invoice: String, token: String) -> Promise {
     set_panic_hook();
 
     future_to_promise(async move {
-        match lightning::decode_invoice(invoice, token).await {
+        match lightning::decode_invoice(&invoice, &token).await {
             Ok(result) => Ok(JsValue::from_string(
                 serde_json::to_string(&result).unwrap(),
             )),
@@ -399,7 +399,7 @@ pub fn ln_get_balance(token: String) -> Promise {
     set_panic_hook();
 
     future_to_promise(async move {
-        match lightning::get_balance(token).await {
+        match lightning::get_balance(&token).await {
             Ok(result) => Ok(JsValue::from_string(
                 serde_json::to_string(&result).unwrap(),
             )),
@@ -413,7 +413,7 @@ pub fn ln_get_txs(token: String, limit: u32, offset: u32) -> Promise {
     set_panic_hook();
 
     future_to_promise(async move {
-        match lightning::get_txs(token, limit, offset).await {
+        match lightning::get_txs(&token, limit, offset).await {
             Ok(result) => Ok(JsValue::from_string(
                 serde_json::to_string(&result).unwrap(),
             )),
@@ -427,7 +427,7 @@ pub fn ln_pay_invoice(invoice: String, token: String) -> Promise {
     set_panic_hook();
 
     future_to_promise(async move {
-        match lightning::pay_invoice(invoice, token).await {
+        match lightning::pay_invoice(&invoice, &token).await {
             Ok(result) => Ok(JsValue::from_string(
                 serde_json::to_string(&result).unwrap(),
             )),

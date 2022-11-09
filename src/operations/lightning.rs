@@ -191,8 +191,11 @@ pub async fn create_wallet() -> Result<Credentials> {
 }
 
 /// Get a auth tokens
-pub async fn auth(login: String, password: String) -> Result<Tokens> {
-    let creds = Credentials { login, password };
+pub async fn auth(login: &str, password: &str) -> Result<Tokens> {
+    let creds = Credentials {
+        login: login.to_string(),
+        password: password.to_string(),
+    };
     let endpoint = LNDHUB_ENDPOINT.to_string();
     let auth_url = format!("{endpoint}/auth");
     let response = post_json_auth(&auth_url, &Some(creds), None).await?;
@@ -202,55 +205,57 @@ pub async fn auth(login: String, password: String) -> Result<Tokens> {
 }
 
 /// Creates a lightning invoice
-pub async fn create_invoice(description: String, amount: u64, token: String) -> Result<String> {
+pub async fn create_invoice(description: &str, amount: u64, token: &str) -> Result<String> {
     let endpoint = LNDHUB_ENDPOINT.to_string();
     let url = format!("{endpoint}/addinvoice");
     let req = AddInvoiceReq {
-        memo: description,
+        memo: description.to_string(),
         amt: amount.to_string(),
     };
-    let response = post_json_auth(&url, &Some(req), Some(&token)).await?;
+    let response = post_json_auth(&url, &Some(req), Some(token)).await?;
     let invoice: AddInvoiceRes = serde_json::from_str(&response)?;
 
     Ok(invoice.payment_request)
 }
 
 /// Decode a lightning invoice (bolt11)
-pub async fn decode_invoice(invoice: String, token: String) -> Result<Invoice> {
+pub async fn decode_invoice(invoice: &str, token: &str) -> Result<Invoice> {
     let endpoint = LNDHUB_ENDPOINT.to_string();
     let url = format!("{endpoint}/decodeinvoice?invoice={invoice}");
-    let response = get(&url, Some(&token)).await?;
+    let response = get(&url, Some(token)).await?;
     let invoice: Invoice = serde_json::from_str(&response)?;
 
     Ok(invoice)
 }
 
 /// Get user lightning balance
-pub async fn get_balance(token: String) -> Result<BalanceRes> {
+pub async fn get_balance(token: &str) -> Result<BalanceRes> {
     let endpoint = LNDHUB_ENDPOINT.to_string();
     let url = format!("{endpoint}/balance");
-    let response = get(&url, Some(&token)).await?;
+    let response = get(&url, Some(token)).await?;
     let invoice: BalanceRes = serde_json::from_str(&response)?;
 
     Ok(invoice)
 }
 
 /// Pay a lightning invoice
-pub async fn pay_invoice(invoice: String, token: String) -> Result<PayInvoiceMessage> {
+pub async fn pay_invoice(invoice: &str, token: &str) -> Result<PayInvoiceMessage> {
     let endpoint = LNDHUB_ENDPOINT.to_string();
     let url = format!("{endpoint}/payinvoice");
-    let req = InvoiceReq { invoice };
-    let response = post_json_auth(&url, &Some(req), Some(&token)).await?;
+    let req = InvoiceReq {
+        invoice: invoice.to_string(),
+    };
+    let response = post_json_auth(&url, &Some(req), Some(token)).await?;
     let response: PayInvoiceMessage = serde_json::from_str(&response)?;
 
     Ok(response)
 }
 
 /// Get successful lightning transactions user made. Order newest to oldest.
-pub async fn get_txs(token: String, limit: u32, offset: u32) -> Result<Vec<Tx>> {
+pub async fn get_txs(token: &str, limit: u32, offset: u32) -> Result<Vec<Tx>> {
     let endpoint = LNDHUB_ENDPOINT.to_string();
     let url = format!("{endpoint}/gettxs?limit={}&offset={}", limit, offset);
-    let response = get(&url, Some(&token)).await?;
+    let response = get(&url, Some(token)).await?;
     let txs = serde_json::from_str(&response)?;
 
     Ok(txs)
