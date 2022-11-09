@@ -78,7 +78,7 @@ impl ::core::str::FromStr for Reveal {
             return Err(ParseRevealError::TooLong);
         }
         let find_method = s.find('@');
-        if find_method == None {
+        if find_method.is_none() {
             return Err(ParseRevealError::Format);
         }
 
@@ -88,7 +88,7 @@ impl ::core::str::FromStr for Reveal {
         }
 
         let find_blind = s.find('#');
-        if find_blind == None {
+        if find_blind.is_none() {
             return Err(ParseRevealError::Format);
         }
 
@@ -287,7 +287,7 @@ async fn process_consignment<C: ConsignmentType>(
         debug!(format!("index id: {index_id}"));
         let success = outpoints
             .entry(index_id)
-            .or_insert(BTreeSet::new())
+            .or_default()
             .insert(NodeId::from_inner(contract_id.into_inner()));
         debug!(format!(
             "insertion into outpoints BTreeMap success: {success}"
@@ -398,7 +398,7 @@ async fn process_consignment<C: ConsignmentType>(
             trace!(format!("index_id: {index_id:?}"));
             contract_transitions
                 .entry(index_id)
-                .or_insert(BTreeSet::new())
+                .or_default()
                 .insert(node_id);
 
             node_contracts.insert(node_id, contract_id);
@@ -408,10 +408,7 @@ async fn process_consignment<C: ConsignmentType>(
                     seal.txid.expect("seal should contain revealed txid"),
                     seal.vout,
                 );
-                outpoints
-                    .entry(index_id)
-                    .or_insert(BTreeSet::new())
-                    .insert(node_id);
+                outpoints.entry(index_id).or_default().insert(node_id);
             }
         }
 
@@ -719,7 +716,7 @@ fn process_disclosure(
                 consignment_details
                     .contract_transitions
                     .entry(index_id)
-                    .or_insert(BTreeSet::new())
+                    .or_default()
                     .insert(node_id);
                 consignment_details
                     .node_contracts
@@ -733,7 +730,7 @@ fn process_disclosure(
                     consignment_details
                         .outpoints
                         .entry(index_id)
-                        .or_insert(BTreeSet::new())
+                        .or_default()
                         .insert(node_id);
                 }
             }
