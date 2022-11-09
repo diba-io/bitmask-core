@@ -265,14 +265,23 @@ pub fn send_assets(
 }
 
 #[wasm_bindgen]
-pub fn accept_transfer(consignment: String) -> Promise {
+pub fn accept_transfer(consignment: String, reveal: String) -> Promise {
     set_panic_hook();
 
     future_to_promise(async move {
-        match crate::accept_transfer(&consignment).await {
-            Ok(result) => Ok(JsValue::from_string(
-                serde_json::to_string(&result).unwrap(),
-            )),
+        match crate::accept_transfer(&consignment, &reveal).await {
+            Ok(result) => {
+                if result.valid {
+                    Ok(JsValue::from_string(
+                        serde_json::to_string(&result).unwrap(),
+                    ))
+                } else {
+                    Err(JsValue::from_string(format!(
+                        "invalid due to erroneous endpoints with id {}",
+                        result.id
+                    )))
+                }
+            }
             Err(err) => Err(JsValue::from_string(err.to_string())),
         }
     })

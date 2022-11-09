@@ -63,7 +63,7 @@ async fn transfer(Json(transfer): Json<TransferRequest>) -> Result<impl IntoResp
 }
 
 async fn accept(Json(accept): Json<AcceptRequest>) -> Result<impl IntoResponse, AppError> {
-    accept_transfer(&accept.consignment).await?;
+    accept_transfer(&accept.consignment, &accept.reveal).await?;
 
     Ok(StatusCode::OK)
 }

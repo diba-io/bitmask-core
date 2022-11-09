@@ -205,8 +205,7 @@ pub struct ValidateRequest {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct AcceptRequest {
     pub consignment: String,
-    // pub outpoint: OutPoint,
-    // pub blinding_factor: String,
+    pub reveal: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -214,6 +213,7 @@ pub struct AcceptResponse {
     pub id: String,
     #[cfg(not(target_arch = "wasm32"))]
     pub info: Status,
+    pub valid: bool,
 }
 
 // TODO: unused?

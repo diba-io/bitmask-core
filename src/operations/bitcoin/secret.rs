@@ -32,11 +32,7 @@ fn get_descriptor<C: ScriptContext>(
     let origin: KeySource = (xprv.fingerprint(&secp), deriv_descriptor);
     let derived_xprv_desc_key: DescriptorKey<C> = derived_xprv.into_descriptor_key(
         Some(origin),
-        DerivationPath::default().child(ChildNumber::from_normal_idx(if is_change {
-            1
-        } else {
-            0
-        })?),
+        DerivationPath::default().child(ChildNumber::from_normal_idx(u32::from(is_change))?),
     )?;
 
     if let SecretDesc(desc_seckey, _, _) = derived_xprv_desc_key {

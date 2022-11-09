@@ -3,11 +3,13 @@
 use std::env;
 
 use anyhow::Result;
+use bitmask_core::rgb::shared::Reveal;
 use bitmask_core::{
     accept_transfer, create_asset, fund_vault, get_assets_vault, get_blinded_utxo,
     get_encrypted_wallet, get_mnemonic_seed, get_network, get_wallet_data, import_asset,
     save_mnemonic_seed, send_assets, send_sats,
 };
+use bp::seals::txout::CloseMethod;
 use log::{debug, info};
 
 const ENCRYPTION_PASSWORD: &str = "hunter2";
@@ -149,7 +151,13 @@ async fn asset_transfer() -> Result<()> {
     debug!("Transfer response: {:#?}", &consignment_details);
 
     info!("Accept transfer");
-    let accept_details = accept_transfer(&consignment_details.consignment).await?;
+    let reveal: Reveal = Reveal {
+        blinding_factor: blinded_utxo.blinding.parse::<u64>()?,
+        outpoint: blinded_utxo.utxo,
+        close_method: CloseMethod::TapretFirst,
+    };
+    let accept_details =
+        accept_transfer(&consignment_details.consignment, &reveal.to_string()).await?;
     debug!("Accept response: {:#?}", &accept_details);
 
     assert_eq!(accept_details.id, issued_asset.asset_id, "RGB IDs match");
