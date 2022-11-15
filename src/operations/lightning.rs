@@ -6,7 +6,7 @@ use anyhow::Result;
 use serde::{Deserialize, Deserializer, Serialize};
 
 /// Lightning wallet credentials
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Credentials {
     pub login: String,
     pub password: String,
@@ -130,12 +130,14 @@ pub enum PayInvoiceMessage {
     },
 }
 
+/// An optional TLV record that signals the use of an MPP payment.
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct MppRecord {
     pub total_amt_msat: String,
     pub payment_addr: PaymentHash,
 }
 
+/// Contains details concerning the specific forwarding details at each hop.
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Hop {
     pub chan_id: String,
@@ -150,6 +152,7 @@ pub struct Hop {
     pub mpp_record: MppRecord,
 }
 
+/// Route that should be used to attempt to complete the payment
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PaymentRoute {
     pub hops: Vec<Hop>,
@@ -188,7 +191,11 @@ pub async fn create_wallet() -> Result<Credentials> {
 }
 
 /// Get a auth tokens
-pub async fn auth(creds: Credentials) -> Result<Tokens> {
+pub async fn auth(login: &str, password: &str) -> Result<Tokens> {
+    let creds = Credentials {
+        login: login.to_string(),
+        password: password.to_string(),
+    };
     let endpoint = LNDHUB_ENDPOINT.to_string();
     let auth_url = format!("{endpoint}/auth");
     let response = post_json_auth(&auth_url, &Some(creds), None).await?;
