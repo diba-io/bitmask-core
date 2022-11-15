@@ -180,7 +180,7 @@ pub struct TransferRequest {
     pub blinded_utxo: String,
     pub amount: u64,
     pub asset_contract: String,
-    pub asset_utxos: Vec<OutPoint>,
+    pub asset_utxos: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

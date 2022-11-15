@@ -557,7 +557,7 @@ pub async fn send_assets(
     info!("Created dust PSBT");
     info!("Creating transfer PSBT...");
 
-    let asset_utxos = asset_utxos.iter().map(|x| x.outpoint).collect();
+    let asset_utxos = asset_utxos.iter().map(|x| x.outpoint.to_string()).collect();
 
     #[cfg(not(target_arch = "wasm32"))]
     let (consignment, psbt, disclosure) = transfer_assets(
@@ -618,7 +618,7 @@ pub async fn transfer_assets(
     blinded_utxo: &str,
     amount: u64,
     asset_contract: &str,
-    asset_utxos: Vec<OutPoint>,
+    asset_utxos: Vec<String>,
 ) -> Result<(
     String, // bech32m compressed sten consignment
     String, // base64 bitcoin encoded psbt
@@ -631,7 +631,10 @@ pub async fn transfer_assets(
         blinded_utxo,
         amount,
         asset_contract,
-        asset_utxos,
+        asset_utxos
+            .iter()
+            .map(|x| bitcoin::OutPoint::from_str(x).unwrap())
+            .collect(),
     )
     .await?;
 
