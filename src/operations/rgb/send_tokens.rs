@@ -5,7 +5,7 @@ use std::{
 
 use amplify::hex::ToHex;
 use anyhow::{anyhow, Result};
-use bdk::{descriptor::Descriptor, LocalUtxo};
+use bdk::descriptor::Descriptor;
 use bitcoin::{
     psbt::{serialize::Serialize, PartiallySignedTransaction},
     OutPoint,
@@ -39,7 +39,7 @@ pub async fn transfer_asset(
     blinded_utxo: &str,
     amount: u64,
     asset_contract: &str, // rgbc1...
-    asset_utxos: Vec<LocalUtxo>,
+    asset_utxos: Vec<OutPoint>,
 ) -> Result<(
     InmemConsignment<TransferConsignment>,
     PartiallySignedTransaction,
@@ -56,7 +56,7 @@ pub async fn transfer_asset(
     let mut balance = 0;
 
     for utxo in &asset_utxos {
-        let mut coins = asset.outpoint_coins(utxo.outpoint);
+        let mut coins = asset.outpoint_coins(*utxo);
         for coin in coins.iter() {
             balance += coin.state.value;
         }
@@ -169,12 +169,11 @@ pub async fn transfer_asset(
     debug!(format!("Inputs: {inputs:#?}"));
 
     // Find an output that isn't being used as change
-    let change_outputs: Vec<&LocalUtxo> = asset_utxos
+    let change_outputs: Vec<&OutPoint> = asset_utxos
         .iter()
         .filter(|asset_utxo| {
             !change.iter().any(|(coin, _)| {
-                coin.seal.txid == asset_utxo.outpoint.txid
-                    && coin.seal.vout == asset_utxo.outpoint.vout
+                coin.seal.txid == asset_utxo.txid && coin.seal.vout == asset_utxo.vout
             })
         })
         .collect();
@@ -197,8 +196,8 @@ pub async fn transfer_asset(
             value: *remainder,
             seal: ExplicitSeal {
                 method: CloseMethod::TapretFirst,
-                txid: Some(change_output.outpoint.txid),
-                vout: change_output.outpoint.vout,
+                txid: Some(change_output.txid),
+                vout: change_output.vout,
             },
         })
         .map(|v| (v.into_revealed_seal(), v.value))

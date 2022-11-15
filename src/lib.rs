@@ -557,6 +557,8 @@ pub async fn send_assets(
     info!("Created dust PSBT");
     info!("Creating transfer PSBT...");
 
+    let asset_utxos = asset_utxos.iter().map(|x| x.outpoint).collect();
+
     #[cfg(not(target_arch = "wasm32"))]
     let (consignment, psbt, disclosure) = transfer_assets(
         rgb_assets_descriptor_xpub,
@@ -616,7 +618,7 @@ pub async fn transfer_assets(
     blinded_utxo: &str,
     amount: u64,
     asset_contract: &str,
-    asset_utxos: Vec<LocalUtxo>,
+    asset_utxos: Vec<OutPoint>,
 ) -> Result<(
     String, // bech32m compressed sten consignment
     String, // base64 bitcoin encoded psbt
@@ -624,7 +626,6 @@ pub async fn transfer_assets(
 )> {
     // use lnpbp::bech32::ToBech32String;
     use strict_encoding::strict_serialize;
-
     let (consignment, psbt, disclosure) = transfer_asset(
         rgb_assets_descriptor_xpub,
         blinded_utxo,

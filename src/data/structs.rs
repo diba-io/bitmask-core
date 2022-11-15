@@ -1,4 +1,4 @@
-use bdk::{Balance, BlockTime, LocalUtxo};
+use bdk::{Balance, BlockTime};
 use bitcoin::{util::address::Address, OutPoint, Txid};
 #[cfg(not(target_arch = "wasm32"))]
 use rgb_core::validation::Status;
@@ -180,7 +180,7 @@ pub struct TransferRequest {
     pub blinded_utxo: String,
     pub amount: u64,
     pub asset_contract: String,
-    pub asset_utxos: Vec<LocalUtxo>,
+    pub asset_utxos: Vec<OutPoint>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
