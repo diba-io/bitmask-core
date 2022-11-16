@@ -266,11 +266,11 @@ pub fn send_assets(
 }
 
 #[wasm_bindgen]
-pub fn accept_transfer(consignment: String, reveal: String) -> Promise {
+pub fn accept_transfer(consignment: String, blinding_factor: String, outpoint: String) -> Promise {
     set_panic_hook();
 
     future_to_promise(async move {
-        match crate::accept_transfer(&consignment, &reveal).await {
+        match crate::accept_transfer(&consignment, &blinding_factor, &outpoint).await {
             Ok(result) => {
                 if result.valid {
                     Ok(JsValue::from_string(
