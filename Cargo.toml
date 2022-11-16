@@ -72,39 +72,25 @@ bdk = { version = "0.23", features = [
     "reqwest-default-tls",
     "sqlite-bundled",
 ], default-features = false }
-bp-core = { git = "https://github.com/zoedberg/bp-core", branch = "fixes", version = "0.8.0", features = [
-    "psbt",
-    "wallet",
-] }
-bp-dbc = { git = "https://github.com/zoedberg/bp-core", branch = "fixes", version = "0.8.0" }
+bp-core = { version = "0.8.0", features = ["psbt", "wallet"] }
+bp-dbc = "0.8.0"
 carbonado = "0.1.1"
 commit_verify = { version = "0.8.0", features = ["rand"] }
 # commit_verify = { version = "0.9.0", features = [
 #     "rand",
 # ], git = "https://github.com/LNP-BP/client_side_validation.git", branch = "bitcoin-0.29" }
-descriptor-wallet = { git = "https://github.com/zoedberg/descriptor-wallet", branch = "fixes", version = "0.8.3", features = [
-    "descriptors",
-    "serde",
-] }
+descriptor-wallet = { version = "0.8.3", features = ["descriptors", "serde"] }
 deflate = { version = "1.0.0" }
 inflate = { version = "0.4.5" }
-electrum-client = "0.11.0"
-lnpbp = { version = "0.8.0", features = ["all"] }
-psbt = { git = "https://github.com/zoedberg/descriptor-wallet", branch = "fixes", version = "0.8.5", features = [
-    "sign",
-    "miniscript",
-    "serde",
-] }
-rgb_core = { git = "https://github.com/zoedberg/rgb-core", branch = "fixes", package = "rgb-core", version = "0.8.0", features = [
-    "serde",
-] }
-rgb-std = { git = "https://github.com/zoedberg/rgb-std", branch = "fixes", package = "rgb-std", version = "0.8.0", features = [
+electrum-client = "=0.10.2"
+lnpbp = "0.8.0"
+psbt = { version = "0.8.5", features = ["sign", "miniscript", "serde"] }
+rgb_core = { package = "rgb-core", version = "0.8.0", features = ["serde"] }
+rgb-std = { package = "rgb-std", version = "0.8.0", features = [
     "serde",
     "wallet",
 ] }
-rgb20 = { git = "https://github.com/zoedberg/rust-rgb20", branch = "fixes", version = "0.8.0-rc.4", features = [
-    "serde",
-] }
+rgb20 = { version = "0.8.0-rc.4", features = ["serde"] }
 stens = { version = "0.7.1", features = ["serde"] }
 storm-core = "0.8.0"
 strict_encoding = { version = "0.8.1", features = [
