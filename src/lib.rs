@@ -649,8 +649,12 @@ pub async fn transfer_assets(
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-pub async fn accept_transfer(consignment: &str, reveal: &str) -> Result<AcceptResponse> {
-    let (id, info, valid) = rgb::accept_transfer(consignment, reveal).await?;
+pub async fn accept_transfer(
+    consignment: &str,
+    blinding_factor: &str,
+    outpoint: &str,
+) -> Result<AcceptResponse> {
+    let (id, info, valid) = rgb::accept_transfer(consignment, blinding_factor, outpoint).await?;
     if valid {
         info!("Transaction accepted");
         Ok(AcceptResponse { id, info, valid })
