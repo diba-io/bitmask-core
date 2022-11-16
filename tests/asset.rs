@@ -156,8 +156,12 @@ async fn asset_transfer() -> Result<()> {
         outpoint: blinded_utxo.utxo,
         close_method: CloseMethod::TapretFirst,
     };
-    let accept_details =
-        accept_transfer(&consignment_details.consignment, &reveal.to_string()).await?;
+    let accept_details = accept_transfer(
+        &consignment_details.consignment,
+        &blinded_utxo.blinding,
+        &blinded_utxo.utxo.to_string(),
+    )
+    .await?;
     debug!("Accept response: {:#?}", &accept_details);
 
     assert_eq!(accept_details.id, issued_asset.asset_id, "RGB IDs match");
