@@ -1,6 +1,7 @@
 use std::str::FromStr;
 
 use anyhow::Result;
+use bp::seals::txout::CloseMethod;
 use commit_verify::CommitConceal;
 use electrum_client::Client;
 use rgb_core::{seal::Revealed, Consignment, Validator};
@@ -12,7 +13,11 @@ use crate::{
     util::bech32m_zip_decode,
 };
 
-pub async fn accept_transfer(consignment: &str, reveal: &str) -> Result<(String, Status, bool)> {
+pub async fn accept_transfer(
+    consignment: &str,
+    blinding_factor: &str,
+    outpoint: &str,
+) -> Result<(String, Status, bool)> {
     let url = BITCOIN_ELECTRUM_API.read().await;
     let electrum_client = Client::new(&url)?;
     debug!(format!("Electrum client connected to {url}"));
@@ -24,7 +29,11 @@ pub async fn accept_transfer(consignment: &str, reveal: &str) -> Result<(String,
     info!(format!("accept transfer result: {status:?}"));
     let id = consignment.contract_id().to_string();
 
-    let reveal = Reveal::from_str(reveal)?;
+    let reveal = Reveal {
+        blinding_factor: blinding_factor.parse::<u64>()?,
+        outpoint: bitcoin::OutPoint::from_str(outpoint)?,
+        close_method: CloseMethod::TapretFirst,
+    };
 
     let reveal_outpoint = Revealed {
         method: reveal.close_method,
