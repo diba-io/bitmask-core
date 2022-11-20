@@ -72,10 +72,10 @@ bdk = { version = "0.23", features = [
     "reqwest-default-tls",
     "sqlite-bundled",
 ], default-features = false }
-bp-core = { version = "0.8.0", features = ["psbt", "wallet"] }
-bp-dbc = "0.8.0"
+bp-core = { version = "0.8.1", features = ["psbt", "wallet"] }
+bp-dbc = "0.8.1"
 carbonado = "0.1.1"
-commit_verify = { version = "0.8.0", features = ["rand"] }
+commit_verify = { version = "0.8.1", features = ["rand"] }
 # commit_verify = { version = "0.9.0", features = [
 #     "rand",
 # ], git = "https://github.com/LNP-BP/client_side_validation.git", branch = "bitcoin-0.29" }
@@ -85,12 +85,12 @@ inflate = { version = "0.4.5" }
 electrum-client = "=0.10.2"
 lnpbp = "0.8.0"
 psbt = { version = "0.8.5", features = ["sign", "miniscript", "serde"] }
-rgb_core = { package = "rgb-core", version = "0.8.0", features = ["serde"] }
-rgb-std = { package = "rgb-std", version = "0.8.0", features = [
+rgb_core = { package = "rgb-core", version = "0.8.1", features = ["serde"] }
+rgb-std = { package = "rgb-std", version = "0.8.1", features = [
     "serde",
     "wallet",
 ] }
-rgb20 = { version = "0.8.0-rc.4", features = ["serde"] }
+rgb20 = { version = "0.8.0", features = ["serde"] }
 stens = { version = "0.7.1", features = ["serde"] }
 storm-core = "0.8.0"
 strict_encoding = { version = "0.8.1", features = [
