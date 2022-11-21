@@ -8,7 +8,6 @@ use bitmask_core::{
     get_encrypted_wallet, get_mnemonic_seed, get_network, get_wallet_data, import_asset,
     save_mnemonic_seed, send_assets, send_sats,
 };
-use bp::seals::txout::CloseMethod;
 use log::{debug, info};
 
 const ENCRYPTION_PASSWORD: &str = "hunter2";
