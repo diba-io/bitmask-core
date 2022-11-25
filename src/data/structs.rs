@@ -189,7 +189,6 @@ pub struct TransferResult {
     pub disclosure: String,
     pub txid: String,
 }
-
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TransferResponse {
     pub consignment: String,

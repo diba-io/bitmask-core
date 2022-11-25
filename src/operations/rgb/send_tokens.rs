@@ -44,6 +44,8 @@ pub async fn transfer_asset(
     InmemConsignment<TransferConsignment>,
     PartiallySignedTransaction,
     Disclosure,
+    Vec<SealCoins>,
+    Vec<String>,
 )> {
     debug!(format!("asset_contract: {asset_contract}"));
 
@@ -191,7 +193,7 @@ pub async fn transfer_asset(
     let change_output = change_outputs.get(0).unwrap();
     debug!(format!("Selected change output: {change_output:#?}"));
 
-    let change = change
+    let change: BTreeMap<bp::seals::txout::blind::RevealedSeal, u64> = change
         .iter()
         .map(|(_coin, remainder)| AllocatedValue {
             value: *remainder,
@@ -211,7 +213,7 @@ pub async fn transfer_asset(
     debug!(format!("Beneficiaries: {beneficiaries:#?}"));
     debug!(format!("Change allocated values: {change:#?}"));
 
-    let transition = match asset.transfer(outpoints.clone(), beneficiaries, change) {
+    let transition = match asset.transfer(outpoints.clone(), beneficiaries, change.clone()) {
         Ok(t) => t,
         Err(err) => {
             error!(format!(
@@ -463,5 +465,19 @@ pub async fn transfer_asset(
     // btc-cold finalize --publish testnet ${PSBT}
     // (This is done by the client methods that call this method)
 
-    Ok((consignment, psbt.into(), disclosure))
+    let change = change
+        .into_iter()
+        .map(|(s, a)| SealCoins {
+            amount: a,
+            txid: s.txid.unwrap(),
+            vout: s.vout,
+        })
+        .collect();
+
+    let previous_utxo = seal_coins
+        .into_iter()
+        .map(|s| format!("{}:{}", s.txid, s.vout))
+        .collect();
+
+    Ok((consignment, psbt.into(), disclosure, change, previous_utxo))
 }
