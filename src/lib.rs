@@ -561,7 +561,7 @@ pub async fn send_assets(
     info!("Creating transfer PSBT...");
 
     #[cfg(not(target_arch = "wasm32"))]
-    let (consignment, psbt, disclosure, _, _) = transfer_assets(
+    let (consignment, psbt, disclosure, _change, _previous_utxo, _new_utxo) = transfer_assets(
         rgb_assets_descriptor_xpub,
         blinded_utxo,
         amount,
@@ -626,11 +626,12 @@ pub async fn transfer_assets(
     String, // json
     String,
     String,
+    String,
 )> {
     // use lnpbp::bech32::ToBech32String;
     use strict_encoding::strict_serialize;
 
-    let (consignment, psbt, disclosure, change, previous_utxo) = transfer_asset(
+    let (consignment, psbt, disclosure, change, previous_utxo, new_utxo) = transfer_asset(
         rgb_assets_descriptor_xpub,
         blinded_utxo,
         amount,
@@ -650,7 +651,14 @@ pub async fn transfer_assets(
     let change = serde_json::to_string(&change)?;
     let previous_utxo = serde_json::to_string(&previous_utxo)?;
 
-    Ok((consignment, psbt, disclosure, change, previous_utxo))
+    Ok((
+        consignment,
+        psbt,
+        disclosure,
+        change,
+        previous_utxo,
+        new_utxo,
+    ))
 }
 
 #[cfg(not(target_arch = "wasm32"))]

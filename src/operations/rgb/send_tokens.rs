@@ -45,7 +45,8 @@ pub async fn transfer_asset(
     PartiallySignedTransaction,
     Disclosure,
     Vec<SealCoins>,
-    Vec<String>,
+    Vec<SealCoins>,
+    String,
 )> {
     debug!(format!("asset_contract: {asset_contract}"));
 
@@ -474,10 +475,12 @@ pub async fn transfer_asset(
         })
         .collect();
 
-    let previous_utxo = seal_coins
-        .into_iter()
-        .map(|s| format!("{}:{}", s.txid, s.vout))
-        .collect();
-
-    Ok((consignment, psbt.into(), disclosure, change, previous_utxo))
+    Ok((
+        consignment,
+        psbt.into(),
+        disclosure,
+        change,
+        seal_coins,
+        blinded_utxo.to_owned(),
+    ))
 }
