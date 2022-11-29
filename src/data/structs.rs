@@ -1,7 +1,11 @@
 use bdk::{Balance, BlockTime, LocalUtxo};
+#[cfg(not(target_arch = "wasm32"))]
+use bitcoin::psbt::PartiallySignedTransaction;
 use bitcoin::{util::address::Address, OutPoint, Txid};
 #[cfg(not(target_arch = "wasm32"))]
 use rgb_core::validation::Status;
+#[cfg(not(target_arch = "wasm32"))]
+use rgb_std::{Disclosure, InmemConsignment, TransferConsignment};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
@@ -196,6 +200,18 @@ pub struct TransferResponse {
     pub disclosure: String,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct TransferAssetsResponse {
+    #[cfg(not(target_arch = "wasm32"))]
+    pub consignment: InmemConsignment<TransferConsignment>,
+    #[cfg(not(target_arch = "wasm32"))]
+    pub psbt: PartiallySignedTransaction,
+    #[cfg(not(target_arch = "wasm32"))]
+    pub disclosure: Disclosure,
+    pub change: Vec<SealCoins>,
+    pub previous_utxo: Vec<SealCoins>,
+    pub new_utxo: String,
+}
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ValidateRequest {
     pub consignment: String,

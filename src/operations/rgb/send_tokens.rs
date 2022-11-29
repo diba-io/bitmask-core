@@ -6,11 +6,8 @@ use std::{
 use amplify::hex::ToHex;
 use anyhow::{anyhow, Result};
 use bdk::{descriptor::Descriptor, LocalUtxo};
-use bitcoin::{
-    psbt::{serialize::Serialize, PartiallySignedTransaction},
-    OutPoint,
-};
-use bp::seals::txout::{CloseMethod, ExplicitSeal};
+use bitcoin::{psbt::serialize::Serialize, OutPoint};
+use bp::seals::txout::{blind::RevealedSeal, CloseMethod, ExplicitSeal};
 use electrum_client::{Client, ElectrumApi};
 use regex::Regex;
 use rgb20::Asset;
@@ -28,7 +25,10 @@ use wallet::{
 };
 
 use crate::{
-    data::{constants::BITCOIN_ELECTRUM_API, structs::SealCoins},
+    data::{
+        constants::BITCOIN_ELECTRUM_API,
+        structs::{SealCoins, TransferAssetsResponse},
+    },
     debug, error, info,
     rgb::shared::{compose_consignment, outpoint_state, ConsignmentDetails},
     trace,
@@ -40,14 +40,7 @@ pub async fn transfer_asset(
     amount: u64,
     asset_contract: &str, // rgbc1...
     asset_utxos: Vec<LocalUtxo>,
-) -> Result<(
-    InmemConsignment<TransferConsignment>,
-    PartiallySignedTransaction,
-    Disclosure,
-    Vec<SealCoins>,
-    Vec<SealCoins>,
-    String,
-)> {
+) -> Result<TransferAssetsResponse> {
     debug!(format!("asset_contract: {asset_contract}"));
 
     // rgb-cli -n testnet transfer compose ${CONTRACT_ID} ${UTXO_SRC} ${CONSIGNMENT}
@@ -194,7 +187,7 @@ pub async fn transfer_asset(
     let change_output = change_outputs.get(0).unwrap();
     debug!(format!("Selected change output: {change_output:#?}"));
 
-    let change: BTreeMap<bp::seals::txout::blind::RevealedSeal, u64> = change
+    let change: BTreeMap<RevealedSeal, u64> = change
         .iter()
         .map(|(_coin, remainder)| AllocatedValue {
             value: *remainder,
@@ -475,12 +468,12 @@ pub async fn transfer_asset(
         })
         .collect();
 
-    Ok((
+    Ok(TransferAssetsResponse {
         consignment,
-        psbt.into(),
+        psbt: psbt.into(),
         disclosure,
         change,
-        seal_coins,
-        blinded_utxo.to_owned(),
-    ))
+        previous_utxo: seal_coins,
+        new_utxo: blinded_utxo.to_owned(),
+    })
 }

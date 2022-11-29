@@ -631,7 +631,7 @@ pub async fn transfer_assets(
     // use lnpbp::bech32::ToBech32String;
     use strict_encoding::strict_serialize;
 
-    let (consignment, psbt, disclosure, change, previous_utxo, new_utxo) = transfer_asset(
+    let transfer_asset_response = transfer_asset(
         rgb_assets_descriptor_xpub,
         blinded_utxo,
         amount,
@@ -642,14 +642,14 @@ pub async fn transfer_assets(
 
     // TODO: pending https://github.com/RGB-WG/rgb-std/pull/7
     // let consignment = consignment.to_bech32_string();
-    let consignment = strict_serialize(&consignment)?;
+    let consignment = strict_serialize(&transfer_asset_response.consignment)?;
     let consignment = util::bech32m_zip_encode("rgbc", &consignment)?;
-    let psbt = serialize_psbt(&psbt);
+    let psbt = serialize_psbt(&transfer_asset_response.psbt);
     let psbt = base64::encode(&psbt);
-    let disclosure = serde_json::to_string(&disclosure)?;
+    let disclosure = serde_json::to_string(&transfer_asset_response.disclosure)?;
 
-    let change = serde_json::to_string(&change)?;
-    let previous_utxo = serde_json::to_string(&previous_utxo)?;
+    let change = serde_json::to_string(&transfer_asset_response.change)?;
+    let previous_utxo = serde_json::to_string(&transfer_asset_response.previous_utxo)?;
 
     Ok((
         consignment,
@@ -657,7 +657,7 @@ pub async fn transfer_assets(
         disclosure,
         change,
         previous_utxo,
-        new_utxo,
+        transfer_asset_response.new_utxo,
     ))
 }
 
@@ -682,14 +682,12 @@ pub async fn accept_transfer(
     blinding_factor: &str,
     outpoint: &str,
 ) -> Result<AcceptResponse> {
-    info!("ajaja");
     let endpoint = &get_endpoint("accept").await;
     let body = AcceptRequest {
         consignment: consignment.to_owned(),
         blinding_factor: blinding_factor.to_owned(),
         outpoint: outpoint.to_owned(),
     };
-    info!(format!("ajaja: {:?}", body));
     let (transfer_res, status) = post_json(endpoint, &body).await?;
     if status != 200 {
         return Err(anyhow!("Error calling {endpoint}"));
