@@ -8,15 +8,23 @@ use serde::{Deserialize, Deserializer, Serialize};
 /// Lightning wallet credentials
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Credentials {
-    pub login: String,
+    pub username: String,
     pub password: String,
+}
+
+/// Wallet creation response]
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(untagged)]
+pub enum CreateWalletRes {
+    Username { username: String },
+    Error { error: String },
 }
 
 /// Lightning wallet tokens
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Tokens {
-    pub refresh_token: String,
-    pub access_token: String,
+    pub refresh: String,
+    pub token: String,
 }
 
 /// Add invoice request
@@ -26,10 +34,28 @@ pub struct AddInvoiceReq {
     pub amt: String,
 }
 
+/// Amount of money
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Money {
+    pub value: String,
+    pub currency: String,
+}
+
 /// Add invoice response
-#[derive(Debug, Serialize, Deserialize)]
-pub struct AddInvoiceRes {
-    pub payment_request: String,
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InvoiceResponse {
+    pub req_id: String,
+    pub uid: u32,
+    pub payment_request: Option<String>,
+    pub meta: Option<String>,
+    pub metadata: Option<String>,
+    pub amount: Money,
+    pub rate: Option<String>,
+    pub currency: String,
+    pub target_account_currency: Option<String>,
+    pub account_id: Option<String>,
+    pub error: Option<String>,
+    pub fees: Option<String>,
 }
 
 /// User balance response
@@ -181,19 +207,24 @@ where
 }
 
 /// Creates a new lightning custodial wallet
-pub async fn create_wallet() -> Result<Credentials> {
+pub async fn create_wallet(username: &str, password: &str) -> Result<CreateWalletRes> {
     let endpoint = LNDHUB_ENDPOINT.to_string();
+    let creds = Credentials {
+        username: username.to_string(),
+        password: password.to_string(),
+    };
     let create_url = format!("{endpoint}/create");
-    let response = post_json_auth::<Credentials>(&create_url, &None, None).await?;
-    let creds: Credentials = serde_json::from_str(&response)?;
+    let response = post_json_auth(&create_url, &Some(creds), None).await?;
 
-    Ok(creds)
+    let res: CreateWalletRes = serde_json::from_str(&response)?;
+
+    Ok(res)
 }
 
 /// Get a auth tokens
-pub async fn auth(login: &str, password: &str) -> Result<Tokens> {
+pub async fn auth(username: &str, password: &str) -> Result<Tokens> {
     let creds = Credentials {
-        login: login.to_string(),
+        username: username.to_string(),
         password: password.to_string(),
     };
     let endpoint = LNDHUB_ENDPOINT.to_string();
@@ -205,17 +236,17 @@ pub async fn auth(login: &str, password: &str) -> Result<Tokens> {
 }
 
 /// Creates a lightning invoice
-pub async fn create_invoice(description: &str, amount: u64, token: &str) -> Result<String> {
+pub async fn create_invoice(
+    _description: &str,
+    amount: &str,
+    token: &str,
+) -> Result<InvoiceResponse> {
     let endpoint = LNDHUB_ENDPOINT.to_string();
-    let url = format!("{endpoint}/addinvoice");
-    let req = AddInvoiceReq {
-        memo: description.to_string(),
-        amt: amount.to_string(),
-    };
-    let response = post_json_auth(&url, &Some(req), Some(token)).await?;
-    let invoice: AddInvoiceRes = serde_json::from_str(&response)?;
+    let url = format!("{endpoint}/addinvoice?amount={}", amount);
+    let response = get(&url, Some(token)).await?;
+    let invoice: InvoiceResponse = serde_json::from_str(&response)?;
 
-    Ok(invoice.payment_request)
+    Ok(invoice)
 }
 
 /// Decode a lightning invoice (bolt11)
