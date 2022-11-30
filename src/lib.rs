@@ -7,19 +7,18 @@ use std::str::FromStr;
 use anyhow::anyhow;
 use anyhow::Result;
 use bdk::{wallet::AddressIndex, FeeRate, LocalUtxo};
-#[cfg(target_arch = "wasm32")]
-use bitcoin::psbt::PartiallySignedTransaction;
-use bitcoin::{util::address::Address, OutPoint, Transaction};
-use bitcoin_hashes::{sha256, Hash};
 #[cfg(not(target_arch = "wasm32"))]
-use data::structs::TransferAssetsResponse;
+use bitcoin::consensus::serialize as serialize_psbt;
+use bitcoin::{
+    consensus::deserialize as deserialize_psbt, psbt::PartiallySignedTransaction,
+    util::address::Address, OutPoint, Transaction,
+};
+use bitcoin_hashes::{sha256, Hash};
 use serde::{Deserialize, Serialize};
 use serde_encrypt::{
     serialize::impls::BincodeSerializer, shared_key::SharedKey, traits::SerdeEncryptSharedKey,
     AsSharedKey, EncryptedMessage,
 };
-#[cfg(not(target_arch = "wasm32"))]
-use strict_encoding::strict_serialize;
 use tokio::try_join;
 
 pub mod data;
@@ -562,7 +561,7 @@ pub async fn send_assets(
     info!("Creating transfer PSBT...");
 
     #[cfg(not(target_arch = "wasm32"))]
-    let transfer_asset_response = transfer_assets(
+    let (consignment, psbt, disclosure, _change, _previous_utxo, _new_utxo) = transfer_assets(
         rgb_assets_descriptor_xpub,
         blinded_utxo,
         amount,
@@ -570,15 +569,6 @@ pub async fn send_assets(
         asset_utxos,
     )
     .await?;
-
-    #[cfg(not(target_arch = "wasm32"))]
-    let consignment = strict_serialize(&transfer_asset_response.consignment)?;
-    #[cfg(not(target_arch = "wasm32"))]
-    let consignment = util::bech32m_zip_encode("rgbc", &consignment)?;
-    #[cfg(not(target_arch = "wasm32"))]
-    let disclosure = serde_json::to_string(&transfer_asset_response.disclosure)?;
-    #[cfg(not(target_arch = "wasm32"))]
-    let psbt = transfer_asset_response.psbt;
 
     #[cfg(target_arch = "wasm32")]
     let (consignment, psbt, disclosure) = async {
@@ -602,8 +592,10 @@ pub async fn send_assets(
         Ok((consignment, psbt, disclosure))
     }
     .await?;
-    #[cfg(target_arch = "wasm32")]
-    let psbt = PartiallySignedTransaction::from_str(&psbt)?;
+
+    info!("Successfully created assets PSBT");
+    let psbt = base64::decode(&psbt)?;
+    let psbt: PartiallySignedTransaction = deserialize_psbt(&psbt)?;
 
     info!("Signing and broadcasting transactions...");
     let tx = sign_psbt(&assets_wallet, psbt).await?;
@@ -628,7 +620,17 @@ pub async fn transfer_assets(
     amount: u64,
     asset_contract: &str,
     asset_utxos: Vec<LocalUtxo>,
-) -> Result<TransferAssetsResponse> {
+) -> Result<(
+    String, // bech32m compressed sten consignment
+    String, // base64 bitcoin encoded psbt
+    String, // json
+    String,
+    String,
+    String,
+)> {
+    // use lnpbp::bech32::ToBech32String;
+    use strict_encoding::strict_serialize;
+
     let transfer_asset_response = transfer_asset(
         rgb_assets_descriptor_xpub,
         blinded_utxo,
@@ -638,7 +640,25 @@ pub async fn transfer_assets(
     )
     .await?;
 
-    Ok(transfer_asset_response)
+    // TODO: pending https://github.com/RGB-WG/rgb-std/pull/7
+    // let consignment = consignment.to_bech32_string();
+    let consignment = strict_serialize(&transfer_asset_response.consignment)?;
+    let consignment = util::bech32m_zip_encode("rgbc", &consignment)?;
+    let psbt = serialize_psbt(&transfer_asset_response.psbt);
+    let psbt = base64::encode(&psbt);
+    let disclosure = serde_json::to_string(&transfer_asset_response.disclosure)?;
+
+    let change = serde_json::to_string(&transfer_asset_response.change)?;
+    let previous_utxo = serde_json::to_string(&transfer_asset_response.previous_utxo)?;
+
+    Ok((
+        consignment,
+        psbt,
+        disclosure,
+        change,
+        previous_utxo,
+        transfer_asset_response.new_utxo,
+    ))
 }
 
 #[cfg(not(target_arch = "wasm32"))]
