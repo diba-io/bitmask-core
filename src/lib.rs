@@ -295,13 +295,18 @@ pub fn import_asset(asset: &str, utxos: Vec<String>) -> Result<ThinAsset> {
 }
 
 #[cfg(target_arch = "wasm32")]
-pub async fn import_asset(asset: &str, utxo: &str) -> Result<ThinAsset> {
+pub async fn import_asset(asset: &str, utxo: &str, blinded: Option<String>) -> Result<ThinAsset> {
     info!("Getting asset:", asset);
+
+    let utxos = match blinded {
+        Some(blinded) => vec![utxo.to_owned(), blinded],
+        None => vec![utxo.to_owned()],
+    };
 
     let endpoint = &get_endpoint("import").await;
     let body = AssetRequest {
         asset: asset.to_owned(),
-        utxos: vec![utxo.to_owned()],
+        utxos,
     };
     let (asset_res, status) = post_json(endpoint, &body).await?;
     if status != 200 {
