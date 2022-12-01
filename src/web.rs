@@ -106,18 +106,18 @@ pub fn get_wallet_data(descriptor: String, change_descriptor: Option<String>) ->
 //         match crate::list_assets(&asset, &rgb_descriptor_xpub).await {
 //             Ok(result) => Ok(JsValue::from_string(
 //                 serde_json::to_string(&result).unwrap(),
-//             )),
+//             )),rt_asset
 //             Err(err) => Err(JsValue::from_string(err.to_string())),
 //         }
 //     })
 // }
 
 #[wasm_bindgen]
-pub fn import_asset(asset: String, rgb_descriptor_xpub: String) -> Promise {
+pub fn import_asset(asset: String, utxo: String) -> Promise {
     set_panic_hook();
 
     future_to_promise(async move {
-        match crate::import_asset(&asset, &rgb_descriptor_xpub).await {
+        match crate::import_asset(&asset, &utxo).await {
             Ok(result) => Ok(JsValue::from_string(
                 serde_json::to_string(&result).unwrap(),
             )),
