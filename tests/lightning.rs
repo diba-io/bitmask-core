@@ -1,11 +1,9 @@
 use anyhow::{Ok, Result};
 use bitmask_core::{
     lightning::CreateWalletRes,
-    operations::lightning::{
-        auth, create_invoice, create_wallet, decode_invoice, get_balance, get_txs, pay_invoice,
-        PayInvoiceMessage, Tx,
-    },
+    operations::lightning::{auth, create_invoice, create_wallet, decode_invoice, get_balance},
 };
+
 use log::info;
 
 async fn new_wallet() -> Result<CreateWalletRes> {
@@ -53,26 +51,37 @@ pub async fn create_decode_invoice_test() -> Result<()> {
     if let CreateWalletRes::Username { username } = res {
         uname = username;
     }
+    let description = "testing create_invoice";
+    let amt = 99;
+    let amt_milli: u64 = 99 * 1000;
     let tokens = auth(&uname, &uname).await?;
-    let invoice = create_invoice("testing create_invoice", "0.000099", &tokens.token).await?;
-    // let decoded_invoice = decode_invoice(&invoice, &tokens.token).await?;
-    info!("invoice: {invoice:?}");
-    // info!("decoded_invoice: {decoded_invoice:#?}");
-    // assert_eq!(decoded_invoice.num_satoshis, "333");
+    let invoice = create_invoice(description, amt, &tokens.token).await?;
+    let decoded_invoice = decode_invoice(&invoice.payment_request.unwrap())?;
+    let invoice_amt = decoded_invoice.amount_milli_satoshis().unwrap();
+
+    assert_eq!(amt_milli, invoice_amt);
 
     Ok(())
 }
 
-// #[tokio::test]
-// pub async fn get_balance_test() -> Result<()> {
-//     let creds = create_wallet().await?;
-//     let tokens = auth(&creds.login, &creds.password).await?;
-//     let balance = get_balance(&tokens.access_token).await?;
-//     assert_eq!(balance.btc.available_balance, 0);
-//     info!("balance: {balance:#?}");
+#[tokio::test]
+pub async fn get_balance_test() -> Result<()> {
+    let res = new_wallet().await?;
+    let mut uname = String::new();
+    if let CreateWalletRes::Username { username } = res {
+        uname = username;
+    }
+    let tokens = auth(&uname, &uname).await?;
+    let balances = get_balance(&tokens.token).await?;
 
-//     Ok(())
-// }
+    assert_eq!(balances.len(), 1);
+    if let Some(b) = balances.get(0) {
+        assert_eq!(b.balance, "0");
+        assert_eq!(b.currency, "BTC");
+    }
+
+    Ok(())
+}
 
 // #[tokio::test]
 // pub async fn pay_invoice_error_test() -> Result<()> {

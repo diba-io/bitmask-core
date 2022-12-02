@@ -2,8 +2,11 @@ use crate::{
     data::constants::LNDHUB_ENDPOINT,
     util::{get, post_json_auth},
 };
-use anyhow::Result;
+use anyhow::{Ok, Result};
+use lightning_invoice::Invoice;
 use serde::{Deserialize, Deserializer, Serialize};
+use std::collections::HashMap;
+use std::str::FromStr;
 
 /// Lightning wallet credentials
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -59,10 +62,19 @@ pub struct InvoiceResponse {
 }
 
 /// User balance response
-#[derive(Debug, Serialize, Deserialize)]
-pub struct BalanceRes {
-    #[serde(rename = "BTC")]
-    pub btc: Balance,
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Balances {
+    pub uid: u32,
+    pub accounts: HashMap<String, Account>,
+    pub error: Option<String>,
+}
+
+/// User account
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Account {
+    pub account_id: String,
+    pub balance: String,
+    pub currency: String,
 }
 
 /// User balance
@@ -73,19 +85,19 @@ pub struct Balance {
 }
 
 /// Lightning Invoice decoded
-#[derive(Debug, Serialize, Deserialize, Default, PartialEq, Eq)]
-pub struct Invoice {
-    pub destination: String,
-    pub payment_hash: String,
-    pub num_satoshis: String,
-    pub timestamp: String,
-    pub expiry: String,
-    pub description: String,
-    pub description_hash: String,
-    pub fallback_addr: String,
-    pub cltv_expiry: String,
-    pub route_hints: Vec<Hint>,
-}
+// #[derive(Debug, Serialize, Deserialize, Default, PartialEq, Eq)]
+// pub struct Invoice {
+//     pub destination: String,
+//     pub payment_hash: String,
+//     pub num_satoshis: String,
+//     pub timestamp: String,
+//     pub expiry: String,
+//     pub description: String,
+//     pub description_hash: String,
+//     pub fallback_addr: String,
+//     pub cltv_expiry: String,
+//     pub route_hints: Vec<Hint>,
+// }
 
 /// Pay invoice response
 #[derive(Debug, Serialize, Deserialize)]
@@ -94,14 +106,14 @@ pub struct PayInvoiceRes {
 }
 
 /// Lightning invoice hint
-#[derive(Debug, Serialize, Deserialize, Default, PartialEq, Eq)]
-pub struct Hint {
-    pub node_id: String,
-    pub chan_id: String,
-    pub fee_base_msat: String,
-    pub fee_proportional_millionths: String,
-    pub cltv_expiry_delta: String,
-}
+// #[derive(Debug, Serialize, Deserialize, Default, PartialEq, Eq)]
+// pub struct Hint {
+//     pub node_id: String,
+//     pub chan_id: String,
+//     pub fee_base_msat: String,
+//     pub fee_proportional_millionths: String,
+//     pub cltv_expiry_delta: String,
+// }
 
 /// Invoice request
 #[derive(Debug, Serialize, Deserialize)]
@@ -116,18 +128,18 @@ pub struct PaymentRequest {
 }
 
 /// Lightning transaction
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Tx {
-    pub payment_preimage: Option<String>,
-    pub payment_hash: Option<PaymentHash>,
-    #[serde(rename = "type")]
-    pub status: String,
-    pub fee: u64,
-    pub value: u64,
-    #[serde(deserialize_with = "str_or_u64")]
-    pub timestamp: u64,
-    pub memo: String,
-}
+// #[derive(Debug, Serialize, Deserialize)]
+// pub struct Tx {
+//     pub payment_preimage: Option<String>,
+//     pub payment_hash: Option<PaymentHash>,
+//     #[serde(rename = "type")]
+//     pub status: String,
+//     pub fee: u64,
+//     pub value: u64,
+//     #[serde(deserialize_with = "str_or_u64")]
+//     pub timestamp: u64,
+//     pub memo: String,
+// }
 
 /// Payment hash
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -138,23 +150,23 @@ pub struct PaymentHash {
 }
 
 /// Pay invoice response
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(untagged)]
-pub enum PayInvoiceMessage {
-    PayInvoiceResponse {
-        payment_error: String,
-        payment_preimage: PaymentHash,
-        payment_route: Box<PaymentRoute>,
-        payment_hash: PaymentHash,
-        pay_req: String,
-        decoded: Box<Invoice>,
-    },
-    PayInvoiceError {
-        error: bool,
-        code: u32,
-        message: String,
-    },
-}
+// #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+// #[serde(untagged)]
+// pub enum PayInvoiceMessage {
+//     PayInvoiceResponse {
+//         payment_error: String,
+//         payment_preimage: PaymentHash,
+//         payment_route: Box<PaymentRoute>,
+//         payment_hash: PaymentHash,
+//         pay_req: String,
+//         decoded: Box<Invoice>,
+//     },
+//     PayInvoiceError {
+//         error: bool,
+//         code: u32,
+//         message: String,
+//     },
+// }
 
 /// An optional TLV record that signals the use of an MPP payment.
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -189,22 +201,22 @@ pub struct PaymentRoute {
     pub total_amt_msat: u64,
 }
 
-fn str_or_u64<'de, D>(deserializer: D) -> Result<u64, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    #[derive(Deserialize)]
-    #[serde(untagged)]
-    enum StrOrU64<'a> {
-        Str(&'a str),
-        U64(u64),
-    }
+// fn str_or_u64<'de, D>(deserializer: D) -> Result<u64, D::Error>
+// where
+//     D: Deserializer<'de>,
+// {
+//     #[derive(Deserialize)]
+//     #[serde(untagged)]
+//     enum StrOrU64<'a> {
+//         Str(&'a str),
+//         U64(u64),
+//     }
 
-    Ok(match StrOrU64::deserialize(deserializer)? {
-        StrOrU64::Str(v) => v.parse().unwrap_or(0), // Ignoring parsing errors
-        StrOrU64::U64(v) => v,
-    })
-}
+//     Ok(match StrOrU64::deserialize(deserializer)? {
+//         StrOrU64::Str(v) => v.parse().unwrap_or(0), // Ignoring parsing errors
+//         StrOrU64::U64(v) => v,
+//     })
+// }
 
 /// Creates a new lightning custodial wallet
 pub async fn create_wallet(username: &str, password: &str) -> Result<CreateWalletRes> {
@@ -237,12 +249,14 @@ pub async fn auth(username: &str, password: &str) -> Result<Tokens> {
 
 /// Creates a lightning invoice
 pub async fn create_invoice(
-    _description: &str,
-    amount: &str,
+    description: &str,
+    amount: u32,
     token: &str,
 ) -> Result<InvoiceResponse> {
     let endpoint = LNDHUB_ENDPOINT.to_string();
-    let url = format!("{endpoint}/addinvoice?amount={}", amount);
+    let amount = amount as f32 / 100_000_000.0;
+    let amt_str = amount.to_string();
+    let url = format!("{endpoint}/addinvoice?amount={amt_str}&meta={description}");
     let response = get(&url, Some(token)).await?;
     let invoice: InvoiceResponse = serde_json::from_str(&response)?;
 
@@ -250,44 +264,45 @@ pub async fn create_invoice(
 }
 
 /// Decode a lightning invoice (bolt11)
-pub async fn decode_invoice(invoice: &str, token: &str) -> Result<Invoice> {
-    let endpoint = LNDHUB_ENDPOINT.to_string();
-    let url = format!("{endpoint}/decodeinvoice?invoice={invoice}");
-    let response = get(&url, Some(token)).await?;
-    let invoice: Invoice = serde_json::from_str(&response)?;
+pub fn decode_invoice(payment_request: &str) -> Result<Invoice> {
+    let invoice = Invoice::from_str(payment_request)?;
 
     Ok(invoice)
 }
 
 /// Get user lightning balance
-pub async fn get_balance(token: &str) -> Result<BalanceRes> {
+pub async fn get_balance(token: &str) -> Result<Vec<Account>> {
     let endpoint = LNDHUB_ENDPOINT.to_string();
     let url = format!("{endpoint}/balance");
     let response = get(&url, Some(token)).await?;
-    let invoice: BalanceRes = serde_json::from_str(&response)?;
+    let balance: Balances = serde_json::from_str(&response)?;
+    let mut accounts = Vec::new();
+    for (_, value) in balance.accounts {
+        accounts.push(value);
+    }
 
-    Ok(invoice)
+    Ok(accounts)
 }
 
-/// Pay a lightning invoice
-pub async fn pay_invoice(invoice: &str, token: &str) -> Result<PayInvoiceMessage> {
-    let endpoint = LNDHUB_ENDPOINT.to_string();
-    let url = format!("{endpoint}/payinvoice");
-    let req = InvoiceReq {
-        invoice: invoice.to_string(),
-    };
-    let response = post_json_auth(&url, &Some(req), Some(token)).await?;
-    let response: PayInvoiceMessage = serde_json::from_str(&response)?;
+// / Pay a lightning invoice
+// pub async fn pay_invoice(invoice: &str, token: &str) -> Result<PayInvoiceMessage> {
+//     let endpoint = LNDHUB_ENDPOINT.to_string();
+//     let url = format!("{endpoint}/payinvoice");
+//     let req = InvoiceReq {
+//         invoice: invoice.to_string(),
+//     };
+//     let response = post_json_auth(&url, &Some(req), Some(token)).await?;
+//     let response: PayInvoiceMessage = serde_json::from_str(&response)?;
 
-    Ok(response)
-}
+//     Ok(response)
+// }
 
-/// Get successful lightning transactions user made. Order newest to oldest.
-pub async fn get_txs(token: &str, limit: u32, offset: u32) -> Result<Vec<Tx>> {
-    let endpoint = LNDHUB_ENDPOINT.to_string();
-    let url = format!("{endpoint}/gettxs?limit={}&offset={}", limit, offset);
-    let response = get(&url, Some(token)).await?;
-    let txs = serde_json::from_str(&response)?;
+// / Get successful lightning transactions user made. Order newest to oldest.
+// pub async fn get_txs(token: &str, limit: u32, offset: u32) -> Result<Vec<Tx>> {
+//     let endpoint = LNDHUB_ENDPOINT.to_string();
+//     let url = format!("{endpoint}/gettxs?limit={}&offset={}", limit, offset);
+//     let response = get(&url, Some(token)).await?;
+//     let txs = serde_json::from_str(&response)?;
 
-    Ok(txs)
-}
+//     Ok(txs)
+// }
