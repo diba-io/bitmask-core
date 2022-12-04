@@ -1,11 +1,15 @@
 use anyhow::Result;
 use bdk::{database::AnyDatabase, wallet::tx_builder::TxOrdering, FeeRate, Wallet};
+use bip78::{PjUri, PjUriExt};
 use bitcoin::{consensus::serialize, Transaction};
 
 use crate::{
     data::structs::SatsInvoice,
     debug, info,
-    operations::bitcoin::{balance::synchronize_wallet, sign_psbt::sign_psbt},
+    operations::bitcoin::{
+        balance::synchronize_wallet,
+        sign_psbt::{sign_original_psbt, sign_psbt},
+    },
 };
 
 pub async fn create_transaction(
@@ -28,6 +32,47 @@ pub async fn create_transaction(
     debug!("Unsigned PSBT:", base64::encode(&serialize(&psbt)));
     let tx = sign_psbt(wallet, psbt).await?;
     info!("PSBT successfully signed");
+
+    Ok(tx)
+}
+
+pub async fn create_payjoin(
+    invoices: Vec<SatsInvoice>,
+    wallet: &Wallet<AnyDatabase>,
+    fee_rate: Option<FeeRate>,
+    pj_uri: PjUri<'_>, // TODO specify Uri<PayJoinParams>
+) -> Result<Transaction> {
+    let (psbt, details) = {
+        let mut builder = wallet.build_tx();
+        for invoice in invoices {
+            builder.add_recipient(invoice.address.script_pubkey(), invoice.amount);
+        }
+        builder.enable_rbf().fee_rate(fee_rate.unwrap_or_default());
+        builder.finish()?
+    };
+
+    debug!(format!("Request PayJoin transaction: {details:#?}"));
+    debug!("Unsigned Origianl PSBT:", base64::encode(&serialize(&psbt)));
+    let original_psbt = sign_original_psbt(wallet, psbt).await?;
+    info!("Original PSBT successfully signed");
+
+    // TODO use fee_rate
+    let pj_params = bip78::sender::Configuration::non_incentivizing();
+    let (req, ctx) = pj_uri.create_pj_request(original_psbt, pj_params)?;
+    let response = reqwest::Client::new()
+        .post(req.url)
+        .header("Content-Type", "text/plain")
+        .body(reqwest::Body::from(req.body))
+        .send()
+        .await?;
+
+    let payjoin_psbt = ctx.process_response(response.bytes().await?.to_vec().as_slice())?;
+    debug!(
+        "Proposed PayJoin PSBT:",
+        base64::encode(&serialize(&payjoin_psbt))
+    );
+    // sign_psbt also broadcasts;
+    let tx = sign_psbt(wallet, payjoin_psbt).await?;
 
     Ok(tx)
 }

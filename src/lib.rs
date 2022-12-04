@@ -27,6 +27,7 @@ pub mod util;
 #[cfg(target_arch = "wasm32")]
 pub mod web;
 
+use crate::operations::bitcoin::create_payjoin;
 // Desktop
 #[cfg(not(target_arch = "wasm32"))]
 pub use crate::{
@@ -399,19 +400,37 @@ pub async fn get_blinded_utxo(utxo_string: &str) -> Result<BlindingUtxo> {
 pub async fn send_sats(
     descriptor: &str,
     change_descriptor: &str,
-    address: &str,
+    destination: &str, // bip21 uri or address
     amount: u64,
     fee_rate: Option<f32>,
 ) -> Result<Transaction> {
-    let address = Address::from_str(address)?;
+    use bip78::UriExt;
 
     let wallet = get_wallet(descriptor, Some(change_descriptor.to_owned()))?;
     synchronize_wallet(&wallet).await?;
 
     let fee_rate = fee_rate.map(FeeRate::from_sat_per_vb);
 
-    let transaction =
-        create_transaction(vec![SatsInvoice { address, amount }], &wallet, fee_rate).await?;
+    let transaction = match bip78::Uri::try_from(destination) {
+        Ok(uri) => {
+            let address = uri.address.clone();
+            if let Ok(pj_uri) = uri.check_pj_supported() {
+                create_payjoin(
+                    vec![SatsInvoice { address, amount }],
+                    &wallet,
+                    fee_rate,
+                    pj_uri,
+                )
+                .await?
+            } else {
+                create_transaction(vec![SatsInvoice { address, amount }], &wallet, fee_rate).await?
+            }
+        }
+        _ => {
+            let address = Address::from_str(destination)?;
+            create_transaction(vec![SatsInvoice { address, amount }], &wallet, fee_rate).await?
+        }
+    };
 
     Ok(transaction)
 }
