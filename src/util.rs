@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use bech32::{decode, encode, FromBase32, ToBase32, Variant};
 #[cfg(target_arch = "wasm32")]
-use reqwest::{self, self::header::AUTHORIZATION};
+use reqwest::{self, header::AUTHORIZATION};
 use serde::Serialize;
 
 #[macro_export]
@@ -104,8 +104,6 @@ pub async fn post_json_auth<T: Serialize>(
     body: &Option<T>,
     token: Option<&str>,
 ) -> Result<String> {
-    use reqwest::header::AUTHORIZATION;
-
     let client = reqwest::Client::new();
     let mut response = client.post(url);
 
