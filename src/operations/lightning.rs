@@ -94,7 +94,7 @@ pub struct Transaction {
     pub inbound_currency: String,
     pub exchange_rate: String,
     pub tx_type: String,
-    pub fees: u32,
+    pub fees: String,
     pub reference: Option<String>,
 }
 

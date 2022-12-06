@@ -75,12 +75,7 @@ pub async fn get_balance_test() -> Result<()> {
     }
     let tokens = auth(&uname, &uname).await?;
     let balances = get_balance(&tokens.token).await?;
-
-    assert_eq!(balances.len(), 1);
-    if let Some(b) = balances.get(0) {
-        assert_eq!(b.balance, "0");
-        assert_eq!(b.currency, "BTC");
-    }
+    assert_eq!(balances.len(), 0);
 
     Ok(())
 }
