@@ -198,6 +198,7 @@ pub struct TransferResponse {
     pub consignment: String,
     pub psbt: String,
     pub disclosure: String,
+    pub declare_request: DeclareRequest,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -232,9 +233,24 @@ pub struct AcceptResponse {
     pub valid: bool,
 }
 
-// TODO: unused?
-// #[derive(Serialize, Deserialize, Debug, Clone)]
-// pub struct EncloseForgetRequest {
-//     pub outpoints: Vec<OutPoint>,
-//     pub disclosure: String,
-// }
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct NewOutpoint {
+    pub outpoint: String,
+    pub disclosure: String,
+    pub balance: u64,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct BlindedOutpoint {
+    pub outpoint: String,
+    pub consignment: String,
+    pub balance: u64,
+}
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct DeclareRequest {
+    pub previous_utxo: String,
+    pub asset_id: String,
+    pub new_outpoint: Option<NewOutpoint>,
+    pub blinded_outpoint: Option<BlindedOutpoint>,
+}

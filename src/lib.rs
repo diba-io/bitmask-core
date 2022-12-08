@@ -26,7 +26,6 @@ pub mod operations;
 pub mod util;
 #[cfg(target_arch = "wasm32")]
 pub mod web;
-
 // Desktop
 #[cfg(not(target_arch = "wasm32"))]
 pub use crate::{
@@ -569,7 +568,7 @@ pub async fn send_assets(
     .await?;
 
     #[cfg(target_arch = "wasm32")]
-    let (consignment, psbt, disclosure) = async {
+    let (consignment, psbt, disclosure, declare_request) = async {
         let endpoint = &get_endpoint("send").await;
         let body = TransferRequest {
             rgb_assets_descriptor_xpub: rgb_assets_descriptor_xpub.to_owned(),
@@ -586,8 +585,9 @@ pub async fn send_assets(
             consignment,
             psbt,
             disclosure,
+            declare_request,
         } = serde_json::from_str(&transfer_res)?;
-        Ok((consignment, psbt, disclosure))
+        Ok((consignment, psbt, disclosure, declare_request))
     }
     .await?;
 
@@ -603,6 +603,17 @@ pub async fn send_assets(
     // let dust_tx = sign_psbt(&btc_wallet, dust_psbt).await?;
     // let dust_txid = dust_tx.txid().to_string();
     // info!(format!("dust txid was {dust_txid}"));
+
+    #[cfg(target_arch = "wasm32")]
+    let _declare = async {
+        let endpoint = &get_endpoint("declare").await;
+        let (_transfer_res, status) = post_json(endpoint, &declare_request).await?;
+        if status != 200 {
+            return Err(anyhow!("Error calling {endpoint}"));
+        }
+        Ok(status)
+    }
+    .await?;
 
     Ok(TransferResult {
         consignment,

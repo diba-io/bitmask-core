@@ -286,7 +286,7 @@ pub async fn transfer_asset(
                 "Error constructing PSBT from RGB Tokens Descriptor: {err}",
             ));
             return Err(anyhow!(
-                "Error constructing PSBT from RGB Tokens Descriptor"
+                "jaja: Error constructing PSBT from RGB Tokens Descriptor: {err}"
             ));
         }
     };
