@@ -633,9 +633,9 @@ pub async fn transfer_assets(
     String, // bech32m compressed sten consignment
     String, // base64 bitcoin encoded psbt
     String, // json
-    String,
-    String,
-    String,
+    String, // change: SealCoins correspoinding to the change of the sener if any
+    String, // previous utxo: original SealCoins
+    String, // new utxo: utxo of the receptor (in blinded form)
 )> {
     // use lnpbp::bech32::ToBech32String;
     use strict_encoding::strict_serialize;
