@@ -26,6 +26,7 @@ pub mod operations;
 pub mod util;
 #[cfg(target_arch = "wasm32")]
 pub mod web;
+use crate::data::structs::FullUtxo;
 // Desktop
 #[cfg(not(target_arch = "wasm32"))]
 pub use crate::{
@@ -556,7 +557,13 @@ pub async fn send_assets(
     let _dust_psbt = dust_tx(&btc_wallet, fee_rate, asset_utxos.get(0))?;
     info!("Created dust PSBT");
     info!("Creating transfer PSBT...");
-
+    let asset_utxos = asset_utxos
+        .into_iter()
+        .map(|utxo| FullUtxo {
+            utxo,
+            terminal_derivation: "/0/0".to_owned(),
+        })
+        .collect();
     #[cfg(not(target_arch = "wasm32"))]
     let (consignment, psbt, disclosure, _change, _previous_utxo, _new_utxo) = transfer_assets(
         rgb_assets_descriptor_xpub,
@@ -628,7 +635,7 @@ pub async fn transfer_assets(
     blinded_utxo: &str,
     amount: u64,
     asset_contract: &str,
-    asset_utxos: Vec<LocalUtxo>,
+    asset_utxos: Vec<data::structs::FullUtxo>,
 ) -> Result<(
     String, // bech32m compressed sten consignment
     String, // base64 bitcoin encoded psbt

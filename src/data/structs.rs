@@ -5,6 +5,10 @@ use bitcoin::{util::address::Address, OutPoint, Txid};
 #[cfg(not(target_arch = "wasm32"))]
 use rgb_core::validation::Status;
 #[cfg(not(target_arch = "wasm32"))]
+use rgb_core::value::Revealed;
+#[cfg(not(target_arch = "wasm32"))]
+use rgb_std::AssignedState;
+#[cfg(not(target_arch = "wasm32"))]
 use rgb_std::{Disclosure, InmemConsignment, TransferConsignment};
 use serde::{Deserialize, Serialize};
 
@@ -179,12 +183,18 @@ pub struct TransferRequestExt {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct FullUtxo {
+    pub utxo: LocalUtxo,
+    pub terminal_derivation: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TransferRequest {
     pub rgb_assets_descriptor_xpub: String, // TODO: Privacy concerns. Not great, not terrible
     pub blinded_utxo: String,
     pub amount: u64,
     pub asset_contract: String,
-    pub asset_utxos: Vec<LocalUtxo>,
+    pub asset_utxos: Vec<FullUtxo>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -253,4 +263,11 @@ pub struct DeclareRequest {
     pub asset_id: String,
     pub new_outpoint: Option<NewOutpoint>,
     pub blinded_outpoint: Option<BlindedOutpoint>,
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+#[derive(Debug, Clone)]
+pub struct FullCoin {
+    pub coin: AssignedState<Revealed>,
+    pub terminal_derivation: String,
 }
