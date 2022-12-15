@@ -47,6 +47,7 @@ serde-encrypt = "0.7"
 tokio = { version = "1", features = ["macros", "sync"] }
 pretty_env_logger = "0.4"
 reqwest = { version = "0.11", features = ["json"] }
+lightning-invoice = "0.20.0"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 bdk = { version = "0.23", features = [
