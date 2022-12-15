@@ -1,51 +1,81 @@
-use anyhow::Result;
-use bitmask_core::operations::lightning::{
-    auth, create_invoice, create_wallet, decode_invoice, get_balance, get_txs, pay_invoice,
-    PayInvoiceMessage, Tx,
+use anyhow::{Ok, Result};
+use bitmask_core::{
+    lightning::CreateWalletResponse,
+    operations::lightning::{
+        auth, create_invoice, create_wallet, decode_invoice, get_balance, get_txs, pay_invoice,
+        Transaction,
+    },
 };
-use log::info;
-use regex::Regex;
+
+async fn new_wallet() -> Result<CreateWalletResponse> {
+    // we generate a random string to be used as username and password
+    let mut buf = [0u8; 8];
+    getrandom::getrandom(&mut buf)?;
+    let s = buf.map(|d| format!("{d:02x}")).join("");
+
+    let res = create_wallet(&s, &s).await?;
+
+    Ok(res)
+}
 
 #[tokio::test]
 pub async fn create_wallet_test() -> Result<()> {
     pretty_env_logger::init();
-    let creds = create_wallet().await?;
-    let re = Regex::new(r"^[a-f0-9]{20}$").unwrap();
-    assert!(re.is_match(&creds.login) && re.is_match(&creds.password));
+    let res = new_wallet().await?;
+    let mut uname = String::new();
+    if let CreateWalletResponse::Username { username } = res {
+        uname = username;
+    }
+
+    assert!(uname.len() == 16);
 
     Ok(())
 }
 
 #[tokio::test]
 pub async fn auth_test() -> Result<()> {
-    let creds = create_wallet().await?;
-    let tokens = auth(&creds.login, &creds.password).await?;
-    info!("tokens: {tokens:?}");
-    let re = Regex::new(r"^[a-f0-9]{40}$").unwrap();
-    assert!(re.is_match(&tokens.refresh_token) && re.is_match(&tokens.access_token));
+    let res = new_wallet().await?;
+    let mut uname = String::new();
+    if let CreateWalletResponse::Username { username } = res {
+        uname = username;
+    }
+    let tokens = auth(&uname, &uname).await?;
+    assert!(tokens.refresh.len() > 1 && tokens.token.len() > 1);
 
     Ok(())
 }
 
 #[tokio::test]
 pub async fn create_decode_invoice_test() -> Result<()> {
-    let creds = create_wallet().await?;
-    let tokens = auth(&creds.login, &creds.password).await?;
-    let invoice = create_invoice("testing create_invoice", 333, &tokens.access_token).await?;
-    let decoded_invoice = decode_invoice(&invoice, &tokens.access_token).await?;
-    info!("decoded_invoice: {decoded_invoice:#?}");
-    assert_eq!(decoded_invoice.num_satoshis, "333");
+    let res = new_wallet().await?;
+    let mut uname = String::new();
+    if let CreateWalletResponse::Username { username } = res {
+        uname = username;
+    }
+    let description = "testing create_invoice";
+    let amt = 99;
+    let amt_milli: u64 = 99 * 1000;
+    let tokens = auth(&uname, &uname).await?;
+    let invoice = create_invoice(description, amt, &tokens.token).await?;
+    let payment_request = invoice.payment_request.unwrap();
+    let decoded_invoice = decode_invoice(&payment_request)?;
+    let invoice_amt = decoded_invoice.amount_milli_satoshis().unwrap();
+
+    assert_eq!(amt_milli, invoice_amt);
 
     Ok(())
 }
 
 #[tokio::test]
 pub async fn get_balance_test() -> Result<()> {
-    let creds = create_wallet().await?;
-    let tokens = auth(&creds.login, &creds.password).await?;
-    let balance = get_balance(&tokens.access_token).await?;
-    assert_eq!(balance.btc.available_balance, 0);
-    info!("balance: {balance:#?}");
+    let res = new_wallet().await?;
+    let mut uname = String::new();
+    if let CreateWalletResponse::Username { username } = res {
+        uname = username;
+    }
+    let tokens = auth(&uname, &uname).await?;
+    let balances = get_balance(&tokens.token).await?;
+    assert_eq!(balances.len(), 0);
 
     Ok(())
 }
@@ -53,39 +83,38 @@ pub async fn get_balance_test() -> Result<()> {
 #[tokio::test]
 pub async fn pay_invoice_error_test() -> Result<()> {
     // We create user Alice
-    let alice_creds = create_wallet().await?;
-    let alice_tokens = auth(&alice_creds.login, &alice_creds.password).await?;
+    let res = new_wallet().await?;
+    let mut alice = String::new();
+    if let CreateWalletResponse::Username { username } = res {
+        alice = username;
+    }
+    let alice_tokens = auth(&alice, &alice).await?;
     // Alice invoice
-    let invoice =
-        create_invoice("testing pay alice invoice", 33, &alice_tokens.access_token).await?;
+    let invoice = create_invoice("testing pay alice invoice", 33, &alice_tokens.token).await?;
     // We create user Bob
-    let bob_creds = create_wallet().await?;
-    let bob_tokens = auth(&bob_creds.login, &bob_creds.password).await?;
+    let res = new_wallet().await?;
+    let mut bob = String::new();
+    if let CreateWalletResponse::Username { username } = res {
+        bob = username;
+    }
+    let bob_tokens = auth(&bob, &bob).await?;
     // We try to pay alice invoice from bob, which have balance = 0
-    let response = pay_invoice(&invoice, &bob_tokens.access_token).await?;
-    assert_eq!(
-        response,
-        PayInvoiceMessage::PayInvoiceError {
-            error: true,
-            code: 2,
-            message:
-                "not enough balance. Make sure you have at least 1% reserved for potential fees"
-                    .to_string(),
-        }
-    );
-    info!("pay_invoice: {response:#?}");
+    let response = pay_invoice(&invoice.payment_request.unwrap(), &bob_tokens.token).await?;
+    assert!(!response.success);
 
     Ok(())
 }
 
 #[tokio::test]
 pub async fn get_txs_test() -> Result<()> {
-    let creds = create_wallet().await?;
-    let tokens = auth(&creds.login, &creds.password).await?;
-    let txs: Vec<Tx> = get_txs(&tokens.access_token, 0, 0).await?;
+    let res = new_wallet().await?;
+    let mut uname = String::new();
+    if let CreateWalletResponse::Username { username } = res {
+        uname = username;
+    }
+    let tokens = auth(&uname, &uname).await?;
+    let txs: Vec<Transaction> = get_txs(&tokens.token).await?;
     assert_eq!(txs.len(), 0);
-
-    info!("get_txs_test: {txs:#?}");
 
     Ok(())
 }
