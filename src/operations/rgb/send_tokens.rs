@@ -450,7 +450,7 @@ pub async fn transfer_asset(
     ));
     debug!(format!(
         "Finalized PSBT to be signed (hex): {}",
-        hex::encode(&psbt.serialize())
+        hex::encode(psbt.serialize())
     ));
     debug!(format!(
         "RGB assets descriptor from BDK {bdk_rgb_assets_descriptor_xpub}"
