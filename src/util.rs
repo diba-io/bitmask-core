@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use bech32::{decode, encode, FromBase32, ToBase32, Variant};
 #[cfg(target_arch = "wasm32")]
-use reqwest;
+use reqwest::{self, header::AUTHORIZATION};
 use serde::Serialize;
 
 #[macro_export]
@@ -84,7 +84,7 @@ pub async fn get(url: &str, token: Option<&str>) -> Result<String> {
     let client = reqwest::Client::new();
     let mut response = client.get(url);
     if let Some(t) = token {
-        response = response.bearer_auth(t);
+        response = response.header(AUTHORIZATION, t);
     }
     let response = response
         .send()
@@ -112,7 +112,7 @@ pub async fn post_json_auth<T: Serialize>(
     }
 
     if let Some(t) = token {
-        response = response.bearer_auth(t);
+        response = response.header(AUTHORIZATION, t);
     }
 
     let response = response
@@ -161,7 +161,7 @@ pub async fn post_json_auth<T: Serialize>(
     }
 
     if let Some(t) = token {
-        response = response.bearer_auth(t);
+        response = response.header(reqwest::header::AUTHORIZATION, t);
     }
 
     let response = response
@@ -181,7 +181,7 @@ pub async fn get(url: &str, token: Option<&str>) -> Result<String> {
     let client = reqwest::Client::new();
     let mut response = client.get(url);
     if let Some(t) = token {
-        response = response.bearer_auth(t);
+        response = response.header(reqwest::header::AUTHORIZATION, t);
     }
     let response = response
         .send()

@@ -347,11 +347,11 @@ pub fn switch_host(host: String) -> Promise {
 }
 
 #[wasm_bindgen]
-pub fn ln_create_wallet() -> Promise {
+pub fn ln_create_wallet(username: String, password: String) -> Promise {
     set_panic_hook();
 
     future_to_promise(async move {
-        match lightning::create_wallet().await {
+        match lightning::create_wallet(&username, &password).await {
             Ok(result) => Ok(JsValue::from_string(
                 serde_json::to_string(&result).unwrap(),
             )),
@@ -361,11 +361,11 @@ pub fn ln_create_wallet() -> Promise {
 }
 
 #[wasm_bindgen]
-pub fn ln_auth(login: String, password: String) -> Promise {
+pub fn ln_auth(username: String, password: String) -> Promise {
     set_panic_hook();
 
     future_to_promise(async move {
-        match lightning::auth(&login, &password).await {
+        match lightning::auth(&username, &password).await {
             Ok(result) => Ok(JsValue::from_string(
                 serde_json::to_string(&result).unwrap(),
             )),
@@ -375,25 +375,11 @@ pub fn ln_auth(login: String, password: String) -> Promise {
 }
 
 #[wasm_bindgen]
-pub fn ln_create_invoice(description: String, amount: u64, token: String) -> Promise {
+pub fn ln_create_invoice(description: String, amount: u32, token: String) -> Promise {
     set_panic_hook();
 
     future_to_promise(async move {
         match lightning::create_invoice(&description, amount, &token).await {
-            Ok(result) => Ok(JsValue::from_string(
-                serde_json::to_string(&result).unwrap(),
-            )),
-            Err(err) => Err(JsValue::from_string(err.to_string())),
-        }
-    })
-}
-
-#[wasm_bindgen]
-pub fn ln_decode_invoice(invoice: String, token: String) -> Promise {
-    set_panic_hook();
-
-    future_to_promise(async move {
-        match lightning::decode_invoice(&invoice, &token).await {
             Ok(result) => Ok(JsValue::from_string(
                 serde_json::to_string(&result).unwrap(),
             )),
@@ -417,11 +403,11 @@ pub fn ln_get_balance(token: String) -> Promise {
 }
 
 #[wasm_bindgen]
-pub fn ln_get_txs(token: String, limit: u32, offset: u32) -> Promise {
+pub fn ln_get_txs(token: String) -> Promise {
     set_panic_hook();
 
     future_to_promise(async move {
-        match lightning::get_txs(&token, limit, offset).await {
+        match lightning::get_txs(&token).await {
             Ok(result) => Ok(JsValue::from_string(
                 serde_json::to_string(&result).unwrap(),
             )),
@@ -431,11 +417,11 @@ pub fn ln_get_txs(token: String, limit: u32, offset: u32) -> Promise {
 }
 
 #[wasm_bindgen]
-pub fn ln_pay_invoice(invoice: String, token: String) -> Promise {
+pub fn ln_pay_invoice(payment_request: String, token: String) -> Promise {
     set_panic_hook();
 
     future_to_promise(async move {
-        match lightning::pay_invoice(&invoice, &token).await {
+        match lightning::pay_invoice(&payment_request, &token).await {
             Ok(result) => Ok(JsValue::from_string(
                 serde_json::to_string(&result).unwrap(),
             )),
