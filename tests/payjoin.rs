@@ -10,7 +10,7 @@ const ENCRYPTION_PASSWORD: &str = "hunter2";
 const SEED_PASSWORD: &str = "";
 
 #[tokio::test]
-async fn asset_transfer() -> Result<()> {
+async fn payjoin() -> Result<()> {
     if env::var("RUST_LOG").is_err() {
         env::set_var(
             "RUST_LOG",
