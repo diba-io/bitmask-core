@@ -253,7 +253,7 @@ async fn process_consignment<C: ConsignmentType>(
             method: close_method,
             blinding: blinding_factor,
             txid: Some(outpoint.txid),
-            vout: outpoint.vout as u32,
+            vout: outpoint.vout,
         };
 
         let concealed_seals = consignment
@@ -339,7 +339,7 @@ async fn process_consignment<C: ConsignmentType>(
                         method: close_method,
                         blinding: blinding_factor,
                         txid: Some(outpoint.txid),
-                        vout: outpoint.vout as u32,
+                        vout: outpoint.vout,
                     };
 
                     let mut owned_rights: BTreeMap<OwnedRightType, TypedAssignments> = bmap! {};

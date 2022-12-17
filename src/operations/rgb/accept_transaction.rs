@@ -39,7 +39,7 @@ pub async fn accept_transfer(
         method: reveal.close_method,
         blinding: reveal.blinding_factor,
         txid: Some(reveal.outpoint.txid),
-        vout: reveal.outpoint.vout as u32,
+        vout: reveal.outpoint.vout,
     };
 
     let concealed_seals = consignment
