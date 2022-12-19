@@ -91,6 +91,7 @@ rgb-std = { package = "rgb-std", version = "0.8.1", features = [
     "serde",
     "wallet",
 ] }
+rgb121 = { version = "0.1.0", features = ["serde"] }
 rgb20 = { version = "0.8.0", features = ["serde"] }
 stens = { version = "0.7.1", features = ["serde"] }
 storm-core = "0.8.0"

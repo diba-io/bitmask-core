@@ -518,6 +518,7 @@ dependencies = [
  "reqwest",
  "rgb-core",
  "rgb-std",
+ "rgb121",
  "rgb20",
  "serde",
  "serde-encrypt",
@@ -2716,6 +2717,27 @@ dependencies = [
  "serde_with",
  "serde_yaml",
  "strict_encoding",
+]
+
+[[package]]
+name = "rgb121"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "573fb6d41ef141db4595c8e27bdfc6ec8c26b7b8ff45a1b79e0b11a24d7eb466"
+dependencies = [
+ "amplify",
+ "bitcoin 0.28.1",
+ "bp-seals",
+ "chrono",
+ "colored",
+ "commit_verify",
+ "lnpbp",
+ "rgb-std",
+ "serde",
+ "serde_with",
+ "stens",
+ "strict_encoding",
+ "url",
 ]
 
 [[package]]

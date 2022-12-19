@@ -1,10 +1,10 @@
 use std::{
     collections::{BTreeMap, BTreeSet},
-    fmt::Debug,
+    fmt::Debug, str::FromStr,
 };
 
 use amplify::Wrapper;
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Error, Result};
 use bitcoin::{OutPoint, Txid};
 use bp::seals::txout::CloseMethod;
 use commit_verify::{
@@ -25,6 +25,32 @@ use storm::{chunk::ChunkIdExt, ChunkId};
 use strict_encoding::{StrictDecode, StrictEncode};
 
 use crate::{data::constants::BITCOIN_ELECTRUM_API, debug, error, info, trace, warn};
+
+#[derive(Clone, Ord, PartialOrd, Eq, PartialEq, Hash, Debug, Display)]
+#[cfg_attr(
+    feature = "serde",
+    derive(Serialize, Deserialize),
+    serde(crate = "serde_crate")
+)]
+pub enum ContractType {
+    #[display("fungible")]
+    Fungible,
+
+    #[display("uda")]
+    UDA,
+}
+
+
+impl FromStr for ContractType {
+    type Err = anyhow::Error;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s.to_lowercase().trim() {
+            "fungible" => ContractType::Fungible,
+            "uda" => ContractType::UDA,
+            _ => return Err(Error::msg("Could not convert to known contract"))
+        })
+    }
+}
 
 #[derive(Clone, Ord, PartialOrd, Eq, PartialEq, Hash, Debug, StrictEncode, StrictDecode)]
 pub enum OutpointFilter {

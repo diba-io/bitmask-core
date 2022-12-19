@@ -1,6 +1,5 @@
 #![cfg(feature = "server")]
 use std::{env, net::SocketAddr};
-
 use anyhow::Result;
 use axum::{
     http::StatusCode,
@@ -13,7 +12,7 @@ use bitmask_core::{
     data::structs::{
         AcceptRequest, AssetRequest, BlindRequest, IssueRequest, TransferRequest, TransferResponse,
     },
-    get_blinded_utxo, import_asset, transfer_assets,
+    get_blinded_utxo, import_asset, transfer_assets
 };
 use log::info;
 use tower_http::cors::CorsLayer;
@@ -25,6 +24,7 @@ async fn issue(Json(issue): Json<IssueRequest>) -> Result<impl IntoResponse, App
         issue.precision,
         issue.supply,
         &issue.utxo,
+        &issue.contract_type
     )?;
 
     Ok((StatusCode::OK, Json(issue_res)))

@@ -68,6 +68,8 @@ pub struct IssueRequest {
     pub supply: u64,
     /// Utxo of the initial owner
     pub utxo: String,
+    /// Contract type
+    pub contract_type: String
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

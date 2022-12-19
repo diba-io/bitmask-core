@@ -33,7 +33,7 @@ pub use crate::{
     data::structs::{AcceptResponse, AssetResponse},
     operations::rgb::{
         self, blind_utxo, get_asset_by_genesis, get_assets, issue_asset, transfer_asset,
-        validate_transfer,
+        shared::ContractType
     },
 };
 // Web
@@ -200,9 +200,11 @@ pub fn create_asset(
     precision: u8,
     supply: u64,
     utxo: &str,
+    contract_type: &str,
 ) -> Result<CreateAssetResult> {
     let utxo = OutPoint::from_str(utxo)?;
-    let contract = issue_asset(ticker, name, precision, supply, utxo)?;
+    let contract_type = ContractType::from_str(contract_type)?;
+    let contract = issue_asset(ticker, name, precision, supply, utxo, contract_type)?;
     let genesis = contract.to_string();
     let id = contract.id().to_string();
     let asset_id = contract.contract_id().to_string();
@@ -223,6 +225,7 @@ pub async fn create_asset(
     precision: u8,
     supply: u64,
     utxo: &str,
+    contract_type: &str,
 ) -> Result<CreateAssetResult> {
     let endpoint = &get_endpoint("issue").await;
     let body = IssueRequest {
@@ -232,6 +235,7 @@ pub async fn create_asset(
         precision,
         supply,
         utxo: utxo.to_owned(),
+        contract_type: contract_type.to_string()
     };
     let (issue_res, status) = post_json(endpoint, &body).await?;
     if status != 200 {

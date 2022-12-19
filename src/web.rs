@@ -217,11 +217,12 @@ pub fn create_asset(
     precision: u8,
     supply: u64,
     utxo: String,
+    contract_type: String
 ) -> Promise {
     set_panic_hook();
 
     future_to_promise(async move {
-        match crate::create_asset(&ticker, &name, precision, supply, &utxo).await {
+        match crate::create_asset(&ticker, &name, precision, supply, &utxo, &contract_type).await {
             Ok(result) => Ok(JsValue::from_string(
                 serde_json::to_string(&result).unwrap(),
             )),
