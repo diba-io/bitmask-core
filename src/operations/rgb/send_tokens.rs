@@ -27,7 +27,7 @@ use wallet::{
 use crate::{
     data::{
         constants::BITCOIN_ELECTRUM_API,
-        structs::{SealCoins, TransferAssetsResponse},
+        structs::{FullCoin, FullUtxo, SealCoins, TransferAssetsResponse},
     },
     debug, error, info,
     rgb::shared::{compose_consignment, outpoint_state, ConsignmentDetails},
@@ -39,7 +39,7 @@ pub async fn transfer_asset(
     blinded_utxo: &str,
     amount: u64,
     asset_contract: &str, // rgbc1...
-    asset_utxos: Vec<LocalUtxo>,
+    asset_utxos: Vec<FullUtxo>,
 ) -> Result<TransferAssetsResponse> {
     debug!(format!("asset_contract: {asset_contract}"));
 
@@ -51,11 +51,18 @@ pub async fn transfer_asset(
     let mut allocations = vec![];
     let mut balance = 0;
 
-    for utxo in &asset_utxos {
-        let mut coins = asset.outpoint_coins(utxo.outpoint);
+    for full_utxo in &asset_utxos {
+        let coins = asset.outpoint_coins(full_utxo.utxo.outpoint);
         for coin in coins.iter() {
             balance += coin.state.value;
         }
+        let mut coins = coins
+            .into_iter()
+            .map(|coin| FullCoin {
+                coin,
+                terminal_derivation: full_utxo.terminal_derivation.clone(),
+            })
+            .collect();
         allocations.append(&mut coins);
     }
 
@@ -75,10 +82,10 @@ pub async fn transfer_asset(
     let seal_coins: Vec<SealCoins> = allocations
         .clone()
         .into_iter()
-        .map(|coin| SealCoins {
-            amount: coin.state.value,
-            txid: coin.seal.txid,
-            vout: coin.seal.vout,
+        .map(|full_coin| SealCoins {
+            amount: full_coin.coin.state.value,
+            txid: full_coin.coin.seal.txid,
+            vout: full_coin.coin.seal.vout,
         })
         // TODO: If we have only one asset it's okay, but if we have several it will fail. We need to allocate if we have several but if you put in 0 it will fail, so it might be an rgb-node problem
         .filter(|x| (x.amount > 0))
@@ -124,8 +131,11 @@ pub async fn transfer_asset(
     let mut inputs = vec![];
     let mut remainder = amount;
 
-    for coin in allocations {
-        let descriptor = format!("{}:{} /0/0", coin.seal.txid, coin.seal.vout);
+    for full_coin in allocations {
+        let descriptor = format!(
+            "{}:{} {}",
+            full_coin.coin.seal.txid, full_coin.coin.seal.vout, full_coin.terminal_derivation
+        );
         debug!(format!(
             "Parsing InputDescriptor from outpoint: {descriptor}"
         ));
@@ -137,26 +147,29 @@ pub async fn transfer_asset(
             "InputDescriptor successfully parsed: {input_descriptor:#?}"
         ));
 
-        if coin.state.value >= remainder {
+        if full_coin.coin.state.value >= remainder {
             debug!("Large coins");
             // TODO: Change output must not be cloned, it needs to be a separate UTXO
-            change.push((coin.clone(), coin.state.value - remainder)); // Change
+            change.push((
+                full_coin.coin.clone(),
+                full_coin.coin.state.value - remainder,
+            )); // Change
             inputs.push(input_descriptor);
-            debug!(format!("Coin: {coin:#?}"));
+            debug!(format!("Coin: {:#?}", full_coin.coin));
             debug!(format!(
                 "Amount: {} - Remainder: {remainder}",
-                coin.state.value
+                full_coin.coin.state.value
             ));
             break;
         } else {
             debug!("Whole coins");
-            change.push((coin.clone(), coin.state.value)); // Spend entire coin
-            remainder -= coin.state.value;
+            change.push((full_coin.coin.clone(), full_coin.coin.state.value)); // Spend entire coin
+            remainder -= full_coin.coin.state.value;
             inputs.push(input_descriptor);
-            debug!(format!("Coin: {coin:#?}"));
+            debug!(format!("Coin: {:#?}", full_coin.coin));
             debug!(format!(
                 "Amount: {} - Remainder: {remainder}",
-                coin.state.value
+                full_coin.coin.state.value
             ));
         }
     }
@@ -167,6 +180,7 @@ pub async fn transfer_asset(
     // Find an output that isn't being used as change
     let change_outputs: Vec<&LocalUtxo> = asset_utxos
         .iter()
+        .map(|asset_utxo| &asset_utxo.utxo)
         .filter(|asset_utxo| {
             !change.iter().any(|(coin, _)| {
                 coin.seal.txid == asset_utxo.outpoint.txid
@@ -446,7 +460,7 @@ pub async fn transfer_asset(
     ));
     debug!(format!(
         "Finalized PSBT to be signed (hex): {}",
-        hex::encode(&psbt.serialize())
+        hex::encode(psbt.serialize())
     ));
     debug!(format!(
         "RGB assets descriptor from BDK {bdk_rgb_assets_descriptor_xpub}"
