@@ -23,6 +23,8 @@ Some environment variables may be needed in order to compile on macos-aarch64, f
 
 If there are issues compiling, be sure to check you're compiling with the latest Rust version.
 
+To build this as a NodeJS module, use: `wasm-pack build --release --target bundler`
+
 ## Test
 
 1. Lint against wasm32: `cargo clippy --target wasm32-unknown-unknown`
