@@ -106,7 +106,7 @@ pub fn get_wallet_data(descriptor: String, change_descriptor: Option<String>) ->
 //         match crate::list_assets(&asset, &rgb_descriptor_xpub).await {
 //             Ok(result) => Ok(JsValue::from_string(
 //                 serde_json::to_string(&result).unwrap(),
-//             )),rt_asset
+//             )),
 //             Err(err) => Err(JsValue::from_string(err.to_string())),
 //         }
 //     })
@@ -268,6 +268,7 @@ pub fn send_assets(
 #[wasm_bindgen]
 pub fn accept_transfer(consignment: String, blinding_factor: String, outpoint: String) -> Promise {
     set_panic_hook();
+
     future_to_promise(async move {
         match crate::accept_transfer(&consignment, &blinding_factor, &outpoint).await {
             Ok(result) => {
