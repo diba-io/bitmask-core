@@ -27,7 +27,7 @@ use wallet::{
 use crate::{
     data::{
         constants::BITCOIN_ELECTRUM_API,
-        structs::{FullCoin, FullUtxo, SealCoins, TransferAssetsResponse},
+        structs::{FullCoin, FullUtxo, SealCoins, TransferAssetsNativeResponse},
     },
     debug, error, info,
     rgb::shared::{compose_consignment, outpoint_state, ConsignmentDetails},
@@ -40,7 +40,7 @@ pub async fn transfer_asset(
     amount: u64,
     asset_contract: &str, // rgbc1...
     asset_utxos: Vec<FullUtxo>,
-) -> Result<TransferAssetsResponse> {
+) -> Result<TransferAssetsNativeResponse> {
     debug!(format!("asset_contract: {asset_contract}"));
 
     // rgb-cli -n testnet transfer compose ${CONTRACT_ID} ${UTXO_SRC} ${CONSIGNMENT}
@@ -482,7 +482,7 @@ pub async fn transfer_asset(
         })
         .collect();
 
-    Ok(TransferAssetsResponse {
+    Ok(TransferAssetsNativeResponse {
         consignment,
         psbt: psbt.into(),
         disclosure,

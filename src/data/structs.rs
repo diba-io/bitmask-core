@@ -1,7 +1,6 @@
-use bdk::{Balance, BlockTime, LocalUtxo};
+// Desktop
 #[cfg(not(target_arch = "wasm32"))]
 use bitcoin::psbt::PartiallySignedTransaction;
-use bitcoin::{util::address::Address, OutPoint, Txid};
 #[cfg(not(target_arch = "wasm32"))]
 use rgb_core::validation::Status;
 #[cfg(not(target_arch = "wasm32"))]
@@ -10,6 +9,10 @@ use rgb_core::value::Revealed;
 use rgb_std::AssignedState;
 #[cfg(not(target_arch = "wasm32"))]
 use rgb_std::{Disclosure, InmemConsignment, TransferConsignment};
+
+// Shared
+use bdk::{Balance, BlockTime, LocalUtxo};
+use bitcoin::{util::address::Address, OutPoint, Txid};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
@@ -212,16 +215,25 @@ pub struct TransferResponse {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TransferAssetsResponse {
+pub struct TransferAssetsNativeResponse {
     #[cfg(not(target_arch = "wasm32"))]
     pub consignment: InmemConsignment<TransferConsignment>,
     #[cfg(not(target_arch = "wasm32"))]
     pub psbt: PartiallySignedTransaction,
     #[cfg(not(target_arch = "wasm32"))]
     pub disclosure: Disclosure,
-    pub change: Vec<SealCoins>,
-    pub previous_utxo: Vec<SealCoins>,
-    pub new_utxo: String,
+    pub change: Vec<SealCoins>, // change: SealCoins correspoinding to the change of the sener if any
+    pub previous_utxo: Vec<SealCoins>, // previous utxo: original SealCoins
+    pub new_utxo: String,       // new utxo: utxo of the receptor (in blinded form)
+}
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct TransferAssetsSerializedResponse {
+    pub consignment: String,   // bech32m compressed sten consignment
+    pub psbt: String,          // base64 bitcoin encoded psbt
+    pub disclosure: String,    // json-encoded RGB transfer disclosure
+    pub change: String,        // change: SealCoins correspoinding to the change of the sener if any
+    pub previous_utxo: String, // previous utxo: original SealCoins
+    pub new_utxo: String,      // new utxo: utxo of the receptor (in blinded form)
 }
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ValidateRequest {

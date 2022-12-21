@@ -26,11 +26,13 @@ pub mod operations;
 pub mod util;
 #[cfg(target_arch = "wasm32")]
 pub mod web;
-use crate::data::structs::FullUtxo;
 // Desktop
 #[cfg(not(target_arch = "wasm32"))]
 pub use crate::{
-    data::structs::{AcceptResponse, AssetResponse},
+    data::structs::{
+        AcceptResponse, AssetResponse, TransferAssetsNativeResponse,
+        TransferAssetsSerializedResponse,
+    },
     operations::rgb::{
         self, blind_utxo, get_asset_by_genesis, get_assets, issue_asset, transfer_asset,
         validate_transfer,
@@ -45,13 +47,13 @@ pub use crate::{
     },
     util::post_json,
 };
-// Isomorphic
+// Shared
 pub use crate::{
     data::{
         constants::{get_endpoint, get_network, switch_host, switch_network},
         structs::{
-            EncryptedWalletData, FundVaultDetails, SatsInvoice, ThinAsset, TransferResult,
-            WalletData, WalletTransaction,
+            EncryptedWalletData, FullUtxo, FundVaultDetails, SatsInvoice, ThinAsset,
+            TransferResult, WalletData, WalletTransaction,
         },
     },
     operations::{
@@ -565,7 +567,12 @@ pub async fn send_assets(
         })
         .collect();
     #[cfg(not(target_arch = "wasm32"))]
-    let (consignment, psbt, disclosure, _change, _previous_utxo, _new_utxo) = transfer_assets(
+    let TransferAssetsSerializedResponse {
+        consignment,
+        psbt,
+        disclosure,
+        ..
+    } = transfer_assets(
         rgb_assets_descriptor_xpub,
         blinded_utxo,
         amount,
@@ -594,6 +601,7 @@ pub async fn send_assets(
             disclosure,
             declare_request,
         } = serde_json::from_str(&transfer_res)?;
+
         Ok((consignment, psbt, disclosure, declare_request))
     }
     .await?;
@@ -635,19 +643,19 @@ pub async fn transfer_assets(
     blinded_utxo: &str,
     amount: u64,
     asset_contract: &str,
-    asset_utxos: Vec<data::structs::FullUtxo>,
-) -> Result<(
-    String, // bech32m compressed sten consignment
-    String, // base64 bitcoin encoded psbt
-    String, // json
-    String, // change: SealCoins correspoinding to the change of the sener if any
-    String, // previous utxo: original SealCoins
-    String, // new utxo: utxo of the receptor (in blinded form)
-)> {
+    asset_utxos: Vec<FullUtxo>,
+) -> Result<TransferAssetsSerializedResponse> {
     // use lnpbp::bech32::ToBech32String;
     use strict_encoding::strict_serialize;
 
-    let transfer_asset_response = transfer_asset(
+    let TransferAssetsNativeResponse {
+        consignment,
+        psbt,
+        disclosure,
+        change,
+        previous_utxo,
+        new_utxo,
+    } = transfer_asset(
         rgb_assets_descriptor_xpub,
         blinded_utxo,
         amount,
@@ -658,23 +666,22 @@ pub async fn transfer_assets(
 
     // TODO: pending https://github.com/RGB-WG/rgb-std/pull/7
     // let consignment = consignment.to_bech32_string();
-    let consignment = strict_serialize(&transfer_asset_response.consignment)?;
+    let consignment = strict_serialize(&consignment)?;
     let consignment = util::bech32m_zip_encode("rgbc", &consignment)?;
-    let psbt = serialize_psbt(&transfer_asset_response.psbt);
+    let psbt = serialize_psbt(&psbt);
     let psbt = base64::encode(&psbt);
-    let disclosure = serde_json::to_string(&transfer_asset_response.disclosure)?;
+    let disclosure = serde_json::to_string(&disclosure)?;
+    let change = serde_json::to_string(&change)?;
+    let previous_utxo = serde_json::to_string(&previous_utxo)?;
 
-    let change = serde_json::to_string(&transfer_asset_response.change)?;
-    let previous_utxo = serde_json::to_string(&transfer_asset_response.previous_utxo)?;
-
-    Ok((
+    Ok(TransferAssetsSerializedResponse {
         consignment,
         psbt,
         disclosure,
         change,
         previous_utxo,
-        transfer_asset_response.new_utxo,
-    ))
+        new_utxo,
+    })
 }
 
 #[cfg(not(target_arch = "wasm32"))]

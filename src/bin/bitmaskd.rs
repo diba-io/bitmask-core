@@ -1,5 +1,5 @@
 #![cfg(feature = "server")]
-use std::{env, net::SocketAddr};
+use std::{env, net::SocketAddr, str::FromStr};
 
 use anyhow::Result;
 use axum::{
@@ -18,7 +18,6 @@ use bitmask_core::{
 };
 use log::info;
 use rgb_std::Contract;
-use std::str::FromStr;
 use tower_http::cors::CorsLayer;
 
 async fn issue(Json(issue): Json<IssueRequest>) -> Result<impl IntoResponse, AppError> {
