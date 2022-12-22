@@ -26,11 +26,13 @@ pub mod operations;
 pub mod util;
 #[cfg(target_arch = "wasm32")]
 pub mod web;
-
 // Desktop
 #[cfg(not(target_arch = "wasm32"))]
 pub use crate::{
-    data::structs::{AcceptResponse, AssetResponse},
+    data::structs::{
+        AcceptResponse, AssetResponse, TransferAssetsNativeResponse,
+        TransferAssetsSerializedResponse,
+    },
     operations::rgb::{
         self, blind_utxo, get_asset_by_genesis, get_assets, issue_asset, transfer_asset,
         validate_transfer,
@@ -45,13 +47,13 @@ pub use crate::{
     },
     util::post_json,
 };
-// Isomorphic
+// Shared
 pub use crate::{
     data::{
         constants::{get_endpoint, get_network, switch_host, switch_network},
         structs::{
-            EncryptedWalletData, FundVaultDetails, SatsInvoice, ThinAsset, TransferResult,
-            WalletData, WalletTransaction,
+            EncryptedWalletData, FullUtxo, FundVaultDetails, SatsInvoice, ThinAsset,
+            TransferResult, WalletData, WalletTransaction,
         },
     },
     operations::{
@@ -295,15 +297,13 @@ pub fn import_asset(asset: &str, utxos: Vec<String>) -> Result<ThinAsset> {
 }
 
 #[cfg(target_arch = "wasm32")]
-pub async fn import_asset(asset: &str, rgb_descriptor_xpub: &str) -> Result<ThinAsset> {
+pub async fn import_asset(asset: &str, utxo: &str, blinded: &str) -> Result<ThinAsset> {
     info!("Getting asset:", asset);
-    let utxos = get_utxos(rgb_descriptor_xpub, None).await?;
-    let utxos = utxos_to_outpoints(utxos);
 
     let endpoint = &get_endpoint("import").await;
     let body = AssetRequest {
         asset: asset.to_owned(),
-        utxos,
+        utxos: vec![utxo.to_owned(), blinded.to_owned()],
     };
     let (asset_res, status) = post_json(endpoint, &body).await?;
     if status != 200 {
@@ -559,9 +559,20 @@ pub async fn send_assets(
     let _dust_psbt = dust_tx(&btc_wallet, fee_rate, asset_utxos.get(0))?;
     info!("Created dust PSBT");
     info!("Creating transfer PSBT...");
-
+    let asset_utxos = asset_utxos
+        .into_iter()
+        .map(|utxo| FullUtxo {
+            utxo,
+            terminal_derivation: "/0/0".to_owned(),
+        })
+        .collect();
     #[cfg(not(target_arch = "wasm32"))]
-    let (consignment, psbt, disclosure) = transfer_assets(
+    let TransferAssetsSerializedResponse {
+        consignment,
+        psbt,
+        disclosure,
+        ..
+    } = transfer_assets(
         rgb_assets_descriptor_xpub,
         blinded_utxo,
         amount,
@@ -571,7 +582,7 @@ pub async fn send_assets(
     .await?;
 
     #[cfg(target_arch = "wasm32")]
-    let (consignment, psbt, disclosure) = async {
+    let (consignment, psbt, disclosure, declare_request) = async {
         let endpoint = &get_endpoint("send").await;
         let body = TransferRequest {
             rgb_assets_descriptor_xpub: rgb_assets_descriptor_xpub.to_owned(),
@@ -588,8 +599,10 @@ pub async fn send_assets(
             consignment,
             psbt,
             disclosure,
+            declare_request,
         } = serde_json::from_str(&transfer_res)?;
-        Ok((consignment, psbt, disclosure))
+
+        Ok((consignment, psbt, disclosure, declare_request))
     }
     .await?;
 
@@ -606,6 +619,17 @@ pub async fn send_assets(
     // let dust_txid = dust_tx.txid().to_string();
     // info!(format!("dust txid was {dust_txid}"));
 
+    #[cfg(target_arch = "wasm32")]
+    let _declare = async {
+        let endpoint = &get_endpoint("declare").await;
+        let (_transfer_res, status) = post_json(endpoint, &declare_request).await?;
+        if status != 200 {
+            return Err(anyhow!("Error calling {endpoint}"));
+        }
+        Ok(status)
+    }
+    .await?;
+
     Ok(TransferResult {
         consignment,
         disclosure,
@@ -619,16 +643,19 @@ pub async fn transfer_assets(
     blinded_utxo: &str,
     amount: u64,
     asset_contract: &str,
-    asset_utxos: Vec<LocalUtxo>,
-) -> Result<(
-    String, // bech32m compressed sten consignment
-    String, // base64 bitcoin encoded psbt
-    String, // json
-)> {
+    asset_utxos: Vec<FullUtxo>,
+) -> Result<TransferAssetsSerializedResponse> {
     // use lnpbp::bech32::ToBech32String;
     use strict_encoding::strict_serialize;
 
-    let (consignment, psbt, disclosure) = transfer_asset(
+    let TransferAssetsNativeResponse {
+        consignment,
+        psbt,
+        disclosure,
+        change,
+        previous_utxo,
+        new_utxo,
+    } = transfer_asset(
         rgb_assets_descriptor_xpub,
         blinded_utxo,
         amount,
@@ -644,8 +671,17 @@ pub async fn transfer_assets(
     let psbt = serialize_psbt(&psbt);
     let psbt = base64::encode(&psbt);
     let disclosure = serde_json::to_string(&disclosure)?;
+    let change = serde_json::to_string(&change)?;
+    let previous_utxo = serde_json::to_string(&previous_utxo)?;
 
-    Ok((consignment, psbt, disclosure))
+    Ok(TransferAssetsSerializedResponse {
+        consignment,
+        psbt,
+        disclosure,
+        change,
+        previous_utxo,
+        new_utxo,
+    })
 }
 
 #[cfg(not(target_arch = "wasm32"))]

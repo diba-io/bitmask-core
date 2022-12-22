@@ -37,3 +37,9 @@ To run the bitmaskd node with REST server, either for testing the web wallet, or
 `cargo install --features=server --path .`
 
 Then run `bitmaskd`.
+
+## Development
+
+Parts of this application are built with conditional compilation statements for wasm32 support. This is a helpful command for checking linting and correctness while also developing on desktop platforms:
+
+`cargo clippy --target wasm32-unknown-unknown --no-default-features --release`
