@@ -1,6 +1,6 @@
 [package]
 name = "bitmask-core"
-version = "0.4.2"
+version = "0.4.3"
 authors = [
     "Jose Diego Robles <jose@diba.io>",
     "Hunter Trujillo <hunter@diba.io>",
@@ -10,7 +10,7 @@ description = "Core functionality for the BitMask wallet"
 edition = "2021"
 license = "MIT"
 homepage = "https://bitmask.app"
-repository = "https://github.com/rgb-products/bitmask-core"
+repository = "https://github.com/diba-io/bitmask-core"
 
 [lib]
 crate-type = ["cdylib", "rlib"]

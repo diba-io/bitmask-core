@@ -3,7 +3,7 @@ Core functionality for the BitMask wallet - <https://bitmask.app>
 
 **BitMask** is a bitcoin wallet and a browser extension for accessing decentralized web applications on the Bitcoin blokchain. It is designed to support UTXO based smart contracting protocols such as RGB, with planned support for Omni layer, TARO and many others.
 
-
+[![Build status](https://img.shields.io/github/actions/workflow/status/diba-io/bitmask-core/rust.yaml?branch=development&style=flat-square)](https://github.com/diba-io/bitmask-core/actions/workflows/rust.yaml)
 [![Crates.io](https://img.shields.io/crates/v/bitmask-core?style=flat-square)](https://docs.rs/bitmask-core/latest/bitmask-core/)
 [![npm: bitmask-core](https://img.shields.io/npm/v/bitmask-core?style=flat-square)](https://www.npmjs.com/package/bitmask-core)
 [![License: MIT+APACHE](https://img.shields.io/crates/l/bitmask-core?style=flat-square)](https://mit-license.org)
