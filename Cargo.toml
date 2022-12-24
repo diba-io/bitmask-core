@@ -20,6 +20,7 @@ name = "bitmaskd"
 required-features = ["server"]
 
 [features]
+all = []
 default = []
 sqlite = []
 web = []
@@ -30,7 +31,7 @@ anyhow = "1.0"
 base64 = { package = "base64-compat", version = "1.0" }
 bech32 = "0.9"
 bip39 = "1.0"
-bitcoin = "0.28.1"
+bitcoin = { version= "0.28.1", features=["base64"] }
 bitcoin_hashes = "0.10.0"
 console_error_panic_hook = "0.1"
 directories = "4.0"
@@ -73,14 +74,15 @@ bdk = { version = "0.23", features = [
     "reqwest-default-tls",
     "sqlite-bundled",
 ], default-features = false }
+bitcoin_scripts = "0.8.2"
 bp-core = { version = "0.8.1", features = ["psbt", "wallet"] }
-bp-dbc = "0.8.1"
+bp-dbc = { version = "0.8.1", features = ["wallet"] }
 carbonado = "0.1.1"
-commit_verify = { version = "0.8.1", features = ["rand"] }
+commit_verify = { version = "0.8.2", features = ["rand"] }
 # commit_verify = { version = "0.9.0", features = [
 #     "rand",
 # ], git = "https://github.com/LNP-BP/client_side_validation.git", branch = "bitcoin-0.29" }
-descriptor-wallet = { version = "0.8.3", features = ["descriptors", "serde"] }
+descriptor-wallet = {version = "0.8.3", features = ["descriptors", "serde"] }
 deflate = { version = "1.0.0" }
 inflate = { version = "0.4.5" }
 electrum-client = "=0.10.2"
@@ -106,3 +108,10 @@ wasm-bindgen-test = "0.3"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
 tokio = { version = "1", features = ["full"] }
+
+# TODO: Remove this after new descriptor wallet is released.
+[patch.crates-io]
+psbt = {  version = "0.8.5", git = "https://github.com/crisdut/descriptor-wallet.git", branch = "feat/tapret-desc" }
+bitcoin_scripts = {  version = "0.8.2", git = "https://github.com/crisdut/descriptor-wallet.git", branch = "feat/tapret-desc" }
+descriptors = {  version = "0.8.0", git = "https://github.com/crisdut/descriptor-wallet.git", branch = "feat/tapret-desc" }
+bitcoin_hd = {  version = "0.8.2", git = "https://github.com/crisdut/descriptor-wallet.git", branch = "feat/tapret-desc" }

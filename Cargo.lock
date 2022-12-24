@@ -423,8 +423,7 @@ checksum = "90064b8dee6815a6470d60bad07bbbaee885c0e12d04177138fa3291a01b7bc4"
 [[package]]
 name = "bitcoin_hd"
 version = "0.8.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d9235fb116ec6fa4820fded43ed142d1f11efc9700593a631da063b7e7de3d7b"
+source = "git+https://github.com/crisdut/descriptor-wallet.git?branch=feat/tapret-desc#2795ea17039b495b084bc98ede01a42380bfce62"
 dependencies = [
  "amplify",
  "bitcoin 0.28.1",
@@ -432,7 +431,7 @@ dependencies = [
  "secp256k1 0.22.2",
  "serde",
  "serde_with",
- "slip132",
+ "slip132 0.8.0 (git+https://github.com/crisdut/descriptor-wallet.git?branch=feat/tapret-desc)",
  "strict_encoding",
 ]
 
@@ -455,10 +454,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "bitcoin_onchain"
+version = "0.8.1"
+source = "git+https://github.com/crisdut/descriptor-wallet.git?branch=feat/tapret-desc#2795ea17039b495b084bc98ede01a42380bfce62"
+dependencies = [
+ "amplify",
+ "bitcoin 0.28.1",
+ "bitcoin_hd",
+ "chrono",
+ "descriptors",
+ "miniscript",
+ "strict_encoding",
+]
+
+[[package]]
 name = "bitcoin_scripts"
 version = "0.8.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e5ea66aa1dc492569f2a3ff224449ab29733854b2f591830fee53840c3b3ac4b"
+source = "git+https://github.com/crisdut/descriptor-wallet.git?branch=feat/tapret-desc#2795ea17039b495b084bc98ede01a42380bfce62"
 dependencies = [
  "amplify",
  "bitcoin 0.28.1",
@@ -490,6 +502,7 @@ dependencies = [
  "bip39",
  "bitcoin 0.28.1",
  "bitcoin_hashes 0.10.0",
+ "bitcoin_scripts",
  "bp-core",
  "bp-dbc",
  "carbonado",
@@ -608,7 +621,7 @@ checksum = "964aff5acdcd3f1ea1afc62403406fc0e4c4ebfaa8b9de6fe1f15d455a2dd6f2"
 dependencies = [
  "amplify",
  "bitcoin 0.28.1",
- "bitcoin_onchain",
+ "bitcoin_onchain 0.8.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "bp-dbc",
  "commit_verify",
  "lnpbp_bech32",
@@ -1054,7 +1067,7 @@ dependencies = [
  "amplify",
  "bitcoin 0.28.1",
  "bitcoin_hd",
- "bitcoin_onchain",
+ "bitcoin_onchain 0.8.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "bitcoin_scripts",
  "chrono",
  "descriptors",
@@ -1062,15 +1075,14 @@ dependencies = [
  "psbt",
  "serde",
  "serde_with",
- "slip132",
+ "slip132 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "strict_encoding",
 ]
 
 [[package]]
 name = "descriptors"
 version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "20e398905d9e9aa63d503b96b692c2f1be8cbeebd233e00117b9ff1a0d8e320c"
+source = "git+https://github.com/crisdut/descriptor-wallet.git?branch=feat/tapret-desc#2795ea17039b495b084bc98ede01a42380bfce62"
 dependencies = [
  "amplify",
  "bitcoin 0.28.1",
@@ -2368,13 +2380,12 @@ dependencies = [
 [[package]]
 name = "psbt"
 version = "0.8.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "26d0987ade28bd6c526dc63bad0ee69c16ac16acb6a51afe14a64db9037bdf0c"
+source = "git+https://github.com/crisdut/descriptor-wallet.git?branch=feat/tapret-desc#2795ea17039b495b084bc98ede01a42380bfce62"
 dependencies = [
  "amplify",
  "bitcoin 0.28.1",
  "bitcoin_hd",
- "bitcoin_onchain",
+ "bitcoin_onchain 0.8.1 (git+https://github.com/crisdut/descriptor-wallet.git?branch=feat/tapret-desc)",
  "bitcoin_scripts",
  "commit_verify",
  "descriptors",
@@ -3107,6 +3118,17 @@ dependencies = [
  "serde",
  "serde_with",
  "strict_encoding",
+]
+
+[[package]]
+name = "slip132"
+version = "0.8.0"
+source = "git+https://github.com/crisdut/descriptor-wallet.git?branch=feat/tapret-desc#2795ea17039b495b084bc98ede01a42380bfce62"
+dependencies = [
+ "amplify",
+ "bitcoin 0.28.1",
+ "serde",
+ "serde_with",
 ]
 
 [[package]]

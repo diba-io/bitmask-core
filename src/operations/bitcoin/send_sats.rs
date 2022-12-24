@@ -5,7 +5,7 @@ use bitcoin::{consensus::serialize, Transaction};
 use crate::{
     data::structs::SatsInvoice,
     debug, info,
-    operations::bitcoin::{balance::synchronize_wallet, sign_psbt::sign_psbt},
+    operations::bitcoin::{balance::synchronize_wallet, psbt::sign_psbt},
 };
 
 pub async fn create_transaction(

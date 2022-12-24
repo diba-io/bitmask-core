@@ -564,6 +564,7 @@ pub async fn send_assets(
         .map(|utxo| FullUtxo {
             utxo,
             terminal_derivation: "/0/0".to_owned(),
+            commitment: "".to_owned(),
         })
         .collect();
     #[cfg(not(target_arch = "wasm32"))]

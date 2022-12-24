@@ -46,7 +46,7 @@ async fn import(Json(asset): Json<AssetRequest>) -> Result<impl IntoResponse, Ap
 
 #[axum_macros::debug_handler]
 async fn transfer(Json(transfer): Json<TransferRequest>) -> Result<impl IntoResponse, AppError> {
-    let (consignment, psbt, disclosure, _, previous_utxo, _) = transfer_assets(
+    let transfer_result = transfer_assets(
         &transfer.rgb_assets_descriptor_xpub,
         &transfer.blinded_utxo,
         transfer.amount,
@@ -57,11 +57,11 @@ async fn transfer(Json(transfer): Json<TransferRequest>) -> Result<impl IntoResp
 
     let contract = Contract::from_str(&transfer.asset_contract)?;
     let transfer_res = TransferResponse {
-        consignment,
-        psbt,
-        disclosure,
+        consignment: transfer_result.consignment,
+        psbt: transfer_result.psbt,
+        disclosure: transfer_result.disclosure,
         declare_request: DeclareRequest {
-            previous_utxo,
+            previous_utxo: transfer_result.previous_utxo,
             asset_id: contract.contract_id().to_string(),
             new_outpoint: None,
             blinded_outpoint: None,

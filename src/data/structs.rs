@@ -132,6 +132,13 @@ pub struct AssetResponse {
     pub known_allocations: Vec<Allocation>,
 }
 
+#[derive(Clone, PartialEq, Eq, Hash, Debug, Display)]
+#[display("{address}:{amount}", alt = "{address:#}:{amount:#}")]
+pub struct AddressAmount {
+    pub address: Address,
+    pub amount: u64,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ExportRequest {
     /// ContractId of the asset to export FROM the node
@@ -189,6 +196,7 @@ pub struct TransferRequestExt {
 pub struct FullUtxo {
     pub utxo: LocalUtxo,
     pub terminal_derivation: String,
+    pub commitment: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -282,4 +290,5 @@ pub struct DeclareRequest {
 pub struct FullCoin {
     pub coin: AssignedState<Revealed>,
     pub terminal_derivation: String,
+    pub commitment: String,
 }

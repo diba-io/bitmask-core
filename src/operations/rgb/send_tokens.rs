@@ -3,10 +3,10 @@ use std::{
     str::FromStr,
 };
 
-use amplify::hex::ToHex;
 use anyhow::{anyhow, Result};
 use bdk::{descriptor::Descriptor, LocalUtxo};
 use bitcoin::{psbt::serialize::Serialize, OutPoint};
+use bitcoin_hashes::{hex::ToHex};
 use bp::seals::txout::{blind::RevealedSeal, CloseMethod, ExplicitSeal};
 use electrum_client::{Client, ElectrumApi};
 use regex::Regex;
@@ -16,12 +16,15 @@ use rgb_std::{
     blank::BlankBundle,
     fungible::allocation::{AllocatedValue, UtxobValue},
     psbt::{RgbExt, RgbInExt},
-    AssignedState, Contract, Disclosure, InmemConsignment, Node, SealEndpoint, TransferConsignment,
-    TransitionBundle,
+    AssignedState, Contract, Disclosure, InmemConsignment, Node as RgbNode, SealEndpoint,
+    TransferConsignment, TransitionBundle,
 };
 use strict_encoding::StrictEncode;
 use wallet::{
-    descriptors::InputDescriptor, locks::LockTime, psbt::Psbt, scripts::taproot::DfsPath,
+    psbt::Psbt,
+    scripts::{
+        taproot::DfsPath
+    }, descriptors::InputDescriptor,
 };
 
 use crate::{
@@ -61,6 +64,7 @@ pub async fn transfer_asset(
             .map(|coin| FullCoin {
                 coin,
                 terminal_derivation: full_utxo.terminal_derivation.clone(),
+                commitment: full_utxo.commitment.clone(),
             })
             .collect();
         allocations.append(&mut coins);
@@ -128,13 +132,15 @@ pub async fn transfer_asset(
 
     debug!("Coin selection - Largest First Coin");
     let mut change: Vec<(AssignedState<_>, u64)> = vec![];
-    let mut inputs = vec![];
+    let mut inputs: Vec<InputDescriptor> = vec![];
     let mut remainder = amount;
 
     for full_coin in allocations {
         let descriptor = format!(
             "{}:{} {}",
-            full_coin.coin.seal.txid, full_coin.coin.seal.vout, full_coin.terminal_derivation
+            full_coin.coin.seal.txid,
+            full_coin.coin.seal.vout,
+            full_coin.terminal_derivation,
         );
         debug!(format!(
             "Parsing InputDescriptor from outpoint: {descriptor}"
@@ -307,7 +313,6 @@ pub async fn transfer_asset(
 
     debug!(format!("PSBT successfully constructed: {psbt:#?}"));
 
-    psbt.fallback_locktime = Some(LockTime::from_str("none")?);
     debug!(format!("Locktime set: {:#?}", psbt.fallback_locktime));
 
     // Embed information about the contract into the PSBT

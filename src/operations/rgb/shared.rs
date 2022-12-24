@@ -3,7 +3,9 @@ use std::{
     fmt::Debug,
 };
 
+#[cfg(not(target_arch = "wasm32"))]
 use amplify::Wrapper;
+
 use anyhow::{anyhow, Result};
 use bitcoin::{OutPoint, Txid};
 use bp::seals::txout::CloseMethod;
