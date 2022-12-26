@@ -7,10 +7,8 @@ use bdk::{
 use bitcoin::{
     consensus::serialize,
     util::{psbt::PartiallySignedTransaction, taproot::TapBranchHash},
-    Transaction,
+    Transaction, hashes::{Hash, hex::ToHex},
 };
-use bitcoin_hashes::hex::ToHex;
-use bitcoin_hashes::Hash;
 
 use commit_verify::{lnpbp4::CommitmentHash, CommitVerify, TaggedHash};
 use electrum_client::{Client, ElectrumApi};

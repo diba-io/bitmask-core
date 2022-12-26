@@ -1,5 +1,5 @@
 #![cfg(feature = "server")]
-use std::{env, net::SocketAddr, str::FromStr};
+use std::{env, net::SocketAddr};
 
 use anyhow::Result;
 use axum::{
@@ -11,13 +11,11 @@ use axum::{
 use bitmask_core::{
     accept_transfer, create_asset,
     data::structs::{
-        AcceptRequest, AssetRequest, BlindRequest, DeclareRequest, IssueRequest, TransferRequest,
-        TransferResponse,
+        AcceptRequest, AssetRequest, BlindRequest, IssueRequest, TransferRequest,
     },
     get_blinded_utxo, import_asset, transfer_assets,
 };
 use log::info;
-use rgb_std::Contract;
 use tower_http::cors::CorsLayer;
 
 async fn issue(Json(issue): Json<IssueRequest>) -> Result<impl IntoResponse, AppError> {
@@ -46,7 +44,7 @@ async fn import(Json(asset): Json<AssetRequest>) -> Result<impl IntoResponse, Ap
 
 #[axum_macros::debug_handler]
 async fn transfer(Json(transfer): Json<TransferRequest>) -> Result<impl IntoResponse, AppError> {
-    let transfer_result = transfer_assets(
+    let transfer_res = transfer_assets(
         &transfer.rgb_assets_descriptor_xpub,
         &transfer.blinded_utxo,
         transfer.amount,
@@ -54,19 +52,6 @@ async fn transfer(Json(transfer): Json<TransferRequest>) -> Result<impl IntoResp
         transfer.asset_utxos,
     )
     .await?;
-
-    let contract = Contract::from_str(&transfer.asset_contract)?;
-    let transfer_res = TransferResponse {
-        consignment: transfer_result.consignment,
-        psbt: transfer_result.psbt,
-        disclosure: transfer_result.disclosure,
-        declare_request: DeclareRequest {
-            previous_utxo: transfer_result.previous_utxo,
-            asset_id: contract.contract_id().to_string(),
-            new_outpoint: None,
-            blinded_outpoint: None,
-        },
-    };
 
     Ok((StatusCode::OK, Json(transfer_res)))
 }

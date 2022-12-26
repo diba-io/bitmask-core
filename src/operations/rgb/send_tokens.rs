@@ -63,8 +63,7 @@ pub async fn transfer_asset(
             .into_iter()
             .map(|coin| FullCoin {
                 coin,
-                terminal_derivation: full_utxo.terminal_derivation.clone(),
-                commitment: full_utxo.commitment.clone(),
+                terminal_derivation: full_utxo.terminal_derivation.clone()
             })
             .collect();
         allocations.append(&mut coins);

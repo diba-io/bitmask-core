@@ -289,6 +289,5 @@ pub struct DeclareRequest {
 #[derive(Debug, Clone)]
 pub struct FullCoin {
     pub coin: AssignedState<Revealed>,
-    pub terminal_derivation: String,
-    pub commitment: String,
+    pub terminal_derivation: String
 }

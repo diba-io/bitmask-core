@@ -32,7 +32,7 @@ base64 = { package = "base64-compat", version = "1.0" }
 bech32 = "0.9"
 bip39 = "1.0"
 bitcoin = { version= "0.28.1", features=["base64"] }
-bitcoin_hashes = "0.10.0"
+bitcoin_hashes = "0.11.0"
 console_error_panic_hook = "0.1"
 directories = "4.0"
 futures = "0.3"
@@ -78,18 +78,15 @@ bitcoin_scripts = "0.8.2"
 bp-core = { version = "0.8.1", features = ["psbt", "wallet"] }
 bp-dbc = { version = "0.8.1", features = ["wallet"] }
 carbonado = "0.1.1"
-commit_verify = { version = "0.8.2", features = ["rand"] }
-# commit_verify = { version = "0.9.0", features = [
-#     "rand",
-# ], git = "https://github.com/LNP-BP/client_side_validation.git", branch = "bitcoin-0.29" }
+commit_verify = { version = "0.8.3", features = ["rand"] }
 descriptor-wallet = {version = "0.8.3", features = ["descriptors", "serde"] }
 deflate = { version = "1.0.0" }
 inflate = { version = "0.4.5" }
 electrum-client = "=0.10.2"
 lnpbp = "0.8.0"
 psbt = { version = "0.8.5", features = ["sign", "miniscript", "serde"] }
-rgb_core = { package = "rgb-core", version = "0.8.1", features = ["serde"] }
-rgb-std = { package = "rgb-std", version = "0.8.1", features = [
+rgb_core = { package = "rgb-core", version = "0.8.2", features = ["serde"] }
+rgb_std = { package = "rgb-std", version = "0.8.2", features = [
     "serde",
     "wallet",
 ] }
