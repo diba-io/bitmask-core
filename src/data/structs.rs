@@ -46,6 +46,7 @@ pub struct EncryptedWalletData {
     pub rgb_assets_descriptor_xpub: String,
     pub rgb_udas_descriptor_xprv: String,
     pub rgb_udas_descriptor_xpub: String,
+    pub xprvkh: String,
     pub xpubkh: String,
     pub mnemonic: String,
 }
