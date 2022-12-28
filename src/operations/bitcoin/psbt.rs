@@ -43,7 +43,8 @@ pub async fn create_psbt(
         // Remove after new descriptor system is done.
         // Apply TapRet Commitment
         let tweak = if !input.commitment.trim().is_empty() {
-            let commit = CommitmentHash::from_hex(&input.commitment.to_string()).expect("");
+            let commit = CommitmentHash::from_hex(&input.commitment.to_string())
+                .expect("Commitment  must be a valid hash");
             let script_commitment = TapScript::commit(&(commit, 0));
             let root = TreeNode::with_tap_script(script_commitment, 0);
             let tweak = TapBranchHash::from_inner(root.node_hash().into_inner());

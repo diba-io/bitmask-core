@@ -464,7 +464,9 @@ async fn allow_transfer_one_asset_to_many_beneficiaries() -> Result<()> {
     for transfer in resp.transfers {
         for beneficiary in transfer.beneficiaries {
             if beneficiaries.contains_key(&beneficiary) {
-                let reveal = beneficiaries.get(&beneficiary).expect("");
+                let reveal = beneficiaries
+                    .get(&beneficiary)
+                    .expect("Beneficiary not found in transition");
                 let accept_details = accept_transfer(
                     &transfer.consignment,
                     &reveal.blinding,
@@ -645,7 +647,9 @@ async fn allow_transfer_many_assets_to_one_beneficiary() -> Result<()> {
     for transfer in resp.transfers {
         for beneficiary in transfer.beneficiaries {
             if beneficiaries.contains_key(&beneficiary) {
-                let reveal = beneficiaries.get(&beneficiary).expect("");
+                let reveal = beneficiaries
+                    .get(&beneficiary)
+                    .expect("Beneficiary not found in transition");
                 let accept_details = accept_transfer(
                     &transfer.consignment,
                     &reveal.blinding,
@@ -836,7 +840,9 @@ async fn allow_transfer_many_assets_to_many_beneficiary() -> Result<()> {
     for transfer in resp.transfers {
         for beneficiary in transfer.beneficiaries {
             if beneficiaries.contains_key(&beneficiary) {
-                let reveal = beneficiaries.get(&beneficiary).expect("");
+                let reveal = beneficiaries
+                    .get(&beneficiary)
+                    .expect("Beneficiary not found in transition");
                 let accept_details = accept_transfer(
                     &transfer.consignment,
                     &reveal.blinding,

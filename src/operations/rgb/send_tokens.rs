@@ -564,7 +564,7 @@ pub async fn transfer_asset_v2(request: TransfersRequest) -> Result<TransfersRes
         let beneficiaries: BTreeMap<SealEndpoint, u64> = transfer
             .beneficiaries
             .into_iter()
-            .map(|b| UtxobValue::from_str(&b).expect(""))
+            .map(|b| UtxobValue::from_str(&b).expect("Beneficiary must be a valid blinded utxo"))
             .into_iter()
             .map(|v| {
                 remainder -= v.value;
@@ -572,7 +572,7 @@ pub async fn transfer_asset_v2(request: TransfersRequest) -> Result<TransfersRes
             })
             .collect();
 
-        let change = OutPoint::from_str(&transfer.change_utxo).expect("");
+        let change = OutPoint::from_str(&transfer.change_utxo).expect("Error parsing change_utxo");
         let changes = vec![AllocatedValue {
             value: remainder,
             seal: ExplicitSeal {
@@ -588,9 +588,17 @@ pub async fn transfer_asset_v2(request: TransfersRequest) -> Result<TransfersRes
             .collect();
 
         let inputs = outpoints.clone().into_iter().collect();
-        let transition = asset
-            .transfer(inputs, beneficiaries.clone(), changes)
-            .expect("");
+        let transition = match asset.transfer(inputs, beneficiaries, changes) {
+            Ok(t) => t,
+            Err(err) => {
+                error!(format!(
+                    "Error creating state transition for asset transfer: {err}",
+                ));
+                return Err(anyhow!(
+                    "Error creating state transition for asset transfer"
+                ));
+            }
+        };
 
         let (consignment, _): (InmemConsignment<TransferConsignment>, ConsignmentDetails) =
             compose_consignment(&contract, outpoints, None).await?;
@@ -622,7 +630,7 @@ pub async fn transfer_asset_v2(request: TransfersRequest) -> Result<TransfersRes
                 "{}:{} {}",
                 full.outpoint.txid, full.outpoint.vout, full.terminal_derivation,
             );
-            InputDescriptor::from_str(&descriptor).expect("")
+            InputDescriptor::from_str(&descriptor).expect("Error parsing input_descriptor")
         })
         .collect();
 
@@ -717,7 +725,9 @@ pub async fn transfer_asset_v2(request: TransfersRequest) -> Result<TransfersRes
 
         // 2. Extract contract-related state transition from PSBT and put it
         //    into consignment.
-        let bundle = bundles.remove(&contract_id).expect("");
+        let bundle = bundles
+            .remove(&contract_id)
+            .expect("Contract must be inside in transition bundle");
         let bundle_id = bundle.bundle_id();
         consignment.push_anchored_bundle(anchor.to_merkle_proof(contract_id)?, bundle)?;
 

@@ -717,8 +717,9 @@ pub async fn transfer_many_assets(
         .transfers
         .into_iter()
         .map(|(c, seals)| {
-            let consignment = strict_serialize(&c).expect("");
-            let consignment = util::bech32m_zip_encode("rgbc", &consignment).expect("");
+            let consignment = strict_serialize(&c).expect("Consignment information must be valid");
+            let consignment = util::bech32m_zip_encode("rgbc", &consignment)
+                .expect("Strict encoded information must be a valid consignment");
 
             FinalizeTransfer {
                 consignment,
