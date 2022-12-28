@@ -43,3 +43,14 @@ Then run `bitmaskd`.
 Parts of this application are built with conditional compilation statements for wasm32 support. This is a helpful command for checking linting and correctness while also developing on desktop platforms:
 
 `cargo clippy --target wasm32-unknown-unknown --no-default-features --release`
+
+## Docker
+
+For running bitmask tests in regtest, please follow the steps bellow:
+
+1. Build bitcoin node + electrum: `docker compose build`
+2. Up and running containers: `docker compose up -d node1`
+3. Load the command line: `source .commands`
+4. Send some coins to main wallet address: `node1 sendtoaddress {ADDRESS} 1`
+5. Mine a block: `node1 -generate`
+5. Running the tests

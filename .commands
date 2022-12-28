@@ -1,0 +1,2 @@
+source .env
+alias node1="docker-compose exec -T node1 cli"

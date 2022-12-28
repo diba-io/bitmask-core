@@ -55,7 +55,7 @@ pub const RGB_ASSETS_PATH: &str = "m/168h/20h/0h";
 pub const RGB_UDAS_PATH: &str = "m/168h/21h/0h";
 
 pub static NETWORK: Lazy<RwLock<Network>> = Lazy::new(|| {
-    RwLock::new(Network::Testnet) // TODO: Change default to mainnet
+    RwLock::new(Network::Regtest) // TODO: Change default to mainnet
 });
 
 pub fn get_network() -> Result<String> {

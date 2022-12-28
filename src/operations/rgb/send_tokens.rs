@@ -588,7 +588,7 @@ pub async fn transfer_asset_v2(request: TransfersRequest) -> Result<TransfersRes
             .collect();
 
         let inputs = outpoints.clone().into_iter().collect();
-        let transition = match asset.transfer(inputs, beneficiaries, changes) {
+        let transition = match asset.transfer(inputs, beneficiaries.clone(), changes) {
             Ok(t) => t,
             Err(err) => {
                 error!(format!(
