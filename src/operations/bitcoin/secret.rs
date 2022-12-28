@@ -8,6 +8,7 @@ use bdk::{
 };
 use bip39::Mnemonic;
 use bitcoin::{secp256k1::Secp256k1, util::bip32::ChildNumber};
+use bitcoin_hashes::{sha256, Hash};
 
 use crate::data::{
     constants::{BTC_PATH, NETWORK, RGB_ASSETS_PATH, RGB_UDAS_PATH},
@@ -67,6 +68,7 @@ pub fn get_mnemonic(mnemonic_phrase: Mnemonic, seed_password: &str) -> Result<En
     let secp = Secp256k1::new();
     let xpub = ExtendedPubKey::from_priv(&secp, &xprv);
     let xpubkh = xpub.to_pub().pubkey_hash().to_string();
+    let xprvkh = sha256::Hash::hash(&xprv.to_priv().to_bytes()).to_string();
 
     let btc_descriptor_xprv = format!(
         "tr({})",
@@ -109,6 +111,7 @@ pub fn get_mnemonic(mnemonic_phrase: Mnemonic, seed_password: &str) -> Result<En
         rgb_assets_descriptor_xpub,
         rgb_udas_descriptor_xprv,
         rgb_udas_descriptor_xpub,
+        xprvkh,
         xpubkh,
         mnemonic: mnemonic_phrase.to_string(),
     })
