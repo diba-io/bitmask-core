@@ -11,9 +11,9 @@ use axum::{
 use bitmask_core::{
     accept_transfer, create_asset,
     data::structs::{
-        AcceptRequest, AssetRequest, BlindRequest, IssueRequest, TransferRequest,
+        AcceptRequest, AssetRequest, BlindRequest, IssueRequest, TransferRequest, TransfersRequest,
     },
-    get_blinded_utxo, import_asset, transfer_assets,
+    get_blinded_utxo, import_asset, transfer_assets, transfer_multiple_assets,
 };
 use log::info;
 use tower_http::cors::CorsLayer;
@@ -56,6 +56,13 @@ async fn transfer(Json(transfer): Json<TransferRequest>) -> Result<impl IntoResp
     Ok((StatusCode::OK, Json(transfer_res)))
 }
 
+#[axum_macros::debug_handler]
+async fn transfers(Json(transfer): Json<TransfersRequest>) -> Result<impl IntoResponse, AppError> {
+    let transfer_res = transfer_multiple_assets(transfer).await?;
+
+    Ok((StatusCode::OK, Json(transfer_res)))
+}
+
 async fn accept(Json(accept): Json<AcceptRequest>) -> Result<impl IntoResponse, AppError> {
     accept_transfer(
         &accept.consignment,
@@ -80,6 +87,7 @@ async fn main() -> Result<()> {
         .route("/blind", post(blind))
         .route("/import", post(import))
         .route("/transfer", post(transfer))
+        .route("/transfers", post(transfers))
         .route("/accept", post(accept))
         .layer(CorsLayer::permissive());
 

@@ -6,8 +6,9 @@ use bdk::{
 };
 use bitcoin::{
     consensus::serialize,
+    hashes::{hex::ToHex, Hash},
     util::{psbt::PartiallySignedTransaction, taproot::TapBranchHash},
-    Transaction, hashes::{Hash, hex::ToHex},
+    Transaction,
 };
 
 use commit_verify::{lnpbp4::CommitmentHash, CommitVerify, TaggedHash};
@@ -15,7 +16,13 @@ use electrum_client::{Client, ElectrumApi};
 use psbt::Psbt;
 use regex::Regex;
 use std::str::FromStr;
-use wallet::{descriptors::InputDescriptor, scripts::{TapScript, taproot::{TreeNode, Node}, PubkeyScript}};
+use wallet::{
+    descriptors::InputDescriptor,
+    scripts::{
+        taproot::{Node, TreeNode},
+        PubkeyScript, TapScript,
+    },
+};
 
 use crate::{
     data::{constants::BITCOIN_ELECTRUM_API, structs::AddressAmount},

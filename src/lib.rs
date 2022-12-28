@@ -30,8 +30,9 @@ pub mod web;
 #[cfg(not(target_arch = "wasm32"))]
 pub use crate::{
     data::structs::{
-        AcceptResponse, AssetResponse, TransferAssetsNativeResponse,
-        TransferAssetsSerializedResponse,
+        AcceptResponse, AssetResponse, FinalizeTransfer, TransferAssetsNativeResponse,
+        TransferAssetsSerializedResponse, TransfersRequest, TransfersResponse,
+        TransfersSerializeResponse,
     },
     operations::rgb::{
         self, blind_utxo, get_asset_by_genesis, get_assets, issue_asset, transfer_asset,
@@ -682,6 +683,39 @@ pub async fn transfer_assets(
         change,
         previous_utxo,
         new_utxo,
+    })
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub async fn transfer_multiple_assets(
+    transfers: TransfersRequest,
+) -> Result<TransfersSerializeResponse> {
+    use operations::rgb::transfer_asset_v2;
+    use strict_encoding::strict_serialize;
+
+    let resp = transfer_asset_v2(transfers).await?;
+
+    let psbt = serialize_psbt(&resp.psbt);
+    let psbt = base64::encode(&psbt);
+    let disclosure = serde_json::to_string(&resp.disclosure)?;
+    let transfers = resp
+        .transfers
+        .into_iter()
+        .map(|(c, seals)| {
+            let consignment = strict_serialize(&c).expect("");
+            let consignment = util::bech32m_zip_encode("rgbc", &consignment).expect("");
+
+            FinalizeTransfer {
+                consignment,
+                beneficiaries: seals.into_iter().map(|s| s.to_string()).collect(),
+            }
+        })
+        .collect();
+
+    Ok(TransfersSerializeResponse {
+        psbt,
+        disclosure,
+        transfers,
     })
 }
 
