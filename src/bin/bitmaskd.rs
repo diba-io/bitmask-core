@@ -13,7 +13,7 @@ use bitmask_core::{
     data::structs::{
         AcceptRequest, AssetRequest, BlindRequest, IssueRequest, TransferRequest, TransfersRequest,
     },
-    get_blinded_utxo, import_asset, transfer_assets, transfer_multiple_assets,
+    get_blinded_utxo, import_asset, transfer_assets, transfer_many_assets,
 };
 use log::info;
 use tower_http::cors::CorsLayer;
@@ -58,7 +58,7 @@ async fn transfer(Json(transfer): Json<TransferRequest>) -> Result<impl IntoResp
 
 #[axum_macros::debug_handler]
 async fn transfers(Json(transfer): Json<TransfersRequest>) -> Result<impl IntoResponse, AppError> {
-    let transfer_res = transfer_multiple_assets(transfer).await?;
+    let transfer_res = transfer_many_assets(transfer).await?;
 
     Ok((StatusCode::OK, Json(transfer_res)))
 }

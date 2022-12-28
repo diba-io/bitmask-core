@@ -178,6 +178,21 @@ pub async fn get_wallet_data(
     })
 }
 
+pub async fn get_new_address(
+    descriptor: &str,
+    change_descriptor: Option<String>,
+) -> Result<String> {
+    info!("get_new_address");
+    info!("descriptor:", &descriptor);
+    info!("change_descriptor:", format!("{:?}", &change_descriptor));
+
+    let wallet = get_wallet(descriptor, change_descriptor)?;
+    synchronize_wallet(&wallet).await?;
+    let address = wallet.get_address(AddressIndex::New)?.to_string();
+    info!(format!("address: {address}"));
+    Ok(address)
+}
+
 #[cfg(not(target_arch = "wasm32"))]
 pub fn list_assets(contract: &str) -> Result<Vec<AssetResponse>> {
     info!("list_assets");
@@ -687,7 +702,7 @@ pub async fn transfer_assets(
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-pub async fn transfer_multiple_assets(
+pub async fn transfer_many_assets(
     transfers: TransfersRequest,
 ) -> Result<TransfersSerializeResponse> {
     use operations::rgb::transfer_asset_v2;

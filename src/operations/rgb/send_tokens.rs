@@ -29,8 +29,8 @@ use rgb_std::{
     blank::BlankBundle,
     fungible::allocation::{AllocatedValue, UtxobValue},
     psbt::{RgbExt, RgbInExt},
-    AssignedState, Contract, Disclosure, EndpointValueMap, InmemConsignment, Node as RgbNode,
-    SealEndpoint, TransferConsignment, TransitionBundle,
+    AssignedState, Contract, Disclosure, InmemConsignment, Node as RgbNode, SealEndpoint,
+    TransferConsignment, TransitionBundle,
 };
 use strict_encoding::StrictEncode;
 use wallet::{descriptors::InputDescriptor, psbt::Psbt, scripts::taproot::DfsPath};
@@ -561,7 +561,7 @@ pub async fn transfer_asset_v2(request: TransfersRequest) -> Result<TransfersRes
             .collect();
 
         let mut remainder = transfer.asset_amount;
-        let beneficiaries: EndpointValueMap = transfer
+        let beneficiaries: BTreeMap<SealEndpoint, u64> = transfer
             .beneficiaries
             .into_iter()
             .map(|b| UtxobValue::from_str(&b).expect(""))
