@@ -176,7 +176,7 @@ async fn allow_transfer_one_asset_to_one_beneficiary() -> Result<()> {
         );
     }
 
-    pretty_env_logger::init();
+    let _ = pretty_env_logger::try_init();
     let network = get_network()?;
     info!("Asset test on {network}");
 
@@ -324,7 +324,7 @@ async fn allow_transfer_one_asset_to_many_beneficiaries() -> Result<()> {
         );
     }
 
-    pretty_env_logger::init();
+    let _ = pretty_env_logger::try_init();
     let network = get_network()?;
     info!("Asset test on {network}");
 
@@ -491,7 +491,7 @@ async fn allow_transfer_many_assets_to_one_beneficiary() -> Result<()> {
         );
     }
 
-    pretty_env_logger::init();
+    let _ = pretty_env_logger::try_init();
     let network = get_network()?;
     info!("Asset test on {network}");
 
@@ -673,7 +673,7 @@ async fn allow_transfer_many_assets_to_many_beneficiary() -> Result<()> {
         );
     }
 
-    pretty_env_logger::init();
+    let _ = pretty_env_logger::try_init();
     let network = get_network()?;
     info!("Asset test on {network}");
 

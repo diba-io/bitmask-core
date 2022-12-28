@@ -53,4 +53,4 @@ For running bitmask tests in regtest, please follow the steps bellow:
 3. Load the command line: `source .commands`
 4. Send some coins to main wallet address: `node1 sendtoaddress {ADDRESS} 1`
 5. Mine a block: `node1 -generate`
-5. Running the tests
+6. Running the tests: `TEST_WALLET_SEED="replace with a 12 word mnemonic for a wallet containing testnet sats" cargo test allow_transfer -- --test-threads 1`
