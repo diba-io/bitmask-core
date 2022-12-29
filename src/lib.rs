@@ -1,5 +1,4 @@
 #[macro_use]
-#[cfg(not(target_arch = "wasm32"))]
 extern crate amplify;
 
 use std::str::FromStr;
@@ -7,7 +6,6 @@ use std::str::FromStr;
 use anyhow::anyhow;
 use anyhow::Result;
 use bdk::{wallet::AddressIndex, FeeRate, LocalUtxo};
-#[cfg(not(target_arch = "wasm32"))]
 use bitcoin::consensus::serialize as serialize_psbt;
 use bitcoin::{util::address::Address, OutPoint, Transaction};
 use bitcoin_hashes::{sha256, Hash};
@@ -24,7 +22,6 @@ pub mod util;
 #[cfg(target_arch = "wasm32")]
 pub mod web;
 // Desktop
-#[cfg(not(target_arch = "wasm32"))]
 pub use crate::{
     data::structs::{AcceptResponse, AssetResponse, FinalizeTransfer, TransfersResponse},
     operations::rgb::{
@@ -186,7 +183,6 @@ pub async fn get_new_address(
     Ok(address)
 }
 
-#[cfg(not(target_arch = "wasm32"))]
 pub fn list_assets(contract: &str) -> Result<Vec<AssetResponse>> {
     info!("list_assets");
     let assets = get_assets(contract)?;
@@ -204,7 +200,6 @@ pub struct CreateAssetResult {
     pub schema_id: String, // schema ID (i.e., RGB20)
 }
 
-#[cfg(not(target_arch = "wasm32"))]
 pub fn create_asset(
     ticker: &str,
     name: &str,
@@ -227,41 +222,41 @@ pub fn create_asset(
     })
 }
 
-#[cfg(target_arch = "wasm32")]
-pub async fn create_asset(
-    ticker: &str,
-    name: &str,
-    precision: u8,
-    supply: u64,
-    utxo: &str,
-) -> Result<CreateAssetResult> {
-    let endpoint = &get_endpoint("issue").await;
-    let body = IssueRequest {
-        ticker: ticker.to_owned(),
-        name: name.to_owned(),
-        description: "TODO".to_owned(),
-        precision,
-        supply,
-        utxo: utxo.to_owned(),
-    };
-    let (issue_res, status) = post_json(endpoint, &body).await?;
-    if status != 200 {
-        return Err(anyhow!("Error calling {endpoint}"));
-    }
-    let CreateAssetResult {
-        genesis,
-        id,
-        asset_id,
-        schema_id,
-    } = serde_json::from_str(&issue_res)?;
+// #[cfg(target_arch = "wasm32")]
+// pub async fn create_asset(
+//     ticker: &str,
+//     name: &str,
+//     precision: u8,
+//     supply: u64,
+//     utxo: &str,
+// ) -> Result<CreateAssetResult> {
+//     let endpoint = &get_endpoint("issue").await;
+//     let body = IssueRequest {
+//         ticker: ticker.to_owned(),
+//         name: name.to_owned(),
+//         description: "TODO".to_owned(),
+//         precision,
+//         supply,
+//         utxo: utxo.to_owned(),
+//     };
+//     let (issue_res, status) = post_json(endpoint, &body).await?;
+//     if status != 200 {
+//         return Err(anyhow!("Error calling {endpoint}"));
+//     }
+//     let CreateAssetResult {
+//         genesis,
+//         id,
+//         asset_id,
+//         schema_id,
+//     } = serde_json::from_str(&issue_res)?;
 
-    Ok(CreateAssetResult {
-        genesis,
-        id,
-        asset_id,
-        schema_id,
-    })
-}
+//     Ok(CreateAssetResult {
+//         genesis,
+//         id,
+//         asset_id,
+//         schema_id,
+//     })
+// }
 
 pub async fn get_utxos(
     descriptor: &str,
@@ -305,39 +300,39 @@ pub fn import_asset(asset: &str, utxos: Vec<String>) -> Result<ThinAsset> {
     }
 }
 
-#[cfg(target_arch = "wasm32")]
-pub async fn import_asset(asset: &str, utxo: &str) -> Result<ThinAsset> {
-    info!("Getting asset:", asset);
+// #[cfg(target_arch = "wasm32")]
+// pub async fn import_asset(asset: &str, utxo: &str) -> Result<ThinAsset> {
+//     info!("Getting asset:", asset);
 
-    let endpoint = &get_endpoint("import").await;
-    let body = AssetRequest {
-        asset: asset.to_owned(),
-        utxos: vec![utxo.to_owned()],
-    };
-    let (asset_res, status) = post_json(endpoint, &body).await?;
-    if status != 200 {
-        return Err(anyhow!("Error calling {endpoint}"));
-    }
-    let ThinAsset {
-        id,
-        ticker,
-        name,
-        description,
-        allocations,
-        balance,
-        genesis,
-    } = serde_json::from_str(&asset_res)?;
+//     let endpoint = &get_endpoint("import").await;
+//     let body = AssetRequest {
+//         asset: asset.to_owned(),
+//         utxos: vec![utxo.to_owned()],
+//     };
+//     let (asset_res, status) = post_json(endpoint, &body).await?;
+//     if status != 200 {
+//         return Err(anyhow!("Error calling {endpoint}"));
+//     }
+//     let ThinAsset {
+//         id,
+//         ticker,
+//         name,
+//         description,
+//         allocations,
+//         balance,
+//         genesis,
+//     } = serde_json::from_str(&asset_res)?;
 
-    Ok(ThinAsset {
-        id,
-        ticker,
-        name,
-        description,
-        allocations,
-        balance,
-        genesis,
-    })
-}
+//     Ok(ThinAsset {
+//         id,
+//         ticker,
+//         name,
+//         description,
+//         allocations,
+//         balance,
+//         genesis,
+//     })
+// }
 
 #[derive(Serialize, Deserialize)]
 struct TransactionData {
@@ -360,27 +355,27 @@ pub fn get_blinded_utxo(utxo_string: &str) -> Result<BlindingUtxo> {
     Ok(blinding_utxo)
 }
 
-#[cfg(target_arch = "wasm32")]
-pub async fn get_blinded_utxo(utxo_string: &str) -> Result<BlindingUtxo> {
-    let utxo = OutPoint::from_str(utxo_string)?;
+// #[cfg(target_arch = "wasm32")]
+// pub async fn get_blinded_utxo(utxo_string: &str) -> Result<BlindingUtxo> {
+//     let utxo = OutPoint::from_str(utxo_string)?;
 
-    let endpoint = &get_endpoint("blind").await;
-    let body = BlindRequest {
-        utxo: utxo.to_string(),
-    };
-    let (blind_res, status) = post_json(endpoint, &body).await?;
-    if status != 200 {
-        return Err(anyhow!("Error calling {endpoint}"));
-    }
-    let BlindResponse { conceal, blinding } = serde_json::from_str(&blind_res)?;
-    let blinding_utxo = BlindingUtxo {
-        conceal,
-        blinding,
-        utxo,
-    };
+//     let endpoint = &get_endpoint("blind").await;
+//     let body = BlindRequest {
+//         utxo: utxo.to_string(),
+//     };
+//     let (blind_res, status) = post_json(endpoint, &body).await?;
+//     if status != 200 {
+//         return Err(anyhow!("Error calling {endpoint}"));
+//     }
+//     let BlindResponse { conceal, blinding } = serde_json::from_str(&blind_res)?;
+//     let blinding_utxo = BlindingUtxo {
+//         conceal,
+//         blinding,
+//         utxo,
+//     };
 
-    Ok(blinding_utxo)
-}
+//     Ok(blinding_utxo)
+// }
 
 pub async fn send_sats(
     descriptor: &str,
@@ -505,7 +500,6 @@ pub async fn get_assets_vault(
     })
 }
 
-#[cfg(not(target_arch = "wasm32"))]
 pub async fn transfer_assets(transfers: TransfersRequest) -> Result<TransfersSerializeResponse> {
     use strict_encoding::strict_serialize;
 
@@ -536,19 +530,18 @@ pub async fn transfer_assets(transfers: TransfersRequest) -> Result<TransfersSer
     })
 }
 
-#[cfg(target_arch = "wasm32")]
-pub async fn transfer_assets(transfers: TransfersRequest) -> Result<TransfersSerializeResponse> {
-    let endpoint = &get_endpoint("transfer").await;
-    let body = transfers;
+// #[cfg(target_arch = "wasm32")]
+// pub async fn transfer_assets(transfers: TransfersRequest) -> Result<TransfersSerializeResponse> {
+//     let endpoint = &get_endpoint("transfer").await;
+//     let body = transfers;
 
-    let (transfer_res, status) = post_json(endpoint, &body).await?;
-    if status != 200 {
-        return Err(anyhow!("Error calling {endpoint}"));
-    }
-    Ok(serde_json::from_str(&transfer_res)?)
-}
+//     let (transfer_res, status) = post_json(endpoint, &body).await?;
+//     if status != 200 {
+//         return Err(anyhow!("Error calling {endpoint}"));
+//     }
+//     Ok(serde_json::from_str(&transfer_res)?)
+// }
 
-#[cfg(not(target_arch = "wasm32"))]
 pub async fn accept_transfer(
     consignment: &str,
     blinding_factor: &str,
@@ -563,21 +556,21 @@ pub async fn accept_transfer(
     }
 }
 
-#[cfg(target_arch = "wasm32")]
-pub async fn accept_transfer(
-    consignment: &str,
-    blinding_factor: &str,
-    outpoint: &str,
-) -> Result<AcceptResponse> {
-    let endpoint = &get_endpoint("accept").await;
-    let body = AcceptRequest {
-        consignment: consignment.to_owned(),
-        blinding_factor: blinding_factor.to_owned(),
-        outpoint: outpoint.to_owned(),
-    };
-    let (transfer_res, status) = post_json(endpoint, &body).await?;
-    if status != 200 {
-        return Err(anyhow!("Error calling {endpoint}"));
-    }
-    Ok(serde_json::from_str(&transfer_res)?)
-}
+// #[cfg(target_arch = "wasm32")]
+// pub async fn accept_transfer(
+//     consignment: &str,
+//     blinding_factor: &str,
+//     outpoint: &str,
+// ) -> Result<AcceptResponse> {
+//     let endpoint = &get_endpoint("accept").await;
+//     let body = AcceptRequest {
+//         consignment: consignment.to_owned(),
+//         blinding_factor: blinding_factor.to_owned(),
+//         outpoint: outpoint.to_owned(),
+//     };
+//     let (transfer_res, status) = post_json(endpoint, &body).await?;
+//     if status != 200 {
+//         return Err(anyhow!("Error calling {endpoint}"));
+//     }
+//     Ok(serde_json::from_str(&transfer_res)?)
+// }

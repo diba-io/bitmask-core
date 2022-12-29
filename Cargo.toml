@@ -27,11 +27,12 @@ web = []
 server = ["tokio/full", "tower-http/cors"]
 
 [dependencies]
+amplify = "3.13.0"
 anyhow = "1.0"
 base64 = { package = "base64-compat", version = "1.0" }
 bech32 = "0.9"
 bip39 = "1.0.1"
-bitcoin = { version= "0.29.2", features=["base64"] }
+bitcoin = { version = "0.29.2", features = ["base64"] }
 bitcoin_hashes = "0.11.0"
 console_error_panic_hook = "0.1"
 directories = "4.0"
@@ -51,6 +52,33 @@ pretty_env_logger = "0.4"
 reqwest = { version = "0.11", features = ["json"] }
 lightning-invoice = "0.21.0"
 
+bitcoin_scripts = "0.9.0-rc.1"
+bp-core = { version = "0.9.0-rc.1", features = ["psbt", "wallet"] }
+bp-dbc = { version = "0.9.0-rc.1", features = ["wallet"] }
+commit_verify = { version = "~0.9.0-rc.1", features = ["rand"] }
+descriptor-wallet = { version = "0.9.0-rc.1", features = [
+    "descriptors",
+    "serde",
+    "miniscript",
+] }
+lnpbp = "0.9.0-rc.1"
+psbt = { version = "0.9.0-rc.1", features = [
+    "sign",
+    "miniscript",
+    "serde",
+    "construct",
+] }
+rgb_core = { package = "rgb-core", version = "0.9.0-rc.2" }
+rgb_std = { package = "rgb-std", version = "0.9.0-rc.1" }
+rgb20 = { version = "0.9.0-rc.1", features = ["serde"] }
+stens = { version = "0.9.0-rc.1", features = ["serde"] }
+storm-core = "0.9.0-rc.1"
+strict_encoding = { version = "~0.9.0-rc.2", features = [
+    "crypto",
+    "chrono",
+    "bitcoin",
+] }
+
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 bdk = { version = "0.25.0", features = [
     "use-esplora-async",
@@ -66,36 +94,17 @@ web-sys = "0.3"
 rand = { version = "0.6", features = ["wasm-bindgen"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-amplify = "3.13.0"
 axum = "0.5"
 axum-macros = "0.2.3"
-bdk = { version ="0.25", features = [
+bdk = { version = "0.25", features = [
     "use-esplora-async",
     "async-interface",
     "reqwest-default-tls",
     "sqlite-bundled",
 ], default-features = false }
-bitcoin_scripts = "0.9.0-rc.1"
-bp-core = { version = "0.9.0-rc.1", features = ["psbt", "wallet"] }
-bp-dbc = { version = "0.9.0-rc.1", features = ["wallet"] }
-carbonado = "0.1.1"
-commit_verify = { version = "~0.9.0-rc.1", features = ["rand"] }
-descriptor-wallet = {version = "0.9.0-rc.1", features = ["descriptors", "serde", "miniscript"] }
 deflate = { version = "1.0.0" }
 inflate = { version = "0.4.5" }
 electrum-client = "0.12.0"
-lnpbp = "0.9.0-rc.1"
-psbt = { version = "0.9.0-rc.1", features = ["sign", "miniscript", "serde", "construct"] }
-rgb_core = { package = "rgb-core", version = "0.9.0-rc.2" }
-rgb_std = { package = "rgb-std", version = "0.9.0-rc.1" }
-rgb20 = { version = "0.9.0-rc.1", features = ["serde"] }
-stens = { version = "0.9.0-rc.1", features = ["serde"] }
-storm-core = "0.9.0-rc.1"
-strict_encoding = { version = "~0.9.0-rc.2", features = [
-    "crypto",
-    "chrono",
-    "bitcoin",
-] }
 tower-http = { version = "0.3", features = ["cors"], optional = true }
 
 [dev-dependencies]
