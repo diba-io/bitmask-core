@@ -24,7 +24,7 @@ async fn payjoin() -> Result<()> {
     info!("Asset test on {network}");
 
     info!("Import wallets");
-    let mnemonic = env!("TEST_WALLET_SEED", "TEST_WALLET_SEED variable not set");
+    let mnemonic = "slice man valid help goose length promote same duty trim year talent";
     let mnemonic_data = save_mnemonic_seed(mnemonic, ENCRYPTION_PASSWORD, SEED_PASSWORD)?;
 
     let vault = get_encrypted_wallet(
