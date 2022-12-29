@@ -24,13 +24,6 @@ const SUPPLY: u64 = 1000;
 
 #[tokio::test]
 async fn allow_transfer_one_asset_to_one_beneficiary() -> Result<()> {
-    if env::var("RUST_LOG").is_err() {
-        env::set_var(
-            "RUST_LOG",
-            "bitmask_core=debug,bitmask_core::operations::rgb=trace,asset=debug",
-        );
-    }
-
     let _ = pretty_env_logger::try_init();
     let network = get_network()?;
     info!("Asset test on {network}");
@@ -172,13 +165,6 @@ async fn allow_transfer_one_asset_to_one_beneficiary() -> Result<()> {
 
 #[tokio::test]
 async fn allow_transfer_one_asset_to_many_beneficiaries() -> Result<()> {
-    if env::var("RUST_LOG").is_err() {
-        env::set_var(
-            "RUST_LOG",
-            "bitmask_core=debug,bitmask_core::operations::rgb=trace,asset=debug",
-        );
-    }
-
     let _ = pretty_env_logger::try_init();
     let network = get_network()?;
     info!("Asset test on {network}");
@@ -339,13 +325,6 @@ async fn allow_transfer_one_asset_to_many_beneficiaries() -> Result<()> {
 
 #[tokio::test]
 async fn allow_transfer_assets_to_one_beneficiary() -> Result<()> {
-    if env::var("RUST_LOG").is_err() {
-        env::set_var(
-            "RUST_LOG",
-            "bitmask_core=debug,bitmask_core::operations::rgb=trace,asset=debug",
-        );
-    }
-
     let _ = pretty_env_logger::try_init();
     let network = get_network()?;
     info!("Asset test on {network}");
@@ -521,13 +500,6 @@ async fn allow_transfer_assets_to_one_beneficiary() -> Result<()> {
 
 #[tokio::test]
 async fn allow_transfer_assets_to_many_beneficiary() -> Result<()> {
-    if env::var("RUST_LOG").is_err() {
-        env::set_var(
-            "RUST_LOG",
-            "bitmask_core=debug,bitmask_core::operations::rgb=trace,asset=debug",
-        );
-    }
-
     let _ = pretty_env_logger::try_init();
     let network = get_network()?;
     info!("Asset test on {network}");
