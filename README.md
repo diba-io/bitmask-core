@@ -54,3 +54,16 @@ For running bitmask tests in regtest, please follow the steps bellow:
 4. Send some coins to main wallet address: `node1 sendtoaddress {ADDRESS} 1`
 5. Mine a block: `node1 -generate`
 6. Running the tests: `TEST_WALLET_SEED="replace with a 12 word mnemonic for a wallet containing testnet sats" cargo test allow_transfer -- --test-threads 1`
+
+### Troubleshooting
+
+#### **1. After restarting the container**
+
+
+**A.The bitcoin node does not work?**
+
+Check if your wallet is loaded. For that, run the command `node1 loadwallet default`.
+
+**B.The electrs node does not work?**
+
+To stop the electrs freeze, run `node1 -generate`.
