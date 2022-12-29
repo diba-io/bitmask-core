@@ -6,6 +6,7 @@ use bitcoin::psbt::PartiallySignedTransaction;
 use rgb_core::validation::Status;
 #[cfg(not(target_arch = "wasm32"))]
 use rgb_core::value::Revealed;
+#[cfg(not(target_arch = "wasm32"))]
 use rgb_core::SealEndpoint;
 #[cfg(not(target_arch = "wasm32"))]
 use rgb_std::AssignedState;
@@ -134,6 +135,7 @@ pub struct AssetResponse {
     pub known_allocations: Vec<Allocation>,
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 #[derive(Clone, PartialEq, Eq, Hash, Debug, Display)]
 #[display("{address}:{amount}", alt = "{address:#}:{amount:#}")]
 pub struct AddressAmount {
@@ -185,6 +187,13 @@ pub struct SealCoins {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct BlindingUtxo {
+    pub conceal: String,
+    pub blinding: String,
+    pub utxo: OutPoint,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TransferRequestExt {
     pub inputs: Vec<OutPoint>,
     pub allocate: Vec<SealCoins>,
@@ -195,49 +204,10 @@ pub struct TransferRequestExt {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TransferRequest {
-    pub rgb_assets_descriptor_xpub: String, // TODO: Privacy concerns. Not great, not terrible
-    pub blinded_utxo: String,
-    pub amount: u64,
-    pub asset_contract: String,
-    pub asset_utxos: Vec<FullUtxo>,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TransferResult {
     pub consignment: String,
     pub disclosure: String,
     pub txid: String,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TransferResponse {
-    pub consignment: String,
-    pub psbt: String,
-    pub disclosure: String,
-    pub declare_request: DeclareRequest,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TransferAssetsNativeResponse {
-    #[cfg(not(target_arch = "wasm32"))]
-    pub consignment: InmemConsignment<TransferConsignment>,
-    #[cfg(not(target_arch = "wasm32"))]
-    pub psbt: PartiallySignedTransaction,
-    #[cfg(not(target_arch = "wasm32"))]
-    pub disclosure: Disclosure,
-    pub change: Vec<SealCoins>, // change: SealCoins correspoinding to the change of the sener if any
-    pub previous_utxo: Vec<SealCoins>, // previous utxo: original SealCoins
-    pub new_utxo: String,       // new utxo: utxo of the receptor (in blinded form)
-}
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TransferAssetsSerializedResponse {
-    pub consignment: String,   // bech32m compressed sten consignment
-    pub psbt: String,          // base64 bitcoin encoded psbt
-    pub disclosure: String,    // json-encoded RGB transfer disclosure
-    pub change: String,        // change: SealCoins correspoinding to the change of the sener if any
-    pub previous_utxo: String, // previous utxo: original SealCoins
-    pub new_utxo: String,      // new utxo: utxo of the receptor (in blinded form)
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -246,6 +216,7 @@ pub struct TransfersRequest {
     pub transfers: Vec<AssetTransfer>,
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TransfersResponse {
     pub psbt: PartiallySignedTransaction,
@@ -302,14 +273,6 @@ pub struct BlindedOutpoint {
     pub consignment: String,
     pub balance: u64,
 }
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct DeclareRequest {
-    pub previous_utxo: String,
-    pub asset_id: String,
-    pub new_outpoint: Option<NewOutpoint>,
-    pub blinded_outpoint: Option<BlindedOutpoint>,
-}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct FinalizeTransfer {
@@ -329,11 +292,4 @@ pub struct FullUtxo {
 pub struct FullCoin {
     pub coin: AssignedState<Revealed>,
     pub terminal_derivation: String,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct NewOutpoint {
-    pub outpoint: String,
-    pub disclosure: String,
-    pub balance: u64,
 }

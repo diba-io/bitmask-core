@@ -61,6 +61,7 @@ gloo-net = "0.2"
 js-sys = "0.3"
 wasm-bindgen = { version = "0.2", features = ["serde-serialize"] }
 wasm-bindgen-futures = "0.4"
+serde-wasm-bindgen = "0.4"
 web-sys = "0.3"
 rand = { version = "0.6", features = ["wasm-bindgen"] }
 
@@ -102,10 +103,3 @@ wasm-bindgen-test = "0.3"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
 tokio = { version = "1", features = ["full"] }
-
-# TODO: Remove this after new descriptor wallet is released.
-# [patch.crates-io]
-# psbt = {  version = "0.8.5", git = "https://github.com/crisdut/descriptor-wallet.git", branch = "feat/tapret-desc" }
-# bitcoin_scripts = {  version = "0.8.2", git = "https://github.com/crisdut/descriptor-wallet.git", branch = "feat/tapret-desc" }
-# descriptors = {  version = "0.8.0", git = "https://github.com/crisdut/descriptor-wallet.git", branch = "feat/tapret-desc" }
-# bitcoin_hd = {  version = "0.8.2", git = "https://github.com/crisdut/descriptor-wallet.git", branch = "feat/tapret-desc" }

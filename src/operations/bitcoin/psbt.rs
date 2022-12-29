@@ -1,37 +1,47 @@
-use std::collections::{BTreeMap, BTreeSet};
-
+use crate::{debug, operations::bitcoin::balance::get_blockchain};
 use anyhow::{Error, Result};
 use bdk::{blockchain::Blockchain, database::AnyDatabase, SignOptions, Wallet};
-use bitcoin::{
-    consensus::serialize,
-    hashes::{hex::ToHex, Hash},
-    util::{psbt::PartiallySignedTransaction, taproot::TapBranchHash},
-    Transaction,
-};
+use bitcoin::{consensus::serialize, util::psbt::PartiallySignedTransaction, Transaction};
 
-use bitcoin_scripts::{
-    taproot::{Node, TreeNode},
-    PubkeyScript, TapScript,
-};
-use commit_verify::{lnpbp4::CommitmentHash, CommitVerify, TaggedHash};
-use electrum_client::{Client, ConfigBuilder, ElectrumApi};
-use miniscript_crate::Descriptor;
-use psbt::Psbt;
-use regex::Regex;
-use std::str::FromStr;
-use wallet::descriptors::InputDescriptor;
-
+// Desktop
+#[cfg(not(target_arch = "wasm32"))]
 use crate::{
     data::{
         constants::{BITCOIN_ELECTRUM_API, ELECTRUM_TIMEOUT},
         structs::AddressAmount,
     },
-    debug,
-    operations::bitcoin::balance::get_blockchain,
     FullUtxo,
 };
+#[cfg(not(target_arch = "wasm32"))]
+use bitcoin::{
+    hashes::{hex::ToHex, Hash},
+    util::taproot::TapBranchHash,
+};
+#[cfg(not(target_arch = "wasm32"))]
+use bitcoin_scripts::{
+    taproot::{Node, TreeNode},
+    PubkeyScript, TapScript,
+};
+#[cfg(not(target_arch = "wasm32"))]
+use commit_verify::{lnpbp4::CommitmentHash, CommitVerify, TaggedHash};
+#[cfg(not(target_arch = "wasm32"))]
+use electrum_client::{Client, ConfigBuilder, ElectrumApi};
+#[cfg(not(target_arch = "wasm32"))]
+use miniscript_crate::Descriptor;
+#[cfg(not(target_arch = "wasm32"))]
+use psbt::Psbt;
+#[cfg(not(target_arch = "wasm32"))]
+use regex::Regex;
+#[cfg(not(target_arch = "wasm32"))]
+use std::collections::{BTreeMap, BTreeSet};
+#[cfg(not(target_arch = "wasm32"))]
+use std::str::FromStr;
+#[cfg(not(target_arch = "wasm32"))]
+use wallet::descriptors::InputDescriptor;
 
-pub async fn create_psbt(
+// TODO: Make review after v0.9
+#[cfg(not(target_arch = "wasm32"))]
+pub async fn _create_psbt(
     btc_descriptor: String,
     inputs: Vec<FullUtxo>,
     outputs: Vec<AddressAmount>,
