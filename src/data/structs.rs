@@ -1,3 +1,4 @@
+use bitcoin::Txid;
 // Desktop
 #[cfg(not(target_arch = "wasm32"))]
 use bitcoin::psbt::PartiallySignedTransaction;
@@ -13,7 +14,7 @@ use rgb_std::{Disclosure, InmemConsignment, TransferConsignment};
 
 // Shared
 use bdk::{Balance, BlockTime, LocalUtxo};
-use bitcoin::{util::address::Address, OutPoint, Txid};
+use bitcoin::{util::address::Address, OutPoint};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
@@ -25,7 +26,7 @@ pub struct WalletData {
     pub utxos: Vec<String>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct WalletTransaction {
     pub txid: Txid,

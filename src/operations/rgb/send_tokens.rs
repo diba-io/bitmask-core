@@ -5,7 +5,7 @@ use std::{
 
 use crate::{
     data::{
-        constants::BITCOIN_ELECTRUM_API,
+        constants::{BITCOIN_ELECTRUM_API, ELECTRUM_TIMEOUT},
         structs::{FullCoin, FullUtxo, SealCoins, TransferAssetsNativeResponse},
     },
     debug, error, info,
@@ -13,15 +13,14 @@ use crate::{
     trace, TransfersRequest, TransfersResponse,
 };
 use anyhow::{anyhow, Result};
-use bdk::{descriptor::Descriptor, LocalUtxo};
-use bitcoin::{
-    consensus::deserialize,
-    psbt::{serialize::Serialize, PartiallySignedTransaction},
-    OutPoint,
-};
+use bdk::LocalUtxo;
+use bitcoin::{consensus::deserialize, psbt::PartiallySignedTransaction, OutPoint};
 use bitcoin_hashes::hex::ToHex;
+use bitcoin_scripts::taproot::DfsPath;
 use bp::seals::txout::{blind::RevealedSeal, CloseMethod, ExplicitSeal};
-use electrum_client::{Client, ElectrumApi};
+use electrum_client::{Client, ConfigBuilder, ElectrumApi};
+use miniscript_crate::Descriptor;
+use psbt::{serialize::Serialize, Psbt};
 use regex::Regex;
 use rgb20::Asset;
 use rgb_core::{Anchor, IntoRevealedSeal};
@@ -33,7 +32,7 @@ use rgb_std::{
     TransferConsignment, TransitionBundle,
 };
 use strict_encoding::StrictEncode;
-use wallet::{descriptors::InputDescriptor, psbt::Psbt, scripts::taproot::DfsPath};
+use wallet::descriptors::InputDescriptor;
 
 pub async fn transfer_asset(
     bdk_rgb_assets_descriptor_xpub: &str,
@@ -243,7 +242,11 @@ pub async fn transfer_asset(
     debug!(format!("txid set: {txid_set:?}"));
 
     let url = BITCOIN_ELECTRUM_API.read().await;
-    let electrum_client = Client::new(&url)?;
+    let electrum_config = ConfigBuilder::new()
+        .timeout(Some(ELECTRUM_TIMEOUT))
+        .expect("cannot fail since socks5 is unset")
+        .build();
+    let electrum_client = Client::from_config(&url, electrum_config)?;
     debug!(format!("Electrum client connected to {url}"));
 
     let tx_map = electrum_client
@@ -617,10 +620,6 @@ pub async fn transfer_asset_v2(request: TransfersRequest) -> Result<TransfersRes
         .collect();
     debug!(format!("txid set: {txid_set:?}"));
 
-    let url = BITCOIN_ELECTRUM_API.read().await;
-    let electrum_client = Client::new(&url)?;
-    debug!(format!("Electrum client connected to {url}"));
-
     let fee = 500;
     let allow_tapret_path = DfsPath::from_str("1")?;
     let input_descs: Vec<InputDescriptor> = asset_utxos
@@ -633,6 +632,14 @@ pub async fn transfer_asset_v2(request: TransfersRequest) -> Result<TransfersRes
             InputDescriptor::from_str(&descriptor).expect("Error parsing input_descriptor")
         })
         .collect();
+
+    let url = BITCOIN_ELECTRUM_API.read().await;
+    let electrum_config = ConfigBuilder::new()
+        .timeout(Some(ELECTRUM_TIMEOUT))
+        .expect("cannot fail since socks5 is unset")
+        .build();
+    let electrum_client = Client::from_config(&url, electrum_config)?;
+    debug!(format!("Electrum client connected to {url}"));
 
     let tx_map = electrum_client
         .batch_transaction_get(&txid_set)?

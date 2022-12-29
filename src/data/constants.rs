@@ -20,6 +20,8 @@ fn dot_env(key: &str) -> String {
     }
 }
 
+pub static ELECTRUM_TIMEOUT: u8 = 4;
+
 static BITCOIN_EXPLORER_API_MAINNET: Lazy<String> =
     Lazy::new(|| dot_env("BITCOIN_EXPLORER_API_MAINNET"));
 static BITCOIN_EXPLORER_API_TESTNET: Lazy<String> =

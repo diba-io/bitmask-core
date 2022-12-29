@@ -1,9 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use anyhow::{Error, Result};
-use bdk::{
-    blockchain::Blockchain, database::AnyDatabase, miniscript::Descriptor, SignOptions, Wallet,
-};
+use bdk::{blockchain::Blockchain, database::AnyDatabase, SignOptions, Wallet};
 use bitcoin::{
     consensus::serialize,
     hashes::{hex::ToHex, Hash},
@@ -11,21 +9,23 @@ use bitcoin::{
     Transaction,
 };
 
+use bitcoin_scripts::{
+    taproot::{Node, TreeNode},
+    PubkeyScript, TapScript,
+};
 use commit_verify::{lnpbp4::CommitmentHash, CommitVerify, TaggedHash};
-use electrum_client::{Client, ElectrumApi};
+use electrum_client::{Client, ConfigBuilder, ElectrumApi};
+use miniscript_crate::Descriptor;
 use psbt::Psbt;
 use regex::Regex;
 use std::str::FromStr;
-use wallet::{
-    descriptors::InputDescriptor,
-    scripts::{
-        taproot::{Node, TreeNode},
-        PubkeyScript, TapScript,
-    },
-};
+use wallet::descriptors::InputDescriptor;
 
 use crate::{
-    data::{constants::BITCOIN_ELECTRUM_API, structs::AddressAmount},
+    data::{
+        constants::{BITCOIN_ELECTRUM_API, ELECTRUM_TIMEOUT},
+        structs::AddressAmount,
+    },
     debug,
     operations::bitcoin::balance::get_blockchain,
     FullUtxo,
@@ -78,7 +78,11 @@ pub async fn create_psbt(
     debug!(format!("txid set: {txid_set:?}"));
 
     let url = BITCOIN_ELECTRUM_API.read().await;
-    let electrum_client = Client::new(&url)?;
+    let electrum_config = ConfigBuilder::new()
+        .timeout(Some(ELECTRUM_TIMEOUT))
+        .expect("cannot fail since socks5 is unset")
+        .build();
+    let electrum_client = Client::from_config(&url, electrum_config)?;
     debug!(format!("Electrum client connected to {url}"));
 
     let tx_map = electrum_client

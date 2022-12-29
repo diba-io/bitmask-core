@@ -5,7 +5,6 @@ use std::{
 
 #[cfg(not(target_arch = "wasm32"))]
 use amplify::Wrapper;
-
 use anyhow::{anyhow, Result};
 use bitcoin::{OutPoint, Txid};
 use bp::seals::txout::CloseMethod;
@@ -13,7 +12,7 @@ use commit_verify::{
     lnpbp4::{self, MerkleBlock},
     CommitConceal,
 };
-use electrum_client::Client;
+use electrum_client::{Client, ConfigBuilder};
 use rgb_core::{
     schema::OwnedRightType, Anchor, Assignment, Extension, OwnedRights, PedersenStrategy,
     TypedAssignments,
@@ -26,7 +25,10 @@ use rgb_std::{
 use storm::{chunk::ChunkIdExt, ChunkId};
 use strict_encoding::{StrictDecode, StrictEncode};
 
-use crate::{data::constants::BITCOIN_ELECTRUM_API, debug, error, info, trace, warn};
+use crate::{
+    data::constants::{BITCOIN_ELECTRUM_API, ELECTRUM_TIMEOUT},
+    debug, error, info, trace, warn,
+};
 
 #[derive(Clone, Ord, PartialOrd, Eq, PartialEq, Hash, Debug, StrictEncode, StrictDecode)]
 pub enum OutpointFilter {
@@ -209,7 +211,13 @@ async fn process_consignment<C: ConsignmentType>(
     info!(format!(
         "Validating consignment {consignment_id} for contract {contract_id}"
     ));
-    let electrum_client = Client::new(&BITCOIN_ELECTRUM_API.read().await)?;
+
+    let electrum_config = ConfigBuilder::new()
+        .timeout(Some(ELECTRUM_TIMEOUT))
+        .expect("cannot fail since socks5 is unset")
+        .build();
+    let electrum_client = Client::from_config(&BITCOIN_ELECTRUM_API.read().await, electrum_config)?;
+
     let status = Validator::validate(consignment, &electrum_client);
     info!(format!(
         "Consignment validation result is {}",
