@@ -30,7 +30,7 @@ anyhow = "1.0"
 base64 = { package = "base64-compat", version = "1.0" }
 bech32 = "0.9"
 bip39 = "1.0"
-bip78 = { git = "https://github.com/dangould/rust-payjoin", rev = "8d9b7d6", features = ["sender" ] }
+payjoin = { version = "0.4.0-alpha", features = ["sender"] }
 bitcoin = "0.28.1"
 bitcoin_hashes = "0.10.0"
 console_error_panic_hook = "0.1"

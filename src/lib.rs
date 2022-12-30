@@ -404,16 +404,17 @@ pub async fn send_sats(
     amount: u64,
     fee_rate: Option<f32>,
 ) -> Result<Transaction> {
-    use bip78::UriExt;
+    use payjoin::UriExt;
 
     let wallet = get_wallet(descriptor, Some(change_descriptor.to_owned()))?;
     synchronize_wallet(&wallet).await?;
 
     let fee_rate = fee_rate.map(FeeRate::from_sat_per_vb);
 
-    let transaction = match bip78::Uri::try_from(destination) {
+    let transaction = match payjoin::Uri::try_from(destination) {
         Ok(uri) => {
-            let address = uri.address.clone();
+            // hack until bitcoin v0.29
+            let address = bitcoin::Address::from_str(&uri.address.clone().to_string())?;
             if let Ok(pj_uri) = uri.check_pj_supported() {
                 create_payjoin(
                     vec![SatsInvoice { address, amount }],

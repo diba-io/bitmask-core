@@ -1,7 +1,8 @@
 use anyhow::Result;
 use bdk::{database::AnyDatabase, wallet::tx_builder::TxOrdering, FeeRate, Wallet};
-use bip78::{PjUri, PjUriExt};
 use bitcoin::{consensus::serialize, Transaction};
+use bitcoin_hashes::hex::ToHex;
+use payjoin::{PjUri, PjUriExt};
 
 use crate::{
     data::structs::SatsInvoice,
@@ -52,21 +53,24 @@ pub async fn create_payjoin(
     };
 
     debug!(format!("Request PayJoin transaction: {details:#?}"));
-    debug!("Unsigned Origianl PSBT:", base64::encode(&serialize(&psbt)));
+    debug!("Unsigned Original PSBT:", base64::encode(&serialize(&psbt)));
     let original_psbt = sign_original_psbt(wallet, psbt).await?;
     info!("Original PSBT successfully signed");
 
     // TODO use fee_rate
-    let pj_params = bip78::sender::Configuration::non_incentivizing();
+    let pj_params = payjoin::sender::Params::non_incentivizing();
     let (req, ctx) = pj_uri.create_pj_request(original_psbt, pj_params)?;
+    info!("Built PayJoin request");
     let response = reqwest::Client::new()
         .post(req.url)
         .header("Content-Type", "text/plain")
         .body(reqwest::Body::from(req.body))
         .send()
         .await?;
-
-    let payjoin_psbt = ctx.process_response(response.bytes().await?.to_vec().as_slice())?;
+    info!("Got PayJoin response");
+    let res = response.bytes().await?;
+    info!("Response hex: {}", &res.to_hex());
+    let payjoin_psbt = ctx.process_response(res.to_vec().as_slice())?;
     debug!(
         "Proposed PayJoin PSBT:",
         base64::encode(&serialize(&payjoin_psbt))
