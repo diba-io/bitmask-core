@@ -399,8 +399,7 @@ pub async fn send_sats(
 
     let transaction = match payjoin::Uri::try_from(destination) {
         Ok(uri) => {
-            // hack until bitcoin v0.29
-            let address = bitcoin::Address::from_str(&uri.address.clone().to_string())?;
+            let address = uri.address.clone();
             if let Ok(pj_uri) = uri.check_pj_supported() {
                 create_payjoin(
                     vec![SatsInvoice { address, amount }],
