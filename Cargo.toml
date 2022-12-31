@@ -1,6 +1,6 @@
 [package]
 name = "bitmask-core"
-version = "0.5.0-rc.1"
+version = "0.5.0-rc.2"
 authors = [
     "Jose Diego Robles <jose@diba.io>",
     "Hunter Trujillo <hunter@diba.io>",
@@ -27,49 +27,47 @@ web = []
 server = ["tokio/full", "tower-http/cors"]
 
 [dependencies]
-anyhow = "1.0"
-base64 = { package = "base64-compat", version = "1.0" }
-bech32 = "0.9"
+anyhow = "1.0.68"
+base64 = { package = "base64-compat", version = "1.0.0" }
+bech32 = "0.9.1"
 bip39 = "1.0.1"
 bitcoin = { version = "0.29.2", features = ["base64"] }
 bitcoin_hashes = "0.11.0"
-console_error_panic_hook = "0.1"
-directories = "4.0"
-futures = "0.3"
-getrandom = { version = "0.2.3", features = ["js"] }
-hex = "0.4"
-lazy_static = "1.4"
+console_error_panic_hook = "0.1.7"
+# directories = "4.0.1"
+futures = "0.3.25"
+getrandom = { version = "0.2.8", features = ["js"] }
+hex = "0.4.3"
 lightning-invoice = "0.21.0"
-log = "0.4"
+log = "0.4.17"
 miniscript_crate = { package = "miniscript", version = "9.0.0" }
-once_cell = "1.9"
-pretty_env_logger = "0.4"
-regex = "1"
-reqwest = { version = "0.11", features = ["json"] }
-serde = "1"
-serde_json = "1"
-serde-encrypt = "0.7"
-tokio = { version = "1", features = ["macros", "sync"] }
+once_cell = "1.17.0"
+pretty_env_logger = "0.4.0"
+regex = "1.7.0"
+reqwest = { version = "0.11.13", features = ["json"] }
+serde = "1.0.152"
+serde_json = "1.0.91"
+serde-encrypt = "0.7.0"
+tokio = { version = "1.23.0", features = ["macros", "sync"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 bdk = { version = "0.25.0", features = [
     "use-esplora-async",
     "async-interface",
 ], default-features = false }
-gloo-console = "0.2"
-gloo-net = "0.2"
-js-sys = "0.3"
-rand = { version = "0.6", features = ["wasm-bindgen"] }
-serde-wasm-bindgen = "0.4"
-wasm-bindgen = { version = "0.2", features = ["serde-serialize"] }
-wasm-bindgen-futures = "0.4"
-web-sys = "0.3"
+gloo-console = "0.2.3"
+gloo-net = "0.2.5"
+js-sys = "0.3.60"
+serde-wasm-bindgen = "0.4.5"
+wasm-bindgen = { version = "0.2.83", features = ["serde-serialize"] }
+wasm-bindgen-futures = "0.4.33"
+web-sys = "0.3.60"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 amplify = "3.13.0"
-axum = "0.5"
-axum-macros = "0.2.3"
-bdk = { version = "0.25", features = [
+axum = "0.6.1"
+axum-macros = "0.3.0"
+bdk = { version = "0.25.0", features = [
     "use-esplora-async",
     "async-interface",
     "reqwest-default-tls",
@@ -78,16 +76,15 @@ bdk = { version = "0.25", features = [
 bitcoin_scripts = "0.9.0-rc.1"
 bp-core = { version = "0.9.0-rc.1", features = ["psbt", "wallet"] }
 bp-dbc = { version = "0.9.0-rc.1", features = ["wallet"] }
-carbonado = "0.1.1"
-commit_verify = { version = "~0.9.0-rc.1", features = ["rand"] }
+commit_verify = { version = "0.9.0-rc.1", features = ["rand"] }
 descriptor-wallet = { version = "0.9.0-rc.1", features = [
     "descriptors",
     "serde",
     "miniscript",
 ] }
-deflate = { version = "1.0.0" }
+deflate = "1.0.0"
 electrum-client = "0.12.0"
-inflate = { version = "0.4.5" }
+inflate = "0.4.5"
 lnpbp = "0.9.0-rc.1"
 psbt = { version = "0.9.0-rc.1", features = [
     "sign",
@@ -100,15 +97,15 @@ rgb_std = { package = "rgb-std", version = "0.9.0-rc.1" }
 rgb20 = { version = "0.9.0-rc.1", features = ["serde"] }
 stens = { version = "0.9.0-rc.1", features = ["serde"] }
 storm-core = "0.9.0-rc.1"
-strict_encoding = { version = "~0.9.0-rc.2", features = [
+strict_encoding = { version = "0.9.0-rc.2", features = [
     "crypto",
     "chrono",
     "bitcoin",
 ] }
-tower-http = { version = "0.3", features = ["cors"], optional = true }
+tower-http = { version = "0.3.5", features = ["cors"], optional = true }
 
 [dev-dependencies]
-wasm-bindgen-test = "0.3"
+wasm-bindgen-test = "0.3.33"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
-tokio = { version = "1", features = ["full"] }
+tokio = { version = "1.23.0", features = ["full"] }
