@@ -3,13 +3,11 @@ Core functionality for the BitMask wallet - <https://bitmask.app>
 
 **BitMask** is a bitcoin wallet and a browser extension for accessing decentralized web applications on the Bitcoin blokchain. It is designed to support UTXO based smart contracting protocols such as RGB, with planned support for Omni layer, TARO and many others.
 
-
-[![Build Status](https://img.shields.io/github/workflow/status/diba-io/bitmask-core/Rust?style=flat-square)](https://github.com/diba-io/bitmask-core/actions/workflows/Rust.yml)
+[![Build status](https://img.shields.io/github/actions/workflow/status/diba-io/bitmask-core/rust.yaml?branch=development&style=flat-square)](https://github.com/diba-io/bitmask-core/actions/workflows/rust.yaml)
 [![Crates.io](https://img.shields.io/crates/v/bitmask-core?style=flat-square)](https://docs.rs/bitmask-core/latest/bitmask-core/)
 [![npm: bitmask-core](https://img.shields.io/npm/v/bitmask-core?style=flat-square)](https://www.npmjs.com/package/bitmask-core)
 [![License: MIT+APACHE](https://img.shields.io/crates/l/bitmask-core?style=flat-square)](https://mit-license.org)
-![Lines of code](https://img.shields.io/tokei/lines/github/diba-io/bitmask-core?style=flat-square)
-[![Telegram: rust_in_bitcoin](https://img.shields.io/badge/telegram-rust_in_bitcoin-blue?style=flat-square)](https://t.me/rust_in_bitcoin)
+[![Telegram](https://img.shields.io/badge/telegram-invite-blue?style=flat-square)](https://t.me/+eQk5aQ5--iUxYzVk)
 
 ## Uses
 
@@ -25,6 +23,8 @@ Some environment variables may be needed in order to compile on macos-aarch64, f
 
 If there are issues compiling, be sure to check you're compiling with the latest Rust version.
 
+To build this as a NodeJS module, use: `wasm-pack build --release --target bundler`
+
 ## Test
 
 1. Lint against wasm32: `cargo clippy --target wasm32-unknown-unknown`
@@ -37,3 +37,32 @@ To run the bitmaskd node with REST server, either for testing the web wallet, or
 `cargo install --features=server --path .`
 
 Then run `bitmaskd`.
+
+## Development
+
+Parts of this application are built with conditional compilation statements for wasm32 support. This is a helpful command for checking linting and correctness while also developing on desktop platforms:
+
+`cargo clippy --target wasm32-unknown-unknown --no-default-features --release`
+
+## Docker
+
+For running bitmask-core tests in regtest, please follow the steps bellow:
+
+1. Build bitcoin node + electrum: `docker compose build`
+2. Up and running containers: `docker compose up -d node1`
+3. Load the command line: `source .commands`
+4. Send some coins to main wallet address: `node1 sendtoaddress {ADDRESS} 1`
+5. Mine a block: `node1 -generate`
+6. Running the tests: `TEST_WALLET_SEED="replace with a 12 word mnemonic for a wallet containing testnet sats" cargo test allow_transfer -- --test-threads 1`
+
+### Troubleshooting
+
+#### **1. After restarting the container**
+
+**A.The bitcoin node does not work?**
+
+Check if your wallet is loaded. For that, run the command `node1 loadwallet default`.
+
+**B.The electrs node does not work?**
+
+To stop the electrs freeze, run `node1 -generate`.

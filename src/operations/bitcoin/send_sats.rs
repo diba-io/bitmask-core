@@ -9,7 +9,7 @@ use crate::{
     debug, info,
     operations::bitcoin::{
         balance::synchronize_wallet,
-        sign_psbt::{sign_original_psbt, sign_psbt},
+        psbt::{sign_original_psbt, sign_psbt},
     },
 };
 

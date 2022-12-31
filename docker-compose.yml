@@ -1,0 +1,31 @@
+version: "3.7"
+
+networks:
+  bmnet:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/24
+          gateway: 172.20.0.1
+
+volumes:
+  node1_data:
+
+services:
+  node1:
+    container_name: node1
+    image: bitmask/node1:latest
+    build:
+      context: ./docker/esplora/
+    restart: unless-stopped
+    command: ["/srv/explorer/run.sh", "bitcoin-regtest", "explorer"]
+    volumes:
+      - node1_data:/data
+    ports:
+      - 50001:50001
+      - 3000:80
+    networks:
+      bmnet:
+        ipv4_address: 172.20.0.4
+        aliases:
+          - node1

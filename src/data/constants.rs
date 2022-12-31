@@ -20,15 +20,18 @@ fn dot_env(key: &str) -> String {
     }
 }
 
+pub static ELECTRUM_TIMEOUT: u8 = 4;
+
 static BITCOIN_EXPLORER_API_MAINNET: Lazy<String> =
     Lazy::new(|| dot_env("BITCOIN_EXPLORER_API_MAINNET"));
 static BITCOIN_EXPLORER_API_TESTNET: Lazy<String> =
     Lazy::new(|| dot_env("BITCOIN_EXPLORER_API_TESTNET"));
 static BITCOIN_EXPLORER_API_SIGNET: Lazy<String> =
     Lazy::new(|| dot_env("BITCOIN_EXPLORER_API_SIGNET"));
-pub static BITCOIN_EXPLORER_API: Lazy<RwLock<String>> = Lazy::new(|| {
-    RwLock::new(BITCOIN_EXPLORER_API_TESTNET.to_owned()) //TODO: Change default to mainnet
-});
+static BITCOIN_EXPLORER_API_REGTEST: Lazy<String> =
+    Lazy::new(|| dot_env("BITCOIN_EXPLORER_API_REGTEST"));
+pub static BITCOIN_EXPLORER_API: Lazy<RwLock<String>> =
+    Lazy::new(|| RwLock::new(BITCOIN_EXPLORER_API_REGTEST.to_owned()));
 
 static BITCOIN_ELECTRUM_API_MAINNET: Lazy<String> =
     Lazy::new(|| dot_env("BITCOIN_ELECTRUM_API_MAINNET"));
@@ -36,9 +39,10 @@ static BITCOIN_ELECTRUM_API_TESTNET: Lazy<String> =
     Lazy::new(|| dot_env("BITCOIN_ELECTRUM_API_TESTNET"));
 static BITCOIN_ELECTRUM_API_SIGNET: Lazy<String> =
     Lazy::new(|| dot_env("BITCOIN_ELECTRUM_API_SIGNET"));
-pub static BITCOIN_ELECTRUM_API: Lazy<AsyncRwLock<String>> = Lazy::new(|| {
-    AsyncRwLock::new(BITCOIN_ELECTRUM_API_TESTNET.to_owned()) //TODO: Change default to mainnet
-});
+static BITCOIN_ELECTRUM_API_REGTEST: Lazy<String> =
+    Lazy::new(|| dot_env("BITCOIN_ELECTRUM_API_REGTEST"));
+pub static BITCOIN_ELECTRUM_API: Lazy<AsyncRwLock<String>> =
+    Lazy::new(|| AsyncRwLock::new(BITCOIN_ELECTRUM_API_REGTEST.to_owned()));
 
 pub static NODE_SERVER_BASE_URL: Lazy<String> = Lazy::new(|| dot_env("NODE_SERVER_BASE_URL"));
 
@@ -51,7 +55,7 @@ pub const RGB_ASSETS_PATH: &str = "m/168h/20h/0h";
 pub const RGB_UDAS_PATH: &str = "m/168h/21h/0h";
 
 pub static NETWORK: Lazy<RwLock<Network>> = Lazy::new(|| {
-    RwLock::new(Network::Testnet) // TODO: Change default to mainnet
+    RwLock::new(Network::Regtest) // TODO: Change default to mainnet
 });
 
 pub fn get_network() -> Result<String> {
@@ -70,14 +74,14 @@ pub async fn switch_network(network_str: &str) -> Result<()> {
         Network::Bitcoin => BITCOIN_EXPLORER_API_MAINNET.to_owned(),
         Network::Testnet => BITCOIN_EXPLORER_API_TESTNET.to_owned(),
         Network::Signet => BITCOIN_EXPLORER_API_SIGNET.to_owned(),
-        Network::Regtest => unimplemented!(),
+        Network::Regtest => BITCOIN_EXPLORER_API_REGTEST.to_owned(),
     };
 
     *BITCOIN_ELECTRUM_API.write().await = match network {
         Network::Bitcoin => BITCOIN_ELECTRUM_API_MAINNET.to_owned(),
         Network::Testnet => BITCOIN_ELECTRUM_API_TESTNET.to_owned(),
         Network::Signet => BITCOIN_ELECTRUM_API_SIGNET.to_owned(),
-        Network::Regtest => unimplemented!(),
+        Network::Regtest => BITCOIN_ELECTRUM_API_REGTEST.to_owned(),
     };
 
     *NETWORK.write().unwrap() = network;

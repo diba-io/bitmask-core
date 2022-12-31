@@ -1,7 +1,20 @@
-use bdk::{Balance, BlockTime, LocalUtxo};
-use bitcoin::{util::address::Address, OutPoint, Txid};
+// Desktop
+#[cfg(not(target_arch = "wasm32"))]
+use bitcoin::psbt::PartiallySignedTransaction;
 #[cfg(not(target_arch = "wasm32"))]
 use rgb_core::validation::Status;
+#[cfg(not(target_arch = "wasm32"))]
+use rgb_core::value::Revealed;
+#[cfg(not(target_arch = "wasm32"))]
+use rgb_core::SealEndpoint;
+#[cfg(not(target_arch = "wasm32"))]
+use rgb_std::AssignedState;
+#[cfg(not(target_arch = "wasm32"))]
+use rgb_std::{Disclosure, InmemConsignment, TransferConsignment};
+
+// Shared
+use bdk::{Balance, BlockTime, LocalUtxo};
+use bitcoin::{util::address::Address, OutPoint, Txid};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
@@ -13,7 +26,7 @@ pub struct WalletData {
     pub utxos: Vec<String>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct WalletTransaction {
     pub txid: Txid,
@@ -35,6 +48,7 @@ pub struct EncryptedWalletData {
     pub rgb_assets_descriptor_xpub: String,
     pub rgb_udas_descriptor_xprv: String,
     pub rgb_udas_descriptor_xpub: String,
+    pub xprvkh: String,
     pub xpubkh: String,
     pub mnemonic: String,
 }
@@ -121,6 +135,14 @@ pub struct AssetResponse {
     pub known_allocations: Vec<Allocation>,
 }
 
+#[cfg(not(target_arch = "wasm32"))]
+#[derive(Clone, PartialEq, Eq, Hash, Debug, Display)]
+#[display("{address}:{amount}", alt = "{address:#}:{amount:#}")]
+pub struct AddressAmount {
+    pub address: Address,
+    pub amount: u64,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ExportRequest {
     /// ContractId of the asset to export FROM the node
@@ -165,6 +187,13 @@ pub struct SealCoins {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct BlindingUtxo {
+    pub conceal: String,
+    pub blinding: String,
+    pub utxo: OutPoint,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TransferRequestExt {
     pub inputs: Vec<OutPoint>,
     pub allocate: Vec<SealCoins>,
@@ -175,15 +204,6 @@ pub struct TransferRequestExt {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TransferRequest {
-    pub rgb_assets_descriptor_xpub: String, // TODO: Privacy concerns. Not great, not terrible
-    pub blinded_utxo: String,
-    pub amount: u64,
-    pub asset_contract: String,
-    pub asset_utxos: Vec<LocalUtxo>,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TransferResult {
     pub consignment: String,
     pub disclosure: String,
@@ -191,15 +211,45 @@ pub struct TransferResult {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TransferResponse {
-    pub consignment: String,
+pub struct TransfersRequest {
+    pub descriptor_xpub: String, // TODO: Privacy concerns. Not great, not terrible
+    pub transfers: Vec<AssetTransfer>,
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct TransfersResponse {
+    pub psbt: PartiallySignedTransaction,
+    pub disclosure: Disclosure,
+    pub transfers: Vec<(InmemConsignment<TransferConsignment>, Vec<SealEndpoint>)>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct TransfersSerializeResponse {
     pub psbt: String,
     pub disclosure: String,
+    pub transfers: Vec<FinalizeTransfer>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ValidateRequest {
     pub consignment: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct AssetTransfer {
+    pub asset_contract: String,
+    pub asset_utxo: AssetUtxo,
+    pub asset_amount: u64,
+    pub change_utxo: String,
+    pub beneficiaries: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct AssetUtxo {
+    pub outpoint: OutPoint,
+    pub terminal_derivation: String,
+    pub commitment: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -217,9 +267,29 @@ pub struct AcceptResponse {
     pub valid: bool,
 }
 
-// TODO: unused?
-// #[derive(Serialize, Deserialize, Debug, Clone)]
-// pub struct EncloseForgetRequest {
-//     pub outpoints: Vec<OutPoint>,
-//     pub disclosure: String,
-// }
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct BlindedOutpoint {
+    pub outpoint: String,
+    pub consignment: String,
+    pub balance: u64,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct FinalizeTransfer {
+    pub consignment: String,
+    pub beneficiaries: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct FullUtxo {
+    pub utxo: LocalUtxo,
+    pub terminal_derivation: String,
+    pub commitment: String,
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+#[derive(Debug, Clone)]
+pub struct FullCoin {
+    pub coin: AssignedState<Revealed>,
+    pub terminal_derivation: String,
+}
