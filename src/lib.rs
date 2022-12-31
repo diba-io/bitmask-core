@@ -8,8 +8,8 @@ use anyhow::anyhow;
 use anyhow::Result;
 use bdk::{wallet::AddressIndex, FeeRate, LocalUtxo};
 #[cfg(not(target_arch = "wasm32"))]
-use bitcoin::consensus::serialize as serialize_psbt;
-use bitcoin::{util::address::Address, OutPoint, Transaction};
+use bitcoin::consensus::serialize as serialize_psbt; // Desktop
+use bitcoin::{util::address::Address, OutPoint, Transaction}; // Shared
 use bitcoin_hashes::{sha256, Hash};
 use serde::{Deserialize, Serialize};
 use serde_encrypt::{
@@ -176,8 +176,8 @@ pub async fn get_new_address(
     change_descriptor: Option<String>,
 ) -> Result<String> {
     info!("get_new_address");
-    info!("descriptor:", &descriptor);
-    info!("change_descriptor:", format!("{:?}", &change_descriptor));
+    info!(format!("descriptor: {descriptor}"));
+    info!(format!("change_descriptor: {change_descriptor:?}"));
 
     let wallet = get_wallet(descriptor, change_descriptor)?;
     synchronize_wallet(&wallet).await?;

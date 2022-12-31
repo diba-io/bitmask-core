@@ -1,7 +1,8 @@
-use crate::{debug, operations::bitcoin::balance::get_blockchain};
 use anyhow::{Error, Result};
 use bdk::{blockchain::Blockchain, database::AnyDatabase, SignOptions, Wallet};
 use bitcoin::{consensus::serialize, util::psbt::PartiallySignedTransaction, Transaction};
+
+use crate::{debug, operations::bitcoin::balance::get_blockchain};
 
 // Desktop
 #[cfg(not(target_arch = "wasm32"))]
@@ -143,6 +144,7 @@ pub async fn _create_psbt(
     Ok(psbt.into())
 }
 
+// Shared
 pub async fn sign_psbt(
     wallet: &Wallet<AnyDatabase>,
     mut psbt: PartiallySignedTransaction,

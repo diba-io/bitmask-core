@@ -30,9 +30,8 @@ static BITCOIN_EXPLORER_API_SIGNET: Lazy<String> =
     Lazy::new(|| dot_env("BITCOIN_EXPLORER_API_SIGNET"));
 static BITCOIN_EXPLORER_API_REGTEST: Lazy<String> =
     Lazy::new(|| dot_env("BITCOIN_EXPLORER_API_REGTEST"));
-pub static BITCOIN_EXPLORER_API: Lazy<RwLock<String>> = Lazy::new(|| {
-    RwLock::new(BITCOIN_EXPLORER_API_REGTEST.to_owned()) //TODO: Change default to mainnet
-});
+pub static BITCOIN_EXPLORER_API: Lazy<RwLock<String>> =
+    Lazy::new(|| RwLock::new(BITCOIN_EXPLORER_API_REGTEST.to_owned()));
 
 static BITCOIN_ELECTRUM_API_MAINNET: Lazy<String> =
     Lazy::new(|| dot_env("BITCOIN_ELECTRUM_API_MAINNET"));
@@ -42,9 +41,8 @@ static BITCOIN_ELECTRUM_API_SIGNET: Lazy<String> =
     Lazy::new(|| dot_env("BITCOIN_ELECTRUM_API_SIGNET"));
 static BITCOIN_ELECTRUM_API_REGTEST: Lazy<String> =
     Lazy::new(|| dot_env("BITCOIN_ELECTRUM_API_REGTEST"));
-pub static BITCOIN_ELECTRUM_API: Lazy<AsyncRwLock<String>> = Lazy::new(|| {
-    AsyncRwLock::new(BITCOIN_ELECTRUM_API_REGTEST.to_owned()) //TODO: Change default to mainnet
-});
+pub static BITCOIN_ELECTRUM_API: Lazy<AsyncRwLock<String>> =
+    Lazy::new(|| AsyncRwLock::new(BITCOIN_ELECTRUM_API_REGTEST.to_owned()));
 
 pub static NODE_SERVER_BASE_URL: Lazy<String> = Lazy::new(|| dot_env("NODE_SERVER_BASE_URL"));
 

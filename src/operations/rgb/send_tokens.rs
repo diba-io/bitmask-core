@@ -3,15 +3,6 @@ use std::{
     str::FromStr,
 };
 
-use crate::{
-    data::{
-        constants::{BITCOIN_ELECTRUM_API, ELECTRUM_TIMEOUT},
-        structs::{FullCoin, SealCoins},
-    },
-    debug, error, info,
-    rgb::shared::{compose_consignment, ConsignmentDetails},
-    TransfersRequest, TransfersResponse,
-};
 use anyhow::{anyhow, Result};
 use bitcoin::{consensus::deserialize, psbt::PartiallySignedTransaction, OutPoint};
 use bitcoin_scripts::taproot::DfsPath;
@@ -27,19 +18,26 @@ use rgb_std::{
     psbt::{RgbExt, RgbInExt},
     Contract, Disclosure, InmemConsignment, Node as RgbNode, SealEndpoint, TransferConsignment,
 };
-
 use wallet::descriptors::InputDescriptor;
 
+use crate::{
+    data::{
+        constants::{BITCOIN_ELECTRUM_API, ELECTRUM_TIMEOUT},
+        structs::{FullCoin, SealCoins},
+    },
+    debug, error, info,
+    rgb::shared::{compose_consignment, ConsignmentDetails},
+    TransfersRequest, TransfersResponse,
+};
+
 pub async fn transfer_asset(request: TransfersRequest) -> Result<TransfersResponse> {
-    debug!(format!(
-        "total transfers: {0}",
-        request.transfers.clone().len()
-    ));
+    debug!(format!("total transfers: {}", request.transfers.len()));
 
     let mut asset_utxos = vec![];
     let mut transitions = vec![];
     let mut contracts = vec![];
     let mut transfers = vec![];
+
     for transfer in request.transfers {
         // rgb-cli transfer compose ${CONTRACT_ID} ${UTXO_SRC} ${CONSIGNMENT}
         let contract = Contract::from_str(&transfer.asset_contract)?;
@@ -78,7 +76,6 @@ pub async fn transfer_asset(request: TransfersRequest) -> Result<TransfersRespon
         }
 
         let seal_coins: Vec<SealCoins> = allocations
-            .clone()
             .into_iter()
             .map(|full_coin| SealCoins {
                 amount: full_coin.coin.state.value,

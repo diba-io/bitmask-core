@@ -46,7 +46,7 @@ Parts of this application are built with conditional compilation statements for 
 
 ## Docker
 
-For running bitmask tests in regtest, please follow the steps bellow:
+For running bitmask-core tests in regtest, please follow the steps bellow:
 
 1. Build bitcoin node + electrum: `docker compose build`
 2. Up and running containers: `docker compose up -d node1`
@@ -58,7 +58,6 @@ For running bitmask tests in regtest, please follow the steps bellow:
 ### Troubleshooting
 
 #### **1. After restarting the container**
-
 
 **A.The bitcoin node does not work?**
 
