@@ -69,7 +69,7 @@ pub async fn create_payjoin(
         .await?;
     info!("Got PayJoin response");
     let res = response.bytes().await?;
-    info!("Response hex: {}", &res.to_hex());
+    info!("Response hex:", &res.to_hex());
     let payjoin_psbt = ctx.process_response(res.to_vec().as_slice())?;
     debug!(
         "Proposed PayJoin PSBT:",

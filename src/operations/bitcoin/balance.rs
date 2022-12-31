@@ -49,7 +49,7 @@ pub fn get_wallet(
         *NETWORK.read().unwrap(),
         db,
     )?;
-    debug!(format!("Using wallet: {wallet:?}"));
+    debug!(format!("Using wallet: {wallet:#?}"));
 
     Ok(wallet)
 }

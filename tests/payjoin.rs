@@ -3,7 +3,9 @@
 use std::env;
 
 use anyhow::Result;
-use bitmask_core::{get_encrypted_wallet, get_network, save_mnemonic_seed, send_sats};
+use bitmask_core::{
+    get_encrypted_wallet, get_network, get_wallet_data, save_mnemonic_seed, send_sats,
+};
 use log::info;
 
 const ENCRYPTION_PASSWORD: &str = "hunter2";
@@ -14,7 +16,7 @@ async fn payjoin() -> Result<()> {
     if env::var("RUST_LOG").is_err() {
         env::set_var(
             "RUST_LOG",
-            "bitmask_core=debug,bitmask_core::operations::rgb=trace,asset=debug",
+            "bitmask_core=debug,bitmask_core::operations::rgb=trace,payjoin=debug",
         );
     }
 
@@ -24,22 +26,30 @@ async fn payjoin() -> Result<()> {
     info!("Asset test on {network}");
 
     info!("Import wallets");
-    let mnemonic = "slice man valid help goose length promote same duty trim year talent";
-    let mnemonic_data = save_mnemonic_seed(mnemonic, ENCRYPTION_PASSWORD, SEED_PASSWORD)?;
+    let mnemonic = env::var("TEST_WALLET_SEED")?;
+    let mnemonic_data = save_mnemonic_seed(&mnemonic, ENCRYPTION_PASSWORD, SEED_PASSWORD)?;
 
     let vault = get_encrypted_wallet(
         ENCRYPTION_PASSWORD,
         &mnemonic_data.serialized_encrypted_message,
     )?;
 
+    let wallet = get_wallet_data(
+        &vault.btc_descriptor_xprv,
+        Some(vault.btc_change_descriptor_xprv.clone()),
+    )
+    .await?;
+    info!("Address: {}", wallet.address);
+
     info!("Initiating PayJoin using BIP-21");
-    let destination = "bitcoin:tb1pmp4d7ksutxymw8prnwy7mvd8g4q2zltq4qd7t4h8xn8ncuz80lessgcwma?pj=https://testnet.demo.btcpayserver.org/BTC/pj";
+    let address = env::var("MAIN_VAULT_ADDRESS")?;
+    let destination = format!("bitcoin:{address}?pj=https://testnet.demo.btcpayserver.org/BTC/pj");
     let amount = 1000;
 
     send_sats(
         &vault.btc_descriptor_xprv,
         &vault.btc_change_descriptor_xprv,
-        destination,
+        &destination,
         amount,
         Some(1.1),
     )
