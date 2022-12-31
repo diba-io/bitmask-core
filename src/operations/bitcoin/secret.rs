@@ -40,7 +40,7 @@ fn get_descriptor<C: ScriptContext>(
         if is_secret {
             Ok(desc_seckey.to_string())
         } else {
-            let desc_pubkey = desc_seckey.as_public(&secp)?;
+            let desc_pubkey = desc_seckey.to_public(&secp)?;
             Ok(desc_pubkey.to_string())
         }
     } else {

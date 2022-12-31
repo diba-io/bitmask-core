@@ -1,4 +1,5 @@
 #![allow(unused_variables)]
+use crate::data::structs::TransfersRequest;
 use crate::lightning;
 use js_sys::Promise;
 use serde::de::DeserializeOwned;
@@ -97,27 +98,12 @@ pub fn get_wallet_data(descriptor: String, change_descriptor: Option<String>) ->
     })
 }
 
-// #[wasm_bindgen]
-// pub fn list_assets(xpubkh: String, encryption_secret: String) -> Promise {
-//     set_panic_hook();
-
-//     future_to_promise(async move {
-//         // TODO: make call to storage lambda, decrypt, then pass to list_assets
-//         match crate::list_assets(&asset, &rgb_descriptor_xpub).await {
-//             Ok(result) => Ok(JsValue::from_string(
-//                 serde_json::to_string(&result).unwrap(),
-//             )),
-//             Err(err) => Err(JsValue::from_string(err.to_string())),
-//         }
-//     })
-// }
-
 #[wasm_bindgen]
-pub fn import_asset(asset: String, utxo: String, blinded: String) -> Promise {
+pub fn import_asset(asset: String, utxo: String) -> Promise {
     set_panic_hook();
 
     future_to_promise(async move {
-        match crate::import_asset(&asset, &utxo, &blinded).await {
+        match crate::import_asset(&asset, &utxo).await {
             Ok(result) => Ok(JsValue::from_string(
                 serde_json::to_string(&result).unwrap(),
             )),
@@ -230,33 +216,12 @@ pub fn create_asset(
     })
 }
 
-#[allow(clippy::too_many_arguments)]
-#[wasm_bindgen]
-pub fn send_assets(
-    btc_descriptor_xprv: String,
-    btc_change_descriptor_xprv: String,
-    rgb_assets_descriptor_xprv: String,
-    rgb_assets_descriptor_xpub: String,
-    blinded_utxo: String,
-    amount: u64,
-    asset_contract: String,
-    fee_rate: f32,
-) -> Promise {
+pub fn transfer_assets(request: JsValue) -> Promise {
     set_panic_hook();
 
     future_to_promise(async move {
-        match crate::send_assets(
-            &btc_descriptor_xprv,
-            &btc_change_descriptor_xprv,
-            &rgb_assets_descriptor_xprv,
-            &rgb_assets_descriptor_xpub,
-            &blinded_utxo,
-            amount,
-            &asset_contract,
-            fee_rate,
-        )
-        .await
-        {
+        let transfers: TransfersRequest = serde_wasm_bindgen::from_value(request).unwrap();
+        match crate::transfer_assets(transfers).await {
             Ok(result) => Ok(JsValue::from_string(
                 serde_json::to_string(&result).unwrap(),
             )),
