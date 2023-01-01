@@ -1,7 +1,6 @@
 use anyhow::Result;
 use bdk::{database::AnyDatabase, wallet::tx_builder::TxOrdering, FeeRate, Wallet};
 use bitcoin::{consensus::serialize, Transaction};
-use bitcoin_hashes::hex::ToHex;
 use payjoin::{PjUri, PjUriExt};
 
 use crate::{
@@ -68,9 +67,11 @@ pub async fn create_payjoin(
         .send()
         .await?;
     info!("Got PayJoin response");
-    let res = response.bytes().await?;
-    info!("Response hex:", &res.to_hex());
-    let payjoin_psbt = ctx.process_response(res.to_vec().as_slice())?;
+
+    let res = response.text().await?;
+    info!(format!("Response: {res}"));
+    let payjoin_psbt = ctx.process_response(res.as_bytes())?;
+
     debug!(
         "Proposed PayJoin PSBT:",
         base64::encode(&serialize(&payjoin_psbt))
