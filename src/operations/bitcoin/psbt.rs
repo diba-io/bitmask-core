@@ -172,7 +172,6 @@ pub async fn sign_original_psbt(
     debug!("Funding PSBT...");
     let opts = SignOptions {
         remove_partial_sigs: false,
-        try_finalize: false,
         ..Default::default()
     };
     wallet.sign(&mut psbt, opts)?;
