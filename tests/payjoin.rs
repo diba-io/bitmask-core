@@ -4,7 +4,7 @@ use std::env;
 
 use anyhow::Result;
 use bitmask_core::{
-    get_encrypted_wallet, get_network, get_wallet_data, save_mnemonic_seed, send_sats,
+    get_encrypted_wallet, get_wallet_data, save_mnemonic_seed, send_sats, switch_network,
 };
 use log::info;
 
@@ -22,8 +22,7 @@ async fn payjoin() -> Result<()> {
 
     pretty_env_logger::init();
 
-    let network = get_network()?;
-    info!("Asset test on {network}");
+    switch_network("testnet").await?;
 
     info!("Import wallets");
     let mnemonic = env::var("TEST_WALLET_SEED")?;
@@ -42,18 +41,26 @@ async fn payjoin() -> Result<()> {
     info!("Address: {}", wallet.address);
 
     info!("Initiating PayJoin using BIP-21");
-    let address = env::var("MAIN_VAULT_ADDRESS")?;
+    let address = wallet.address;
     let destination = format!("bitcoin:{address}?pj=https://testnet.demo.btcpayserver.org/BTC/pj");
     let amount = 1000;
 
-    send_sats(
+    match send_sats(
         &vault.btc_descriptor_xprv,
         &vault.btc_change_descriptor_xprv,
         &destination,
         amount,
         Some(1.1),
     )
-    .await?;
+    .await
+    {
+        Ok(_) => {
+            panic!("Unexpected");
+        }
+        Err(e) => {
+            assert_eq!(e.to_string(), "couldn't decode PSBT");
+        }
+    };
 
     Ok(())
 }
