@@ -107,7 +107,7 @@ pub async fn transfer_asset(request: TransfersRequest) -> Result<TransfersRespon
             })
             .collect();
 
-        let change = OutPoint::from_str(&transfer.change_utxo).expect("Error parsing change_utxo");
+        let change = OutPoint::from_str(&transfer.change_utxo)?;
         let changes = vec![AllocatedValue {
             value: remainder,
             seal: ExplicitSeal {
@@ -167,8 +167,7 @@ pub async fn transfer_asset(request: TransfersRequest) -> Result<TransfersRespon
 
     let url = BITCOIN_ELECTRUM_API.read().await;
     let electrum_config = ConfigBuilder::new()
-        .timeout(Some(ELECTRUM_TIMEOUT))
-        .expect("cannot fail since socks5 is unset")
+        .timeout(Some(ELECTRUM_TIMEOUT))?
         .build();
     let electrum_client = Client::from_config(&url, electrum_config)?;
     debug!(format!("Electrum client connected to {url}"));
