@@ -214,10 +214,8 @@ pub fn bech32m_zip_encode(hrp: &str, bytes: &[u8]) -> Result<String> {
     // algorithm used
     let writer = vec![RAW_DATA_ENCODING_DEFLATE];
     let mut encoder = DeflateEncoder::new(writer, Compression::Best);
-    encoder
-        .write_all(bytes)
-        .expect("in-memory strict encoder failure");
-    let bytes = encoder.finish().expect("zip algorithm failure");
+    encoder.write_all(bytes)?;
+    let bytes = encoder.finish()?;
 
     Ok(encode(hrp, bytes.to_base32(), Variant::Bech32m)?)
 }
