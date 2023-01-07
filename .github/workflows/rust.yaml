@@ -13,7 +13,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - uses: mastermaster
+      - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: stable
           targets: x86_64-unknown-linux-gnu
@@ -36,12 +36,11 @@ jobs:
           targets: x86_64-unknown-linux-gnu
           components: clippy
 
-      # - uses: olix0r/cargo-action-fmt@release/v1.0.0
+      - uses: olix0r/cargo-action-fmt/setup@v2
       - uses: Swatinem/rust-cache@v2
 
       - name: Lint
-        run: cargo clippy --lib --all-features -- -D warnings
-        # run: cargo clippy --lib --all-features -q --message-format=json -- -D warnings | clippy-action-fmt
+        run: cargo clippy --lib --all-features --message-format=json -- -D warnings | cargo-action-fmt
 
   lint-wasm:
     runs-on: ubuntu-latest
@@ -55,7 +54,7 @@ jobs:
           targets: wasm32-unknown-unknown
           components: clippy
 
-      # - uses: olix0r/cargo-action-fmt@release/v1.0.0
+      - uses: olix0r/cargo-action-fmt/setup@v2
       - uses: jetli/wasm-pack-action@v0.3.0
       - uses: Swatinem/rust-cache@v2
 
@@ -63,8 +62,7 @@ jobs:
         run: rustup target add wasm32-unknown-unknown
 
       - name: Lint (wasm32)
-        run: cargo clippy --target wasm32-unknown-unknown --lib -- -D warnings
-        # run: cargo clippy --target wasm32-unknown-unknown --lib -q --message-format=json -- -D warnings | clippy-action-fmt
+        run: cargo clippy --target wasm32-unknown-unknown --lib --message-format=json -- -D warnings | cargo-action-fmt
 
   test:
     runs-on: ubuntu-latest
