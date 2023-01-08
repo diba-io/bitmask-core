@@ -54,8 +54,7 @@ pub async fn _create_psbt(
         // Remove after new descriptor system is done.
         // Apply TapRet Commitment
         let tweak = if !input.commitment.trim().is_empty() {
-            let commit = CommitmentHash::from_hex(&input.commitment.to_string())
-                .expect("Commitment  must be a valid hash");
+            let commit = CommitmentHash::from_hex(&input.commitment.to_string())?;
             let script_commitment = TapScript::commit(&(commit, 0));
             let root = TreeNode::with_tap_script(script_commitment, 0);
             let tweak = TapBranchHash::from_inner(root.node_hash().into_inner());
@@ -90,8 +89,7 @@ pub async fn _create_psbt(
 
     let url = BITCOIN_ELECTRUM_API.read().await;
     let electrum_config = ConfigBuilder::new()
-        .timeout(Some(ELECTRUM_TIMEOUT))
-        .expect("cannot fail since socks5 is unset")
+        .timeout(Some(ELECTRUM_TIMEOUT))?
         .build();
     let electrum_client = Client::from_config(&url, electrum_config)?;
     debug!(format!("Electrum client connected to {url}"));

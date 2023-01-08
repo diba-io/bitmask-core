@@ -1,6 +1,6 @@
 [package]
 name = "bitmask-core"
-version = "0.5.0-rc.2"
+version = "0.5.0-rc.3"
 authors = [
     "Jose Diego Robles <jose@diba.io>",
     "Hunter Trujillo <hunter@diba.io>",
@@ -52,7 +52,7 @@ serde-encrypt = "0.7.0"
 tokio = { version = "1.23.0", features = ["macros", "sync"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-bdk = { version = "0.25.0", features = [
+bdk = { version = "0.26.0", features = [
     "use-esplora-async",
     "async-interface",
 ], default-features = false }
@@ -68,7 +68,7 @@ web-sys = "0.3.60"
 amplify = "3.13.0"
 axum = "0.6.1"
 axum-macros = "0.3.0"
-bdk = { version = "0.25.0", features = [
+bdk = { version = "0.26.0", features = [
     "use-esplora-async",
     "async-interface",
     "reqwest-default-tls",

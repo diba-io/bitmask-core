@@ -55,7 +55,7 @@ pub const RGB_ASSETS_PATH: &str = "m/168h/20h/0h";
 pub const RGB_UDAS_PATH: &str = "m/168h/21h/0h";
 
 pub static NETWORK: Lazy<RwLock<Network>> = Lazy::new(|| {
-    RwLock::new(Network::Regtest) // TODO: Change default to mainnet
+    RwLock::new(Network::from_str(&dot_env("BITCOIN_NETWORK")).expect("Parse Bitcoin network"))
 });
 
 pub fn get_network() -> Result<String> {

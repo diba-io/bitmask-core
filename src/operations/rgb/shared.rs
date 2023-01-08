@@ -213,8 +213,7 @@ async fn process_consignment<C: ConsignmentType>(
     ));
 
     let electrum_config = ConfigBuilder::new()
-        .timeout(Some(ELECTRUM_TIMEOUT))
-        .expect("cannot fail since socks5 is unset")
+        .timeout(Some(ELECTRUM_TIMEOUT))?
         .build();
     let electrum_client = Client::from_config(&BITCOIN_ELECTRUM_API.read().await, electrum_config)?;
 
@@ -319,9 +318,7 @@ async fn process_consignment<C: ConsignmentType>(
         ));
         debug!(format!("Anchor: {anchor:?}"));
         debug!(format!("Bundle: {bundle:?}"));
-        let anchor = anchor
-            .to_merkle_block(contract_id, bundle_id.into())
-            .expect("broken anchor data");
+        let anchor = anchor.to_merkle_block(contract_id, bundle_id.into())?;
         info!(format!("Restored anchor id is {}", anchor.anchor_id()));
         debug!(format!("Restored anchor: {anchor:?}"));
         anchors.insert(anchor.txid, anchor);
@@ -422,8 +419,7 @@ async fn process_consignment<C: ConsignmentType>(
             }
         }
 
-        let data = TransitionBundle::with(revealed, concealed)
-            .expect("enough data should be available to create bundle");
+        let data = TransitionBundle::with(revealed, concealed)?;
 
         // bundles.insert(witness_txid, data);
         let chunk_id = ChunkId::with_fixed_fragments(contract_id, witness_txid);
@@ -744,8 +740,7 @@ fn process_disclosure(
                         .insert(node_id);
                 }
             }
-            let data = TransitionBundle::with(revealed, concealed)
-                .expect("enough data should be available to create bundle");
+            let data = TransitionBundle::with(revealed, concealed)?;
             let chunk_id = ChunkId::with_fixed_fragments(*contract_id, witness_txid);
             consignment_details.bundles.insert(chunk_id, data);
         }
