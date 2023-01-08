@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use bdk::{database::AnyDatabase, wallet::tx_builder::TxOrdering, FeeRate, Wallet};
 use bitcoin::{consensus::serialize, Transaction};
 use payjoin::{PjUri, PjUriExt};
@@ -70,6 +70,11 @@ pub async fn create_payjoin(
 
     let res = response.text().await?;
     info!(format!("Response: {res}"));
+
+    if res.contains("errorCode") {
+        return Err(anyhow!("Error performing payjoin: {res}"));
+    }
+
     let payjoin_psbt = ctx.process_response(res.as_bytes())?;
 
     debug!(

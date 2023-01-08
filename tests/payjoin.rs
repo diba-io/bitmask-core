@@ -6,7 +6,7 @@ use anyhow::Result;
 use bitmask_core::{
     get_encrypted_wallet, get_wallet_data, save_mnemonic_seed, send_sats, switch_network,
 };
-use log::info;
+use log::{debug, info};
 
 const ENCRYPTION_PASSWORD: &str = "hunter2";
 const SEED_PASSWORD: &str = "";
@@ -58,7 +58,8 @@ async fn payjoin() -> Result<()> {
             panic!("Unexpected");
         }
         Err(e) => {
-            assert_eq!(e.to_string(), "couldn't decode PSBT");
+            debug!("{:#?}", e);
+            assert!(e.to_string().contains("invoice-not-found"));
         }
     };
 
