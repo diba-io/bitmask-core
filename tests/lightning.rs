@@ -1,6 +1,6 @@
 use anyhow::{Ok, Result};
 use bitmask_core::{
-    lightning::CreateWalletResponse,
+    lightning::{AuthResponse, CreateWalletResponse},
     operations::lightning::{
         auth, create_invoice, create_wallet, decode_invoice, get_balance, get_txs, pay_invoice,
         Transaction,
@@ -39,8 +39,20 @@ pub async fn auth_test() -> Result<()> {
     if let CreateWalletResponse::Username { username } = res {
         uname = username;
     }
-    let tokens = auth(&uname, &uname).await?;
-    assert!(tokens.refresh.len() > 1 && tokens.token.len() > 1);
+    let response = auth(&uname, &uname).await?;
+    if let AuthResponse::Result { refresh, token } = response {
+        assert!(refresh.len() > 1 && token.len() > 1);
+    }
+
+    Ok(())
+}
+
+#[tokio::test]
+pub async fn auth_failed_test() -> Result<()> {
+    let response = auth("fake_username", "fake_password").await?;
+    if let AuthResponse::Error { error } = response {
+        assert_eq!(error, "UserDoesNotExist");
+    }
 
     Ok(())
 }
@@ -55,13 +67,15 @@ pub async fn create_decode_invoice_test() -> Result<()> {
     let description = "testing create_invoice";
     let amt = 99;
     let amt_milli: u64 = 99 * 1000;
-    let tokens = auth(&uname, &uname).await?;
-    let invoice = create_invoice(description, amt, &tokens.token).await?;
-    let payment_request = invoice.payment_request.unwrap();
-    let decoded_invoice = decode_invoice(&payment_request)?;
-    let invoice_amt = decoded_invoice.amount_milli_satoshis().unwrap();
+    let response = auth(&uname, &uname).await?;
+    if let AuthResponse::Result { refresh: _, token } = response {
+        let invoice = create_invoice(description, amt, &token).await?;
+        let payment_request = invoice.payment_request.unwrap();
+        let decoded_invoice = decode_invoice(&payment_request)?;
+        let invoice_amt = decoded_invoice.amount_milli_satoshis().unwrap();
 
-    assert_eq!(amt_milli, invoice_amt);
+        assert_eq!(amt_milli, invoice_amt);
+    }
 
     Ok(())
 }
@@ -73,9 +87,11 @@ pub async fn get_balance_test() -> Result<()> {
     if let CreateWalletResponse::Username { username } = res {
         uname = username;
     }
-    let tokens = auth(&uname, &uname).await?;
-    let balances = get_balance(&tokens.token).await?;
-    assert_eq!(balances.len(), 0);
+    let response = auth(&uname, &uname).await?;
+    if let AuthResponse::Result { refresh: _, token } = response {
+        let balances = get_balance(&token).await?;
+        assert_eq!(balances.len(), 0);
+    }
 
     Ok(())
 }
@@ -88,19 +104,23 @@ pub async fn pay_invoice_error_test() -> Result<()> {
     if let CreateWalletResponse::Username { username } = res {
         alice = username;
     }
-    let alice_tokens = auth(&alice, &alice).await?;
-    // Alice invoice
-    let invoice = create_invoice("testing pay alice invoice", 33, &alice_tokens.token).await?;
-    // We create user Bob
-    let res = new_wallet().await?;
-    let mut bob = String::new();
-    if let CreateWalletResponse::Username { username } = res {
-        bob = username;
+    let alice_response = auth(&alice, &alice).await?;
+    if let AuthResponse::Result { refresh: _, token } = alice_response {
+        // Alice invoice
+        let invoice = create_invoice("testing pay alice invoice", 33, &token).await?;
+        // We create user Bob
+        let res = new_wallet().await?;
+        let mut bob = String::new();
+        if let CreateWalletResponse::Username { username } = res {
+            bob = username;
+        }
+        let bob_response = auth(&bob, &bob).await?;
+        if let AuthResponse::Result { refresh: _, token } = bob_response {
+            // We try to pay alice invoice from bob, which have balance = 0
+            let response = pay_invoice(&invoice.payment_request.unwrap(), &token).await?;
+            assert!(!response.success);
+        }
     }
-    let bob_tokens = auth(&bob, &bob).await?;
-    // We try to pay alice invoice from bob, which have balance = 0
-    let response = pay_invoice(&invoice.payment_request.unwrap(), &bob_tokens.token).await?;
-    assert!(!response.success);
 
     Ok(())
 }
@@ -112,9 +132,11 @@ pub async fn get_txs_test() -> Result<()> {
     if let CreateWalletResponse::Username { username } = res {
         uname = username;
     }
-    let tokens = auth(&uname, &uname).await?;
-    let txs: Vec<Transaction> = get_txs(&tokens.token).await?;
-    assert_eq!(txs.len(), 0);
+    let response = auth(&uname, &uname).await?;
+    if let AuthResponse::Result { refresh: _, token } = response {
+        let txs: Vec<Transaction> = get_txs(&token).await?;
+        assert_eq!(txs.len(), 0);
+    }
 
     Ok(())
 }
