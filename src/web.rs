@@ -130,14 +130,22 @@ pub fn get_blinded_utxo(utxo_string: String) -> Promise {
 pub fn send_sats(
     descriptor: String,
     change_descriptor: String,
-    address: String,
+    destination: String,
     amount: u64,
     fee_rate: Option<f32>,
 ) -> Promise {
     set_panic_hook();
 
     future_to_promise(async move {
-        match crate::send_sats(&descriptor, &change_descriptor, &address, amount, fee_rate).await {
+        match crate::send_sats(
+            &descriptor,
+            &change_descriptor,
+            &destination,
+            amount,
+            fee_rate,
+        )
+        .await
+        {
             Ok(result) => Ok(JsValue::from_string(
                 serde_json::to_string(&result).unwrap(),
             )),

@@ -142,7 +142,7 @@ pub async fn _create_psbt(
     Ok(psbt.into())
 }
 
-// Shared
+/// Signs and broadcasts a transaction given a Psbt
 pub async fn sign_psbt(
     wallet: &Wallet<AnyDatabase>,
     mut psbt: PartiallySignedTransaction,
@@ -160,4 +160,18 @@ pub async fn sign_psbt(
     } else {
         Err(Error::msg("Could not finalize when signing PSBT"))
     }
+}
+
+// Only signs an original psbt.
+pub async fn sign_original_psbt(
+    wallet: &Wallet<AnyDatabase>,
+    mut psbt: PartiallySignedTransaction,
+) -> Result<PartiallySignedTransaction> {
+    debug!("Funding PSBT...");
+    let opts = SignOptions {
+        remove_partial_sigs: false,
+        ..Default::default()
+    };
+    wallet.sign(&mut psbt, opts)?;
+    Ok(psbt)
 }
