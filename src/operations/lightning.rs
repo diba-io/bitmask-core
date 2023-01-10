@@ -2,7 +2,7 @@ use crate::{
     data::constants::LNDHUB_ENDPOINT,
     util::{get, post_json_auth},
 };
-use anyhow::{Ok, Result};
+use anyhow::Result;
 use lightning_invoice::Invoice;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -23,11 +23,12 @@ pub enum CreateWalletResponse {
     Error { error: String },
 }
 
-/// Lightning wallet tokens
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Tokens {
-    pub refresh: String,
-    pub token: String,
+/// Auth response
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(untagged)]
+pub enum AuthResponse {
+    Result { refresh: String, token: String },
+    Error { error: String },
 }
 
 /// Amount and currency
@@ -130,7 +131,7 @@ pub async fn create_wallet(username: &str, password: &str) -> Result<CreateWalle
 }
 
 /// Get a auth tokens
-pub async fn auth(username: &str, password: &str) -> Result<Tokens> {
+pub async fn auth(username: &str, password: &str) -> Result<AuthResponse> {
     let creds = Credentials {
         username: username.to_string(),
         password: password.to_string(),
@@ -138,9 +139,9 @@ pub async fn auth(username: &str, password: &str) -> Result<Tokens> {
     let endpoint = LNDHUB_ENDPOINT.to_string();
     let auth_url = format!("{endpoint}/auth");
     let response = post_json_auth(&auth_url, &Some(creds), None).await?;
-    let tokens: Tokens = serde_json::from_str(&response)?;
+    let response: AuthResponse = serde_json::from_str(&response)?;
 
-    Ok(tokens)
+    Ok(response)
 }
 
 /// Creates a lightning invoice
