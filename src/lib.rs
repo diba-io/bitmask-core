@@ -527,32 +527,51 @@ pub async fn get_assets_vault(
 
 #[cfg(not(target_arch = "wasm32"))]
 pub async fn transfer_assets(transfers: TransfersRequest) -> Result<TransfersSerializeResponse> {
-    use strict_encoding::strict_serialize;
+    use crate::data::structs::{BlindedOrNotOutpoint, ChangeTansfer, DeclareRequest};
 
     let resp = transfer_asset(transfers).await?;
 
     let psbt = serialize_psbt(&resp.psbt);
     let psbt = base64::encode(&psbt);
     let disclosure = serde_json::to_string(&resp.disclosure)?;
-    let transfers = resp
-        .transfers
-        .into_iter()
-        .map(|(c, seals)| {
-            let consignment = strict_serialize(&c).expect("Consignment information must be valid");
-            let consignment = util::bech32m_zip_encode("rgbc", &consignment)
-                .expect("Strict encoded information must be a valid consignment");
 
-            FinalizeTransfer {
-                consignment,
-                beneficiaries: seals.into_iter().map(|s| s.to_string()).collect(),
-            }
-        })
-        .collect();
+    let mut transfers = vec![];
+    let mut change_transfers = vec![];
+    for (index, (asset, changes, receptors, consignment)) in
+        resp.transaction_info.iter().enumerate()
+    {
+        transfers.push(FinalizeTransfer {
+            consignment: consignment.clone(),
+            asset: asset.clone(),
+            beneficiaries: receptors
+                .iter()
+                .map(|s| BlindedOrNotOutpoint {
+                    outpoint: format!("{}:{}", s.txid, s.vout),
+                    balance: s.amount,
+                })
+                .collect(),
+            previous_utxo: resp.origin[index].outpoint.to_string(),
+        });
+        change_transfers.push(ChangeTansfer {
+            asset: asset.clone(),
+            changes: changes
+                .iter()
+                .map(|c| BlindedOrNotOutpoint {
+                    outpoint: format!("{}:{}", c.seal.txid.unwrap(), c.seal.vout),
+                    balance: c.value,
+                })
+                .collect(),
+            previous_utxo: resp.origin[index].outpoint.to_string(),
+        });
+    }
 
     Ok(TransfersSerializeResponse {
         psbt,
-        disclosure,
-        transfers,
+        declare: DeclareRequest {
+            change_transfers,
+            transfers,
+            disclosure,
+        },
     })
 }
 
@@ -565,7 +584,21 @@ pub async fn transfer_assets(transfers: TransfersRequest) -> Result<TransfersSer
     if status != 200 {
         return Err(anyhow!("Error calling {endpoint}"));
     }
-    Ok(serde_json::from_str(&transfer_res)?)
+
+    let transfer_res: TransfersSerializeResponse = serde_json::from_str(&transfer_res)?;
+
+    #[cfg(target_arch = "wasm32")]
+    let _declare = async {
+        let endpoint = &get_endpoint("declare").await;
+        let (_transfer_res, status) = post_json(endpoint, &transfer_res.declare).await?;
+        if status != 200 {
+            return Err(anyhow!("Error calling {endpoint}"));
+        }
+        Ok(status)
+    }
+    .await?;
+
+    Ok(transfer_res)
 }
 
 #[cfg(not(target_arch = "wasm32"))]

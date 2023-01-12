@@ -220,15 +220,21 @@ pub struct TransfersRequest {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TransfersResponse {
     pub psbt: PartiallySignedTransaction,
+    pub origin: Vec<AssetUtxo>,
     pub disclosure: Disclosure,
     pub transfers: Vec<(InmemConsignment<TransferConsignment>, Vec<SealEndpoint>)>,
+    pub transaction_info: Vec<(
+        String,
+        Vec<rgb_std::fungible::allocation::AllocatedValue>,
+        Vec<SealCoins>,
+        String,
+    )>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TransfersSerializeResponse {
     pub psbt: String,
-    pub disclosure: String,
-    pub transfers: Vec<FinalizeTransfer>,
+    pub declare: DeclareRequest,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -268,16 +274,17 @@ pub struct AcceptResponse {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct BlindedOutpoint {
+pub struct BlindedOrNotOutpoint {
     pub outpoint: String,
-    pub consignment: String,
     pub balance: u64,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct FinalizeTransfer {
+    pub previous_utxo: String,
     pub consignment: String,
-    pub beneficiaries: Vec<String>,
+    pub asset: String,
+    pub beneficiaries: Vec<BlindedOrNotOutpoint>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -292,4 +299,19 @@ pub struct FullUtxo {
 pub struct FullCoin {
     pub coin: AssignedState<Revealed>,
     pub terminal_derivation: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct DeclareRequest {
+    pub disclosure: String,
+    pub change_transfers: Vec<ChangeTansfer>,
+    pub transfers: Vec<FinalizeTransfer>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ChangeTansfer {
+    pub previous_utxo: String,
+    pub asset: String,
+    pub changes: Vec<BlindedOrNotOutpoint>,
 }

@@ -18,6 +18,7 @@ use rgb_std::{
     psbt::{RgbExt, RgbInExt},
     Contract, Disclosure, InmemConsignment, Node as RgbNode, SealEndpoint, TransferConsignment,
 };
+use strict_encoding::strict_serialize;
 use wallet::descriptors::InputDescriptor;
 
 use crate::{
@@ -27,7 +28,7 @@ use crate::{
     },
     debug, error, info,
     rgb::shared::{compose_consignment, ConsignmentDetails},
-    TransfersRequest, TransfersResponse,
+    util, TransfersRequest, TransfersResponse,
 };
 
 pub async fn transfer_asset(request: TransfersRequest) -> Result<TransfersResponse> {
@@ -37,6 +38,7 @@ pub async fn transfer_asset(request: TransfersRequest) -> Result<TransfersRespon
     let mut transitions = vec![];
     let mut contracts = vec![];
     let mut transfers = vec![];
+    let mut transaction_info = vec![];
 
     for transfer in request.transfers {
         // rgb-cli transfer compose ${CONTRACT_ID} ${UTXO_SRC} ${CONSIGNMENT}
@@ -117,6 +119,8 @@ pub async fn transfer_asset(request: TransfersRequest) -> Result<TransfersRespon
             },
         }];
 
+        let changes_info = changes.clone();
+
         let changes = changes
             .into_iter()
             .map(|v| (v.into_revealed_seal(), v.value))
@@ -141,7 +145,17 @@ pub async fn transfer_asset(request: TransfersRequest) -> Result<TransfersRespon
         asset_utxos.push(asset_utxo);
         contracts.push(contract.clone());
         transitions.push((contract.contract_id(), transition));
+        let consignment_serialize =
+            strict_serialize(&consignment).expect("Consignment information must be valid");
+        let consignment_serialize = util::bech32m_zip_encode("rgbc", &consignment_serialize)
+            .expect("Strict encoded information must be a valid consignment");
         transfers.push((consignment, beneficiaries.into_keys().collect::<Vec<_>>()));
+        transaction_info.push((
+            contract.contract_id().to_string(),
+            changes_info,
+            seal_coins,
+            consignment_serialize.clone(),
+        ));
     }
 
     // descriptor-wallet -> btc-cold -> construct
@@ -155,6 +169,7 @@ pub async fn transfer_asset(request: TransfersRequest) -> Result<TransfersRespon
     let fee = 500;
     let allow_tapret_path = DfsPath::from_str("1")?;
     let input_descs: Vec<InputDescriptor> = asset_utxos
+        .clone()
         .into_iter()
         .map(|full| {
             let descriptor = format!(
@@ -315,7 +330,9 @@ pub async fn transfer_asset(request: TransfersRequest) -> Result<TransfersRespon
 
     Ok(TransfersResponse {
         psbt,
+        origin: asset_utxos,
         disclosure,
         transfers: consignments,
+        transaction_info,
     })
 }
