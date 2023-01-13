@@ -587,12 +587,11 @@ pub async fn transfer_assets(transfers: TransfersRequest) -> Result<TransfersSer
 
     let transfer_res: TransfersSerializeResponse = serde_json::from_str(&transfer_res)?;
 
-    #[cfg(target_arch = "wasm32")]
     let _declare = async {
-        let endpoint = &get_endpoint("declare").await;
-        let (_transfer_res, status) = post_json(endpoint, &transfer_res.declare).await?;
+        let declare_endpoint = &get_endpoint("declare").await;
+        let (_declare_res, status) = post_json(declare_endpoint, &transfer_res.declare).await?;
         if status != 200 {
-            return Err(anyhow!("Error calling {endpoint}"));
+            return Err(anyhow!("Error calling {declare_endpoint}"));
         }
         Ok(status)
     }
