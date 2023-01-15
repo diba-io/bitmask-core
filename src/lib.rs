@@ -589,7 +589,7 @@ pub async fn transfer_assets(transfers: TransfersRequest) -> Result<TransfersSer
 
     let _declare = async {
         let declare_endpoint = &get_endpoint("declare").await;
-        let (_declare_res, status) = post_json(declare_endpoint, &transfer_res.declare).await?;
+        let (_, status) = post_json(declare_endpoint, &transfer_res.declare).await?;
         if status != 200 {
             return Err(anyhow!("Error calling {declare_endpoint}"));
         }
