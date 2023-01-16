@@ -149,15 +149,19 @@ async fn allow_transfer_one_asset_to_one_beneficiary() -> Result<()> {
     debug!("Transfer response: {:#?}", &resp);
 
     info!("Accept transfer");
-    for transfer in resp.transfers {
-        let accept_details = accept_transfer(
-            &transfer.consignment,
-            &blinded_utxo.blinding,
-            &blinded_utxo.utxo.to_string(),
-        )
-        .await?;
-        debug!("Accept response: {:#?}", &accept_details);
-        assert_eq!(accept_details.id, issued_asset.asset_id, "RGB IDs match");
+    for transfer in resp.declare.transfers {
+        for beneficiary in transfer.beneficiaries {
+            if blinded_utxo.conceal.eq(&beneficiary.outpoint) {
+                let accept_details = accept_transfer(
+                    &transfer.consignment,
+                    &blinded_utxo.blinding,
+                    &blinded_utxo.utxo.to_string(),
+                )
+                .await?;
+                debug!("Accept response: {:#?}", &accept_details);
+                assert_eq!(accept_details.id, issued_asset.asset_id, "RGB IDs match");
+            }
+        }
     }
 
     Ok(())
@@ -302,11 +306,11 @@ async fn allow_transfer_one_asset_to_many_beneficiaries() -> Result<()> {
     debug!("Transfer response: {:#?}", &resp);
 
     info!("Accept transfer");
-    for transfer in resp.transfers {
+    for transfer in resp.declare.transfers {
         for beneficiary in transfer.beneficiaries {
-            if beneficiaries.contains_key(&beneficiary) {
+            if beneficiaries.contains_key(&beneficiary.outpoint) {
                 let reveal = beneficiaries
-                    .get(&beneficiary)
+                    .get(&beneficiary.outpoint)
                     .expect("Beneficiary not found in transition");
                 let accept_details = accept_transfer(
                     &transfer.consignment,
@@ -478,11 +482,11 @@ async fn allow_transfer_assets_to_one_beneficiary() -> Result<()> {
     debug!("Transfer response: {:#?}", &resp);
 
     info!("Accept transfer");
-    for transfer in resp.transfers {
+    for transfer in resp.declare.transfers {
         for beneficiary in transfer.beneficiaries {
-            if beneficiaries.contains_key(&beneficiary) {
+            if beneficiaries.contains_key(&beneficiary.outpoint) {
                 let reveal = beneficiaries
-                    .get(&beneficiary)
+                    .get(&beneficiary.outpoint)
                     .expect("Beneficiary not found in transition");
                 let accept_details = accept_transfer(
                     &transfer.consignment,
@@ -491,7 +495,7 @@ async fn allow_transfer_assets_to_one_beneficiary() -> Result<()> {
                 )
                 .await?;
                 debug!("Accept response: {:#?}", &accept_details);
-                assert!(issued_assets.contains(&accept_details.id), "RGB IDs match");
+                assert_eq!(accept_details.id, issued_asset.asset_id, "RGB IDs match");
             }
         }
     }
@@ -664,11 +668,11 @@ async fn allow_transfer_assets_to_many_beneficiary() -> Result<()> {
     debug!("Transfer response: {:#?}", &resp);
 
     info!("Accept transfer");
-    for transfer in resp.transfers {
+    for transfer in resp.declare.transfers {
         for beneficiary in transfer.beneficiaries {
-            if beneficiaries.contains_key(&beneficiary) {
+            if beneficiaries.contains_key(&beneficiary.outpoint) {
                 let reveal = beneficiaries
-                    .get(&beneficiary)
+                    .get(&beneficiary.outpoint)
                     .expect("Beneficiary not found in transition");
                 let accept_details = accept_transfer(
                     &transfer.consignment,
@@ -677,7 +681,7 @@ async fn allow_transfer_assets_to_many_beneficiary() -> Result<()> {
                 )
                 .await?;
                 debug!("Accept response: {:#?}", &accept_details);
-                assert!(issued_assets.contains(&accept_details.id), "RGB IDs match");
+                assert_eq!(accept_details.id, issued_asset.asset_id, "RGB IDs match");
             }
         }
     }
