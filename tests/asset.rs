@@ -124,11 +124,10 @@ async fn allow_transfer_one_asset_to_one_beneficiary() -> Result<()> {
     let blinded_utxo =
         get_blinded_utxo(&assets_vault_details.assets_change_output.clone().unwrap())?;
     debug!("Blinded UTXO: {:?}", blinded_utxo);
-
     let transfers = vec![AssetTransfer {
         asset_contract: issued_asset.genesis.to_string(),
         asset_utxo: AssetUtxo {
-            outpoint: OutPoint::from_str(&assets_vault_details.assets_output.unwrap())?,
+            outpoint: assets_vault_details.assets_output.unwrap(),
             terminal_derivation: "/0/0".to_string(),
             commitment: "".to_string(),
         },
@@ -277,7 +276,7 @@ async fn allow_transfer_one_asset_to_many_beneficiaries() -> Result<()> {
     let transfers = vec![AssetTransfer {
         asset_contract: issued_asset.genesis.to_string(),
         asset_utxo: AssetUtxo {
-            outpoint: OutPoint::from_str(&assets_vault_details.assets_output.unwrap())?,
+            outpoint: assets_vault_details.assets_output.unwrap(),
             terminal_derivation: "/0/0".to_string(),
             commitment: "".to_string(),
         },
@@ -447,7 +446,7 @@ async fn allow_transfer_assets_to_one_beneficiary() -> Result<()> {
         AssetTransfer {
             asset_contract: issued_asset.genesis.to_string(),
             asset_utxo: AssetUtxo {
-                outpoint: OutPoint::from_str(&assets_vault_details.assets_output.clone().unwrap())?,
+                outpoint: assets_vault_details.assets_output.clone().unwrap(),
                 terminal_derivation: "/0/0".to_string(),
                 commitment: "".to_string(),
             },
@@ -458,7 +457,7 @@ async fn allow_transfer_assets_to_one_beneficiary() -> Result<()> {
         AssetTransfer {
             asset_contract: issued_asset2.genesis.to_string(),
             asset_utxo: AssetUtxo {
-                outpoint: OutPoint::from_str(&assets_vault_details.assets_output.unwrap())?,
+                outpoint: assets_vault_details.assets_output.unwrap(),
                 terminal_derivation: "/0/0".to_string(),
                 commitment: "".to_string(),
             },
@@ -627,7 +626,7 @@ async fn allow_transfer_assets_to_many_beneficiary() -> Result<()> {
         AssetTransfer {
             asset_contract: issued_asset.genesis.to_string(),
             asset_utxo: AssetUtxo {
-                outpoint: OutPoint::from_str(&assets_vault_details.assets_output.clone().unwrap())?,
+                outpoint: assets_vault_details.assets_output.clone().unwrap(),
                 terminal_derivation: "/0/0".to_string(),
                 commitment: "".to_string(),
             },
@@ -641,7 +640,7 @@ async fn allow_transfer_assets_to_many_beneficiary() -> Result<()> {
         AssetTransfer {
             asset_contract: issued_asset2.genesis.to_string(),
             asset_utxo: AssetUtxo {
-                outpoint: OutPoint::from_str(&assets_vault_details.assets_output.unwrap())?,
+                outpoint: assets_vault_details.assets_output.unwrap(),
                 terminal_derivation: "/0/0".to_string(),
                 commitment: "".to_string(),
             },
