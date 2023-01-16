@@ -50,7 +50,7 @@ pub async fn transfer_asset(request: TransfersRequest) -> Result<TransfersRespon
         let mut allocations = vec![];
 
         let asset_utxo = transfer.asset_utxo.clone();
-        let coins = asset.outpoint_coins(asset_utxo.outpoint);
+        let coins = asset.outpoint_coins(OutPoint::from_str(&asset_utxo.outpoint)?);
         for coin in coins.clone() {
             balance += coin.state.value
         }
@@ -162,7 +162,7 @@ pub async fn transfer_asset(request: TransfersRequest) -> Result<TransfersRespon
     // btc-cold construct --input "${UTXO_SRC} /0/0" --allow-tapret-path 1 ${WALLET} ${PSBT} ${FEE}
     let txid_set: BTreeSet<_> = asset_utxos
         .iter()
-        .map(|input| input.outpoint.txid)
+        .map(|input| OutPoint::from_str(&input.outpoint).unwrap().txid)
         .collect();
     debug!(format!("txid set: {txid_set:?}"));
 
@@ -172,10 +172,7 @@ pub async fn transfer_asset(request: TransfersRequest) -> Result<TransfersRespon
         .clone()
         .into_iter()
         .map(|full| {
-            let descriptor = format!(
-                "{}:{} {}",
-                full.outpoint.txid, full.outpoint.vout, full.terminal_derivation,
-            );
+            let descriptor = format!("{} {}", full.outpoint, full.terminal_derivation,);
             InputDescriptor::from_str(&descriptor).expect("Error parsing input_descriptor")
         })
         .collect();

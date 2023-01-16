@@ -577,7 +577,7 @@ pub async fn transfer_assets(transfers: TransfersRequest) -> Result<TransfersSer
 
 #[cfg(target_arch = "wasm32")]
 pub async fn transfer_assets(transfers: TransfersRequest) -> Result<TransfersSerializeResponse> {
-    let endpoint = &get_endpoint("transfer").await;
+    let endpoint = &get_endpoint("send").await;
     let body = transfers;
 
     let (transfer_res, status) = post_json(endpoint, &body).await?;

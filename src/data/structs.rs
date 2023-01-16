@@ -253,7 +253,7 @@ pub struct AssetTransfer {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct AssetUtxo {
-    pub outpoint: OutPoint,
+    pub outpoint: String,
     pub terminal_derivation: String,
     pub commitment: String,
 }
