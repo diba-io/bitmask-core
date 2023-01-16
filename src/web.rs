@@ -224,6 +224,7 @@ pub fn create_asset(
     })
 }
 
+#[wasm_bindgen]
 pub fn transfer_assets(request: JsValue) -> Promise {
     set_panic_hook();
 
