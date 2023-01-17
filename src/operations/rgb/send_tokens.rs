@@ -97,7 +97,7 @@ pub async fn transfer_asset(request: TransfersRequest) -> Result<TransfersRespon
             })
             .collect();
 
-        let mut remainder = transfer.asset_amount;
+        let mut remainder = balance;
         let beneficiaries: BTreeMap<SealEndpoint, u64> = transfer
             .beneficiaries
             .into_iter()
