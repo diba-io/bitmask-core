@@ -1,10 +1,9 @@
 #![cfg(not(target_arch = "wasm32"))]
 
 use core::time;
-use std::{collections::BTreeMap, env, str::FromStr, thread};
+use std::{collections::BTreeMap, env, thread};
 
 use anyhow::Result;
-use bitcoin::OutPoint;
 use bitmask_core::{
     accept_transfer, create_asset,
     data::structs::{AssetTransfer, AssetUtxo},
@@ -425,10 +424,10 @@ async fn allow_transfer_assets_to_one_beneficiary() -> Result<()> {
         &assets_vault_details.assets_output.clone().unwrap(),
     )?;
 
-    let issued_assets = vec![
-        issued_asset.asset_id.clone(),
-        issued_asset2.asset_id.clone(),
-    ];
+    // let issued_assets = vec![
+    //     issued_asset.asset_id.clone(),
+    //     issued_asset2.asset_id.clone(),
+    // ];
 
     let asset_data = serde_json::to_string_pretty(&issued_asset)?;
     debug!("Asset data: {asset_data}");
@@ -600,10 +599,10 @@ async fn allow_transfer_assets_to_many_beneficiary() -> Result<()> {
         &assets_vault_details.assets_output.clone().unwrap(),
     )?;
 
-    let issued_assets = vec![
-        issued_asset.asset_id.clone(),
-        issued_asset2.asset_id.clone(),
-    ];
+    // let issued_assets = vec![
+    //     issued_asset.asset_id.clone(),
+    //     issued_asset2.asset_id.clone(),
+    // ];
 
     let asset_data = serde_json::to_string_pretty(&issued_asset)?;
     debug!("Asset data: {asset_data}");
