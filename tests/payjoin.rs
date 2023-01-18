@@ -13,15 +13,7 @@ const SEED_PASSWORD: &str = "";
 
 #[tokio::test]
 async fn payjoin() -> Result<()> {
-    if env::var("RUST_LOG").is_err() {
-        env::set_var(
-            "RUST_LOG",
-            "bitmask_core=debug,bitmask_core::operations::rgb=trace,payjoin=debug",
-        );
-    }
-
     pretty_env_logger::init();
-
     switch_network("testnet").await?;
 
     info!("Import wallets");
