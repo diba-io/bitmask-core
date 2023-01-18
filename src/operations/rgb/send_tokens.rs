@@ -24,7 +24,7 @@ use wallet::descriptors::InputDescriptor;
 use crate::{
     data::{
         constants::{BITCOIN_ELECTRUM_API, ELECTRUM_TIMEOUT},
-        structs::{FullCoin, SealCoins},
+        structs::{AssetTransferInfo, FullCoin, SealCoins},
     },
     debug, error, info,
     rgb::shared::{compose_consignment, ConsignmentDetails},
@@ -100,6 +100,7 @@ pub async fn transfer_asset(request: TransfersRequest) -> Result<TransfersRespon
         let mut remainder = balance;
         let beneficiaries: BTreeMap<SealEndpoint, u64> = transfer
             .beneficiaries
+            .clone()
             .into_iter()
             .map(|b| UtxobValue::from_str(&b).expect("Beneficiary must be a valid blinded utxo"))
             .into_iter()
@@ -118,8 +119,6 @@ pub async fn transfer_asset(request: TransfersRequest) -> Result<TransfersRespon
                 vout: change.vout,
             },
         }];
-
-        let changes_info = changes.clone();
 
         let changes = changes
             .into_iter()
@@ -150,12 +149,15 @@ pub async fn transfer_asset(request: TransfersRequest) -> Result<TransfersRespon
         let consignment_serialize = util::bech32m_zip_encode("rgbc", &consignment_serialize)
             .expect("Strict encoded information must be a valid consignment");
         transfers.push((consignment, beneficiaries.into_keys().collect::<Vec<_>>()));
-        transaction_info.push((
-            contract.contract_id().to_string(),
-            changes_info,
-            seal_coins,
-            consignment_serialize.clone(),
-        ));
+
+        transaction_info.push(AssetTransferInfo {
+            asset_contract: transfer.asset_contract,
+            consignment: consignment_serialize,
+            asset_utxo: transfer.asset_utxo.outpoint,
+            change_utxo: transfer.change_utxo,
+            change: remainder,
+            beneficiaries: transfer.beneficiaries,
+        });
     }
 
     // descriptor-wallet -> btc-cold -> construct
@@ -324,7 +326,6 @@ pub async fn transfer_asset(request: TransfersRequest) -> Result<TransfersRespon
     info!("Successfully created assets PSBT");
     let psbt = base64::decode(&base64::encode(&psbt.serialize()))?;
     let psbt: PartiallySignedTransaction = deserialize(&psbt)?;
-
     Ok(TransfersResponse {
         psbt,
         origin: asset_utxos,

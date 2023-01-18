@@ -537,30 +537,28 @@ pub async fn transfer_assets(transfers: TransfersRequest) -> Result<TransfersSer
 
     let mut transfers = vec![];
     let mut change_transfers = vec![];
-    for (index, (asset, changes, receptors, consignment)) in
-        resp.transaction_info.iter().enumerate()
-    {
+    for (index, asset_transfer_info) in resp.transaction_info.iter().enumerate() {
         transfers.push(FinalizeTransfer {
-            consignment: consignment.clone(),
-            asset: asset.clone(),
-            beneficiaries: receptors
+            consignment: asset_transfer_info.consignment.clone(),
+            asset: asset_transfer_info.asset_contract.clone(),
+            beneficiaries: asset_transfer_info
+                .beneficiaries
                 .iter()
-                .map(|s| BlindedOrNotOutpoint {
-                    outpoint: format!("{}:{}", s.txid, s.vout),
-                    balance: s.amount,
+                .map(|info| {
+                    let parts: Vec<&str> = info.split('@').collect();
+                    let balance = parts[0].parse::<u64>().unwrap();
+                    let outpoint = parts[1].to_string();
+                    BlindedOrNotOutpoint { outpoint, balance }
                 })
                 .collect(),
             previous_utxo: resp.origin[index].outpoint.to_string(),
         });
         change_transfers.push(ChangeTansfer {
-            asset: asset.clone(),
-            changes: changes
-                .iter()
-                .map(|c| BlindedOrNotOutpoint {
-                    outpoint: format!("{}:{}", c.seal.txid.unwrap(), c.seal.vout),
-                    balance: c.value,
-                })
-                .collect(),
+            asset: asset_transfer_info.asset_contract.clone(),
+            change: BlindedOrNotOutpoint {
+                outpoint: asset_transfer_info.change_utxo.clone(),
+                balance: asset_transfer_info.change,
+            },
             previous_utxo: resp.origin[index].outpoint.to_string(),
         });
     }

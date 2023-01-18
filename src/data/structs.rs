@@ -223,12 +223,7 @@ pub struct TransfersResponse {
     pub origin: Vec<AssetUtxo>,
     pub disclosure: Disclosure,
     pub transfers: Vec<(InmemConsignment<TransferConsignment>, Vec<SealEndpoint>)>,
-    pub transaction_info: Vec<(
-        String,
-        Vec<rgb_std::fungible::allocation::AllocatedValue>,
-        Vec<SealCoins>,
-        String,
-    )>,
+    pub transaction_info: Vec<AssetTransferInfo>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -248,6 +243,16 @@ pub struct AssetTransfer {
     pub asset_utxo: AssetUtxo,
     pub asset_amount: u64,
     pub change_utxo: String,
+    pub beneficiaries: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct AssetTransferInfo {
+    pub asset_contract: String,
+    pub consignment: String,
+    pub asset_utxo: String,
+    pub change_utxo: String,
+    pub change: u64,
     pub beneficiaries: Vec<String>,
 }
 
@@ -313,5 +318,5 @@ pub struct DeclareRequest {
 pub struct ChangeTansfer {
     pub previous_utxo: String,
     pub asset: String,
-    pub changes: Vec<BlindedOrNotOutpoint>,
+    pub change: BlindedOrNotOutpoint,
 }
