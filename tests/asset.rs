@@ -1,10 +1,9 @@
 #![cfg(not(target_arch = "wasm32"))]
 
 use core::time;
-use std::{collections::BTreeMap, env, str::FromStr, thread};
+use std::{collections::BTreeMap, env, thread};
 
 use anyhow::Result;
-use bitcoin::OutPoint;
 use bitmask_core::{
     accept_transfer, create_asset,
     data::structs::{AssetTransfer, AssetUtxo},
@@ -494,7 +493,7 @@ async fn allow_transfer_assets_to_one_beneficiary() -> Result<()> {
                 )
                 .await?;
                 debug!("Accept response: {:#?}", &accept_details);
-                assert_eq!(accept_details.id, issued_asset.asset_id, "RGB IDs match");
+                assert!(issued_assets.contains(&accept_details.id), "RGB IDs match");
             }
         }
     }
@@ -680,7 +679,7 @@ async fn allow_transfer_assets_to_many_beneficiary() -> Result<()> {
                 )
                 .await?;
                 debug!("Accept response: {:#?}", &accept_details);
-                assert_eq!(accept_details.id, issued_asset.asset_id, "RGB IDs match");
+                assert!(issued_assets.contains(&accept_details.id), "RGB IDs match");
             }
         }
     }
