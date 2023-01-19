@@ -527,6 +527,9 @@ pub async fn get_assets_vault(
 
 #[cfg(not(target_arch = "wasm32"))]
 pub async fn transfer_assets(transfers: TransfersRequest) -> Result<TransfersSerializeResponse> {
+    use rgb_std::{Contract, StateTransfer};
+    use strict_encoding::strict_serialize;
+
     use crate::data::structs::{BlindedOrNotOutpoint, ChangeTansfer, DeclareRequest};
 
     let resp = transfer_asset(transfers).await?;
@@ -537,9 +540,25 @@ pub async fn transfer_assets(transfers: TransfersRequest) -> Result<TransfersSer
 
     let mut transfers = vec![];
     let mut change_transfers = vec![];
+
+    // Retrieve consignment information + transition state
+    let state_transfers: Vec<StateTransfer> =
+        resp.transfers.clone().into_iter().map(|(f, _)| f).collect();
+
     for (index, asset_transfer_info) in resp.transaction_info.iter().enumerate() {
+        let consig = Contract::from_str(&asset_transfer_info.consignment.clone())?;
+        let state_transfer = state_transfers
+            .clone()
+            .into_iter()
+            .find(|st| st.contract_id() == consig.contract_id());
+
+        let state_serialize = strict_serialize(&state_transfer.unwrap())
+            .expect("Consignment information must be valid");
+        let state_serialize = util::bech32m_zip_encode("rgbc", &state_serialize)
+            .expect("Strict encoded information must be a valid consignment");
+
         transfers.push(FinalizeTransfer {
-            consignment: asset_transfer_info.consignment.clone(),
+            consignment: state_serialize,
             asset: asset_transfer_info.asset_contract.clone(),
             beneficiaries: asset_transfer_info
                 .beneficiaries
