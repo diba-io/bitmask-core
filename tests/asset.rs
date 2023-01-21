@@ -1,17 +1,17 @@
 #![cfg(not(target_arch = "wasm32"))]
 
-use core::time;
-use std::{collections::BTreeMap, env, thread};
-
 use anyhow::Result;
+use bitcoin::psbt::PartiallySignedTransaction;
 use bitmask_core::{
     accept_transfer, create_asset,
     data::structs::{AssetTransfer, AssetUtxo},
     fund_vault, get_assets_vault, get_blinded_utxo, get_encrypted_wallet, get_mnemonic_seed,
-    get_network, get_wallet_data, import_asset, save_mnemonic_seed, send_sats, transfer_assets,
-    TransfersRequest,
+    get_network, get_wallet, get_wallet_data, import_asset, save_mnemonic_seed, send_sats,
+    sign_psbt, synchronize_wallet, transfer_assets, TransfersRequest,
 };
+use core::time;
 use log::{debug, info};
+use std::{collections::BTreeMap, env, str::FromStr, thread};
 
 const ENCRYPTION_PASSWORD: &str = "hunter2";
 const SEED_PASSWORD: &str = "";
@@ -23,6 +23,12 @@ const SUPPLY: u64 = 1000;
 
 #[tokio::test]
 async fn allow_transfer_one_asset_to_one_beneficiary() -> Result<()> {
+    // if env::var("RUST_LOG").is_err() {
+    //     env::set_var(
+    //         "RUST_LOG",
+    //         "bitmask_core=debug,bitmask_core::operations::rgb=trace,asset=debug",
+    //     );
+    // }
     let _ = pretty_env_logger::try_init();
     let network = get_network()?;
     info!("Asset test on {network}");
@@ -70,7 +76,7 @@ async fn allow_transfer_one_asset_to_one_beneficiary() -> Result<()> {
         &main_vault.btc_descriptor_xprv,
         &main_vault.btc_change_descriptor_xprv,
         &btc_wallet.address,
-        5000,
+        100000,
         Some(1.1),
     )
     .await?;
@@ -95,9 +101,9 @@ async fn allow_transfer_one_asset_to_one_beneficiary() -> Result<()> {
             &tmp_vault.btc_change_descriptor_xprv,
             &assets_wallet.address,
             &udas_wallet.address,
-            546,
-            546,
-            Some(3.0),
+            1546,
+            1546,
+            Some(1.0),
         )
         .await?;
         debug!("Fund vault details: {assets_vault_details:#?}");
@@ -145,6 +151,13 @@ async fn allow_transfer_one_asset_to_one_beneficiary() -> Result<()> {
     })
     .await?;
     debug!("Transfer response: {:#?}", &resp);
+
+    let wallet = get_wallet(&tmp_vault.rgb_assets_descriptor_xprv, None)?;
+    synchronize_wallet(&wallet).await?;
+
+    let psbt = PartiallySignedTransaction::from_str(&resp.psbt)?;
+    let transaction = sign_psbt(&wallet, psbt).await?;
+    debug!("Transaction response: {:#?}", &transaction);
 
     info!("Accept transfer");
     for transfer in resp.declare.transfers {
@@ -214,7 +227,7 @@ async fn allow_transfer_one_asset_to_many_beneficiaries() -> Result<()> {
         &main_vault.btc_descriptor_xprv,
         &main_vault.btc_change_descriptor_xprv,
         &btc_wallet.address,
-        5000,
+        10000,
         Some(1.1),
     )
     .await?;
@@ -239,9 +252,9 @@ async fn allow_transfer_one_asset_to_many_beneficiaries() -> Result<()> {
             &tmp_vault.btc_change_descriptor_xprv,
             &assets_wallet.address,
             &udas_wallet.address,
-            546,
-            546,
-            Some(3.0),
+            1546,
+            1546,
+            Some(1.0),
         )
         .await?;
         debug!("Fund vault details: {assets_vault_details:#?}");
@@ -302,6 +315,13 @@ async fn allow_transfer_one_asset_to_many_beneficiaries() -> Result<()> {
     })
     .await?;
     debug!("Transfer response: {:#?}", &resp);
+
+    let wallet = get_wallet(&tmp_vault.rgb_assets_descriptor_xprv, None)?;
+    synchronize_wallet(&wallet).await?;
+
+    let psbt = PartiallySignedTransaction::from_str(&resp.psbt)?;
+    let transaction = sign_psbt(&wallet, psbt).await?;
+    debug!("Transaction response: {:#?}", &transaction);
 
     info!("Accept transfer");
     for transfer in resp.declare.transfers {
@@ -374,7 +394,7 @@ async fn allow_transfer_assets_to_one_beneficiary() -> Result<()> {
         &main_vault.btc_descriptor_xprv,
         &main_vault.btc_change_descriptor_xprv,
         &btc_wallet.address,
-        5000,
+        100000,
         Some(1.1),
     )
     .await?;
@@ -399,9 +419,9 @@ async fn allow_transfer_assets_to_one_beneficiary() -> Result<()> {
             &tmp_vault.btc_change_descriptor_xprv,
             &assets_wallet.address,
             &udas_wallet.address,
-            546,
-            546,
-            Some(3.0),
+            1546,
+            1546,
+            Some(1.0),
         )
         .await?;
         debug!("Fund vault details: {assets_vault_details:#?}");
@@ -421,7 +441,7 @@ async fn allow_transfer_assets_to_one_beneficiary() -> Result<()> {
         NAME,
         PRECISION,
         SUPPLY,
-        &assets_vault_details.assets_output.clone().unwrap(),
+        &assets_vault_details.assets_change_output.clone().unwrap(),
     )?;
 
     let issued_assets = vec![
@@ -456,7 +476,7 @@ async fn allow_transfer_assets_to_one_beneficiary() -> Result<()> {
         AssetTransfer {
             asset_contract: issued_asset2.genesis.to_string(),
             asset_utxo: AssetUtxo {
-                outpoint: assets_vault_details.assets_output.unwrap(),
+                outpoint: assets_vault_details.assets_change_output.clone().unwrap(),
                 terminal_derivation: "/0/0".to_string(),
                 commitment: "".to_string(),
             },
@@ -478,6 +498,13 @@ async fn allow_transfer_assets_to_one_beneficiary() -> Result<()> {
     })
     .await?;
     debug!("Transfer response: {:#?}", &resp);
+
+    let wallet = get_wallet(&tmp_vault.rgb_assets_descriptor_xprv, None)?;
+    synchronize_wallet(&wallet).await?;
+
+    let psbt = PartiallySignedTransaction::from_str(&resp.psbt)?;
+    let transaction = sign_psbt(&wallet, psbt).await?;
+    debug!("Transaction response: {:#?}", &transaction);
 
     info!("Accept transfer");
     for transfer in resp.declare.transfers {
@@ -549,7 +576,7 @@ async fn allow_transfer_assets_to_many_beneficiary() -> Result<()> {
         &main_vault.btc_descriptor_xprv,
         &main_vault.btc_change_descriptor_xprv,
         &btc_wallet.address,
-        5000,
+        10000,
         Some(1.1),
     )
     .await?;
@@ -574,9 +601,9 @@ async fn allow_transfer_assets_to_many_beneficiary() -> Result<()> {
             &tmp_vault.btc_change_descriptor_xprv,
             &assets_wallet.address,
             &udas_wallet.address,
-            546,
-            546,
-            Some(3.0),
+            1546,
+            1546,
+            Some(1.0),
         )
         .await?;
         debug!("Fund vault details: {assets_vault_details:#?}");
@@ -596,7 +623,7 @@ async fn allow_transfer_assets_to_many_beneficiary() -> Result<()> {
         NAME,
         PRECISION,
         SUPPLY,
-        &assets_vault_details.assets_output.clone().unwrap(),
+        &assets_vault_details.assets_change_output.clone().unwrap(),
     )?;
 
     let issued_assets = vec![
@@ -639,7 +666,7 @@ async fn allow_transfer_assets_to_many_beneficiary() -> Result<()> {
         AssetTransfer {
             asset_contract: issued_asset2.genesis.to_string(),
             asset_utxo: AssetUtxo {
-                outpoint: assets_vault_details.assets_output.unwrap(),
+                outpoint: assets_vault_details.assets_change_output.clone().unwrap(),
                 terminal_derivation: "/0/0".to_string(),
                 commitment: "".to_string(),
             },
@@ -664,6 +691,13 @@ async fn allow_transfer_assets_to_many_beneficiary() -> Result<()> {
     })
     .await?;
     debug!("Transfer response: {:#?}", &resp);
+
+    let wallet = get_wallet(&tmp_vault.rgb_assets_descriptor_xprv, None)?;
+    synchronize_wallet(&wallet).await?;
+
+    let psbt = PartiallySignedTransaction::from_str(&resp.psbt)?;
+    let transaction = sign_psbt(&wallet, psbt).await?;
+    debug!("Transaction response: {:#?}", &transaction);
 
     info!("Accept transfer");
     for transfer in resp.declare.transfers {
