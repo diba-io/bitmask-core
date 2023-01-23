@@ -285,7 +285,6 @@ pub struct BlindedOrNotOutpoint {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(rename_all = "camelCase")]
 pub struct FinalizeTransfer {
     pub previous_utxo: String,
     pub consignment: String,
@@ -294,7 +293,6 @@ pub struct FinalizeTransfer {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(rename_all = "camelCase")]
 pub struct FullUtxo {
     pub utxo: LocalUtxo,
     pub terminal_derivation: String,
@@ -317,7 +315,6 @@ pub struct DeclareRequest {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(rename_all = "camelCase")]
 pub struct ChangeTansfer {
     pub previous_utxo: String,
     pub asset: String,
