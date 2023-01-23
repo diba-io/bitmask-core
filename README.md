@@ -50,7 +50,6 @@ Upon a new release, follow these steps:
 
 1. Run `cargo update` to update to latest deps.
 1. Run `cargo +nightly udeps` to see if there are any unused dependencies.
-1.
 
 ## Docker
 

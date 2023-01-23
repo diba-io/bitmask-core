@@ -349,7 +349,7 @@ struct TransactionData {
 #[cfg(not(target_arch = "wasm32"))]
 pub fn get_blinded_utxo(utxo_string: &Option<String>) -> Result<BlindingUtxo> {
     if let Some(utxo_string) = utxo_string {
-        let utxo = OutPoint::from_str(&utxo_string)?;
+        let utxo = OutPoint::from_str(utxo_string)?;
 
         let blind = blind_utxo(utxo)?;
 
