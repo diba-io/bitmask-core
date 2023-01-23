@@ -573,6 +573,15 @@ async fn allow_transfer_assets_to_one_beneficiary() -> Result<()> {
                 })
                 .await?;
                 debug!("Second transfer response: {resp:#?}");
+
+                thread::sleep(five_secs);
+
+                let wallet = get_wallet(&tmp_vault.rgb_assets_descriptor_xprv, None)?;
+                synchronize_wallet(&wallet).await?;
+
+                let psbt = PartiallySignedTransaction::from_str(&resp.psbt)?;
+                let transaction = sign_psbt(&wallet, psbt).await?;
+                debug!("Second transaction response: {:#?}", &transaction);
             }
         }
     }
