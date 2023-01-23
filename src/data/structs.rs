@@ -186,10 +186,16 @@ pub struct SealCoins {
     pub vout: u32,
 }
 
+/// A blinded UTXO is an outpoint (txid:vout) that has an associated blinding factor to be kept track of separately.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BlindingUtxo {
+    /// An encoded blinded UTXO. Sort of like an RGB address used to receive assets.
+    /// Example: `"txob1gv9338jucjwledjqel62gg5nxy2kle5r2dk255ky3reevtjsx00q3nf3fe"`
     pub conceal: String,
+    /// 64-bit blinding factor to reveal assets sent to the blinded UTXO. Helps with privacy.
+    /// Example: `"8394351521931962961"`
     pub blinding: String,
+    /// Outpoint struct
     pub utxo: OutPoint,
 }
 

@@ -44,6 +44,14 @@ Parts of this application are built with conditional compilation statements for 
 
 `cargo clippy --target wasm32-unknown-unknown --no-default-features --release`
 
+## Release
+
+Upon a new release, follow these steps:
+
+1. Run `cargo update` to update to latest deps.
+1. Run `cargo +nightly udeps` to see if there are any unused dependencies.
+1.
+
 ## Docker
 
 For running bitmask-core tests in regtest, please follow the steps bellow:
