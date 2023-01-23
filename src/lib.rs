@@ -347,18 +347,22 @@ struct TransactionData {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-pub fn get_blinded_utxo(utxo_string: &str) -> Result<BlindingUtxo> {
-    let utxo = OutPoint::from_str(utxo_string)?;
+pub fn get_blinded_utxo(utxo_string: &Option<String>) -> Result<BlindingUtxo> {
+    if let Some(utxo_string) = utxo_string {
+        let utxo = OutPoint::from_str(utxo_string)?;
 
-    let blind = blind_utxo(utxo)?;
+        let blind = blind_utxo(utxo)?;
 
-    let blinding_utxo = BlindingUtxo {
-        conceal: blind.conceal,
-        blinding: blind.blinding,
-        utxo,
-    };
+        let blinding_utxo = BlindingUtxo {
+            conceal: blind.conceal,
+            blinding: blind.blinding,
+            utxo,
+        };
 
-    Ok(blinding_utxo)
+        Ok(blinding_utxo)
+    } else {
+        Err(anyhow!("No utxo string passed"))
+    }
 }
 
 #[cfg(target_arch = "wasm32")]
