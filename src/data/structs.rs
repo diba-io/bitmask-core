@@ -307,7 +307,6 @@ pub struct FullCoin {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(rename_all = "camelCase")]
 pub struct DeclareRequest {
     pub disclosure: String,
     pub change_transfers: Vec<ChangeTansfer>,
