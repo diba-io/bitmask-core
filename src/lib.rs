@@ -307,13 +307,13 @@ pub fn import_asset(asset: &str, utxos: Vec<String>) -> Result<ThinAsset> {
 }
 
 #[cfg(target_arch = "wasm32")]
-pub async fn import_asset(asset: &str, utxo: &str, blinded: &str) -> Result<ThinAsset> {
+pub async fn import_asset(asset: &str, utxo: &str) -> Result<ThinAsset> {
     info!("Getting asset:", asset);
 
     let endpoint = &get_endpoint("import").await;
     let body = AssetRequest {
         asset: asset.to_owned(),
-        utxos: vec![utxo.to_owned(), blinded.to_owned()],
+        utxos: vec![utxo.to_owned()],
     };
     let (asset_res, status) = post_json(endpoint, &body).await?;
     if status != 200 {
@@ -347,18 +347,22 @@ struct TransactionData {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-pub fn get_blinded_utxo(utxo_string: &str) -> Result<BlindingUtxo> {
-    let utxo = OutPoint::from_str(utxo_string)?;
+pub fn get_blinded_utxo(utxo_string: &Option<String>) -> Result<BlindingUtxo> {
+    if let Some(utxo_string) = utxo_string {
+        let utxo = OutPoint::from_str(utxo_string)?;
 
-    let blind = blind_utxo(utxo)?;
+        let blind = blind_utxo(utxo)?;
 
-    let blinding_utxo = BlindingUtxo {
-        conceal: blind.conceal,
-        blinding: blind.blinding,
-        utxo,
-    };
+        let blinding_utxo = BlindingUtxo {
+            conceal: blind.conceal,
+            blinding: blind.blinding,
+            utxo,
+        };
 
-    Ok(blinding_utxo)
+        Ok(blinding_utxo)
+    } else {
+        Err(anyhow!("No utxo string passed"))
+    }
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -527,45 +531,94 @@ pub async fn get_assets_vault(
 
 #[cfg(not(target_arch = "wasm32"))]
 pub async fn transfer_assets(transfers: TransfersRequest) -> Result<TransfersSerializeResponse> {
+    use rgb_std::{Contract, StateTransfer};
     use strict_encoding::strict_serialize;
+
+    use crate::data::structs::{BlindedOrNotOutpoint, ChangeTansfer, DeclareRequest};
 
     let resp = transfer_asset(transfers).await?;
 
     let psbt = serialize_psbt(&resp.psbt);
     let psbt = base64::encode(&psbt);
     let disclosure = serde_json::to_string(&resp.disclosure)?;
-    let transfers = resp
-        .transfers
-        .into_iter()
-        .map(|(c, seals)| {
-            let consignment = strict_serialize(&c).expect("Consignment information must be valid");
-            let consignment = util::bech32m_zip_encode("rgbc", &consignment)
-                .expect("Strict encoded information must be a valid consignment");
 
-            FinalizeTransfer {
-                consignment,
-                beneficiaries: seals.into_iter().map(|s| s.to_string()).collect(),
-            }
-        })
-        .collect();
+    let mut transfers = vec![];
+    let mut change_transfers = vec![];
+
+    // Retrieve consignment information + transition state
+    let state_transfers: Vec<StateTransfer> =
+        resp.transfers.clone().into_iter().map(|(f, _)| f).collect();
+
+    for (index, asset_transfer_info) in resp.transaction_info.iter().enumerate() {
+        let consig = Contract::from_str(&asset_transfer_info.consignment.clone())?;
+        let state_transfer = state_transfers
+            .clone()
+            .into_iter()
+            .find(|st| st.contract_id() == consig.contract_id());
+
+        let state_serialize = strict_serialize(&state_transfer.unwrap())
+            .expect("Consignment information must be valid");
+        let state_serialize = util::bech32m_zip_encode("rgbc", &state_serialize)
+            .expect("Strict encoded information must be a valid consignment");
+
+        transfers.push(FinalizeTransfer {
+            consignment: state_serialize,
+            asset: asset_transfer_info.asset_contract.clone(),
+            beneficiaries: asset_transfer_info
+                .beneficiaries
+                .iter()
+                .map(|info| {
+                    let parts: Vec<&str> = info.split('@').collect();
+                    let balance = parts[0].parse::<u64>().unwrap();
+                    let outpoint = parts[1].to_string();
+                    BlindedOrNotOutpoint { outpoint, balance }
+                })
+                .collect(),
+            previous_utxo: resp.origin[index].outpoint.to_string(),
+        });
+        change_transfers.push(ChangeTansfer {
+            asset: asset_transfer_info.asset_contract.clone(),
+            change: BlindedOrNotOutpoint {
+                outpoint: asset_transfer_info.change_utxo.clone(),
+                balance: asset_transfer_info.change,
+            },
+            previous_utxo: resp.origin[index].outpoint.to_string(),
+        });
+    }
 
     Ok(TransfersSerializeResponse {
         psbt,
-        disclosure,
-        transfers,
+        declare: DeclareRequest {
+            change_transfers,
+            transfers,
+            disclosure,
+        },
     })
 }
 
 #[cfg(target_arch = "wasm32")]
 pub async fn transfer_assets(transfers: TransfersRequest) -> Result<TransfersSerializeResponse> {
-    let endpoint = &get_endpoint("transfer").await;
+    let endpoint = &get_endpoint("send").await;
     let body = transfers;
 
     let (transfer_res, status) = post_json(endpoint, &body).await?;
     if status != 200 {
         return Err(anyhow!("Error calling {endpoint}"));
     }
-    Ok(serde_json::from_str(&transfer_res)?)
+
+    let transfer_res: TransfersSerializeResponse = serde_json::from_str(&transfer_res)?;
+
+    let _declare = async {
+        let declare_endpoint = &get_endpoint("declare").await;
+        let (_, status) = post_json(declare_endpoint, &transfer_res.declare).await?;
+        if status != 200 {
+            return Err(anyhow!("Error calling {declare_endpoint}"));
+        }
+        Ok(status)
+    }
+    .await?;
+
+    Ok(transfer_res)
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -581,6 +634,19 @@ pub async fn accept_transfer(
     } else {
         Err(anyhow!("Incorrect seals. id: {} stratus: {}", id, info))
     }
+}
+
+#[cfg(target_arch = "wasm32")]
+pub async fn sign_psbt_web(rgb_descriptor_xprv: &str, psbt: &str) -> Result<Transaction> {
+    use bitcoin::psbt::PartiallySignedTransaction;
+
+    let wallet = get_wallet(rgb_descriptor_xprv, None)?;
+    synchronize_wallet(&wallet).await?;
+
+    let psbt = PartiallySignedTransaction::from_str(psbt)?;
+    let transaction = sign_psbt(&wallet, psbt).await?;
+
+    Ok(transaction)
 }
 
 #[cfg(target_arch = "wasm32")]

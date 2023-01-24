@@ -153,7 +153,7 @@ pub async fn sign_psbt(
     if finalized {
         debug!("Signed PSBT:", base64::encode(&serialize(&psbt)));
         let tx = psbt.extract_tx();
-        debug!("tx:", base64::encode(&serialize(&tx)));
+        debug!("tx:", base64::encode(&serialize(&tx.clone())));
         let blockchain = get_blockchain();
         blockchain.broadcast(&tx).await?;
         Ok(tx)

@@ -186,10 +186,16 @@ pub struct SealCoins {
     pub vout: u32,
 }
 
+/// A blinded UTXO is an outpoint (txid:vout) that has an associated blinding factor to be kept track of separately.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BlindingUtxo {
+    /// An encoded blinded UTXO. Sort of like an RGB address used to receive assets.
+    /// Example: `"txob1gv9338jucjwledjqel62gg5nxy2kle5r2dk255ky3reevtjsx00q3nf3fe"`
     pub conceal: String,
+    /// 64-bit blinding factor to reveal assets sent to the blinded UTXO. Helps with privacy.
+    /// Example: `"8394351521931962961"`
     pub blinding: String,
+    /// Outpoint struct
     pub utxo: OutPoint,
 }
 
@@ -220,15 +226,16 @@ pub struct TransfersRequest {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TransfersResponse {
     pub psbt: PartiallySignedTransaction,
+    pub origin: Vec<AssetUtxo>,
     pub disclosure: Disclosure,
     pub transfers: Vec<(InmemConsignment<TransferConsignment>, Vec<SealEndpoint>)>,
+    pub transaction_info: Vec<AssetTransferInfo>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TransfersSerializeResponse {
     pub psbt: String,
-    pub disclosure: String,
-    pub transfers: Vec<FinalizeTransfer>,
+    pub declare: DeclareRequest,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -246,8 +253,18 @@ pub struct AssetTransfer {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct AssetTransferInfo {
+    pub asset_contract: String,
+    pub consignment: String,
+    pub asset_utxo: String,
+    pub change_utxo: String,
+    pub change: u64,
+    pub beneficiaries: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct AssetUtxo {
-    pub outpoint: OutPoint,
+    pub outpoint: String,
     pub terminal_derivation: String,
     pub commitment: String,
 }
@@ -268,16 +285,17 @@ pub struct AcceptResponse {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct BlindedOutpoint {
+pub struct BlindedOrNotOutpoint {
     pub outpoint: String,
-    pub consignment: String,
     pub balance: u64,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct FinalizeTransfer {
+    pub previous_utxo: String,
     pub consignment: String,
-    pub beneficiaries: Vec<String>,
+    pub asset: String,
+    pub beneficiaries: Vec<BlindedOrNotOutpoint>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -292,4 +310,18 @@ pub struct FullUtxo {
 pub struct FullCoin {
     pub coin: AssignedState<Revealed>,
     pub terminal_derivation: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct DeclareRequest {
+    pub disclosure: String,
+    pub change_transfers: Vec<ChangeTansfer>,
+    pub transfers: Vec<FinalizeTransfer>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ChangeTansfer {
+    pub previous_utxo: String,
+    pub asset: String,
+    pub change: BlindedOrNotOutpoint,
 }
