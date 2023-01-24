@@ -240,6 +240,20 @@ pub fn transfer_assets(request: JsValue) -> Promise {
 }
 
 #[wasm_bindgen]
+pub fn sign_psbt(rgb_descriptor_xprv: String, psbt: String) -> Promise {
+    set_panic_hook();
+
+    future_to_promise(async move {
+        match crate::sign_psbt_web(&rgb_descriptor_xprv, &psbt).await {
+            Ok(result) => Ok(JsValue::from_string(
+                serde_json::to_string(&result).unwrap(),
+            )),
+            Err(err) => Err(JsValue::from_string(err.to_string())),
+        }
+    })
+}
+
+#[wasm_bindgen]
 pub fn accept_transfer(consignment: String, blinding_factor: String, outpoint: String) -> Promise {
     set_panic_hook();
 

@@ -637,6 +637,19 @@ pub async fn accept_transfer(
 }
 
 #[cfg(target_arch = "wasm32")]
+pub async fn sign_psbt_web(rgb_descriptor_xprv: &str, psbt: &str) -> Result<Transaction> {
+    use bitcoin::psbt::PartiallySignedTransaction;
+
+    let wallet = get_wallet(rgb_descriptor_xprv, None)?;
+    synchronize_wallet(&wallet).await?;
+
+    let psbt = PartiallySignedTransaction::from_str(psbt)?;
+    let transaction = sign_psbt(&wallet, psbt).await?;
+
+    Ok(transaction)
+}
+
+#[cfg(target_arch = "wasm32")]
 pub async fn accept_transfer(
     consignment: &str,
     blinding_factor: &str,
