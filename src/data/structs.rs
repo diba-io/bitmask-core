@@ -9,11 +9,12 @@ use rgb_core::value::Revealed;
 use rgb_core::SealEndpoint;
 #[cfg(not(target_arch = "wasm32"))]
 use rgb_std::AssignedState;
+#[cfg(not(target_arch = "wasm32"))]
+use rgb_std::{Disclosure, InmemConsignment, TransferConsignment};
 
 // Shared
 use bdk::{Balance, BlockTime, LocalUtxo};
 use bitcoin::{util::address::Address, OutPoint, Txid};
-use rgb_std::{Disclosure, InmemConsignment, TransferConsignment};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
@@ -313,7 +314,7 @@ pub struct FullCoin {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct DeclareRequest {
-    pub disclosure: Disclosure,
+    pub disclosure: String,
     pub change_transfers: Vec<ChangeTansfer>,
     pub transfers: Vec<FinalizeTransfer>,
 }
