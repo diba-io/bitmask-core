@@ -314,7 +314,7 @@ pub struct FullCoin {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct DeclareRequest {
-    pub disclosure: String,
+    pub disclosure: Disclosure,
     pub change_transfers: Vec<ChangeTansfer>,
     pub transfers: Vec<FinalizeTransfer>,
 }

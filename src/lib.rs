@@ -540,7 +540,7 @@ pub async fn transfer_assets(transfers: TransfersRequest) -> Result<TransfersSer
 
     let psbt = serialize_psbt(&resp.psbt);
     let psbt = base64::encode(&psbt);
-    let disclosure = serde_json::to_string(&resp.disclosure)?;
+    let disclosure = resp.disclosure.to_owned();
 
     let mut transfers = vec![];
     let mut change_transfers = vec![];
