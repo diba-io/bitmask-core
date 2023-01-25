@@ -409,3 +409,17 @@ pub fn ln_pay_invoice(payment_request: String, token: String) -> Promise {
         }
     })
 }
+
+#[wasm_bindgen]
+pub fn ln_check_payment(payment_hash: String) -> Promise {
+    set_panic_hook();
+
+    future_to_promise(async move {
+        match lightning::pay_invoice(&payment_hash).await {
+            Ok(result) => Ok(JsValue::from_string(
+                serde_json::to_string(&result).unwrap(),
+            )),
+            Err(err) => Err(JsValue::from_string(err.to_string())),
+        }
+    })
+}
