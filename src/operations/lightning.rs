@@ -115,6 +115,12 @@ pub struct PayInvoiceResponse {
     pub description: Option<String>,
 }
 
+/// Check payment response
+#[derive(Debug, Deserialize)]
+pub struct CheckPaymentResponse {
+    paid: bool,
+}
+
 /// Creates a new lightning custodial wallet
 pub async fn create_wallet(username: &str, password: &str) -> Result<CreateWalletResponse> {
     let endpoint = LNDHUB_ENDPOINT.to_string();
@@ -202,4 +208,14 @@ pub async fn get_txs(token: &str) -> Result<Vec<Transaction>> {
     let txs = serde_json::from_str(&response)?;
 
     Ok(txs)
+}
+
+/// Check if a lightning invoice has been paid
+pub async fn check_payment(payment_hash: &str) -> Result<bool> {
+    let endpoint = LNDHUB_ENDPOINT.to_string();
+    let url = format!("{endpoint}/checkpayment?payment_hash={payment_hash}");
+    let response = get(&url, None).await?;
+    let r = serde_json::from_str::<CheckPaymentResponse>(&response)?;
+
+    Ok(r.paid)
 }

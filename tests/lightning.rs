@@ -1,20 +1,20 @@
-#![cfg(not(target_arch = "wasm32"))]
-
 use anyhow::{Ok, Result};
 use bitmask_core::{
     lightning::{AuthResponse, CreateWalletResponse},
     operations::lightning::{
-        auth, create_invoice, create_wallet, decode_invoice, get_balance, get_txs, pay_invoice,
-        Transaction,
+        auth, check_payment, create_invoice, create_wallet, decode_invoice, get_balance, get_txs,
+        pay_invoice, Transaction,
     },
 };
+use std::{thread, time};
 
 async fn new_wallet() -> Result<CreateWalletResponse> {
     // we generate a random string to be used as username and password
     let mut buf = [0u8; 8];
     getrandom::getrandom(&mut buf)?;
     let s = buf.map(|d| format!("{d:02x}")).join("");
-
+    // We put to sleep the test to avoid hit too fast the API
+    thread::sleep(time::Duration::from_secs(1));
     let res = create_wallet(&s, &s).await?;
 
     Ok(res)
@@ -139,6 +139,27 @@ pub async fn get_txs_test() -> Result<()> {
     if let AuthResponse::Result { refresh: _, token } = response {
         let txs: Vec<Transaction> = get_txs(&token).await?;
         assert_eq!(txs.len(), 0);
+    }
+
+    Ok(())
+}
+
+#[tokio::test]
+pub async fn check_payment_test() -> Result<()> {
+    let res = new_wallet().await?;
+    let mut uname = String::new();
+    if let CreateWalletResponse::Username { username } = res {
+        uname = username;
+    }
+    let response = auth(&uname, &uname).await?;
+    if let AuthResponse::Result { refresh: _, token } = response {
+        let invoice = create_invoice("payment description", 99, &token).await?;
+        let payment_request = invoice.payment_request.unwrap();
+        let decoded_invoice = decode_invoice(&payment_request)?;
+        let payment_hash = decoded_invoice.payment_hash().to_string();
+        let is_paid = check_payment(&payment_hash).await?;
+
+        assert!(!is_paid);
     }
 
     Ok(())
