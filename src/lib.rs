@@ -654,12 +654,14 @@ pub async fn accept_transfer(
     consignment: &str,
     blinding_factor: &str,
     outpoint: &str,
+    blinded: &str,
 ) -> Result<AcceptResponse> {
     let endpoint = &get_endpoint("accept").await;
     let body = AcceptRequest {
         consignment: consignment.to_owned(),
         blinding_factor: blinding_factor.to_owned(),
         outpoint: outpoint.to_owned(),
+        blinded: blinded.to_owned(),
     };
     let (transfer_res, status) = post_json(endpoint, &body).await?;
     if status != 200 {
