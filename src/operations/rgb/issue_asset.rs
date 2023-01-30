@@ -50,7 +50,7 @@ pub fn issue_asset(
     );
 
     debug!(format!("Contract genesis: {:#?}", contract.genesis()));
-    info!(format!("Contract: {}", contract));
+    info!(format!("Contract: {contract}"));
 
     Ok(contract)
 }
