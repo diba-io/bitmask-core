@@ -274,6 +274,7 @@ pub struct AcceptRequest {
     pub consignment: String,
     pub blinding_factor: String,
     pub outpoint: String,
+    pub blinded: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
