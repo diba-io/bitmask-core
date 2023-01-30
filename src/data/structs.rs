@@ -286,6 +286,11 @@ pub struct AcceptResponse {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct AcceptLambdaResponse {
+    pub accept: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BlindedOrNotOutpoint {
     pub outpoint: String,
     pub balance: u64,
