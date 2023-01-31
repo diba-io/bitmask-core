@@ -274,6 +274,7 @@ pub struct AcceptRequest {
     pub consignment: String,
     pub blinding_factor: String,
     pub outpoint: String,
+    pub blinded: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -282,6 +283,11 @@ pub struct AcceptResponse {
     #[cfg(not(target_arch = "wasm32"))]
     pub info: Status,
     pub valid: bool,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct AcceptLambdaResponse {
+    pub accept: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

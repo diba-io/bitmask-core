@@ -136,7 +136,7 @@ impl std::fmt::Display for ParseRevealError {
             ParseRevealError::CloseMethod => write!(f, "error parsing CloseMethod"),
             ParseRevealError::Outpoint => write!(f, "error parsing OutPoint"),
             ParseRevealError::BlindingFactor(ref e) => {
-                write!(f, "error parsing blinding_factor: {}", e)
+                write!(f, "error parsing blinding_factor: {e}")
             }
             ParseRevealError::Format => {
                 write!(f, "Reveal not in <blind_factor>@<txid>:<vout> format")
@@ -390,7 +390,7 @@ async fn process_consignment<C: ConsignmentType>(
                 _ => transition.to_owned(),
             };
 
-            trace!(format!("State transition: {:?}", new_transition));
+            trace!(format!("State transition: {new_transition:?}"));
             state.add_transition(witness_txid, &new_transition);
 
             debug!(format!("Contract state now is {state:?}"));

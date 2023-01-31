@@ -14,7 +14,7 @@ fn dot_env(key: &str) -> String {
                 let (_, val) = line.split_once('=').expect("value exists for key");
                 val.to_owned()
             } else {
-                panic!("Couldn't access .env key: {}", key);
+                panic!("Couldn't access .env key: {key}");
             }
         }
     }

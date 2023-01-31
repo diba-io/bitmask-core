@@ -254,21 +254,23 @@ pub fn sign_psbt(rgb_descriptor_xprv: String, psbt: String) -> Promise {
 }
 
 #[wasm_bindgen]
-pub fn accept_transfer(consignment: String, blinding_factor: String, outpoint: String) -> Promise {
+pub fn accept_transfer(
+    consignment: String,
+    blinding_factor: String,
+    outpoint: String,
+    blinded: String,
+) -> Promise {
     set_panic_hook();
 
     future_to_promise(async move {
-        match crate::accept_transfer(&consignment, &blinding_factor, &outpoint).await {
+        match crate::accept_transfer(&consignment, &blinding_factor, &outpoint, &blinded).await {
             Ok(result) => {
-                if result.valid {
+                if !result.accept.contains("error") {
                     Ok(JsValue::from_string(
                         serde_json::to_string(&result).unwrap(),
                     ))
                 } else {
-                    Err(JsValue::from_string(format!(
-                        "invalid due to erroneous endpoints with id {}",
-                        result.id
-                    )))
+                    Err(JsValue::from_str("invalid due to erroneous endpoints"))
                 }
             }
             Err(err) => Err(JsValue::from_string(err.to_string())),

@@ -37,7 +37,8 @@ pub use crate::{
 #[cfg(target_arch = "wasm32")]
 pub use crate::{
     data::structs::{
-        AcceptRequest, AcceptResponse, AssetRequest, BlindRequest, BlindResponse, IssueRequest,
+        AcceptLambdaResponse, AcceptRequest, AssetRequest, BlindRequest, BlindResponse,
+        IssueRequest,
     },
     util::post_json,
 };
@@ -654,12 +655,14 @@ pub async fn accept_transfer(
     consignment: &str,
     blinding_factor: &str,
     outpoint: &str,
-) -> Result<AcceptResponse> {
+    blinded: &str,
+) -> Result<AcceptLambdaResponse> {
     let endpoint = &get_endpoint("accept").await;
     let body = AcceptRequest {
         consignment: consignment.to_owned(),
         blinding_factor: blinding_factor.to_owned(),
         outpoint: outpoint.to_owned(),
+        blinded: blinded.to_owned(),
     };
     let (transfer_res, status) = post_json(endpoint, &body).await?;
     if status != 200 {
