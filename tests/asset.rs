@@ -99,7 +99,7 @@ async fn allow_transfer_one_asset_to_one_beneficiary() -> Result<()> {
     .await?;
 
     info!("Check Main Asset Vault");
-    if assets_vault_details.assets_output.is_none() {
+    if assets_vault_details.assets_spend.is_none() {
         info!("Missing an asset UTXO in vault. Funding vault...");
         assets_vault_details = fund_vault(
             &tmp_vault.btc_descriptor_xprv,
@@ -120,7 +120,7 @@ async fn allow_transfer_one_asset_to_one_beneficiary() -> Result<()> {
         NAME,
         PRECISION,
         SUPPLY,
-        &assets_vault_details.assets_output.clone().unwrap(),
+        &assets_vault_details.assets_spend.clone().unwrap(),
     )?;
 
     let asset_data = serde_json::to_string_pretty(&issued_asset)?;
@@ -131,17 +131,17 @@ async fn allow_transfer_one_asset_to_one_beneficiary() -> Result<()> {
     assert_eq!(issued_asset.asset_id, imported_asset.id, "Asset IDs match");
 
     info!("Get a Blinded UTXO");
-    let blinded_utxo = get_blinded_utxo(&assets_vault_details.assets_change_output)?;
+    let blinded_utxo = get_blinded_utxo(&assets_vault_details.assets_receive)?;
     debug!("Blinded UTXO: {:?}", blinded_utxo);
     let transfers = vec![AssetTransfer {
         asset_contract: issued_asset.genesis.to_string(),
         asset_utxo: AssetUtxo {
-            outpoint: assets_vault_details.assets_output.unwrap(),
+            outpoint: assets_vault_details.assets_spend.unwrap(),
             terminal_derivation: "/0/0".to_string(),
             commitment: "".to_string(),
         },
         asset_amount: SUPPLY,
-        change_utxo: assets_vault_details.assets_change_output.unwrap(),
+        change_utxo: assets_vault_details.assets_receive.unwrap(),
         beneficiaries: vec![format!("{}@{}", 10, blinded_utxo.conceal)],
     }];
 
@@ -249,7 +249,7 @@ async fn allow_transfer_one_asset_to_many_beneficiaries() -> Result<()> {
     .await?;
 
     info!("Check Main Asset Vault");
-    if assets_vault_details.assets_output.is_none() {
+    if assets_vault_details.assets_spend.is_none() {
         info!("Missing an asset UTXO in vault. Funding vault...");
         assets_vault_details = fund_vault(
             &tmp_vault.btc_descriptor_xprv,
@@ -270,7 +270,7 @@ async fn allow_transfer_one_asset_to_many_beneficiaries() -> Result<()> {
         NAME,
         PRECISION,
         SUPPLY,
-        &assets_vault_details.assets_output.clone().unwrap(),
+        &assets_vault_details.assets_spend.clone().unwrap(),
     )?;
 
     let asset_data = serde_json::to_string_pretty(&issued_asset)?;
@@ -281,21 +281,21 @@ async fn allow_transfer_one_asset_to_many_beneficiaries() -> Result<()> {
     assert_eq!(issued_asset.asset_id, imported_asset.id, "Asset IDs match");
 
     info!("Get a Blinded UTXO");
-    let blinded_utxo1 = get_blinded_utxo(&assets_vault_details.assets_change_output)?;
+    let blinded_utxo1 = get_blinded_utxo(&assets_vault_details.assets_receive)?;
     debug!("Blinded UTXO 1: {:?}", blinded_utxo1.clone());
 
-    let blinded_utxo2 = get_blinded_utxo(&assets_vault_details.assets_change_output)?;
+    let blinded_utxo2 = get_blinded_utxo(&assets_vault_details.assets_receive)?;
     debug!("Blinded UTXO 2: {:?}", blinded_utxo2.clone());
 
     let transfers = vec![AssetTransfer {
         asset_contract: issued_asset.genesis.to_string(),
         asset_utxo: AssetUtxo {
-            outpoint: assets_vault_details.assets_output.unwrap(),
+            outpoint: assets_vault_details.assets_spend.unwrap(),
             terminal_derivation: "/0/0".to_string(),
             commitment: "".to_string(),
         },
         asset_amount: SUPPLY,
-        change_utxo: assets_vault_details.assets_change_output.unwrap(),
+        change_utxo: assets_vault_details.assets_receive.unwrap(),
         beneficiaries: vec![
             format!("{}@{}", 10, blinded_utxo1.conceal.clone()),
             format!("{}@{}", 20, blinded_utxo2.conceal.clone()),
@@ -415,7 +415,7 @@ async fn allow_transfer_assets_to_one_beneficiary() -> Result<()> {
     .await?;
 
     info!("Check Main Asset Vault");
-    if assets_vault_details.assets_output.is_none() {
+    if assets_vault_details.assets_spend.is_none() {
         info!("Missing an asset UTXO in vault. Funding vault...");
         assets_vault_details = fund_vault(
             &tmp_vault.btc_descriptor_xprv,
@@ -436,7 +436,7 @@ async fn allow_transfer_assets_to_one_beneficiary() -> Result<()> {
         NAME,
         PRECISION,
         SUPPLY,
-        &assets_vault_details.assets_output.clone().unwrap(),
+        &assets_vault_details.assets_spend.clone().unwrap(),
     )?;
 
     info!("Create fungible #2");
@@ -445,7 +445,7 @@ async fn allow_transfer_assets_to_one_beneficiary() -> Result<()> {
         NAME,
         PRECISION,
         SUPPLY,
-        &assets_vault_details.assets_change_output.clone().unwrap(),
+        &assets_vault_details.assets_receive.clone().unwrap(),
     )?;
 
     let issued_assets = vec![
@@ -461,30 +461,30 @@ async fn allow_transfer_assets_to_one_beneficiary() -> Result<()> {
     assert_eq!(issued_asset.asset_id, imported_asset.id, "Asset IDs match");
 
     info!("Get a Blinded UTXO");
-    let blinded_utxo1 = get_blinded_utxo(&assets_vault_details.assets_change_output)?;
+    let blinded_utxo1 = get_blinded_utxo(&assets_vault_details.assets_receive)?;
     debug!("Blinded UTXO 1: {blinded_utxo1:?}");
 
     let transfers = vec![
         AssetTransfer {
             asset_contract: issued_asset.genesis.to_string(),
             asset_utxo: AssetUtxo {
-                outpoint: assets_vault_details.assets_output.clone().unwrap(),
+                outpoint: assets_vault_details.assets_spend.clone().unwrap(),
                 terminal_derivation: "/0/0".to_string(),
                 commitment: "".to_string(),
             },
             asset_amount: SUPPLY,
-            change_utxo: assets_vault_details.assets_change_output.clone().unwrap(),
+            change_utxo: assets_vault_details.assets_receive.clone().unwrap(),
             beneficiaries: vec![format!("{}@{}", 10, blinded_utxo1.conceal.clone())],
         },
         AssetTransfer {
             asset_contract: issued_asset2.genesis.to_string(),
             asset_utxo: AssetUtxo {
-                outpoint: assets_vault_details.assets_change_output.clone().unwrap(),
+                outpoint: assets_vault_details.assets_receive.clone().unwrap(),
                 terminal_derivation: "/0/0".to_string(),
                 commitment: "".to_string(),
             },
             asset_amount: SUPPLY,
-            change_utxo: assets_vault_details.assets_change_output.clone().unwrap(),
+            change_utxo: assets_vault_details.assets_receive.clone().unwrap(),
             beneficiaries: vec![format!("{}@{}", 10, blinded_utxo1.conceal.clone())],
         },
     ];
@@ -540,7 +540,7 @@ async fn allow_transfer_assets_to_one_beneficiary() -> Result<()> {
 
                 info!("Get a second Blinded UTXO");
                 debug!("First was: {blinded_utxo1:?}");
-                let blinded_utxo2 = get_blinded_utxo(&assets_vault_details.assets_change_output);
+                let blinded_utxo2 = get_blinded_utxo(&assets_vault_details.assets_receive);
                 assert!(blinded_utxo2.is_err(), "TODO: Expected error in getting a second blinded UTXO because no new change output has been made");
                 return Ok(());
                 debug!("Blinded UTXO 2: {blinded_utxo2:?}");
@@ -549,12 +549,12 @@ async fn allow_transfer_assets_to_one_beneficiary() -> Result<()> {
                     AssetTransfer {
                         asset_contract: issued_asset.genesis.to_string(),
                         asset_utxo: AssetUtxo {
-                            outpoint: assets_vault_details.assets_output.clone().unwrap(),
+                            outpoint: assets_vault_details.assets_spend.clone().unwrap(),
                             terminal_derivation: "/0/0".to_string(), // TODO: Should we use /0/1 instead? If so, how? Or should we try to keep it simple for now and reuse addresses?
                             commitment: "".to_string(),
                         },
                         asset_amount: SUPPLY,
-                        change_utxo: assets_vault_details.assets_change_output.clone().unwrap(),
+                        change_utxo: assets_vault_details.assets_receive.clone().unwrap(),
                         beneficiaries: vec![format!(
                             "{}@{}",
                             10,
@@ -564,12 +564,12 @@ async fn allow_transfer_assets_to_one_beneficiary() -> Result<()> {
                     AssetTransfer {
                         asset_contract: issued_asset2.genesis.to_string(),
                         asset_utxo: AssetUtxo {
-                            outpoint: assets_vault_details.assets_output.unwrap(),
+                            outpoint: assets_vault_details.assets_spend.unwrap(),
                             terminal_derivation: "/0/0".to_string(),
                             commitment: "".to_string(),
                         },
                         asset_amount: SUPPLY,
-                        change_utxo: assets_vault_details.assets_change_output.clone().unwrap(),
+                        change_utxo: assets_vault_details.assets_receive.clone().unwrap(),
                         beneficiaries: vec![format!(
                             "{}@{}",
                             10,
@@ -666,7 +666,7 @@ async fn allow_transfer_assets_to_many_beneficiary() -> Result<()> {
     .await?;
 
     info!("Check Main Asset Vault");
-    if assets_vault_details.assets_output.is_none() {
+    if assets_vault_details.assets_spend.is_none() {
         info!("Missing an asset UTXO in vault. Funding vault...");
         assets_vault_details = fund_vault(
             &tmp_vault.btc_descriptor_xprv,
@@ -687,7 +687,7 @@ async fn allow_transfer_assets_to_many_beneficiary() -> Result<()> {
         NAME,
         PRECISION,
         SUPPLY,
-        &assets_vault_details.assets_output.clone().unwrap(),
+        &assets_vault_details.assets_spend.clone().unwrap(),
     )?;
     info!("Create fungible");
     let issued_asset2 = &create_asset(
@@ -695,7 +695,7 @@ async fn allow_transfer_assets_to_many_beneficiary() -> Result<()> {
         NAME,
         PRECISION,
         SUPPLY,
-        &assets_vault_details.assets_change_output.clone().unwrap(),
+        &assets_vault_details.assets_receive.clone().unwrap(),
     )?;
 
     let issued_assets = vec![
@@ -711,23 +711,23 @@ async fn allow_transfer_assets_to_many_beneficiary() -> Result<()> {
     assert_eq!(issued_asset.asset_id, imported_asset.id, "Asset IDs match");
 
     info!("Get a Blinded UTXO");
-    let blinded_utxo1 = get_blinded_utxo(&assets_vault_details.udas_change_output)?;
+    let blinded_utxo1 = get_blinded_utxo(&assets_vault_details.udas_receive)?;
     debug!("Blinded UTXO 1: {:?}", blinded_utxo1.clone());
 
     info!("Get a Blinded UTXO");
-    let blinded_utxo2 = get_blinded_utxo(&assets_vault_details.udas_change_output)?;
+    let blinded_utxo2 = get_blinded_utxo(&assets_vault_details.udas_receive)?;
     debug!("Blinded UTXO 2: {:?}", blinded_utxo1.clone());
 
     let transfers = vec![
         AssetTransfer {
             asset_contract: issued_asset.genesis.to_string(),
             asset_utxo: AssetUtxo {
-                outpoint: assets_vault_details.assets_output.clone().unwrap(),
+                outpoint: assets_vault_details.assets_spend.clone().unwrap(),
                 terminal_derivation: "/0/0".to_string(),
                 commitment: "".to_string(),
             },
             asset_amount: SUPPLY,
-            change_utxo: assets_vault_details.assets_change_output.clone().unwrap(),
+            change_utxo: assets_vault_details.assets_receive.clone().unwrap(),
             beneficiaries: vec![
                 format!("{}@{}", 10, blinded_utxo1.conceal.clone()),
                 format!("{}@{}", 20, blinded_utxo2.conceal.clone()),
@@ -736,12 +736,12 @@ async fn allow_transfer_assets_to_many_beneficiary() -> Result<()> {
         AssetTransfer {
             asset_contract: issued_asset2.genesis.to_string(),
             asset_utxo: AssetUtxo {
-                outpoint: assets_vault_details.assets_change_output.clone().unwrap(),
+                outpoint: assets_vault_details.assets_receive.clone().unwrap(),
                 terminal_derivation: "/0/0".to_string(),
                 commitment: "".to_string(),
             },
             asset_amount: SUPPLY,
-            change_utxo: assets_vault_details.assets_change_output.clone().unwrap(),
+            change_utxo: assets_vault_details.assets_receive.clone().unwrap(),
             beneficiaries: vec![
                 format!("{}@{}", 10, blinded_utxo1.conceal.clone()),
                 format!("{}@{}", 20, blinded_utxo2.conceal.clone()),

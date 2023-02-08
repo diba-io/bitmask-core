@@ -55,10 +55,10 @@ pub struct EncryptedWalletData {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct FundVaultDetails {
-    pub assets_output: Option<String>,
-    pub assets_change_output: Option<String>,
-    pub udas_output: Option<String>,
-    pub udas_change_output: Option<String>,
+    pub assets_spend: Option<String>,
+    pub assets_receive: Option<String>,
+    pub udas_spend: Option<String>,
+    pub udas_receive: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

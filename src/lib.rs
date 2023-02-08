@@ -482,10 +482,10 @@ pub async fn fund_vault(
         .collect();
 
     Ok(FundVaultDetails {
-        assets_output: Some(asset_outputs[0].to_owned()),
-        assets_change_output: Some(asset_outputs[1].to_owned()),
-        udas_output: Some(uda_outputs[0].to_owned()),
-        udas_change_output: Some(uda_outputs[1].to_owned()),
+        assets_spend: Some(asset_outputs[0].to_owned()),
+        assets_receive: Some(asset_outputs[1].to_owned()),
+        udas_spend: Some(uda_outputs[0].to_owned()),
+        udas_receive: Some(uda_outputs[1].to_owned()),
     })
 }
 
@@ -517,16 +517,16 @@ pub async fn get_assets_vault(
     let mut uda_utxos: Vec<String> = uda_utxos.iter().map(utxo_string).collect();
     uda_utxos.sort();
 
-    let assets_change_output = assets_utxos.pop();
-    let assets_output = assets_utxos.pop();
-    let udas_change_output = uda_utxos.pop();
-    let udas_output = uda_utxos.pop();
+    let assets_receive = assets_utxos.pop();
+    let assets_spend = assets_utxos.pop();
+    let udas_receive = uda_utxos.pop();
+    let udas_spend = uda_utxos.pop();
 
     Ok(FundVaultDetails {
-        assets_output,
-        assets_change_output,
-        udas_output,
-        udas_change_output,
+        assets_spend,
+        assets_receive,
+        udas_spend,
+        udas_receive,
     })
 }
 
