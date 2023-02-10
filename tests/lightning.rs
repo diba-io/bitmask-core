@@ -42,6 +42,7 @@ pub async fn auth_test() -> Result<()> {
         uname = username;
     }
     let response = auth(&uname, &uname).await?;
+    thread::sleep(time::Duration::from_secs(1));
     if let AuthResponse::Result { refresh, token } = response {
         assert!(refresh.len() > 1 && token.len() > 1);
     }
@@ -70,6 +71,7 @@ pub async fn create_decode_invoice_test() -> Result<()> {
     let amt = 99;
     let amt_milli: u64 = 99 * 1000;
     let response = auth(&uname, &uname).await?;
+    thread::sleep(time::Duration::from_secs(1));
     if let AuthResponse::Result { refresh: _, token } = response {
         let invoice = create_invoice(description, amt, &token).await?;
         let payment_request = invoice.payment_request.unwrap();
@@ -90,6 +92,7 @@ pub async fn get_balance_test() -> Result<()> {
         uname = username;
     }
     let response = auth(&uname, &uname).await?;
+    thread::sleep(time::Duration::from_secs(1));
     if let AuthResponse::Result { refresh: _, token } = response {
         let accounts = get_balance(&token).await?;
         let btc_account = accounts.get(0).unwrap();
@@ -108,6 +111,7 @@ pub async fn pay_invoice_error_test() -> Result<()> {
         alice = username;
     }
     let alice_response = auth(&alice, &alice).await?;
+    thread::sleep(time::Duration::from_secs(1));
     if let AuthResponse::Result { refresh: _, token } = alice_response {
         // Alice invoice
         let invoice = create_invoice("testing pay alice invoice", 33, &token).await?;
@@ -118,6 +122,7 @@ pub async fn pay_invoice_error_test() -> Result<()> {
             bob = username;
         }
         let bob_response = auth(&bob, &bob).await?;
+        thread::sleep(time::Duration::from_secs(1));
         if let AuthResponse::Result { refresh: _, token } = bob_response {
             // We try to pay alice invoice from bob, which have balance = 0
             let response = pay_invoice(&invoice.payment_request.unwrap(), &token).await?;
@@ -136,6 +141,7 @@ pub async fn get_txs_test() -> Result<()> {
         uname = username;
     }
     let response = auth(&uname, &uname).await?;
+    thread::sleep(time::Duration::from_secs(1));
     if let AuthResponse::Result { refresh: _, token } = response {
         let txs: Vec<Transaction> = get_txs(&token).await?;
         assert_eq!(txs.len(), 0);
@@ -152,6 +158,7 @@ pub async fn check_payment_test() -> Result<()> {
         uname = username;
     }
     let response = auth(&uname, &uname).await?;
+    thread::sleep(time::Duration::from_secs(1));
     if let AuthResponse::Result { refresh: _, token } = response {
         let invoice = create_invoice("payment description", 99, &token).await?;
         let payment_request = invoice.payment_request.unwrap();
