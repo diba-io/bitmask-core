@@ -288,6 +288,7 @@ pub struct AcceptResponse {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct AcceptLambdaResponse {
     pub accept: String,
+    pub id: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
