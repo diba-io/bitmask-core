@@ -22,7 +22,6 @@ required-features = ["server"]
 [features]
 all = []
 default = []
-sqlite = []
 web = []
 server = ["tokio/full", "tower-http/cors"]
 
@@ -72,7 +71,6 @@ bdk = { version = "0.27.1", features = [
     "use-esplora-async",
     "async-interface",
     "reqwest-default-tls",
-    "sqlite-bundled",
 ], default-features = false }
 bitcoin_scripts = "0.9.0-rc.1"
 bp-core = { version = "0.9.0-rc.1", features = ["psbt", "wallet"] }
