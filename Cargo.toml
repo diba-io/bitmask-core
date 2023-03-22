@@ -1,6 +1,6 @@
 [package]
 name = "bitmask-core"
-version = "0.5.0"
+version = "0.5.2"
 authors = [
     "Jose Diego Robles <jose@diba.io>",
     "Hunter Trujillo <hunter@diba.io>",
@@ -22,7 +22,6 @@ required-features = ["server"]
 [features]
 all = []
 default = []
-sqlite = []
 web = []
 server = ["tokio/full", "tower-http/cors"]
 
@@ -42,7 +41,7 @@ lightning-invoice = "0.21.0"
 log = "0.4.17"
 miniscript_crate = { package = "miniscript", version = "9.0.0" }
 once_cell = "1.17.0"
-payjoin = { version = "0.5.1-alpha", features = ["sender"] }
+payjoin = { version = "0.6.0", features = ["sender"] }
 pretty_env_logger = "0.4.0"
 regex = "1.7.0"
 reqwest = { version = "0.11.13", features = ["json"] }
@@ -52,7 +51,7 @@ serde-encrypt = "0.7.0"
 tokio = { version = "1.23.0", features = ["macros", "sync"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-bdk = { version = "0.26.0", features = [
+bdk = { version = "0.27.1", features = [
     "use-esplora-async",
     "async-interface",
 ], default-features = false }
@@ -68,11 +67,10 @@ web-sys = "0.3.60"
 amplify = "3.13.0"
 axum = "0.6.1"
 axum-macros = "0.3.0"
-bdk = { version = "0.26.0", features = [
+bdk = { version = "0.27.1", features = [
     "use-esplora-async",
     "async-interface",
     "reqwest-default-tls",
-    "sqlite-bundled",
 ], default-features = false }
 bitcoin_scripts = "0.9.0-rc.1"
 bp-core = { version = "0.9.0-rc.1", features = ["psbt", "wallet"] }

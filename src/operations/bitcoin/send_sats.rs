@@ -57,7 +57,7 @@ pub async fn create_payjoin(
     info!("Original PSBT successfully signed");
 
     // TODO use fee_rate
-    let pj_params = payjoin::sender::Params::non_incentivizing();
+    let pj_params = payjoin::sender::Configuration::non_incentivizing();
     let (req, ctx) = pj_uri.create_pj_request(original_psbt, pj_params)?;
     info!("Built PayJoin request");
     let response = reqwest::Client::new()

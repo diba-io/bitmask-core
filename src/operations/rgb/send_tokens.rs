@@ -103,7 +103,6 @@ pub async fn transfer_asset(request: TransfersRequest) -> Result<TransfersRespon
             .clone()
             .into_iter()
             .map(|b| UtxobValue::from_str(&b).expect("Beneficiary must be a valid blinded utxo"))
-            .into_iter()
             .map(|v| {
                 remainder -= v.value;
                 (v.seal_confidential.into(), v.value)
