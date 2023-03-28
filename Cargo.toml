@@ -45,6 +45,8 @@ payjoin = { version = "0.6.0", features = ["sender"] }
 pretty_env_logger = "0.4.0"
 regex = "1.7.0"
 reqwest = { version = "0.11.13", features = ["json"] }
+rgb-std = { version = "0.10.0-rc.1" }
+rgb-wallet = {version = "0.10.0-beta.1" }
 serde = "1.0.152"
 serde_json = "1.0.91"
 serde-encrypt = "0.7.0"
@@ -56,12 +58,12 @@ bdk = { version = "0.27.1", features = [
     "async-interface",
 ], default-features = false }
 gloo-console = "0.2.3"
-gloo-net = "0.2.5"
-js-sys = "0.3.60"
-serde-wasm-bindgen = "0.4.5"
-wasm-bindgen = { version = "0.2.83", features = ["serde-serialize"] }
-wasm-bindgen-futures = "0.4.33"
-web-sys = "0.3.60"
+gloo-net = "0.2.6"
+js-sys = "0.3.61"
+serde-wasm-bindgen = "0.5.0"
+wasm-bindgen = { version = "0.2.84", features = ["serde-serialize"] }
+wasm-bindgen-futures = "0.4.34"
+web-sys = "0.3.61"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 amplify = "3.13.0"
@@ -72,11 +74,11 @@ bdk = { version = "0.27.1", features = [
     "async-interface",
     "reqwest-default-tls",
 ], default-features = false }
-bitcoin_scripts = "0.9.0-rc.1"
-bp-core = { version = "0.9.0-rc.1", features = ["psbt", "wallet"] }
-bp-dbc = { version = "0.9.0-rc.1", features = ["wallet"] }
-commit_verify = { version = "0.9.0-rc.1", features = ["rand"] }
-descriptor-wallet = { version = "0.9.0-rc.1", features = [
+bitcoin_scripts = "0.9.0"
+bp-core = { version = "0.9.0", features = ["psbt", "wallet"] }
+bp-dbc = { version = "0.9.0", features = ["wallet"] }
+commit_verify = { version = "0.9.0", features = ["rand"] }
+descriptor-wallet = { version = "0.9.0", features = [
     "descriptors",
     "serde",
     "miniscript",
@@ -84,19 +86,19 @@ descriptor-wallet = { version = "0.9.0-rc.1", features = [
 deflate = "1.0.0"
 electrum-client = "0.12.0"
 inflate = "0.4.5"
-lnpbp = "0.9.0-rc.1"
-psbt = { version = "0.9.0-rc.1", features = [
+lnpbp = "0.9.0"
+psbt = { version = "0.9.0", features = [
     "sign",
     "miniscript",
     "serde",
     "construct",
 ] }
-rgb_core = { package = "rgb-core", version = "0.9.0-rc.2" }
-rgb_std = { package = "rgb-std", version = "0.9.0-rc.1" }
-rgb20 = { version = "0.9.0-rc.1", features = ["serde"] }
-stens = { version = "0.9.0-rc.1", features = ["serde"] }
-storm-core = "0.9.0-rc.1"
-strict_encoding = { version = "0.9.0-rc.2", features = [
+rgb_core = { package = "rgb-core", version = "0.9.0" }
+rgb_std = { package = "rgb-std", version = "0.9.0" }
+rgb20 = { version = "0.9.0", features = ["serde"] }
+stens = { version = "0.9.0", features = ["serde"] }
+storm-core = "0.9.0"
+strict_encoding = { version = "0.9.0", features = [
     "crypto",
     "chrono",
     "bitcoin",
