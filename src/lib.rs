@@ -1,6 +1,8 @@
 #[macro_use]
-#[cfg(not(target_arch = "wasm32"))]
 extern crate amplify;
+
+#[cfg(not(target_arch = "wasm32"))]
+extern crate amplify_legacy;
 
 use std::str::FromStr;
 
@@ -529,7 +531,7 @@ pub async fn get_assets_vault(
 #[cfg(not(target_arch = "wasm32"))]
 pub async fn transfer_assets(transfers: TransfersRequest) -> Result<TransfersSerializeResponse> {
     use rgb_std::{Contract, StateTransfer};
-    use strict_encoding::strict_serialize;
+    use strict_encoding_legacy::strict_serialize;
 
     use crate::data::structs::{BlindedOrNotOutpoint, ChangeTansfer, DeclareRequest};
 

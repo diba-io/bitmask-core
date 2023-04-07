@@ -131,7 +131,8 @@ async fn allow_transfer_one_asset_to_one_beneficiary() -> Result<()> {
     assert_eq!(issued_asset.asset_id, imported_asset.id, "Asset IDs match");
 
     info!("Get a Blinded UTXO");
-    let blinded_utxo = get_blinded_utxo(&assets_vault_details.assets_change_output)?;
+    let blinded_utxo =
+        get_blinded_utxo(&assets_vault_details.assets_change_output.clone().unwrap())?;
     debug!("Blinded UTXO: {:?}", blinded_utxo);
     let transfers = vec![AssetTransfer {
         asset_contract: issued_asset.genesis.to_string(),
@@ -281,10 +282,12 @@ async fn allow_transfer_one_asset_to_many_beneficiaries() -> Result<()> {
     assert_eq!(issued_asset.asset_id, imported_asset.id, "Asset IDs match");
 
     info!("Get a Blinded UTXO");
-    let blinded_utxo1 = get_blinded_utxo(&assets_vault_details.assets_change_output)?;
+    let blinded_utxo1 =
+        get_blinded_utxo(&assets_vault_details.assets_change_output.clone().unwrap())?;
     debug!("Blinded UTXO 1: {:?}", blinded_utxo1.clone());
 
-    let blinded_utxo2 = get_blinded_utxo(&assets_vault_details.assets_change_output)?;
+    let blinded_utxo2 =
+        get_blinded_utxo(&assets_vault_details.assets_change_output.clone().unwrap())?;
     debug!("Blinded UTXO 2: {:?}", blinded_utxo2.clone());
 
     let transfers = vec![AssetTransfer {
@@ -461,7 +464,8 @@ async fn allow_transfer_assets_to_one_beneficiary() -> Result<()> {
     assert_eq!(issued_asset.asset_id, imported_asset.id, "Asset IDs match");
 
     info!("Get a Blinded UTXO");
-    let blinded_utxo1 = get_blinded_utxo(&assets_vault_details.assets_change_output)?;
+    let blinded_utxo1 =
+        get_blinded_utxo(&assets_vault_details.assets_change_output.clone().unwrap())?;
     debug!("Blinded UTXO 1: {blinded_utxo1:?}");
 
     let transfers = vec![
@@ -540,7 +544,8 @@ async fn allow_transfer_assets_to_one_beneficiary() -> Result<()> {
 
                 info!("Get a second Blinded UTXO");
                 debug!("First was: {blinded_utxo1:?}");
-                let blinded_utxo2 = get_blinded_utxo(&assets_vault_details.assets_change_output);
+                let blinded_utxo2 =
+                    get_blinded_utxo(&assets_vault_details.assets_change_output.unwrap());
                 assert!(blinded_utxo2.is_err(), "TODO: Expected error in getting a second blinded UTXO because no new change output has been made");
                 return Ok(());
                 debug!("Blinded UTXO 2: {blinded_utxo2:?}");
@@ -711,11 +716,12 @@ async fn allow_transfer_assets_to_many_beneficiary() -> Result<()> {
     assert_eq!(issued_asset.asset_id, imported_asset.id, "Asset IDs match");
 
     info!("Get a Blinded UTXO");
-    let blinded_utxo1 = get_blinded_utxo(&assets_vault_details.udas_change_output)?;
+    let blinded_utxo1 =
+        get_blinded_utxo(&assets_vault_details.udas_change_output.clone().unwrap())?;
     debug!("Blinded UTXO 1: {:?}", blinded_utxo1.clone());
 
     info!("Get a Blinded UTXO");
-    let blinded_utxo2 = get_blinded_utxo(&assets_vault_details.udas_change_output)?;
+    let blinded_utxo2 = get_blinded_utxo(&assets_vault_details.udas_change_output.unwrap())?;
     debug!("Blinded UTXO 2: {:?}", blinded_utxo1.clone());
 
     let transfers = vec![

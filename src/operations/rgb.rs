@@ -5,6 +5,7 @@ mod create_psbt;
 mod descriptor_wallet;
 mod import_asset;
 mod issue_asset;
+pub mod legacy;
 mod receive_tokens;
 mod send_tokens;
 pub mod shared;
@@ -19,3 +20,5 @@ pub use send_tokens::transfer_asset;
 pub use validate_transaction::validate_transfer;
 
 pub use rgb_std::Contract;
+
+pub use rgbstd::interface::rgb20;

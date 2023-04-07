@@ -11,6 +11,7 @@ edition = "2021"
 license = "MIT"
 homepage = "https://bitmask.app"
 repository = "https://github.com/diba-io/bitmask-core"
+rust-version = "1.60.0"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
@@ -27,6 +28,8 @@ server = ["tokio/full", "tower-http/cors"]
 
 [dependencies]
 anyhow = "1.0.68"
+aluvm = "0.10.0-rc.1"
+amplify = "4.0.0-beta.20"
 base64 = { package = "base64-compat", version = "1.0.0" }
 bech32 = "0.9.1"
 bip39 = "1.0.1"
@@ -50,7 +53,8 @@ rgb-wallet = {version = "0.10.0-beta.1" }
 serde = "1.0.152"
 serde_json = "1.0.91"
 serde-encrypt = "0.7.0"
-tokio = { version = "1.23.0", features = ["macros", "sync"] }
+strict_types = "1.0.0-rc.1"
+tokio = { version = "1.27.0", features = ["macros", "sync"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 bdk = { version = "0.27.1", features = [
@@ -66,7 +70,7 @@ wasm-bindgen-futures = "0.4.34"
 web-sys = "0.3.61"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-amplify = "3.13.0"
+amplify_legacy = { package = "amplify", version = "3.13.0" }
 axum = "0.6.1"
 axum-macros = "0.3.0"
 bdk = { version = "0.27.1", features = [
@@ -98,7 +102,7 @@ rgb_std = { package = "rgb-std", version = "0.9.0" }
 rgb20 = { version = "0.9.0", features = ["serde"] }
 stens = { version = "0.9.0", features = ["serde"] }
 storm-core = "0.9.0"
-strict_encoding = { version = "0.9.0", features = [
+strict_encoding_legacy = { package = "strict_encoding", version = "0.9.0", features = [
     "crypto",
     "chrono",
     "bitcoin",
@@ -109,4 +113,4 @@ tower-http = { version = "0.3.5", features = ["cors"], optional = true }
 wasm-bindgen-test = "0.3.33"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
-tokio = { version = "1.23.0", features = ["full"] }
+tokio = { version = "1.27.0", features = ["full"] }

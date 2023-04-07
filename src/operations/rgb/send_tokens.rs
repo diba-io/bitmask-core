@@ -18,7 +18,7 @@ use rgb_std::{
     psbt::{RgbExt, RgbInExt},
     Contract, Disclosure, InmemConsignment, Node as RgbNode, SealEndpoint, TransferConsignment,
 };
-use strict_encoding::strict_serialize;
+use strict_encoding_legacy::strict_serialize;
 use wallet::descriptors::InputDescriptor;
 
 use crate::{
@@ -27,7 +27,7 @@ use crate::{
         structs::{AssetTransferInfo, FullCoin, SealCoins},
     },
     debug, error, info,
-    rgb::shared::{compose_consignment, ConsignmentDetails},
+    rgb::legacy::{compose_consignment, ConsignmentDetails},
     util, TransfersRequest, TransfersResponse,
 };
 

@@ -6,10 +6,10 @@ use commit_verify::CommitConceal;
 use electrum_client::Client;
 use rgb_core::{seal::Revealed, Consignment, Validator};
 use rgb_std::{validation::Status, InmemConsignment, TransferConsignment};
-use strict_encoding::strict_deserialize;
+use strict_encoding_legacy::strict_deserialize;
 
 use crate::{
-    data::constants::BITCOIN_ELECTRUM_API, debug, info, rgb::shared::Reveal,
+    data::constants::BITCOIN_ELECTRUM_API, debug, info, rgb::legacy::Reveal,
     util::bech32m_zip_decode,
 };
 
