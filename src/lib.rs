@@ -130,8 +130,8 @@ pub async fn get_wallet_data(
     change_descriptor: Option<String>,
 ) -> Result<WalletData> {
     info!("get_wallet_data");
-    info!("descriptor:", &descriptor);
-    info!("change_descriptor:", format!("{:?}", &change_descriptor));
+    info!(format!("descriptor: {descriptor}"));
+    info!(format!("change_descriptor {change_descriptor:?}"));
 
     let wallet = get_wallet(descriptor, change_descriptor)?;
     synchronize_wallet(&wallet).await?;
@@ -486,6 +486,7 @@ pub async fn fund_vault(
         assets_change_output: Some(asset_outputs[1].to_owned()),
         udas_output: Some(uda_outputs[0].to_owned()),
         udas_change_output: Some(uda_outputs[1].to_owned()),
+        is_funded: true,
     })
 }
 
@@ -522,11 +523,17 @@ pub async fn get_assets_vault(
     let udas_change_output = uda_utxos.pop();
     let udas_output = uda_utxos.pop();
 
+    let is_funded = assets_change_output.is_some()
+        && assets_output.is_some()
+        && udas_change_output.is_some()
+        && udas_output.is_some();
+
     Ok(FundVaultDetails {
         assets_output,
         assets_change_output,
         udas_output,
         udas_change_output,
+        is_funded,
     })
 }
 

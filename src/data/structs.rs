@@ -59,6 +59,7 @@ pub struct FundVaultDetails {
     pub assets_change_output: Option<String>,
     pub udas_output: Option<String>,
     pub udas_change_output: Option<String>,
+    pub is_funded: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
