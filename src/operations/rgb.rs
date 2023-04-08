@@ -1,2 +1,2 @@
-pub mod issuer_contract;
+pub mod issue_contract;
 pub mod shared;

@@ -1,7 +1,7 @@
 use std::str::FromStr;
 use strict_types::{svstr, svstruct, StrictVal};
 
-use super::shared::default_schema;
+use super::shared::default_fungible_schema;
 use amplify::confinement::U16;
 use bp::seals::txout::ExplicitSeal;
 use rgbstd::containers::Contract;
@@ -20,7 +20,7 @@ pub fn issue_contract(
     iface: Iface,
     iimpl: IfaceImpl,
 ) -> Result<Contract, BuilderError> {
-    let schema = default_schema();
+    let schema = default_fungible_schema();
     let types = &schema.type_system;
 
     let mut builder = ContractBuilder::with(iface, schema.clone(), iimpl.clone())

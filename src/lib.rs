@@ -10,7 +10,7 @@ use anyhow::anyhow;
 use anyhow::Result;
 use bdk::{wallet::AddressIndex, FeeRate, LocalUtxo};
 
-use operations::rgb::{issuer_contract::issue_contract, shared::default_fungible_iimpl};
+use operations::rgb::{issue_contract::issue_contract, shared::default_fungible_iimpl};
 use rgbstd::containers::BindleContent;
 use rgbstd::interface::rgb20;
 
