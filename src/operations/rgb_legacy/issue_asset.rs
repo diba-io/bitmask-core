@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use anyhow::{anyhow, Result};
 use bitcoin::OutPoint;
-use bp::seals::txout::CloseMethod::TapretFirst;
+use bp_legacy::seals::txout::CloseMethod::TapretFirst;
 use lnpbp::chain::Chain;
 use rgb20::Rgb20;
 use rgb_core::Consignment;

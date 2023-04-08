@@ -7,7 +7,7 @@ use std::{
 use amplify_legacy::Wrapper;
 use anyhow::{anyhow, Result};
 use bitcoin::{OutPoint, Txid};
-use bp::seals::txout::CloseMethod;
+use bp_legacy::seals::txout::CloseMethod;
 use commit_verify::{
     lnpbp4::{self, MerkleBlock},
     CommitConceal,

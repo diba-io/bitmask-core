@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use anyhow::Result;
-use bp::seals::txout::CloseMethod;
+use bp_legacy::seals::txout::CloseMethod;
 use commit_verify::CommitConceal;
 use electrum_client::Client;
 use rgb_core::{seal::Revealed, Consignment, Validator};
@@ -9,7 +9,7 @@ use rgb_std::{validation::Status, InmemConsignment, TransferConsignment};
 use strict_encoding_legacy::strict_deserialize;
 
 use crate::{
-    data::constants::BITCOIN_ELECTRUM_API, debug, info, rgb::legacy::Reveal,
+    data::constants::BITCOIN_ELECTRUM_API, debug, info, rgb_legacy::legacy::Reveal,
     util::bech32m_zip_decode,
 };
 

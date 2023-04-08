@@ -6,7 +6,7 @@ use std::{
 use anyhow::{anyhow, Result};
 use bitcoin::{consensus::deserialize, psbt::PartiallySignedTransaction, OutPoint};
 use bitcoin_scripts::taproot::DfsPath;
-use bp::seals::txout::{CloseMethod, ExplicitSeal};
+use bp_legacy::seals::txout::{CloseMethod, ExplicitSeal};
 use electrum_client::{Client, ConfigBuilder, ElectrumApi};
 use miniscript_crate::Descriptor;
 use psbt::{serialize::Serialize, Psbt};
@@ -27,7 +27,7 @@ use crate::{
         structs::{AssetTransferInfo, FullCoin, SealCoins},
     },
     debug, error, info,
-    rgb::legacy::{compose_consignment, ConsignmentDetails},
+    rgb_legacy::legacy::{compose_consignment, ConsignmentDetails},
     util, TransfersRequest, TransfersResponse,
 };
 
