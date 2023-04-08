@@ -85,6 +85,24 @@ pub struct IssueRequest {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct IssueContractRequest {
+    /// The ticker of the asset
+    pub ticker: String,
+    /// Name of the asset
+    pub name: String,
+    /// Description of the asset
+    pub description: String,
+    /// Precision of the asset
+    pub precision: u8,
+    /// Amount of the asset
+    pub supply: u64,
+    /// Seal of the initial owner
+    pub seal: String,
+    /// The name of the iface (ex: RGB20)
+    pub iface: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SatsInvoice {
     pub amount: u64,
     pub address: Address,

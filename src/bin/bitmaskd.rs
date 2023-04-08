@@ -9,8 +9,11 @@ use axum::{
     Json, Router,
 };
 use bitmask_core::{
-    accept_transfer, create_asset,
-    data::structs::{AcceptRequest, AssetRequest, BlindRequest, IssueRequest, TransfersRequest},
+    accept_transfer, create_asset, create_contract,
+    data::structs::{
+        AcceptRequest, AssetRequest, BlindRequest, IssueContractRequest, IssueRequest,
+        TransfersRequest,
+    },
     get_blinded_utxo, import_asset, transfer_assets,
 };
 use log::info;
@@ -23,6 +26,21 @@ async fn issue(Json(issue): Json<IssueRequest>) -> Result<impl IntoResponse, App
         issue.precision,
         issue.supply,
         &issue.utxo,
+    )?;
+
+    Ok((StatusCode::OK, Json(issue_res)))
+}
+async fn issue_contract(
+    Json(issue): Json<IssueContractRequest>,
+) -> Result<impl IntoResponse, AppError> {
+    let issue_res = create_contract(
+        &issue.ticker,
+        &issue.name,
+        &issue.description,
+        issue.precision,
+        issue.supply,
+        &issue.seal,
+        &issue.iface,
     )?;
 
     Ok((StatusCode::OK, Json(issue_res)))
@@ -67,6 +85,7 @@ async fn main() -> Result<()> {
     pretty_env_logger::init();
 
     let app = Router::new()
+        .route("/issue-contract", post(issue_contract))
         .route("/issue", post(issue))
         .route("/blind", post(blind))
         .route("/import", post(import))

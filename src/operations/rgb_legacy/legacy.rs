@@ -36,6 +36,7 @@ pub enum OutpointFilter {
     Only(BTreeSet<OutPoint>),
 }
 
+// TODO: Remove after migrate to rgb v0.10
 impl StrictDecode for OutpointFilter {
     fn strict_decode<D: std::io::Read>(
         d: D,
@@ -44,7 +45,6 @@ impl StrictDecode for OutpointFilter {
     }
 }
 
-// TODO: Remove after migrate to rgb v0.10
 impl StrictEncode for OutpointFilter {
     fn strict_encode<E: std::io::Write>(
         &self,

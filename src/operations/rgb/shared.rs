@@ -25,7 +25,7 @@ const OS_ASSETS: u16 = 0;
 const TS_TRANSFER: u16 = 0;
 
 /// Default schema used to funngible contracts
-fn schema() -> SubSchema {
+pub fn default_schema() -> SubSchema {
     let types = StandardTypes::new();
 
     let code = [RgbIsa::Contract(ContractOp::PcVs(OS_ASSETS))];
@@ -78,8 +78,8 @@ fn schema() -> SubSchema {
     }
 }
 
-fn iface_impl() -> IfaceImpl {
-    let schema = schema();
+pub fn default_fungible_iimpl() -> IfaceImpl {
+    let schema = default_schema();
     let iface = rgb20();
 
     IfaceImpl {

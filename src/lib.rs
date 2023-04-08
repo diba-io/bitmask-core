@@ -9,6 +9,11 @@ use std::str::FromStr;
 use anyhow::anyhow;
 use anyhow::Result;
 use bdk::{wallet::AddressIndex, FeeRate, LocalUtxo};
+
+use operations::rgb::{issuer_contract::issue_contract, shared::default_fungible_iimpl};
+use rgbstd::containers::BindleContent;
+use rgbstd::interface::rgb20;
+
 #[cfg(not(target_arch = "wasm32"))]
 use bitcoin::consensus::serialize as serialize_psbt; // Desktop
 use bitcoin::{util::address::Address, OutPoint, Transaction}; // Shared
@@ -30,7 +35,7 @@ pub mod web;
 #[cfg(not(target_arch = "wasm32"))]
 pub use crate::{
     data::structs::{AcceptResponse, AssetResponse, FinalizeTransfer, TransfersResponse},
-    operations::rgb::{
+    operations::rgb_legacy::{
         self, blind_utxo, get_asset_by_genesis, get_assets, issue_asset, transfer_asset,
         validate_transfer,
     },
@@ -199,13 +204,49 @@ pub fn list_assets(contract: &str) -> Result<Vec<AssetResponse>> {
 }
 
 // TODO: web list_assets
-
 #[derive(Serialize, Deserialize)]
 pub struct CreateAssetResult {
     pub genesis: String,   // in bech32m encoding
     pub id: String,        // contract ID
     pub asset_id: String,  // asset ID
     pub schema_id: String, // schema ID (i.e., RGB20)
+}
+
+pub fn create_contract(
+    ticker: &str,
+    name: &str,
+    description: &str,
+    precision: u8,
+    supply: u64,
+    seal: &str,
+    _iface: &str,
+) -> Result<CreateAssetResult> {
+    // TODO: Provide a way to get iface by name
+    let iface = rgb20();
+
+    // TODO: Provide a way to get iimpl by iface
+    let iimpl = default_fungible_iimpl();
+    let contract = issue_contract(
+        ticker,
+        name,
+        description,
+        precision,
+        supply,
+        seal,
+        iface,
+        iimpl,
+    )?;
+
+    let id = contract.contract_id().to_string();
+    let schema_id = contract.schema_id().to_string();
+    let genesis = contract.bindle().to_string();
+
+    Ok(CreateAssetResult {
+        genesis,
+        id: id.clone(),
+        asset_id: id,
+        schema_id,
+    })
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -626,7 +667,8 @@ pub async fn accept_transfer(
     blinding_factor: &str,
     outpoint: &str,
 ) -> Result<AcceptResponse> {
-    let (id, info, valid) = rgb::accept_transfer(consignment, blinding_factor, outpoint).await?;
+    let (id, info, valid) =
+        rgb_legacy::accept_transfer(consignment, blinding_factor, outpoint).await?;
     if valid {
         info!("Transaction accepted");
         Ok(AcceptResponse { id, info, valid })
