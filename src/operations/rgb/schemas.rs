@@ -1,6 +1,5 @@
 use aluvm::library::Lib;
 use aluvm::library::LibSite;
-use amplify::confinement::Confined;
 use amplify::{confined_bmap, tiny_bmap};
 use rgbstd::interface::rgb20;
 use rgbstd::interface::IfaceImpl;
@@ -98,5 +97,6 @@ pub fn default_fungible_iimpl() -> IfaceImpl {
             NamedType::with(TS_TRANSFER, tn!("Transfer")),
         },
         extensions: none!(),
+        version: rgbstd::interface::VerNo::V1,
     }
 }

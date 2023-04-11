@@ -205,17 +205,29 @@ pub fn get_assets_vault(
 }
 
 #[wasm_bindgen]
-pub fn create_asset(
+pub fn issue_contract(
     ticker: String,
     name: String,
+    description: String,
     precision: u8,
     supply: u64,
-    utxo: String,
+    seal: String,
+    iface: String,
 ) -> Promise {
     set_panic_hook();
 
     future_to_promise(async move {
-        match crate::create_asset(&ticker, &name, precision, supply, &utxo).await {
+        match crate::issue_contract(
+            &ticker,
+            &name,
+            &description,
+            precision,
+            supply,
+            &seal,
+            &iface,
+        )
+        .await
+        {
             Ok(result) => Ok(JsValue::from_string(
                 serde_json::to_string(&result).unwrap(),
             )),

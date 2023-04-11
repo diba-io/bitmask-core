@@ -9,31 +9,15 @@ use axum::{
     Json, Router,
 };
 use bitmask_core::{
-    accept_transfer, create_asset, create_contract,
-    data::structs::{
-        AcceptRequest, AssetRequest, BlindRequest, IssueContractRequest, IssueRequest,
-        TransfersRequest,
-    },
-    get_blinded_utxo, import_asset, transfer_assets,
+    accept_transfer,
+    data::structs::{AcceptRequest, AssetRequest, BlindRequest, IssueRequest, TransfersRequest},
+    get_blinded_utxo, import_asset, issue_contract, transfer_assets,
 };
 use log::info;
 use tower_http::cors::CorsLayer;
 
 async fn issue(Json(issue): Json<IssueRequest>) -> Result<impl IntoResponse, AppError> {
-    let issue_res = create_asset(
-        &issue.ticker,
-        &issue.name,
-        issue.precision,
-        issue.supply,
-        &issue.utxo,
-    )?;
-
-    Ok((StatusCode::OK, Json(issue_res)))
-}
-async fn issue_contract(
-    Json(issue): Json<IssueContractRequest>,
-) -> Result<impl IntoResponse, AppError> {
-    let issue_res = create_contract(
+    let issue_res = issue_contract(
         &issue.ticker,
         &issue.name,
         &issue.description,
@@ -41,7 +25,8 @@ async fn issue_contract(
         issue.supply,
         &issue.seal,
         &issue.iface,
-    )?;
+    )
+    .await?;
 
     Ok((StatusCode::OK, Json(issue_res)))
 }
@@ -85,8 +70,7 @@ async fn main() -> Result<()> {
     pretty_env_logger::init();
 
     let app = Router::new()
-        .route("/issue-contract", post(issue_contract))
-        .route("/issue", post(issue))
+        .route("/v2/issue", post(issue))
         .route("/blind", post(blind))
         .route("/import", post(import))
         .route("/transfer", post(transfer))

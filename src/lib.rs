@@ -10,7 +10,9 @@ use anyhow::anyhow;
 use anyhow::Result;
 use bdk::{wallet::AddressIndex, FeeRate, LocalUtxo};
 
-use operations::rgb::{issue_contract::issue_contract, shared::default_fungible_iimpl};
+use operations::rgb::{
+    issue_contract::issue_contract as create_contract, schemas::default_fungible_iimpl,
+};
 use rgbstd::containers::BindleContent;
 use rgbstd::interface::rgb20;
 
@@ -45,7 +47,6 @@ pub use crate::{
 pub use crate::{
     data::structs::{
         AcceptLambdaResponse, AcceptRequest, AssetRequest, BlindRequest, BlindResponse,
-        IssueRequest,
     },
     util::post_json,
 };
@@ -212,7 +213,7 @@ pub struct CreateAssetResult {
     pub schema_id: String, // schema ID (i.e., RGB20)
 }
 
-pub fn create_contract(
+pub async fn issue_contract(
     ticker: &str,
     name: &str,
     description: &str,
@@ -226,7 +227,7 @@ pub fn create_contract(
 
     // TODO: Provide a way to get iimpl by iface
     let iimpl = default_fungible_iimpl();
-    let contract = issue_contract(
+    let contract = create_contract(
         ticker,
         name,
         description,
@@ -245,65 +246,6 @@ pub fn create_contract(
         genesis,
         id: id.clone(),
         asset_id: id,
-        schema_id,
-    })
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-pub fn create_asset(
-    ticker: &str,
-    name: &str,
-    precision: u8,
-    supply: u64,
-    utxo: &str,
-) -> Result<CreateAssetResult> {
-    let utxo = OutPoint::from_str(utxo)?;
-    let contract = issue_asset(ticker, name, precision, supply, utxo)?;
-    let genesis = contract.to_string();
-    let id = contract.id().to_string();
-    let asset_id = contract.contract_id().to_string();
-    let schema_id = contract.schema_id().to_string();
-
-    Ok(CreateAssetResult {
-        genesis,
-        id,
-        asset_id,
-        schema_id,
-    })
-}
-
-#[cfg(target_arch = "wasm32")]
-pub async fn create_asset(
-    ticker: &str,
-    name: &str,
-    precision: u8,
-    supply: u64,
-    utxo: &str,
-) -> Result<CreateAssetResult> {
-    let endpoint = &get_endpoint("issue").await;
-    let body = IssueRequest {
-        ticker: ticker.to_owned(),
-        name: name.to_owned(),
-        description: "TODO".to_owned(),
-        precision,
-        supply,
-        utxo: utxo.to_owned(),
-    };
-    let (issue_res, status) = post_json(endpoint, &body).await?;
-    if status != 200 {
-        return Err(anyhow!("Error calling {endpoint}"));
-    }
-    let CreateAssetResult {
-        genesis,
-        id,
-        asset_id,
-        schema_id,
-    } = serde_json::from_str(&issue_res)?;
-
-    Ok(CreateAssetResult {
-        genesis,
-        id,
-        asset_id,
         schema_id,
     })
 }

@@ -1,7 +1,7 @@
 use std::str::FromStr;
 use strict_types::{svstr, svstruct, StrictVal};
 
-use super::shared::default_fungible_schema;
+use super::schemas::default_fungible_schema;
 use amplify::confinement::U16;
 use bp::seals::txout::ExplicitSeal;
 use rgbstd::containers::Contract;

@@ -72,22 +72,6 @@ pub struct Issue {
 pub struct IssueRequest {
     /// The ticker of the asset
     pub ticker: String,
-    /// The name of the asset
-    pub name: String,
-    /// Description of the asset (ID for the UDA)
-    pub description: String,
-    /// Precision of the asset
-    pub precision: u8,
-    /// Amount of the asset
-    pub supply: u64,
-    /// Utxo of the initial owner
-    pub utxo: String,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct IssueContractRequest {
-    /// The ticker of the asset
-    pub ticker: String,
     /// Name of the asset
     pub name: String,
     /// Description of the asset

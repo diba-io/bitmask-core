@@ -1,7 +1,7 @@
 #![cfg(not(target_arch = "wasm32"))]
 use anyhow::Result;
 use bitmask_core::operations::rgb::{
-    issue_contract::issue_contract, shared::default_fungible_iimpl,
+    issue_contract::issue_contract, schemas::default_fungible_iimpl,
 };
 use rgbstd::interface::rgb20;
 
