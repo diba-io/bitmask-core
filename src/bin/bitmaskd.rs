@@ -9,8 +9,10 @@ use axum::{
     Json, Router,
 };
 use bitmask_core::{
-    accept_transfer,
-    data::structs::{AcceptRequest, AssetRequest, BlindRequest, IssueRequest, TransfersRequest},
+    accept_transfer, create_invoice,
+    data::structs::{
+        AcceptRequest, AssetRequest, BlindRequest, InvoiceRequest, IssueRequest, TransfersRequest,
+    },
     get_blinded_utxo, import_asset, issue_contract, transfer_assets,
 };
 use log::info;
@@ -29,6 +31,18 @@ async fn issue(Json(issue): Json<IssueRequest>) -> Result<impl IntoResponse, App
     .await?;
 
     Ok((StatusCode::OK, Json(issue_res)))
+}
+
+async fn invoice(Json(invoice): Json<InvoiceRequest>) -> Result<impl IntoResponse, AppError> {
+    let invoice_res = create_invoice(
+        &invoice.contract_id,
+        &invoice.iface,
+        invoice.amount,
+        &invoice.seal,
+    )
+    .await?;
+
+    Ok((StatusCode::OK, Json(invoice_res)))
 }
 
 async fn blind(Json(blind): Json<BlindRequest>) -> Result<impl IntoResponse, AppError> {
@@ -70,7 +84,8 @@ async fn main() -> Result<()> {
     pretty_env_logger::init();
 
     let app = Router::new()
-        .route("/v2/issue", post(issue))
+        .route("/issue", post(issue))
+        .route("/invoice", post(invoice))
         .route("/blind", post(blind))
         .route("/import", post(import))
         .route("/transfer", post(transfer))

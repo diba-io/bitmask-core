@@ -86,6 +86,32 @@ pub struct IssueRequest {
     pub iface: String,
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct IssueResult {
+    pub genesis: String,   // in bech32m encoding
+    pub id: String,        // contract ID
+    pub asset_id: String,  // asset ID
+    pub schema_id: String, // schema ID (i.e., RGB20)
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct InvoiceRequest {
+    /// The contract id
+    pub contract_id: String,
+    /// The contract interface
+    pub iface: String,
+    /// Amount of the asset
+    pub amount: u64,
+    /// UTXO or Blinded UTXO
+    pub seal: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct InvoiceResult {
+    /// Invoice encoded in Baid58
+    pub invoice: String,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SatsInvoice {
     pub amount: u64,

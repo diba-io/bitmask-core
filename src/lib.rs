@@ -10,21 +10,30 @@ use anyhow::anyhow;
 use anyhow::Result;
 use bdk::{wallet::AddressIndex, FeeRate, LocalUtxo};
 
+use bp::Txid;
+use data::structs::InvoiceResult;
+use data::structs::IssueResult;
 use operations::rgb::{
+    invoice::create_invoice as create_rgb_invoice,
     issue_contract::issue_contract as create_contract, schemas::default_fungible_iimpl,
 };
 use rgbstd::containers::BindleContent;
-use rgbstd::interface::rgb20;
+use rgbstd::contract::ContractId;
+use rgbstd::contract::GraphSeal;
 
 #[cfg(not(target_arch = "wasm32"))]
 use bitcoin::consensus::serialize as serialize_psbt; // Desktop
 use bitcoin::{util::address::Address, OutPoint, Transaction}; // Shared
 use bitcoin_hashes::{sha256, Hash};
+use rgbstd::persistence::Inventory;
+use rgbstd::persistence::Stash;
+use rgbstd::persistence::Stock;
 use serde::{Deserialize, Serialize};
 use serde_encrypt::{
     serialize::impls::BincodeSerializer, shared_key::SharedKey, traits::SerdeEncryptSharedKey,
     AsSharedKey, EncryptedMessage,
 };
+use strict_encoding::TypeName;
 use tokio::try_join;
 
 pub mod data;
@@ -204,15 +213,6 @@ pub fn list_assets(contract: &str) -> Result<Vec<AssetResponse>> {
     Ok(assets)
 }
 
-// TODO: web list_assets
-#[derive(Serialize, Deserialize)]
-pub struct CreateAssetResult {
-    pub genesis: String,   // in bech32m encoding
-    pub id: String,        // contract ID
-    pub asset_id: String,  // asset ID
-    pub schema_id: String, // schema ID (i.e., RGB20)
-}
-
 pub async fn issue_contract(
     ticker: &str,
     name: &str,
@@ -220,13 +220,17 @@ pub async fn issue_contract(
     precision: u8,
     supply: u64,
     seal: &str,
-    _iface: &str,
-) -> Result<CreateAssetResult> {
-    // TODO: Provide a way to get iface by name
-    let iface = rgb20();
+    iface: &str,
+) -> Result<IssueResult> {
+    // TODO: Get stock from Carbonado
+    let stock = Stock::default();
+
+    let iface_name = TypeName::from_str(iface).expect("");
+    let iface = stock.iface_by_name(&iface_name).expect("");
 
     // TODO: Provide a way to get iimpl by iface
     let iimpl = default_fungible_iimpl();
+
     let contract = create_contract(
         ticker,
         name,
@@ -234,20 +238,50 @@ pub async fn issue_contract(
         precision,
         supply,
         seal,
-        iface,
+        iface.to_owned(),
         iimpl,
     )?;
+
+    // TODO: Update Stock to Carbonado
+    // stock.import_contract(contract, resolver);
 
     let id = contract.contract_id().to_string();
     let schema_id = contract.schema_id().to_string();
     let genesis = contract.bindle().to_string();
 
-    Ok(CreateAssetResult {
+    Ok(IssueResult {
         genesis,
         id: id.clone(),
         asset_id: id,
         schema_id,
     })
+}
+
+pub async fn create_invoice(
+    contract_id: &str,
+    iface: &str,
+    amount: u64,
+    seal: &str,
+) -> Result<InvoiceResult> {
+    // TODO: Get stock from Carbonado
+    let mut stock = Stock::default();
+
+    let iface_name = TypeName::from_str(iface)?;
+    let iface = stock.iface_by_name(&iface_name)?;
+
+    let seal_parts: Vec<&str> = seal.split(":").collect();
+    let txid = Txid::from_str(&seal_parts[0]).expect("invalid txid");
+    let seal = GraphSeal::tapret_first(txid, 0);
+    let contract_id = ContractId::from_str(contract_id)?;
+
+    let contract = create_rgb_invoice(contract_id, iface.to_owned(), amount, seal, stock.clone())?;
+    let result = contract.to_string();
+
+    // TODO: Update Stock to Carbonado
+    // Store Seal into Stock
+    stock.store_seal_secret(seal).expect("stock internal error");
+
+    Ok(InvoiceResult { invoice: result })
 }
 
 pub async fn get_utxos(

@@ -237,6 +237,20 @@ pub fn issue_contract(
 }
 
 #[wasm_bindgen]
+pub fn create_invoice(contract_id: String, iface: String, amount: u64, seal: String) -> Promise {
+    set_panic_hook();
+
+    future_to_promise(async move {
+        match crate::create_invoice(&contract_id, &iface, amount, &seal).await {
+            Ok(result) => Ok(JsValue::from_string(
+                serde_json::to_string(&result).unwrap(),
+            )),
+            Err(err) => Err(JsValue::from_string(err.to_string())),
+        }
+    })
+}
+
+#[wasm_bindgen]
 pub fn transfer_assets(request: JsValue) -> Promise {
     set_panic_hook();
 
