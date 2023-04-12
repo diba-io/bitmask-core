@@ -58,13 +58,13 @@ async fn pay(Json(pay_req): Json<RgbTransferRequest>) -> Result<impl IntoRespons
     Ok((StatusCode::OK, Json(transfer_res)))
 }
 
-async fn blind(Json(blind): Json<BlindRequest>) -> Result<impl IntoResponse, AppError> {
+async fn _blind(Json(blind): Json<BlindRequest>) -> Result<impl IntoResponse, AppError> {
     let blind_res = get_blinded_utxo(&blind.utxo)?;
 
     Ok((StatusCode::OK, Json(blind_res)))
 }
 
-async fn import(Json(asset): Json<AssetRequest>) -> Result<impl IntoResponse, AppError> {
+async fn _import(Json(asset): Json<AssetRequest>) -> Result<impl IntoResponse, AppError> {
     let asset_res = import_asset(&asset.asset, asset.utxos)?;
 
     Ok((StatusCode::OK, Json(asset_res)))
@@ -101,8 +101,6 @@ async fn main() -> Result<()> {
         .route("/invoice", post(invoice))
         .route("/psbt", post(psbt))
         .route("/pay", post(pay))
-        .route("/import", post(import))
-        .route("/blind", post(blind))
         .route("/accept", post(accept))
         .layer(CorsLayer::permissive());
 

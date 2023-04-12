@@ -1,5 +1,8 @@
+use std::convert::Infallible;
+
 use bdk::blockchain::EsploraBlockchain;
 use futures::executor;
+use rgbstd::resolvers::ResolveHeight;
 use wallet::onchain::{ResolveTx, TxResolverError};
 
 pub struct ExplorerResolver {
@@ -21,5 +24,13 @@ impl ResolveTx for ExplorerResolver {
                 err: none!(),
             }),
         }
+    }
+}
+
+impl ResolveHeight for ExplorerResolver {
+    type Error = Infallible;
+
+    fn resolve_height(&mut self, _txid: bp::Txid) -> Result<u32, Self::Error> {
+        Ok(0)
     }
 }

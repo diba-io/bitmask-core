@@ -55,6 +55,7 @@ use serde_encrypt::{
     serialize::impls::BincodeSerializer, shared_key::SharedKey, traits::SerdeEncryptSharedKey,
     AsSharedKey, EncryptedMessage,
 };
+use strict_encoding::StrictSerialize;
 use strict_encoding::TypeName;
 use tokio::try_join;
 use wallet::descriptors::InputDescriptor;
@@ -374,7 +375,6 @@ pub async fn create_psbt(request: PsbtRequest) -> Result<PsbtResult> {
     )?;
 
     // TODO: Push to Carbonado (?)
-
     let psbt = PsbtResult {
         psbt: psbt::serialize::Serialize::serialize(&psbt_file).to_hex(),
     };
@@ -394,7 +394,11 @@ pub async fn pay_asset(request: RgbTransferRequest) -> Result<RgbTransferResult>
 
     // TODO: Push to Carbonado
     let consig = RgbTransferResult {
-        consig: transfer.to_string(),
+        consig_id: transfer.bindle_id().to_string(),
+        consig: transfer
+            .to_strict_serialized::<0xFFFFFF>()
+            .expect("")
+            .to_hex(),
     };
     Ok(consig)
 }

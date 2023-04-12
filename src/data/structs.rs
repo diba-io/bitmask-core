@@ -146,7 +146,9 @@ pub struct RgbTransferRequest {
 
 #[derive(Serialize, Deserialize)]
 pub struct RgbTransferResult {
-    /// Consignment encoded in baid58
+    /// Consignment ID
+    pub consig_id: String,
+    /// Consignment encoded in hex
     pub consig: String,
 }
 
