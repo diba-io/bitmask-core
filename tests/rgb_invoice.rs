@@ -6,7 +6,7 @@ use bp::Txid;
 use rgbstd::{contract::GraphSeal, interface::rgb20, persistence::Stock};
 
 mod rgb_test_utis;
-use rgb_test_utis::build_contract;
+use rgb_test_utis::dumb_contract;
 
 #[tokio::test]
 async fn allow_create_simple_contract_test() -> anyhow::Result<()> {
@@ -15,7 +15,7 @@ async fn allow_create_simple_contract_test() -> anyhow::Result<()> {
     let txid =
         Txid::from_str("ed823b41d8b9309933826b18e4af530363b359f05919c02bbe72f28cec6dec3e").unwrap();
 
-    let (contract_id, stock) = build_contract(Stock::default());
+    let (contract_id, stock) = dumb_contract(Stock::default());
 
     let seal = GraphSeal::tapret_first(txid, 0);
     let invoice = create_invoice(contract_id, iface, amount, seal, stock);
@@ -31,7 +31,7 @@ async fn allow_create_only_tapret_first_seals() -> anyhow::Result<()> {
     let txid =
         Txid::from_str("ed823b41d8b9309933826b18e4af530363b359f05919c02bbe72f28cec6dec3e").unwrap();
 
-    let (contract_id, stock) = build_contract(Stock::default());
+    let (contract_id, stock) = dumb_contract(Stock::default());
 
     let seal = GraphSeal::opret_first(txid, 0);
     let invoice = create_invoice(contract_id, iface, amount, seal, stock);
@@ -48,7 +48,7 @@ async fn allow_only_known_contracts() -> anyhow::Result<()> {
     let txid =
         Txid::from_str("ed823b41d8b9309933826b18e4af530363b359f05919c02bbe72f28cec6dec3e").unwrap();
 
-    let (contract_id, _) = build_contract(Stock::default());
+    let (contract_id, _) = dumb_contract(Stock::default());
     let empty_stock = Stock::default();
 
     let seal = GraphSeal::tapret_first(txid, 0);

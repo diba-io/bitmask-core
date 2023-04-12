@@ -12,9 +12,9 @@ use bitmask_core::{
     accept_transfer, create_invoice, create_psbt,
     data::structs::{
         AcceptRequest, AssetRequest, BlindRequest, InvoiceRequest, IssueRequest, PsbtRequest,
-        TransfersRequest,
+        RgbTransferRequest, TransfersRequest,
     },
-    get_blinded_utxo, import_asset, issue_contract, transfer_assets,
+    get_blinded_utxo, import_asset, issue_contract, pay_asset, transfer_assets,
 };
 use log::info;
 use tower_http::cors::CorsLayer;
@@ -51,6 +51,13 @@ async fn psbt(Json(psbt_req): Json<PsbtRequest>) -> Result<impl IntoResponse, Ap
     Ok((StatusCode::OK, Json(psbt_res)))
 }
 
+#[axum_macros::debug_handler]
+async fn pay(Json(pay_req): Json<RgbTransferRequest>) -> Result<impl IntoResponse, AppError> {
+    let transfer_res = pay_asset(pay_req).await?;
+
+    Ok((StatusCode::OK, Json(transfer_res)))
+}
+
 async fn blind(Json(blind): Json<BlindRequest>) -> Result<impl IntoResponse, AppError> {
     let blind_res = get_blinded_utxo(&blind.utxo)?;
 
@@ -64,7 +71,7 @@ async fn import(Json(asset): Json<AssetRequest>) -> Result<impl IntoResponse, Ap
 }
 
 #[axum_macros::debug_handler]
-async fn transfer(Json(transfer): Json<TransfersRequest>) -> Result<impl IntoResponse, AppError> {
+async fn _transfer(Json(transfer): Json<TransfersRequest>) -> Result<impl IntoResponse, AppError> {
     let transfer_res = transfer_assets(transfer).await?;
 
     Ok((StatusCode::OK, Json(transfer_res)))
@@ -93,7 +100,7 @@ async fn main() -> Result<()> {
         .route("/issue", post(issue))
         .route("/invoice", post(invoice))
         .route("/psbt", post(psbt))
-        .route("/transfer", post(transfer))
+        .route("/pay", post(pay))
         .route("/import", post(import))
         .route("/blind", post(blind))
         .route("/accept", post(accept))

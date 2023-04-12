@@ -443,6 +443,7 @@ version = "0.30.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b36f4c848f6bd9ff208128f08751135846cc23ae57d66ab10a22efff1c675f3c"
 dependencies = [
+ "base64 0.13.1",
  "bech32",
  "bitcoin-private",
  "bitcoin_hashes 0.12.0",
@@ -604,6 +605,7 @@ dependencies = [
  "bech32",
  "bip39",
  "bitcoin 0.29.2",
+ "bitcoin 0.30.0",
  "bitcoin_blockchain 0.10.0-alpha.2",
  "bitcoin_hashes 0.11.0",
  "bitcoin_scripts 0.10.0-alpha.2",
@@ -734,8 +736,7 @@ dependencies = [
 [[package]]
 name = "bp-dbc"
 version = "0.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4416e203e2ef0853db5c4bb9d057d708866a27207eaba5cd915331ee7f85d8bb"
+source = "git+https://github.com/crisdut/bp-core?branch=feat/push_num_1#ce7852525975b1fe8a99f4abcadd21ea477af098"
 dependencies = [
  "amplify 4.0.0",
  "baid58",
@@ -748,8 +749,7 @@ dependencies = [
 [[package]]
 name = "bp-primitives"
 version = "0.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "995ee52ede9d035e15646bfece4d4a09b4e4bf4fe9523e6f3388f67cb1d4d3cf"
+source = "git+https://github.com/crisdut/bp-core?branch=feat/push_num_1#ce7852525975b1fe8a99f4abcadd21ea477af098"
 dependencies = [
  "amplify 4.0.0",
  "commit_verify 0.10.0",

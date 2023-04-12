@@ -33,6 +33,7 @@ amplify = "4.0.0"
 base64 = { package = "base64-compat", version = "1.0.0" }
 bech32 = "0.9.1"
 bip39 = "1.0.1"
+bitcoin_30 = { package = "bitcoin", version = "0.30", features = ["base64"] }
 bitcoin = { version = "0.29.2", features = ["base64"] }
 bitcoin_hashes = "0.11.0"
 bitcoin_scripts = "0.10.0-alpha.2"
@@ -137,6 +138,8 @@ wasm-bindgen-test = "0.3.33"
 
 [patch.crates-io]
 # TODO: Remove this after merge and release a new version
+bp-dbc = { git = "https://github.com/crisdut/bp-core", branch = "feat/push_num_1" }
+bp-primitives = { git = "https://github.com/crisdut/bp-core", branch = "feat/push_num_1" }
 bitcoin_scripts = { git = "https://github.com/crisdut/bp-foundation", branch = "release/0.10.0-alpha.2" }
 bitcoin_blockchain = { git = "https://github.com/crisdut/bp-foundation", branch = "release/0.10.0-alpha.2" }
 descriptor-wallet = { git = "https://github.com/crisdut/descriptor-wallet", branch = "release/0.10.0-alpha.2" }

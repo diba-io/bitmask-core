@@ -1,21 +1,22 @@
-use std::convert::Infallible;
+use std::{convert::Infallible, str::FromStr};
 
 use amplify::hex::{FromHex, ToHex};
 use bitcoin::Transaction;
 use bitmask_core::{
-    operations::rgb::issue_contract::issue_contract,
-    operations::rgb::schemas::default_fungible_iimpl,
+    operations::rgb::issue::issue_contract,
+    operations::rgb::{invoice::create_invoice, schemas::default_fungible_iimpl},
 };
 use bp::{Sats, ScriptPubkey, Tx, TxIn, TxOut, TxVer, Txid, VarIntArray};
-use psbt::serialize::Deserialize;
+use psbt::{serialize::Deserialize, Psbt};
 use rgbstd::{
     containers::BindleContent,
-    contract::ContractId,
+    contract::{ContractId, GraphSeal},
     interface::rgb20,
     persistence::{Inventory, Stock},
     resolvers::ResolveHeight,
     validation::ResolveTx as RgbResolveTx,
 };
+use rgbwallet::RgbInvoice;
 use wallet::onchain::ResolveTx;
 
 // Resolvers
@@ -82,14 +83,14 @@ impl RgbResolveTx for DumbResolve {
 }
 
 // Helpers
-pub fn build_contract(mut stock: Stock) -> (ContractId, Stock) {
+pub fn dumb_contract(mut stock: Stock) -> (ContractId, Stock) {
     let ticker = "DIBA1";
     let name = "DIBA1";
     let description =
         "1 2 3 testing... 1 2 3 testing... 1 2 3 testing... 1 2 3 testing.... 1 2 3 testing";
     let precision = 8;
-    let supply = 1;
-    let seal = "tapret1st:c6dd3ff7130c0a15cfdad166ff46fb3f71485f5451e21509027a037298ba1a3b:1";
+    let supply = 10;
+    let seal = "tapret1st:70339a6b27f55105da2d050babc759f046c21c26b7b75e9394bc1d818e50ff52:0";
 
     let iface = rgb20();
     let iimpl = default_fungible_iimpl();
@@ -120,4 +121,19 @@ pub fn build_contract(mut stock: Stock) -> (ContractId, Stock) {
         .expect("");
 
     (contract.contract_id().clone(), stock)
+}
+
+pub fn dumb_psbt() -> Psbt {
+    let psbt_hex = "70736274ff01005e020000000152ff508e811dbc94935eb7b7261cc246f059c7ab0b052dda0551f5276b9a33700000000000ffffffff0118ddf505000000002251202aa594ee4dc05d289387c77a44ee3d5401a7edc269e355f2345c2792d9f8d014000000004f01043587cf034a3acf0b80000000fe80c9c11d65f2a2bfbf8e582c49b829e0f453e2a7138ec303ddd724aa295ebf02008b0bc2899bf59a892479c553d7c7e6901a0fc8db3e5570529101bc783743bf10280a5963560000800100008000000080000100890200000001984806892c61298e3b0117e501bed6aa9cb523a49ad4b9e9c71dd818f8e7b5520000000000fdffffff0200e1f505000000002251206a61bf8aea7388b8541f16d773b77f897110eaa6bc17ada61c50bc70a93e5d61db9a8b4400000000225120c1a028a16aa6a3ebdf30bcd11ad6a0084298a7b097a97624c5b7ad2df5748c30f4010000010304010000002116e7e50584e394cb1b467f440e8760bf3806835d55378f78cbacb8c651d2e11d0f1900280a59635600008001000080000000800000000000000000011720e7e50584e394cb1b467f440e8760bf3806835d55378f78cbacb8c651d2e11d0f0022020269c3a787c625331a17fd8a5cf7094d4672fb0385b5fd8fa2813181de3a1cef3e18280a5963560000800100008000000080010000000000000001052069c3a787c625331a17fd8a5cf7094d4672fb0385b5fd8fa2813181de3a1cef3e09fc06544150524554000000";
+    let psbt = Psbt::from_str(psbt_hex).expect("");
+    psbt
+}
+
+pub fn dumb_invoice(contract_id: ContractId, stock: Stock, txid: String, vout: u32) -> RgbInvoice {
+    let amount = 1;
+    let iface = rgb20();
+    let txid: Txid = txid.parse().expect("");
+    let seal = GraphSeal::tapret_first(txid, vout);
+    let invoice = create_invoice(contract_id, iface, amount, seal, stock).expect("");
+    invoice
 }

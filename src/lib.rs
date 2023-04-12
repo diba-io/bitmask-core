@@ -21,19 +21,22 @@ use data::structs::InvoiceResult;
 use data::structs::IssueResult;
 use data::structs::PsbtRequest;
 use data::structs::PsbtResult;
+use data::structs::RgbTransferRequest;
+use data::structs::RgbTransferResult;
 use miniscript_crate::Descriptor;
 use operations::rgb::constants::RGB_PSBT_NOSEQ;
 use operations::rgb::constants::RGB_PSBT_TAPRET;
+use operations::rgb::pay::pay_asset as pay_rgb_asset;
 use operations::rgb::resolvers::ExplorerResolver;
 use operations::rgb::{
-    invoice::create_invoice as create_rgb_invoice,
-    issue_contract::issue_contract as create_contract, psbt::create_psbt as create_rgb_psbt,
-    schemas::default_fungible_iimpl,
+    invoice::create_invoice as create_rgb_invoice, issue::issue_contract as create_contract,
+    psbt::create_psbt as create_rgb_psbt, schemas::default_fungible_iimpl,
 };
 use psbt::ProprietaryKeyDescriptor;
 use psbt::ProprietaryKeyLocation;
 use psbt::ProprietaryKeyType;
 
+use psbt::Psbt;
 use rgbstd::containers::BindleContent;
 use rgbstd::contract::ContractId;
 use rgbstd::contract::GraphSeal;
@@ -45,6 +48,7 @@ use bitcoin_hashes::{sha256, Hash};
 use rgbstd::persistence::Inventory;
 use rgbstd::persistence::Stash;
 use rgbstd::persistence::Stock;
+use rgbwallet::RgbInvoice;
 use serde::Deserialize;
 use serde::Serialize;
 use serde_encrypt::{
@@ -375,6 +379,24 @@ pub async fn create_psbt(request: PsbtRequest) -> Result<PsbtResult> {
         psbt: psbt::serialize::Serialize::serialize(&psbt_file).to_hex(),
     };
     Ok(psbt)
+}
+
+pub async fn pay_asset(request: RgbTransferRequest) -> Result<RgbTransferResult> {
+    let RgbTransferRequest { rgb_invoice, psbt } = request;
+
+    // TODO: Pull from Carbonado
+    let stock = Stock::default();
+
+    let invoice = RgbInvoice::from_str(&rgb_invoice)?;
+    let psbt_file = Psbt::from_str(&psbt)?;
+
+    let transfer = pay_rgb_asset(invoice, psbt_file, stock)?;
+
+    // TODO: Push to Carbonado
+    let consig = RgbTransferResult {
+        consig: transfer.to_string(),
+    };
+    Ok(consig)
 }
 
 pub async fn get_utxos(

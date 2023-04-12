@@ -1,5 +1,5 @@
 #![allow(unused_variables)]
-use crate::data::structs::{PsbtRequest, TransfersRequest};
+use crate::data::structs::{PsbtRequest, RgbTransferRequest, TransfersRequest};
 use crate::lightning;
 use js_sys::Promise;
 use serde::de::DeserializeOwned;
@@ -257,6 +257,21 @@ pub fn create_psbt(request: JsValue) -> Promise {
     future_to_promise(async move {
         let psbt_req: PsbtRequest = serde_wasm_bindgen::from_value(request).unwrap();
         match crate::create_psbt(psbt_req).await {
+            Ok(result) => Ok(JsValue::from_string(
+                serde_json::to_string(&result).unwrap(),
+            )),
+            Err(err) => Err(JsValue::from_string(err.to_string())),
+        }
+    })
+}
+
+#[wasm_bindgen]
+pub fn pay_asset(request: JsValue) -> Promise {
+    set_panic_hook();
+
+    future_to_promise(async move {
+        let pay_req: RgbTransferRequest = serde_wasm_bindgen::from_value(request).unwrap();
+        match crate::pay_asset(pay_req).await {
             Ok(result) => Ok(JsValue::from_string(
                 serde_json::to_string(&result).unwrap(),
             )),

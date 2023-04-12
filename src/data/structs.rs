@@ -137,6 +137,20 @@ pub struct PsbtResult {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct RgbTransferRequest {
+    /// RGB Invoice
+    pub rgb_invoice: String,
+    /// PSBT File Information
+    pub psbt: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct RgbTransferResult {
+    /// Consignment encoded in baid58
+    pub consig: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SatsInvoice {
     pub amount: u64,
     pub address: Address,
