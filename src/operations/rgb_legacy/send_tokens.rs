@@ -5,11 +5,12 @@ use std::{
 
 use anyhow::{anyhow, Result};
 use bitcoin::{consensus::deserialize, psbt::PartiallySignedTransaction, OutPoint};
-use bitcoin_scripts::taproot::DfsPath;
+use bitcoin_scripts_legacy::taproot::DfsPath;
 use bp_legacy::seals::txout::{CloseMethod, ExplicitSeal};
-use electrum_client::{Client, ConfigBuilder, ElectrumApi};
+use descriptor_wallet_legacy::descriptors::InputDescriptor;
+use electrum_client_legacy::{Client, ConfigBuilder, ElectrumApi};
 use miniscript_crate::Descriptor;
-use psbt::{serialize::Serialize, Psbt};
+use psbt_legacy::{serialize::Serialize, Psbt};
 use regex::Regex;
 use rgb20::Asset;
 use rgb_core::{Anchor, IntoRevealedSeal};
@@ -19,7 +20,6 @@ use rgb_std::{
     Contract, Disclosure, InmemConsignment, Node as RgbNode, SealEndpoint, TransferConsignment,
 };
 use strict_encoding_legacy::strict_serialize;
-use wallet::descriptors::InputDescriptor;
 
 use crate::{
     data::{

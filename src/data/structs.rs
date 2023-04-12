@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 // Desktop
 #[cfg(not(target_arch = "wasm32"))]
 use bitcoin::psbt::PartiallySignedTransaction;
@@ -113,6 +115,28 @@ pub struct InvoiceResult {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct PsbtRequest {
+    /// Descriptor XPub
+    pub descriptor_pub: String,
+    /// Asset UTXO
+    pub asset_utxo: String,
+    /// Asset UTXO Terminator
+    pub asset_utxo_terminal: String,
+    /// Asset Change Index UTXO
+    pub change_index: Option<String>,
+    /// Bitcoin Addresses (AddressFormat)
+    pub bitcoin_changes: Vec<String>,
+    /// Fee
+    pub fee: u64,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct PsbtResult {
+    /// PSBT encoded in Base64
+    pub psbt: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SatsInvoice {
     pub amount: u64,
     pub address: Address,
@@ -163,12 +187,26 @@ pub struct AssetResponse {
     pub known_allocations: Vec<Allocation>,
 }
 
-#[cfg(not(target_arch = "wasm32"))]
 #[derive(Clone, PartialEq, Eq, Hash, Debug, Display)]
 #[display("{address}:{amount}", alt = "{address:#}:{amount:#}")]
 pub struct AddressAmount {
     pub address: Address,
     pub amount: u64,
+}
+
+/// Error parsing representation
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+pub struct AddressFormatParseError;
+
+impl FromStr for AddressAmount {
+    type Err = AddressFormatParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let split: Vec<&str> = s.split(":").collect();
+        let address = Address::from_str(split[0]).expect("");
+        let amount = u64::from_str(split[1]).expect("");
+        Ok(AddressAmount { address, amount })
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

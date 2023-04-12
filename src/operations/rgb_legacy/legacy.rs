@@ -12,7 +12,7 @@ use commit_verify::{
     lnpbp4::{self, MerkleBlock},
     CommitConceal,
 };
-use electrum_client::{Client, ConfigBuilder};
+use electrum_client_legacy::{Client, ConfigBuilder};
 use rgb_core::{
     schema::OwnedRightType, Anchor, Assignment, Extension, OwnedRights, PedersenStrategy,
     TypedAssignments,

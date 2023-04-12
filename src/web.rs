@@ -1,5 +1,5 @@
 #![allow(unused_variables)]
-use crate::data::structs::TransfersRequest;
+use crate::data::structs::{PsbtRequest, TransfersRequest};
 use crate::lightning;
 use js_sys::Promise;
 use serde::de::DeserializeOwned;
@@ -242,6 +242,21 @@ pub fn create_invoice(contract_id: String, iface: String, amount: u64, seal: Str
 
     future_to_promise(async move {
         match crate::create_invoice(&contract_id, &iface, amount, &seal).await {
+            Ok(result) => Ok(JsValue::from_string(
+                serde_json::to_string(&result).unwrap(),
+            )),
+            Err(err) => Err(JsValue::from_string(err.to_string())),
+        }
+    })
+}
+
+#[wasm_bindgen]
+pub fn create_psbt(request: JsValue) -> Promise {
+    set_panic_hook();
+
+    future_to_promise(async move {
+        let psbt_req: PsbtRequest = serde_wasm_bindgen::from_value(request).unwrap();
+        match crate::create_psbt(psbt_req).await {
             Ok(result) => Ok(JsValue::from_string(
                 serde_json::to_string(&result).unwrap(),
             )),

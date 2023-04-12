@@ -9,9 +9,10 @@ use axum::{
     Json, Router,
 };
 use bitmask_core::{
-    accept_transfer, create_invoice,
+    accept_transfer, create_invoice, create_psbt,
     data::structs::{
-        AcceptRequest, AssetRequest, BlindRequest, InvoiceRequest, IssueRequest, TransfersRequest,
+        AcceptRequest, AssetRequest, BlindRequest, InvoiceRequest, IssueRequest, PsbtRequest,
+        TransfersRequest,
     },
     get_blinded_utxo, import_asset, issue_contract, transfer_assets,
 };
@@ -43,6 +44,11 @@ async fn invoice(Json(invoice): Json<InvoiceRequest>) -> Result<impl IntoRespons
     .await?;
 
     Ok((StatusCode::OK, Json(invoice_res)))
+}
+
+async fn psbt(Json(psbt_req): Json<PsbtRequest>) -> Result<impl IntoResponse, AppError> {
+    let psbt_res = create_psbt(psbt_req).await?;
+    Ok((StatusCode::OK, Json(psbt_res)))
 }
 
 async fn blind(Json(blind): Json<BlindRequest>) -> Result<impl IntoResponse, AppError> {
@@ -86,9 +92,10 @@ async fn main() -> Result<()> {
     let app = Router::new()
         .route("/issue", post(issue))
         .route("/invoice", post(invoice))
-        .route("/blind", post(blind))
-        .route("/import", post(import))
+        .route("/psbt", post(psbt))
         .route("/transfer", post(transfer))
+        .route("/import", post(import))
+        .route("/blind", post(blind))
         .route("/accept", post(accept))
         .layer(CorsLayer::permissive());
 

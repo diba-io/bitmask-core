@@ -6,17 +6,34 @@ extern crate amplify_legacy;
 
 use std::str::FromStr;
 
+use amplify::hex::ToHex;
 use anyhow::anyhow;
 use anyhow::Result;
 use bdk::{wallet::AddressIndex, FeeRate, LocalUtxo};
 
+use bitcoin::EcdsaSighashType;
+use bitcoin_blockchain::locks::LockTime;
+use bitcoin_scripts::PubkeyScript;
 use bp::Txid;
+use data::constants::BITCOIN_ELECTRUM_API;
+use data::structs::AddressAmount;
 use data::structs::InvoiceResult;
 use data::structs::IssueResult;
+use data::structs::PsbtRequest;
+use data::structs::PsbtResult;
+use miniscript_crate::Descriptor;
+use operations::rgb::constants::RGB_PSBT_NOSEQ;
+use operations::rgb::constants::RGB_PSBT_TAPRET;
+use operations::rgb::resolvers::ExplorerResolver;
 use operations::rgb::{
     invoice::create_invoice as create_rgb_invoice,
-    issue_contract::issue_contract as create_contract, schemas::default_fungible_iimpl,
+    issue_contract::issue_contract as create_contract, psbt::create_psbt as create_rgb_psbt,
+    schemas::default_fungible_iimpl,
 };
+use psbt::ProprietaryKeyDescriptor;
+use psbt::ProprietaryKeyLocation;
+use psbt::ProprietaryKeyType;
+
 use rgbstd::containers::BindleContent;
 use rgbstd::contract::ContractId;
 use rgbstd::contract::GraphSeal;
@@ -28,13 +45,17 @@ use bitcoin_hashes::{sha256, Hash};
 use rgbstd::persistence::Inventory;
 use rgbstd::persistence::Stash;
 use rgbstd::persistence::Stock;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
+use serde::Serialize;
 use serde_encrypt::{
     serialize::impls::BincodeSerializer, shared_key::SharedKey, traits::SerdeEncryptSharedKey,
     AsSharedKey, EncryptedMessage,
 };
 use strict_encoding::TypeName;
 use tokio::try_join;
+use wallet::descriptors::InputDescriptor;
+use wallet::hd::DerivationAccount;
+use wallet::hd::UnhardenedIndex;
 
 pub mod data;
 pub mod operations;
@@ -282,6 +303,78 @@ pub async fn create_invoice(
     stock.store_seal_secret(seal).expect("stock internal error");
 
     Ok(InvoiceResult { invoice: result })
+}
+
+pub async fn create_psbt(request: PsbtRequest) -> Result<PsbtResult> {
+    let PsbtRequest {
+        descriptor_pub,
+        asset_utxo,
+        asset_utxo_terminal,
+        change_index,
+        bitcoin_changes,
+        fee,
+    } = request;
+
+    // TODO: Pull from Carbonado (?)
+
+    let explorer_url = BITCOIN_ELECTRUM_API.read().await;
+    let tx_resolver = ExplorerResolver {
+        explorer_url: explorer_url.to_string(),
+    };
+
+    let outpoint: OutPoint = asset_utxo.parse()?;
+    let inputs = vec![InputDescriptor {
+        outpoint: outpoint.clone(),
+        terminal: asset_utxo_terminal.parse()?,
+        seq_no: RGB_PSBT_NOSEQ.parse()?,
+        tweak: None,
+        sighash_type: EcdsaSighashType::All,
+    }];
+
+    let bitcoin_addresses: Vec<AddressAmount> = bitcoin_changes
+        .into_iter()
+        .map(|btc| AddressAmount::from_str(btc.as_str()).expect("invalid AddressFormat parse"))
+        .collect();
+
+    let outputs: Vec<(PubkeyScript, u64)> = bitcoin_addresses
+        .into_iter()
+        .map(|AddressAmount { address, amount }| (address.script_pubkey().into(), amount))
+        .collect();
+
+    let descriptor: &Descriptor<DerivationAccount> = &Descriptor::from_str(&descriptor_pub)?;
+    let props = vec![ProprietaryKeyDescriptor {
+        location: ProprietaryKeyLocation::Output(outpoint.vout as u16),
+        ty: ProprietaryKeyType {
+            prefix: RGB_PSBT_TAPRET.to_owned(),
+            subtype: outpoint.vout as u8,
+        },
+        key: None,
+        value: None,
+    }];
+
+    let lock_time = LockTime::anytime();
+    let change_index = match change_index {
+        Some(index) => UnhardenedIndex::from_str(index.as_str())?,
+        _ => UnhardenedIndex::default(),
+    };
+
+    let psbt_file = create_rgb_psbt(
+        descriptor,
+        lock_time,
+        inputs,
+        outputs,
+        props,
+        change_index,
+        fee,
+        &tx_resolver,
+    )?;
+
+    // TODO: Push to Carbonado (?)
+
+    let psbt = PsbtResult {
+        psbt: psbt::serialize::Serialize::serialize(&psbt_file).to_hex(),
+    };
+    Ok(psbt)
 }
 
 pub async fn get_utxos(
