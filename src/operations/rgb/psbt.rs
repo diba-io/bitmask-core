@@ -20,7 +20,7 @@ pub fn create_psbt(
     tx_resolver: &impl ResolveTx,
 ) -> Result<Psbt, ProprietaryKeyError> {
     let mut psbt = Psbt::construct(
-        &descriptor,
+        descriptor,
         &inputs,
         &outputs,
         change_index,
@@ -34,10 +34,13 @@ pub fn create_psbt(
     for key in proprietary_keys {
         match key.location {
             ProprietaryKeyLocation::Input(pos) if pos as usize >= psbt.inputs.len() => {
-                return Err(ProprietaryKeyError::InputOutOfRange(pos, psbt.inputs.len()).into())
+                return Err(ProprietaryKeyError::InputOutOfRange(pos, psbt.inputs.len()))
             }
             ProprietaryKeyLocation::Output(pos) if pos as usize >= psbt.outputs.len() => {
-                return Err(ProprietaryKeyError::OutputOutOfRange(pos, psbt.inputs.len()).into())
+                return Err(ProprietaryKeyError::OutputOutOfRange(
+                    pos,
+                    psbt.inputs.len(),
+                ))
             }
             ProprietaryKeyLocation::Global => {
                 psbt.proprietary.insert(

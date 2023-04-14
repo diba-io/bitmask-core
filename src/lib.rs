@@ -295,8 +295,8 @@ pub async fn create_invoice(
     let iface_name = TypeName::from_str(iface)?;
     let iface = stock.iface_by_name(&iface_name)?;
 
-    let seal_parts: Vec<&str> = seal.split(":").collect();
-    let txid = Txid::from_str(&seal_parts[0]).expect("invalid txid");
+    let seal_parts: Vec<&str> = seal.split(':').collect();
+    let txid = Txid::from_str(seal_parts[0]).expect("invalid txid");
     let seal = GraphSeal::tapret_first(txid, 0);
     let contract_id = ContractId::from_str(contract_id)?;
 
@@ -329,7 +329,7 @@ pub async fn create_psbt(request: PsbtRequest) -> Result<PsbtResult> {
 
     let outpoint: OutPoint = asset_utxo.parse()?;
     let inputs = vec![InputDescriptor {
-        outpoint: outpoint.clone(),
+        outpoint,
         terminal: asset_utxo_terminal.parse()?,
         seq_no: RGB_PSBT_NOSEQ.parse()?,
         tweak: None,

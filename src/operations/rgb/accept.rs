@@ -1,16 +1,9 @@
-use std::{
-    borrow::BorrowMut,
-    ops::{Deref, DerefMut},
-};
-
-use amplify::{confinement::Confined, hex::FromHex};
 use rgbstd::{
     containers::Transfer,
     persistence::{Inventory, Stock},
     resolvers::ResolveHeight,
     validation::Status,
 };
-use strict_encoding::StrictDeserialize;
 
 #[derive(Clone, Eq, PartialEq, Debug, Display, Error, From)]
 #[display(doc_comments)]

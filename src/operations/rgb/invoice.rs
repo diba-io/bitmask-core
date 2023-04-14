@@ -26,7 +26,12 @@ pub fn create_invoice(
 
     if !stock
         .contract_ids()
-        .expect(&InvoiceError::ContractNotfound(contract_id).to_string())
+        .unwrap_or_else(|_| {
+            panic!(
+                "{}",
+                InvoiceError::ContractNotfound(contract_id).to_string()
+            )
+        })
         .contains(&contract_id)
     {
         return Err(InvoiceError::ContractNotfound(contract_id));

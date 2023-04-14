@@ -218,7 +218,7 @@ impl FromStr for AddressAmount {
     type Err = AddressFormatParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let split: Vec<&str> = s.split(":").collect();
+        let split: Vec<&str> = s.split(':').collect();
         let address = Address::from_str(split[0]).expect("");
         let amount = u64::from_str(split[1]).expect("");
         Ok(AddressAmount { address, amount })

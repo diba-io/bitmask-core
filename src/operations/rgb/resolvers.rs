@@ -19,10 +19,7 @@ impl ResolveTx for ExplorerResolver {
         // TODO: Review that!
         match executor::block_on(explorer_client.get_tx(&txid)).expect("service unavaliable") {
             Some(tx) => Ok(tx),
-            _ => Err(TxResolverError {
-                txid: txid,
-                err: none!(),
-            }),
+            _ => Err(TxResolverError { txid, err: none!() }),
         }
     }
 }
