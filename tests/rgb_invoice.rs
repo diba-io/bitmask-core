@@ -5,8 +5,8 @@ use bitmask_core::operations::rgb::invoice::{create_invoice, InvoiceError};
 use bp::Txid;
 use rgbstd::{contract::GraphSeal, interface::rgb20, persistence::Stock};
 
-mod rgb_test_utis;
-use rgb_test_utis::dumb_contract;
+mod rgb_test_utils;
+use rgb_test_utils::dumb_contract;
 
 #[tokio::test]
 async fn allow_create_simple_contract_test() -> anyhow::Result<()> {
