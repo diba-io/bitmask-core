@@ -1,7 +1,7 @@
 use rgbstd::{
     contract::ContractId,
     interface::{Iface, TypedState},
-    persistence::{Stash, Stock},
+    persistence::{Inventory, Stash, Stock},
 };
 use rgbwallet::{RgbInvoice, RgbTransport};
 use seals::txout::{blind::BlindSeal, CloseMethod, TxPtr};
@@ -18,7 +18,7 @@ pub fn create_invoice(
     iface: Iface,
     amount: u64,
     seal: BlindSeal<TxPtr>,
-    stock: Stock,
+    mut stock: Stock,
 ) -> Result<RgbInvoice, InvoiceError> {
     if seal.method != CloseMethod::TapretFirst {
         return Err(InvoiceError::InvalidBlindSeal);
@@ -49,6 +49,10 @@ pub fn create_invoice(
         chain: None,
         unknown_query: none!(),
     };
+
+    stock
+        .store_seal_secret(seal)
+        .expect("cannot be import seal information");
 
     Ok(invoice)
 }

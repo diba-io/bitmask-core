@@ -11,7 +11,6 @@ edition = "2021"
 license = "MIT"
 homepage = "https://bitmask.app"
 repository = "https://github.com/diba-io/bitmask-core"
-rust-version = "1.60.0"
 
 [lib]
 crate-type = ["cdylib", "rlib"]

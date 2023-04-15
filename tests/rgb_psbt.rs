@@ -56,11 +56,11 @@ async fn allow_create_psbt_file() -> anyhow::Result<()> {
         "21bfd80759b8d1ce6d67570fb40a53c50b167f4ffef14b87c2ee1984cb5c44d1:1 /0/0 time(0)";
     let props = "output(0) TAPRET(0) ";
 
-    let descriptor: Descriptor<DerivationAccount> = Descriptor::from_str(desc).expect("");
+    let descriptor: Descriptor<DerivationAccount> = Descriptor::from_str(desc).expect("fail");
     let lock_time = 0.into();
-    let inputs = vec![InputDescriptor::from_str(input_desc).expect("")];
+    let inputs = vec![InputDescriptor::from_str(input_desc).expect("fail")];
     let outputs = vec![];
-    let proprietary_keys = vec![ProprietaryKeyDescriptor::from_str(props).expect("")];
+    let proprietary_keys = vec![ProprietaryKeyDescriptor::from_str(props).expect("fail")];
     let change_index = UnhardenedIndex::default();
     let fee = 1000;
     let tx_resolver = DumbResolve {};

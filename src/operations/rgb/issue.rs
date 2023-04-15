@@ -62,7 +62,7 @@ pub fn issue_contract(
     let seal = ExplicitSeal::<Txid>::from_str(seal).expect("invalid seal definition");
     let seal = GenesisSeal::from(seal);
 
-    let type_asset = TypeName::from_str("Assets").expect("");
+    let type_asset = TypeName::from_str("Assets").expect("invalid type_name definition");
     builder = builder
         .add_fungible_state(type_asset, seal, supply)
         .expect("invalid global state data");

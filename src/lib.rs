@@ -13,6 +13,7 @@ use bdk::{wallet::AddressIndex, FeeRate, LocalUtxo};
 
 use bitcoin::EcdsaSighashType;
 use bitcoin_blockchain::locks::LockTime;
+use bitcoin_blockchain::locks::SeqNo;
 use bitcoin_scripts::PubkeyScript;
 use bp::Txid;
 use data::constants::BITCOIN_ELECTRUM_API;
@@ -24,7 +25,6 @@ use data::structs::PsbtResult;
 use data::structs::RgbTransferRequest;
 use data::structs::RgbTransferResult;
 use miniscript_crate::Descriptor;
-use operations::rgb::constants::RGB_PSBT_NOSEQ;
 use operations::rgb::constants::RGB_PSBT_TAPRET;
 use operations::rgb::pay::pay_asset as pay_rgb_asset;
 use operations::rgb::resolvers::ExplorerResolver;
@@ -251,8 +251,10 @@ pub async fn issue_contract(
     // TODO: Get stock from Carbonado
     let stock = Stock::default();
 
-    let iface_name = TypeName::from_str(iface).expect("");
-    let iface = stock.iface_by_name(&iface_name).expect("");
+    let iface_name = TypeName::from_str(iface).expect("invalid iface name format");
+    let iface = stock
+        .iface_by_name(&iface_name)
+        .expect("invalid iface format");
 
     // TODO: Provide a way to get iimpl by iface
     let iimpl = default_fungible_iimpl();
@@ -331,7 +333,7 @@ pub async fn create_psbt(request: PsbtRequest) -> Result<PsbtResult> {
     let inputs = vec![InputDescriptor {
         outpoint,
         terminal: asset_utxo_terminal.parse()?,
-        seq_no: RGB_PSBT_NOSEQ.parse()?,
+        seq_no: SeqNo::default(),
         tweak: None,
         sighash_type: EcdsaSighashType::All,
     }];
@@ -397,7 +399,7 @@ pub async fn pay_asset(request: RgbTransferRequest) -> Result<RgbTransferResult>
         consig_id: transfer.bindle_id().to_string(),
         consig: transfer
             .to_strict_serialized::<0xFFFFFF>()
-            .expect("")
+            .expect("invalid transfer serialization")
             .to_hex(),
     };
     Ok(consig)

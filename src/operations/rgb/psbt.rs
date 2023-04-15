@@ -27,7 +27,7 @@ pub fn create_psbt(
         fee,
         tx_resolver,
     )
-    .expect("");
+    .expect("cannot be construct PSBT information");
 
     psbt.fallback_locktime = Some(lock_time);
 
