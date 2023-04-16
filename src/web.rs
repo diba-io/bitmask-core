@@ -1,5 +1,5 @@
 #![allow(unused_variables)]
-use crate::data::structs::{PsbtRequest, RgbTransferRequest, TransfersRequest};
+use crate::data::structs::{AcceptRequest, PsbtRequest, RgbTransferRequest};
 use crate::lightning;
 use js_sys::Promise;
 use serde::de::DeserializeOwned;
@@ -98,33 +98,19 @@ pub fn get_wallet_data(descriptor: String, change_descriptor: Option<String>) ->
     })
 }
 
-#[wasm_bindgen]
-pub fn import_asset(asset: String, utxo: String) -> Promise {
-    set_panic_hook();
+// #[wasm_bindgen]
+// pub fn import_asset(asset: String, utxo: String) -> Promise {
+//     set_panic_hook();
 
-    future_to_promise(async move {
-        match crate::import_asset(&asset, &utxo).await {
-            Ok(result) => Ok(JsValue::from_string(
-                serde_json::to_string(&result).unwrap(),
-            )),
-            Err(err) => Err(JsValue::from_string(err.to_string())),
-        }
-    })
-}
-
-#[wasm_bindgen]
-pub fn get_blinded_utxo(utxo_string: String) -> Promise {
-    set_panic_hook();
-
-    future_to_promise(async move {
-        match crate::get_blinded_utxo(&utxo_string).await {
-            Ok(result) => Ok(JsValue::from_string(
-                serde_json::to_string(&result).unwrap(),
-            )),
-            Err(err) => Err(JsValue::from_string(err.to_string())),
-        }
-    })
-}
+//     future_to_promise(async move {
+//         match crate::import_asset(&asset, &utxo).await {
+//             Ok(result) => Ok(JsValue::from_string(
+//                 serde_json::to_string(&result).unwrap(),
+//             )),
+//             Err(err) => Err(JsValue::from_string(err.to_string())),
+//         }
+//     })
+// }
 
 #[wasm_bindgen]
 pub fn send_sats(
@@ -281,12 +267,12 @@ pub fn pay_asset(request: JsValue) -> Promise {
 }
 
 #[wasm_bindgen]
-pub fn transfer_assets(request: JsValue) -> Promise {
+pub fn accept_transfer(request: JsValue) -> Promise {
     set_panic_hook();
 
     future_to_promise(async move {
-        let transfers: TransfersRequest = serde_wasm_bindgen::from_value(request).unwrap();
-        match crate::transfer_assets(transfers).await {
+        let pay_req: AcceptRequest = serde_wasm_bindgen::from_value(request).unwrap();
+        match crate::accept_transfer(pay_req).await {
             Ok(result) => Ok(JsValue::from_string(
                 serde_json::to_string(&result).unwrap(),
             )),
@@ -295,59 +281,19 @@ pub fn transfer_assets(request: JsValue) -> Promise {
     })
 }
 
-#[wasm_bindgen]
-pub fn accept_assets(request: JsValue) -> Promise {
-    set_panic_hook();
+// #[wasm_bindgen]
+// pub fn sign_psbt(rgb_descriptor_xprv: String, psbt: String) -> Promise {
+//     set_panic_hook();
 
-    future_to_promise(async move {
-        let transfers: AcceptRequest = serde_wasm_bindgen::from_value(request).unwrap();
-        match crate::accept_assets(transfers).await {
-            Ok(result) => Ok(JsValue::from_string(
-                serde_json::to_string(&result).unwrap(),
-            )),
-            Err(err) => Err(JsValue::from_string(err.to_string())),
-        }
-    })
-}
-
-#[wasm_bindgen]
-pub fn sign_psbt(rgb_descriptor_xprv: String, psbt: String) -> Promise {
-    set_panic_hook();
-
-    future_to_promise(async move {
-        match crate::sign_psbt_web(&rgb_descriptor_xprv, &psbt).await {
-            Ok(result) => Ok(JsValue::from_string(
-                serde_json::to_string(&result).unwrap(),
-            )),
-            Err(err) => Err(JsValue::from_string(err.to_string())),
-        }
-    })
-}
-
-#[wasm_bindgen]
-pub fn accept_transfer(
-    consignment: String,
-    blinding_factor: String,
-    outpoint: String,
-    blinded: String,
-) -> Promise {
-    set_panic_hook();
-
-    future_to_promise(async move {
-        match crate::accept_transfer(&consignment, &blinding_factor, &outpoint, &blinded).await {
-            Ok(result) => {
-                if !result.accept.contains("error") {
-                    Ok(JsValue::from_string(
-                        serde_json::to_string(&result).unwrap(),
-                    ))
-                } else {
-                    Err(JsValue::from_str("invalid due to erroneous endpoints"))
-                }
-            }
-            Err(err) => Err(JsValue::from_string(err.to_string())),
-        }
-    })
-}
+//     future_to_promise(async move {
+//         match crate::sign_psbt_web(&rgb_descriptor_xprv, &psbt).await {
+//             Ok(result) => Ok(JsValue::from_string(
+//                 serde_json::to_string(&result).unwrap(),
+//             )),
+//             Err(err) => Err(JsValue::from_string(err.to_string())),
+//         }
+//     })
+// }
 
 #[wasm_bindgen]
 pub fn get_network() -> Promise {

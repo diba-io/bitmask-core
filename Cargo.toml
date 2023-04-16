@@ -87,7 +87,6 @@ wasm-bindgen-futures = "0.4.34"
 web-sys = "0.3.61"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-amplify_legacy = { package = "amplify", version = "3.13.0" }
 axum = "0.6.1"
 axum-macros = "0.3.0"
 bdk = { version = "0.27.1", features = [
@@ -95,38 +94,8 @@ bdk = { version = "0.27.1", features = [
     "async-interface",
     "reqwest-default-tls",
 ], default-features = false }
-bitcoin_scripts_legacy = { package = "bitcoin_scripts", version = "0.9.0" }
-bp_legacy = { package = "bp-core", version = "0.9.0", features = [
-    "psbt",
-    "wallet",
-] }
-bp_dbc = { package = "bp-dbc", version = "0.9.0", features = ["wallet"] }
-commit_verify = { version = "0.9.0", features = ["rand"] }
-descriptor_wallet_legacy = { package = "descriptor-wallet", version = "0.9.0", features = [
-    "descriptors",
-    "serde",
-    "miniscript",
-] }
 deflate = "1.0.0"
-electrum_client_legacy = { version = "0.12.1", package = "electrum-client" }
 inflate = "0.4.5"
-lnpbp = "0.9.0"
-psbt_legacy = { package = "psbt", version = "0.9.0", features = [
-    "sign",
-    "miniscript",
-    "serde",
-    "construct",
-] }
-rgb_core = { package = "rgb-core", version = "0.9.0" }
-rgb_std = { package = "rgb-std", version = "0.9.0" }
-rgb20 = { version = "0.9.0", features = ["serde"] }
-stens = { version = "0.9.0", features = ["serde"] }
-storm-core = "0.9.0"
-strict_encoding_legacy = { package = "strict_encoding", version = "0.9.0", features = [
-    "crypto",
-    "chrono",
-    "bitcoin",
-] }
 tower-http = { version = "0.3.5", features = ["cors"], optional = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]

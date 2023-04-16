@@ -1,52 +1,29 @@
 #[macro_use]
 extern crate amplify;
-
-#[cfg(not(target_arch = "wasm32"))]
-extern crate amplify_legacy;
-
 use std::str::FromStr;
 
 use amplify::hex::ToHex;
 use anyhow::Result;
 use bdk::{wallet::AddressIndex, FeeRate, LocalUtxo};
-
-use bitcoin::EcdsaSighashType;
-use bitcoin_blockchain::locks::LockTime;
-use bitcoin_blockchain::locks::SeqNo;
-use bitcoin_scripts::PubkeyScript;
-use bp::Txid;
 use data::constants::BITCOIN_ELECTRUM_API;
-use data::structs::AddressAmount;
-use data::structs::InvoiceResult;
-use data::structs::IssueResult;
-use data::structs::PsbtRequest;
-use data::structs::PsbtResult;
-use data::structs::RgbTransferRequest;
-use data::structs::RgbTransferResult;
-use data::structs::{AcceptRequest, AcceptResponse};
-use miniscript_crate::Descriptor;
-use operations::rgb::constants::RGB_PSBT_TAPRET;
-use operations::rgb::pay::pay_asset as pay_rgb_asset;
-use operations::rgb::resolvers::ExplorerResolver;
-use operations::rgb::{
-    invoice::create_invoice as create_rgb_invoice, issue::issue_contract as create_contract,
-    psbt::create_psbt as create_rgb_psbt, schemas::default_fungible_iimpl,
+
+// RGB Imports
+use data::structs::{
+    AcceptRequest, AcceptResponse, InvoiceResult, IssueResponse, PsbtRequest, PsbtResponse,
+    RgbTransferRequest, RgbTransferResponse,
 };
-use psbt::ProprietaryKeyDescriptor;
-use psbt::ProprietaryKeyLocation;
-use psbt::ProprietaryKeyType;
+use operations::rgb::{
+    invoice::{accept_payment, create_invoice as create_rgb_invoice, pay_invoice},
+    issue::issue_contract as create_contract,
+    psbt::create_psbt as create_rgb_psbt,
+    resolvers::ExplorerResolver,
+};
 
-use psbt::Psbt;
 use rgbstd::containers::BindleContent;
-use rgbstd::contract::ContractId;
-use rgbstd::contract::GraphSeal;
 
-use bitcoin::{util::address::Address, OutPoint, Transaction}; // Shared
+use bitcoin::{util::address::Address, Transaction}; // Shared
 use bitcoin_hashes::{sha256, Hash};
-use rgbstd::persistence::Inventory;
-use rgbstd::persistence::Stash;
 use rgbstd::persistence::Stock;
-use rgbwallet::RgbInvoice;
 use serde::Deserialize;
 use serde::Serialize;
 use serde_encrypt::{
@@ -54,12 +31,7 @@ use serde_encrypt::{
     AsSharedKey, EncryptedMessage,
 };
 use strict_encoding::StrictSerialize;
-use strict_encoding::TypeName;
 use tokio::try_join;
-use wallet::descriptors::InputDescriptor;
-use wallet::hd::DerivationAccount;
-use wallet::hd::UnhardenedIndex;
-
 pub mod data;
 pub mod operations;
 pub mod util;
@@ -71,9 +43,7 @@ pub use crate::{
     data::{
         constants::{get_endpoint, get_network, switch_host, switch_network},
         structs::{
-            BlindingUtxo, EncryptedWalletData, FullUtxo, FundVaultDetails, SatsInvoice, ThinAsset,
-            TransferResult, TransfersRequest, TransfersSerializeResponse, WalletData,
-            WalletTransaction,
+            EncryptedWalletData, FundVaultDetails, SatsInvoice, WalletData, WalletTransaction,
         },
     },
     operations::{
@@ -356,6 +326,7 @@ pub async fn get_assets_vault(
 }
 
 // RGB Operations
+
 pub async fn issue_contract(
     ticker: &str,
     name: &str,
@@ -364,17 +335,14 @@ pub async fn issue_contract(
     supply: u64,
     seal: &str,
     iface: &str,
-) -> Result<IssueResult> {
+) -> Result<IssueResponse> {
     // TODO: Get stock from Carbonado
-    let stock = Stock::default();
+    let mut stock = Stock::default();
 
-    let iface_name = TypeName::from_str(iface).expect("invalid iface name format");
-    let iface = stock
-        .iface_by_name(&iface_name)
-        .expect("invalid iface format");
-
-    // TODO: Provide a way to get iimpl by iface
-    let iimpl = default_fungible_iimpl();
+    let explorer_url = BITCOIN_ELECTRUM_API.read().await;
+    let tx_resolver = ExplorerResolver {
+        explorer_url: explorer_url.to_string(),
+    };
 
     let contract = create_contract(
         ticker,
@@ -382,23 +350,20 @@ pub async fn issue_contract(
         description,
         precision,
         supply,
+        iface,
         seal,
-        iface.to_owned(),
-        iimpl,
+        tx_resolver,
+        &mut stock,
     )?;
 
-    // TODO: Update Stock to Carbonado
-    // stock.import_contract(contract, resolver);
-
-    let id = contract.contract_id().to_string();
-    let schema_id = contract.schema_id().to_string();
+    let contract_id = contract.contract_id().to_string();
     let genesis = contract.bindle().to_string();
 
-    Ok(IssueResult {
+    // TODO: Update Stock to Carbonado
+    Ok(IssueResponse {
+        contract_id,
+        iface: iface.to_string(),
         genesis,
-        id: id.clone(),
-        asset_id: id,
-        schema_id,
     })
 }
 
@@ -410,26 +375,15 @@ pub async fn create_invoice(
 ) -> Result<InvoiceResult> {
     // TODO: Get stock from Carbonado
     let mut stock = Stock::default();
-
-    let iface_name = TypeName::from_str(iface)?;
-    let iface = stock.iface_by_name(&iface_name)?;
-
-    let seal_parts: Vec<&str> = seal.split(':').collect();
-    let txid = Txid::from_str(seal_parts[0]).expect("invalid txid");
-    let seal = GraphSeal::tapret_first(txid, 0);
-    let contract_id = ContractId::from_str(contract_id)?;
-
-    let contract = create_rgb_invoice(contract_id, iface.to_owned(), amount, seal, stock.clone())?;
-    let result = contract.to_string();
+    let invoice = create_rgb_invoice(contract_id, iface, amount, seal, &mut stock)?;
 
     // TODO: Update Stock to Carbonado
-    // Store Seal into Stock
-    stock.store_seal_secret(seal).expect("stock internal error");
-
-    Ok(InvoiceResult { invoice: result })
+    Ok(InvoiceResult {
+        invoice: invoice.to_string(),
+    })
 }
 
-pub async fn create_psbt(request: PsbtRequest) -> Result<PsbtResult> {
+pub async fn create_psbt(request: PsbtRequest) -> Result<PsbtResponse> {
     let PsbtRequest {
         descriptor_pub,
         asset_utxo,
@@ -445,79 +399,38 @@ pub async fn create_psbt(request: PsbtRequest) -> Result<PsbtResult> {
         explorer_url: explorer_url.to_string(),
     };
 
-    let outpoint: OutPoint = asset_utxo.parse()?;
-    let inputs = vec![InputDescriptor {
-        outpoint,
-        terminal: asset_utxo_terminal.parse()?,
-        seq_no: SeqNo::default(),
-        tweak: None,
-        sighash_type: EcdsaSighashType::All,
-    }];
-
-    let bitcoin_addresses: Vec<AddressAmount> = bitcoin_changes
-        .into_iter()
-        .map(|btc| AddressAmount::from_str(btc.as_str()).expect("invalid AddressFormat parse"))
-        .collect();
-
-    let outputs: Vec<(PubkeyScript, u64)> = bitcoin_addresses
-        .into_iter()
-        .map(|AddressAmount { address, amount }| (address.script_pubkey().into(), amount))
-        .collect();
-
-    let descriptor: &Descriptor<DerivationAccount> = &Descriptor::from_str(&descriptor_pub)?;
-    let props = vec![ProprietaryKeyDescriptor {
-        location: ProprietaryKeyLocation::Output(outpoint.vout as u16),
-        ty: ProprietaryKeyType {
-            prefix: RGB_PSBT_TAPRET.to_owned(),
-            subtype: outpoint.vout as u8,
-        },
-        key: None,
-        value: None,
-    }];
-
-    let lock_time = LockTime::anytime();
-    let change_index = match change_index {
-        Some(index) => UnhardenedIndex::from_str(index.as_str())?,
-        _ => UnhardenedIndex::default(),
-    };
-
     let psbt_file = create_rgb_psbt(
-        descriptor,
-        lock_time,
-        inputs,
-        outputs,
-        props,
+        descriptor_pub,
+        asset_utxo,
+        asset_utxo_terminal,
         change_index,
+        bitcoin_changes,
         fee,
         &tx_resolver,
     )?;
 
-    // TODO: Push to Carbonado (?)
-    let psbt = PsbtResult {
+    let psbt = PsbtResponse {
         psbt: psbt::serialize::Serialize::serialize(&psbt_file).to_hex(),
     };
+    // TODO: Push to Carbonado (?)
     Ok(psbt)
 }
 
-pub async fn pay_asset(request: RgbTransferRequest) -> Result<RgbTransferResult> {
+pub async fn pay_asset(request: RgbTransferRequest) -> Result<RgbTransferResponse> {
     let RgbTransferRequest { rgb_invoice, psbt } = request;
 
     // TODO: Pull from Carbonado
-    let stock = Stock::default();
+    let mut stock = Stock::default();
+    let transfer = pay_invoice(rgb_invoice, psbt, &mut stock)?;
 
-    let invoice = RgbInvoice::from_str(&rgb_invoice)?;
-    let psbt_file = Psbt::from_str(&psbt)?;
-
-    let transfer = pay_rgb_asset(invoice, psbt_file, stock)?;
-
-    // TODO: Push to Carbonado
-    let consig = RgbTransferResult {
+    let consig = RgbTransferResponse {
         consig_id: transfer.bindle_id().to_string(),
         consig: transfer
             .to_strict_serialized::<0xFFFFFF>()
             .expect("invalid transfer serialization")
             .to_hex(),
     };
+    // TODO: Push to Carbonado
     Ok(consig)
 }
 
@@ -525,14 +438,25 @@ pub async fn accept_transfer(request: AcceptRequest) -> Result<AcceptResponse> {
     let AcceptRequest { consignment } = request;
 
     // TODO: Pull from Carbonado
-    let stock = Stock::default();
+    let mut stock = Stock::default();
 
-    // TODO: Push to Carbonado
-    let resp = AcceptResponse {
-        contract_id: todo!(),
-        valid: todo!(),
-        info: todo!(),
+    let explorer_url = BITCOIN_ELECTRUM_API.read().await;
+    let mut tx_resolver = ExplorerResolver {
+        explorer_url: explorer_url.to_string(),
+    };
+    let resp = match accept_payment(consignment, true, &mut tx_resolver, &mut stock) {
+        Ok(transfer) => AcceptResponse {
+            contract_id: transfer.contract_id().to_string(),
+            transfer_id: transfer.transfer_id().to_string(),
+            valid: true,
+        },
+        Err((transfer, _)) => AcceptResponse {
+            contract_id: transfer.contract_id().to_string(),
+            transfer_id: transfer.transfer_id().to_string(),
+            valid: false,
+        },
     };
 
+    // TODO: Push to Carbonado
     Ok(resp)
 }
