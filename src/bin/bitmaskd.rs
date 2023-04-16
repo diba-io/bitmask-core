@@ -5,13 +5,14 @@ use anyhow::Result;
 use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
+    routing::get,
     routing::post,
     Json, Router,
 };
 use bitmask_core::{
     accept_transfer, create_invoice, create_psbt,
     data::structs::{AcceptRequest, InvoiceRequest, IssueRequest, PsbtRequest, RgbTransferRequest},
-    issue_contract, pay_asset,
+    issue_contract, list_contracts, list_interfaces, list_schemas, pay_asset,
 };
 use log::info;
 use tower_http::cors::CorsLayer;
@@ -60,6 +61,21 @@ async fn accept(Json(accept_req): Json<AcceptRequest>) -> Result<impl IntoRespon
     Ok((StatusCode::OK, Json(transfer_res)))
 }
 
+async fn contracts() -> Result<impl IntoResponse, AppError> {
+    let contracts_res = list_contracts().await?;
+    Ok((StatusCode::OK, Json(contracts_res)))
+}
+
+async fn interfaces() -> Result<impl IntoResponse, AppError> {
+    let interfaces_res = list_interfaces().await?;
+    Ok((StatusCode::OK, Json(interfaces_res)))
+}
+
+async fn schemas() -> Result<impl IntoResponse, AppError> {
+    let schemas_res = list_schemas().await?;
+    Ok((StatusCode::OK, Json(schemas_res)))
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     if env::var("RUST_LOG").is_err() {
@@ -74,6 +90,9 @@ async fn main() -> Result<()> {
         .route("/psbt", post(psbt))
         .route("/pay", post(pay))
         .route("/accept", post(accept))
+        .route("/contracts", get(contracts))
+        .route("/interfaces", get(interfaces))
+        .route("/schemas", get(schemas))
         .layer(CorsLayer::permissive());
 
     let addr = SocketAddr::from(([127, 0, 0, 1], 7070));

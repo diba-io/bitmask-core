@@ -9,8 +9,9 @@ use data::constants::BITCOIN_ELECTRUM_API;
 
 // RGB Imports
 use data::structs::{
-    AcceptRequest, AcceptResponse, InvoiceResult, IssueResponse, PsbtRequest, PsbtResponse,
-    RgbTransferRequest, RgbTransferResponse,
+    AcceptRequest, AcceptResponse, ContractDetail, ContractsResponse, InterfaceDetail,
+    InterfacesResponse, InvoiceResult, IssueResponse, PsbtRequest, PsbtResponse,
+    RgbTransferRequest, RgbTransferResponse, SchemaDetail, SchemasResponse,
 };
 use operations::rgb::{
     invoice::{accept_payment, create_invoice as create_rgb_invoice, pay_invoice},
@@ -18,12 +19,12 @@ use operations::rgb::{
     psbt::create_psbt as create_rgb_psbt,
     resolvers::ExplorerResolver,
 };
-
 use rgbstd::containers::BindleContent;
+use rgbstd::persistence::{Inventory, Stash, Stock};
 
 use bitcoin::{util::address::Address, Transaction}; // Shared
 use bitcoin_hashes::{sha256, Hash};
-use rgbstd::persistence::Stock;
+
 use serde::Deserialize;
 use serde::Serialize;
 use serde_encrypt::{
@@ -459,4 +460,66 @@ pub async fn accept_transfer(request: AcceptRequest) -> Result<AcceptResponse> {
 
     // TODO: Push to Carbonado
     Ok(resp)
+}
+
+pub async fn list_contracts() -> Result<ContractsResponse> {
+    let mut stock = Stock::default();
+
+    let mut contracts = vec![];
+    for schema_id in stock.schema_ids().expect("invalid schemas state") {
+        let schema = stock.schema(schema_id).expect("invalid schemas state");
+        for (iface_id, _) in schema.clone().iimpls.into_iter() {
+            for contract_id in stock.contract_ids().expect("invalid contracts state") {
+                if stock.contract_iface(contract_id, iface_id).is_ok() {
+                    let face = stock.iface_by_id(iface_id).expect("invalid iface state");
+                    let item = ContractDetail {
+                        contract_id: contract_id.to_string(),
+                        iface: face.name.to_string(),
+                    };
+                    contracts.push(item)
+                }
+            }
+        }
+    }
+
+    Ok(ContractsResponse { contracts })
+}
+
+pub async fn list_interfaces() -> Result<InterfacesResponse> {
+    let stock = Stock::default();
+
+    let mut interfaces = vec![];
+    for schema_id in stock.schema_ids().expect("invalid schemas state") {
+        let schema = stock.schema(schema_id).expect("invalid schemas state");
+        for (iface_id, iimpl) in schema.clone().iimpls.into_iter() {
+            let face = stock.iface_by_id(iface_id).expect("invalid iface state");
+
+            let item = InterfaceDetail {
+                name: face.name.to_string(),
+                iface: iface_id.to_string(),
+                iimpl: iimpl.impl_id().to_string(),
+            };
+            interfaces.push(item)
+        }
+    }
+    Ok(InterfacesResponse { interfaces })
+}
+
+pub async fn list_schemas() -> Result<SchemasResponse> {
+    let stock = Stock::default();
+
+    let mut schemas = vec![];
+    for schema_id in stock.schema_ids().expect("invalid schemas state") {
+        let schema = stock.schema(schema_id).expect("invalid schemas state");
+        let mut ifaces = vec![];
+        for (iface_id, _) in schema.clone().iimpls.into_iter() {
+            let face = stock.iface_by_id(iface_id).expect("invalid iface state");
+            ifaces.push(face.name.to_string());
+        }
+        schemas.push(SchemaDetail {
+            schema: schema_id.to_string(),
+            ifaces,
+        })
+    }
+    Ok(SchemasResponse { schemas })
 }

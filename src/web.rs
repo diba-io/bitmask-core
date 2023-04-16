@@ -281,6 +281,48 @@ pub fn accept_transfer(request: JsValue) -> Promise {
     })
 }
 
+#[wasm_bindgen]
+pub fn list_contracts() -> Promise {
+    set_panic_hook();
+
+    future_to_promise(async move {
+        match crate::list_contracts().await {
+            Ok(result) => Ok(JsValue::from_string(
+                serde_json::to_string(&result).unwrap(),
+            )),
+            Err(err) => Err(JsValue::from_string(err.to_string())),
+        }
+    })
+}
+
+#[wasm_bindgen]
+pub fn list_interfaces() -> Promise {
+    set_panic_hook();
+
+    future_to_promise(async move {
+        match crate::list_interfaces().await {
+            Ok(result) => Ok(JsValue::from_string(
+                serde_json::to_string(&result).unwrap(),
+            )),
+            Err(err) => Err(JsValue::from_string(err.to_string())),
+        }
+    })
+}
+
+#[wasm_bindgen]
+pub fn list_schemas() -> Promise {
+    set_panic_hook();
+
+    future_to_promise(async move {
+        match crate::list_schemas().await {
+            Ok(result) => Ok(JsValue::from_string(
+                serde_json::to_string(&result).unwrap(),
+            )),
+            Err(err) => Err(JsValue::from_string(err.to_string())),
+        }
+    })
+}
+
 // #[wasm_bindgen]
 // pub fn sign_psbt(rgb_descriptor_xprv: String, psbt: String) -> Promise {
 //     set_panic_hook();

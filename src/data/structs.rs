@@ -148,6 +148,50 @@ pub struct AcceptResponse {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ContractsResponse {
+    /// List of avaliable contracts
+    pub contracts: Vec<ContractDetail>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ContractDetail {
+    /// Contract ID
+    pub contract_id: String,
+    /// Interface Name
+    pub iface: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct InterfacesResponse {
+    /// List of avaliable interfaces and implementations
+    pub interfaces: Vec<InterfaceDetail>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct InterfaceDetail {
+    /// Interface Name
+    pub name: String,
+    /// Interface ID
+    pub iface: String,
+    /// Interface ID
+    pub iimpl: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct SchemasResponse {
+    /// List of avaliable schemas
+    pub schemas: Vec<SchemaDetail>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct SchemaDetail {
+    /// Schema ID
+    pub schema: String,
+    /// Avaliable Interfaces
+    pub ifaces: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SatsInvoice {
     pub amount: u64,
     pub address: Address,

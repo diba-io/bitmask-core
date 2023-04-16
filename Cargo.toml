@@ -74,7 +74,7 @@ tokio = { version = "1.27.0", features = ["macros", "sync"] }
 
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-bdk = { version = "0.27.1", features = [
+bdk = { version = "0.28.0", features = [
     "use-esplora-async",
     "async-interface",
 ], default-features = false }
@@ -89,7 +89,7 @@ web-sys = "0.3.61"
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 axum = "0.6.1"
 axum-macros = "0.3.0"
-bdk = { version = "0.27.1", features = [
+bdk = { version = "0.28.0", features = [
     "use-esplora-async",
     "async-interface",
     "reqwest-default-tls",
