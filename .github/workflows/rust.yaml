@@ -55,7 +55,7 @@ jobs:
           components: clippy
 
       - uses: olix0r/cargo-action-fmt/setup@v2
-      - uses: jetli/wasm-pack-action@v0.3.0
+      - uses: jetli/wasm-pack-action@v0.4.0
       - uses: Swatinem/rust-cache@v2
 
       - name: Add wasm32 target
@@ -100,23 +100,38 @@ jobs:
           TEST_WALLET_SEED: ${{ secrets.TEST_WALLET_SEED }}
           RUST_BACKTRACE: 1
 
-  # test-wasm:
-  #   runs-on: ubuntu-latest
-  #   needs: lint-wasm
+  test-wasm:
+    runs-on: ubuntu-latest
+    needs: lint-wasm
 
-  #   steps:
-  #     - uses: actions/checkout@v3
+    steps:
+      - uses: actions/checkout@v3
 
-  #     - uses: dtolnay/rust-toolchain@master
-  #       with:
-  #         toolchain: stable
-  #         targets: wasm32-unknown-unknown
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+          targets: wasm32-unknown-unknown
 
-  #     - uses: Swatinem/rust-cache@v2
-  #     - uses: jetli/wasm-pack-action@v0.3.0
+      - uses: Swatinem/rust-cache@v2
+      - uses: jetli/wasm-pack-action@v0.4.0
 
-  #     - name: Test
-  #       run: wasm-pack test --headless --chrome
-  #       env:
-  #         TEST_WALLET_SEED: ${{ secrets.TEST_WALLET_SEED }}
-  #         RUST_BACKTRACE: 1
+      - name: Up Bitcoin Node
+        run: |
+          docker compose up -d node1
+
+      - name: Setup Bitcoin Node
+        run: |
+          sleep 5
+          docker-compose exec -T node1 cli loadwallet default
+          docker-compose exec -T node1 cli -generate 500
+          docker-compose exec -T node1 cli sendtoaddress $MAIN_VAULT_ADDRESS 10
+          docker-compose exec -T node1 cli -generate 1
+        env:
+          MAIN_VAULT_ADDRESS: ${{ secrets.MAIN_VAULT_ADDRESS }}
+          RUST_BACKTRACE: 1
+
+      - name: Test WASM
+        run: wasm-pack test --headless --chrome
+        env:
+          TEST_WALLET_SEED: ${{ secrets.TEST_WALLET_SEED }}
+          RUST_BACKTRACE: 1

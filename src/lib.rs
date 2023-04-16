@@ -4,6 +4,7 @@ use std::str::FromStr;
 
 use amplify::hex::ToHex;
 use anyhow::Result;
+pub use bdk::TransactionDetails;
 use bdk::{wallet::AddressIndex, FeeRate, LocalUtxo};
 use data::constants::BITCOIN_ELECTRUM_API;
 
@@ -22,7 +23,7 @@ use operations::rgb::{
 use rgbstd::containers::BindleContent;
 use rgbstd::persistence::{Inventory, Stash, Stock};
 
-use bitcoin::{util::address::Address, Transaction}; // Shared
+use bitcoin::util::address::Address;
 use bitcoin_hashes::{sha256, Hash};
 
 use serde::Deserialize;
@@ -126,8 +127,8 @@ pub async fn get_wallet_data(
     change_descriptor: Option<String>,
 ) -> Result<WalletData> {
     info!("get_wallet_data");
-    info!("descriptor:", &descriptor);
-    info!("change_descriptor:", format!("{:?}", &change_descriptor));
+    info!(format!("descriptor: {descriptor}"));
+    info!(format!("change_descriptor {change_descriptor:?}"));
 
     let wallet = get_wallet(descriptor, change_descriptor)?;
     synchronize_wallet(&wallet).await?;
@@ -190,7 +191,7 @@ pub async fn send_sats(
     destination: &str, // bip21 uri or address
     amount: u64,
     fee_rate: Option<f32>,
-) -> Result<Transaction> {
+) -> Result<TransactionDetails> {
     use payjoin::UriExt;
 
     let wallet = get_wallet(descriptor, Some(change_descriptor.to_owned()))?;
@@ -261,16 +262,20 @@ pub async fn fund_vault(
     let uda_tx_details =
         create_transaction(vec![uda_invoice.clone(), uda_invoice], &wallet, fee_rate).await?;
 
-    let asset_txid = asset_tx_details.txid();
+    let asset_txid = asset_tx_details.txid;
     let asset_outputs: Vec<String> = asset_tx_details
+        .transaction
+        .expect("asset tx exists")
         .output
         .iter()
         .enumerate()
         .map(|(i, _)| format!("{asset_txid}:{i}"))
         .collect();
 
-    let uda_txid = uda_tx_details.txid();
+    let uda_txid = uda_tx_details.txid;
     let uda_outputs: Vec<String> = uda_tx_details
+        .transaction
+        .expect("uda tx exists")
         .output
         .iter()
         .enumerate()
@@ -282,6 +287,7 @@ pub async fn fund_vault(
         assets_change_output: Some(asset_outputs[1].to_owned()),
         udas_output: Some(uda_outputs[0].to_owned()),
         udas_change_output: Some(uda_outputs[1].to_owned()),
+        is_funded: true,
     })
 }
 
@@ -318,11 +324,17 @@ pub async fn get_assets_vault(
     let udas_change_output = uda_utxos.pop();
     let udas_output = uda_utxos.pop();
 
+    let is_funded = assets_change_output.is_some()
+        && assets_output.is_some()
+        && udas_change_output.is_some()
+        && udas_output.is_some();
+
     Ok(FundVaultDetails {
         assets_output,
         assets_change_output,
         udas_output,
         udas_change_output,
+        is_funded,
     })
 }
 
