@@ -32,7 +32,7 @@ pub async fn create_transaction(
 
     debug!(format!("Create transaction: {details:#?}"));
     debug!("Unsigned PSBT:", base64::encode(&serialize(&psbt)));
-    let _tx = sign_psbt(wallet, psbt).await?;
+    let details = sign_psbt(wallet, psbt).await?;
     info!("PSBT successfully signed");
 
     Ok(details)

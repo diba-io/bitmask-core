@@ -14,21 +14,19 @@ use bitmask_core::{
 
 wasm_bindgen_test_configure!(run_in_browser);
 
-const MNEMONIC: &str =
-    "swing rose forest coral approve giggle public liar brave piano sound spirit";
 const ENCRYPTION_PASSWORD: &str = "hunter2";
 const SEED_PASSWORD: &str = "";
-
-const ASSET: &str = "rgb1g2antx89ypjuat7jdth35d8xgqserckrhj9elkrhxhjhxch8sxqqguzmh6"; // BUX
 
 /// Test asset import
 #[wasm_bindgen_test]
 async fn asset_import() {
     set_panic_hook();
 
+    let mnemonic = env!("TEST_WALLET_SEED", "TEST_WALLET_SEED variable not set");
+
     // Import wallet
     let mnemonic_data_str = resolve(save_mnemonic_seed(
-        MNEMONIC.to_owned(),
+        mnemonic.to_owned(),
         ENCRYPTION_PASSWORD.to_owned(),
         SEED_PASSWORD.to_owned(),
     ))
