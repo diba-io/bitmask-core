@@ -29,7 +29,7 @@ async fn issue(Json(issue): Json<IssueRequest>) -> Result<impl IntoResponse, App
 }
 
 async fn blind(Json(blind): Json<BlindRequest>) -> Result<impl IntoResponse, AppError> {
-    let blind_res = get_blinded_utxo(&blind.utxo)?;
+    let blind_res = get_blinded_utxo(&Some(blind.utxo))?;
 
     Ok((StatusCode::OK, Json(blind_res)))
 }

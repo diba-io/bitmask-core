@@ -1,6 +1,8 @@
 use anyhow::{anyhow, Result};
-use bdk::{database::AnyDatabase, wallet::tx_builder::TxOrdering, FeeRate, Wallet};
-use bitcoin::{consensus::serialize, Transaction};
+use bdk::{
+    database::AnyDatabase, wallet::tx_builder::TxOrdering, FeeRate, TransactionDetails, Wallet,
+};
+use bitcoin::consensus::serialize;
 use payjoin::{PjUri, PjUriExt};
 
 use crate::{
@@ -16,7 +18,7 @@ pub async fn create_transaction(
     invoices: Vec<SatsInvoice>,
     wallet: &Wallet<AnyDatabase>,
     fee_rate: Option<FeeRate>,
-) -> Result<Transaction> {
+) -> Result<TransactionDetails> {
     synchronize_wallet(wallet).await?;
     let (psbt, details) = {
         let mut builder = wallet.build_tx();
@@ -30,10 +32,10 @@ pub async fn create_transaction(
 
     debug!(format!("Create transaction: {details:#?}"));
     debug!("Unsigned PSBT:", base64::encode(&serialize(&psbt)));
-    let tx = sign_psbt(wallet, psbt).await?;
+    let _tx = sign_psbt(wallet, psbt).await?;
     info!("PSBT successfully signed");
 
-    Ok(tx)
+    Ok(details)
 }
 
 pub async fn create_payjoin(
@@ -41,7 +43,7 @@ pub async fn create_payjoin(
     wallet: &Wallet<AnyDatabase>,
     fee_rate: Option<FeeRate>,
     pj_uri: PjUri<'_>, // TODO specify Uri<PayJoinParams>
-) -> Result<Transaction> {
+) -> Result<TransactionDetails> {
     let (psbt, details) = {
         let mut builder = wallet.build_tx();
         for invoice in invoices {

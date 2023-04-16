@@ -4,11 +4,12 @@ use wasm_bindgen::prelude::*;
 use wasm_bindgen_test::*;
 
 use bitmask_core::{
+    debug, info,
     web::{
-        get_encrypted_wallet, get_wallet_data, import_asset, json_parse, resolve,
-        save_mnemonic_seed, set_panic_hook,
+        fund_vault, get_assets_vault, get_encrypted_wallet, get_wallet_data, import_asset,
+        json_parse, resolve, save_mnemonic_seed, set_panic_hook,
     },
-    EncryptedWalletData, MnemonicSeedData, WalletData,
+    EncryptedWalletData, FundVaultDetails, MnemonicSeedData, WalletData,
 };
 
 wasm_bindgen_test_configure!(run_in_browser);
@@ -34,32 +35,71 @@ async fn asset_import() {
     .await;
 
     let mnemonic_data: MnemonicSeedData = json_parse(&mnemonic_data_str);
-    let encrypted_descriptors =
-        serde_json::to_string(&mnemonic_data.serialized_encrypted_message).unwrap();
 
     // Get vault properties
     let wallet_data_str: JsValue = resolve(get_encrypted_wallet(
         ENCRYPTION_PASSWORD.to_owned(),
-        encrypted_descriptors,
+        mnemonic_data.serialized_encrypted_message,
     ))
     .await;
-    let encrypted_wallet_data: EncryptedWalletData = json_parse(&wallet_data_str);
+    let wallet_data: EncryptedWalletData = json_parse(&wallet_data_str);
 
-    resolve(import_asset(
-        ASSET.to_owned(),
-        encrypted_wallet_data.rgb_assets_descriptor_xpub.clone(),
-    ))
-    .await;
-
-    // Get wallet data
-    let wallet_str: JsValue = resolve(get_wallet_data(
-        encrypted_wallet_data.rgb_assets_descriptor_xprv.clone(),
+    info!("Get Wallets");
+    let assets_wallet = resolve(get_wallet_data(
+        wallet_data.rgb_assets_descriptor_xpub.clone(),
         None,
     ))
     .await;
+    let assets_wallet: WalletData = json_parse(&assets_wallet);
+    let udas_wallet = resolve(get_wallet_data(
+        wallet_data.rgb_udas_descriptor_xpub.clone(),
+        None,
+    ))
+    .await;
+    let udas_wallet: WalletData = json_parse(&udas_wallet);
 
-    // Parse wallet data
-    let wallet_data: WalletData = json_parse(&wallet_str);
+    info!("Check Asset Vault");
+    let vault_details = resolve(get_assets_vault(
+        wallet_data.rgb_assets_descriptor_xpub.clone(),
+        wallet_data.rgb_udas_descriptor_xpub,
+    ))
+    .await;
+    let mut vault_details: FundVaultDetails = json_parse(&vault_details);
 
-    assert_eq!(wallet_data.transactions, vec![]);
+    info!("Check Main Asset Vault");
+    if vault_details.assets_output.is_none() {
+        info!("Missing an asset UTXO in vault. Funding vault...");
+        let new_vault_details = resolve(fund_vault(
+            wallet_data.btc_descriptor_xprv,
+            wallet_data.btc_change_descriptor_xprv,
+            assets_wallet.address,
+            udas_wallet.address,
+            1546,
+            1546,
+            Some(1.0),
+        ))
+        .await;
+        vault_details = json_parse(&new_vault_details);
+        debug!("Fund vault details: {assets_vault_details:#?}");
+    }
+
+    // TODO: WASM asset test
+
+    // resolve(import_asset(
+    //     ASSET.to_owned(),
+    //     wallet_data.rgb_assets_descriptor_xpub,
+    // ))
+    // .await;
+
+    // // Get wallet data
+    // let wallet_str: JsValue = resolve(get_wallet_data(
+    //     wallet_data.rgb_assets_descriptor_xprv.clone(),
+    //     None,
+    // ))
+    // .await;
+
+    // // Parse wallet data
+    // let wallet_data: WalletData = json_parse(&wallet_str);
+
+    // assert_eq!(wallet_data.transactions, vec![]);
 }

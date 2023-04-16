@@ -6,10 +6,11 @@ use std::str::FromStr;
 
 use anyhow::anyhow;
 use anyhow::Result;
+pub use bdk::TransactionDetails;
 use bdk::{wallet::AddressIndex, FeeRate, LocalUtxo};
 #[cfg(not(target_arch = "wasm32"))]
 use bitcoin::consensus::serialize as serialize_psbt; // Desktop
-use bitcoin::{util::address::Address, OutPoint, Transaction}; // Shared
+use bitcoin::{util::address::Address, OutPoint}; // Shared
 use bitcoin_hashes::{sha256, Hash};
 use serde::{Deserialize, Serialize};
 use serde_encrypt::{
@@ -394,7 +395,7 @@ pub async fn send_sats(
     destination: &str, // bip21 uri or address
     amount: u64,
     fee_rate: Option<f32>,
-) -> Result<Transaction> {
+) -> Result<TransactionDetails> {
     use payjoin::UriExt;
 
     let wallet = get_wallet(descriptor, Some(change_descriptor.to_owned()))?;
@@ -465,16 +466,20 @@ pub async fn fund_vault(
     let uda_tx_details =
         create_transaction(vec![uda_invoice.clone(), uda_invoice], &wallet, fee_rate).await?;
 
-    let asset_txid = asset_tx_details.txid();
+    let asset_txid = asset_tx_details.txid;
     let asset_outputs: Vec<String> = asset_tx_details
+        .transaction
+        .expect("asset tx exists")
         .output
         .iter()
         .enumerate()
         .map(|(i, _)| format!("{asset_txid}:{i}"))
         .collect();
 
-    let uda_txid = uda_tx_details.txid();
+    let uda_txid = uda_tx_details.txid;
     let uda_outputs: Vec<String> = uda_tx_details
+        .transaction
+        .expect("uda tx exists")
         .output
         .iter()
         .enumerate()
@@ -645,7 +650,7 @@ pub async fn accept_transfer(
 }
 
 #[cfg(target_arch = "wasm32")]
-pub async fn sign_psbt_web(rgb_descriptor_xprv: &str, psbt: &str) -> Result<Transaction> {
+pub async fn sign_psbt_web(rgb_descriptor_xprv: &str, psbt: &str) -> Result<TransactionDetails> {
     use bitcoin::psbt::PartiallySignedTransaction;
 
     let wallet = get_wallet(rgb_descriptor_xprv, None)?;

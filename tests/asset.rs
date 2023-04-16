@@ -237,7 +237,7 @@ async fn allow_transfer_one_asset_to_many_beneficiaries() -> Result<()> {
     .await?;
     debug!("Ephemeral wallet funding tx: {tx:?}");
 
-    info!("Get Walles");
+    info!("Get Wallets");
     let assets_wallet = get_wallet_data(&tmp_vault.rgb_assets_descriptor_xpub, None).await?;
     let udas_wallet = get_wallet_data(&tmp_vault.rgb_udas_descriptor_xpub, None).await?;
 
