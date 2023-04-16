@@ -354,17 +354,13 @@ pub struct AssetUtxo {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct AcceptRequest {
     pub consignment: String,
-    pub blinding_factor: String,
-    pub outpoint: String,
-    pub blinded: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct AcceptResponse {
-    pub id: String,
-    #[cfg(not(target_arch = "wasm32"))]
-    pub info: Status,
+    pub contract_id: String,
     pub valid: bool,
+    pub info: Status,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

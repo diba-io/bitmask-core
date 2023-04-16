@@ -10,11 +10,8 @@ use axum::{
 };
 use bitmask_core::{
     accept_transfer, create_invoice, create_psbt,
-    data::structs::{
-        AcceptRequest, AssetRequest, BlindRequest, InvoiceRequest, IssueRequest, PsbtRequest,
-        RgbTransferRequest, TransfersRequest,
-    },
-    get_blinded_utxo, import_asset, issue_contract, pay_asset, transfer_assets,
+    data::structs::{AcceptRequest, InvoiceRequest, IssueRequest, PsbtRequest, RgbTransferRequest},
+    issue_contract, pay_asset,
 };
 use log::info;
 use tower_http::cors::CorsLayer;
@@ -58,34 +55,9 @@ async fn pay(Json(pay_req): Json<RgbTransferRequest>) -> Result<impl IntoRespons
     Ok((StatusCode::OK, Json(transfer_res)))
 }
 
-async fn _blind(Json(blind): Json<BlindRequest>) -> Result<impl IntoResponse, AppError> {
-    let blind_res = get_blinded_utxo(&blind.utxo)?;
-
-    Ok((StatusCode::OK, Json(blind_res)))
-}
-
-async fn _import(Json(asset): Json<AssetRequest>) -> Result<impl IntoResponse, AppError> {
-    let asset_res = import_asset(&asset.asset, asset.utxos)?;
-
-    Ok((StatusCode::OK, Json(asset_res)))
-}
-
-#[axum_macros::debug_handler]
-async fn _transfer(Json(transfer): Json<TransfersRequest>) -> Result<impl IntoResponse, AppError> {
-    let transfer_res = transfer_assets(transfer).await?;
-
+async fn accept(Json(accept_req): Json<AcceptRequest>) -> Result<impl IntoResponse, AppError> {
+    let transfer_res = accept_transfer(accept_req).await?;
     Ok((StatusCode::OK, Json(transfer_res)))
-}
-
-async fn accept(Json(accept): Json<AcceptRequest>) -> Result<impl IntoResponse, AppError> {
-    accept_transfer(
-        &accept.consignment,
-        &accept.blinding_factor,
-        &accept.outpoint,
-    )
-    .await?;
-
-    Ok(StatusCode::OK)
 }
 
 #[tokio::main]

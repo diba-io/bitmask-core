@@ -296,6 +296,21 @@ pub fn transfer_assets(request: JsValue) -> Promise {
 }
 
 #[wasm_bindgen]
+pub fn accept_assets(request: JsValue) -> Promise {
+    set_panic_hook();
+
+    future_to_promise(async move {
+        let transfers: AcceptRequest = serde_wasm_bindgen::from_value(request).unwrap();
+        match crate::accept_assets(transfers).await {
+            Ok(result) => Ok(JsValue::from_string(
+                serde_json::to_string(&result).unwrap(),
+            )),
+            Err(err) => Err(JsValue::from_string(err.to_string())),
+        }
+    })
+}
+
+#[wasm_bindgen]
 pub fn sign_psbt(rgb_descriptor_xprv: String, psbt: String) -> Promise {
     set_panic_hook();
 

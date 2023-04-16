@@ -2,6 +2,7 @@ use std::{convert::Infallible, str::FromStr};
 
 use amplify::hex::{FromHex, ToHex};
 use bitcoin::Transaction;
+use bitcoin_blockchain::locks::SeqNo;
 use bitmask_core::{
     operations::rgb::issue::issue_contract,
     operations::rgb::{invoice::create_invoice, schemas::default_fungible_iimpl},
