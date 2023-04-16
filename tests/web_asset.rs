@@ -64,24 +64,24 @@ async fn asset_import() {
     .await;
     let mut vault_details: FundVaultDetails = json_parse(&vault_details);
 
-    info!("Check Main Asset Vault");
-    if vault_details.assets_output.is_none() {
-        info!("Missing an asset UTXO in vault. Funding vault...");
-        let new_vault_details = resolve(fund_vault(
-            wallet_data.btc_descriptor_xprv,
-            wallet_data.btc_change_descriptor_xprv,
-            assets_wallet.address,
-            udas_wallet.address,
-            1546,
-            1546,
-            Some(1.0),
-        ))
-        .await;
-        vault_details = json_parse(&new_vault_details);
-        debug!("Fund vault details: {assets_vault_details:#?}");
-    }
-
     // TODO: WASM asset test
+
+    // info!("Check Main Asset Vault");
+    // if vault_details.assets_output.is_none() {
+    //     info!("Missing an asset UTXO in vault. Funding vault...");
+    //     let new_vault_details = resolve(fund_vault(
+    //         wallet_data.btc_descriptor_xprv,
+    //         wallet_data.btc_change_descriptor_xprv,
+    //         assets_wallet.address,
+    //         udas_wallet.address,
+    //         1546,
+    //         1546,
+    //         Some(1.0),
+    //     ))
+    //     .await;
+    //     vault_details = json_parse(&new_vault_details);
+    //     debug!("Fund vault details: {assets_vault_details:#?}");
+    // }
 
     // resolve(import_asset(
     //     ASSET.to_owned(),
