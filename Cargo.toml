@@ -62,7 +62,7 @@ psbt = { version = "0.10.0-alpha.2", features = [
     "construct",
 ] }
 regex = "1.7.0"
-reqwest = { version = "0.11.13", features = ["json"] }
+reqwest = { version = "0.11.16", features = ["json"] }
 rgb-std = { version = "0.10.0" }
 rgb-wallet = { version = "0.10.0" }
 serde = "1.0.152"
@@ -106,8 +106,6 @@ wasm-bindgen-test = "0.3.33"
 
 [patch.crates-io]
 # TODO: Remove this after merge and release a new version
-bp-dbc = { git = "https://github.com/crisdut/bp-core", branch = "feat/push_num_1" }
-bp-primitives = { git = "https://github.com/crisdut/bp-core", branch = "feat/push_num_1" }
 bitcoin_scripts = { git = "https://github.com/crisdut/bp-foundation", branch = "release/0.10.0-alpha.2" }
 bitcoin_blockchain = { git = "https://github.com/crisdut/bp-foundation", branch = "release/0.10.0-alpha.2" }
 descriptor-wallet = { git = "https://github.com/crisdut/descriptor-wallet", branch = "release/0.10.0-alpha.2" }

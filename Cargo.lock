@@ -550,7 +550,8 @@ dependencies = [
 [[package]]
 name = "bp-dbc"
 version = "0.10.0"
-source = "git+https://github.com/crisdut/bp-core?branch=feat/push_num_1#ce7852525975b1fe8a99f4abcadd21ea477af098"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4416e203e2ef0853db5c4bb9d057d708866a27207eaba5cd915331ee7f85d8bb"
 dependencies = [
  "amplify",
  "baid58",
@@ -562,8 +563,9 @@ dependencies = [
 
 [[package]]
 name = "bp-primitives"
-version = "0.10.0"
-source = "git+https://github.com/crisdut/bp-core?branch=feat/push_num_1#ce7852525975b1fe8a99f4abcadd21ea477af098"
+version = "0.10.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0daf04647d5ea2465de0a1ab27b8bb6abb01bd7c84e99c65a5ca50440cca30be"
 dependencies = [
  "amplify",
  "commit_verify",
@@ -1931,9 +1933,9 @@ checksum = "f162c6dd7b008981e4d40210aca20b4bd0f9b60ca9271061b07f78537722f2e1"
 
 [[package]]
 name = "reqwest"
-version = "0.11.15"
+version = "0.11.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0ba30cc2c0cd02af1222ed216ba659cdb2f879dfe3181852fe7c50b1d0005949"
+checksum = "27b71749df584b7f4cac2c426c127a7c785a5106cc98f7a8feb044115f0fa254"
 dependencies = [
  "base64 0.21.0",
  "bytes",
