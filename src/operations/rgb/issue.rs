@@ -22,6 +22,7 @@ pub enum IssueError {
     ContractInvalid(String),
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn issue_contract<T>(
     ticker: &str,
     name: &str,

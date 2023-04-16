@@ -54,8 +54,7 @@ pub fn create_invoice(
         (Some(_seal), Some(txid), Some(vout)) => {
             let txid = Txid::from_str(txid).expect("invalid txid");
             let vout = Vout::from_str(vout).expect("invalid vout");
-            let seal = GraphSeal::tapret_first(txid, vout);
-            seal
+            GraphSeal::tapret_first(txid, vout)
         }
         _ => return Err(InvoiceError::InvalidBlindSeal),
     };
@@ -132,14 +131,11 @@ where
     let confined_transfer = Transfer::from_strict_serialized::<{ usize::MAX }>(confined);
 
     let transfer = confined_transfer.expect("");
-    let transfer_status = transfer
-        .clone()
-        .validate(resolver)
-        .expect("validate_pay failed");
+    let transfer_status = transfer.validate(resolver).expect("validate_pay failed");
 
     let bindle = Bindle::new(transfer_status.clone());
-    match stock.accept_transfer(transfer_status.clone(), resolver, force) {
-        Ok(_) => return Ok(bindle),
-        _ => return Err((bindle, PaymentError::Invalid)),
+    match stock.accept_transfer(transfer_status, resolver, force) {
+        Ok(_) => Ok(bindle),
+        _ => Err((bindle, PaymentError::Invalid)),
     }
 }

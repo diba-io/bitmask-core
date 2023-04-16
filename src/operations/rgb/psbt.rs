@@ -48,7 +48,7 @@ pub fn create_psbt(
         &Descriptor::from_str(&descriptor_pub).expect("");
     let proprietary_keys = vec![ProprietaryKeyDescriptor {
         // TODO: Review that after amount protocol
-        location: ProprietaryKeyLocation::Output(0 as u16),
+        location: ProprietaryKeyLocation::Output(0_u16),
         ty: ProprietaryKeyType {
             prefix: RGB_PSBT_TAPRET.to_owned(),
             subtype: outpoint.vout as u8,

@@ -41,7 +41,7 @@ impl ResolveCommiment for ExplorerResolver {
         let explorer_client = EsploraBlockchain::new(&self.explorer_url, 100);
 
         let transaction_id = &bitcoin::Txid::from_str(&txid.to_hex()).expect("");
-        let tx = executor::block_on(explorer_client.get_tx(&transaction_id))
+        let tx = executor::block_on(explorer_client.get_tx(transaction_id))
             .expect("service unavaliable")
             .unwrap();
         Ok(Tx {
