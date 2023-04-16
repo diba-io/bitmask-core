@@ -11,7 +11,7 @@ const SEED_PASSWORD: &str = "";
 async fn error_for_bad_mnemonic() -> Result<()> {
     let _ = pretty_env_logger::try_init();
     let network = get_network()?;
-    info!("Asset test on {network}");
+    info!("Wallet test on {network}");
 
     info!("Import wallets");
     let mnemonic = "this is a bad mnemonic that is meant to break";

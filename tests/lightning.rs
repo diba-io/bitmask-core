@@ -1,3 +1,5 @@
+#![cfg(not(target_arch = "wasm32"))]
+
 use anyhow::{Ok, Result};
 use bitmask_core::{
     lightning::{AuthResponse, CreateWalletResponse},
