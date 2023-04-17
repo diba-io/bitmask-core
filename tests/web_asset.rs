@@ -1,13 +1,12 @@
 #![cfg(all(target_arch = "wasm32"))]
-
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_test::*;
 
 use bitmask_core::{
     debug, info,
     web::{
-        fund_vault, get_assets_vault, get_encrypted_wallet, get_wallet_data, import_asset,
-        json_parse, resolve, save_mnemonic_seed, set_panic_hook,
+        get_assets_vault, get_encrypted_wallet, get_wallet_data, json_parse, resolve,
+        save_mnemonic_seed, set_panic_hook,
     },
     EncryptedWalletData, FundVaultDetails, MnemonicSeedData, WalletData,
 };
@@ -62,7 +61,7 @@ async fn asset_import() {
         wallet_data.rgb_udas_descriptor_xpub,
     ))
     .await;
-    let mut vault_details: FundVaultDetails = json_parse(&vault_details);
+    let vault_details: FundVaultDetails = json_parse(&vault_details);
 
     // TODO: WASM asset test
 

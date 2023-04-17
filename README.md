@@ -52,15 +52,24 @@ Upon a new release, follow these steps:
 1. Run `cargo +nightly udeps` to see if there are any unused dependencies.
 
 ## Docker
+For running bitmask-core tests in Regtest Mode, please follow the steps below:
 
-For running bitmask-core tests in regtest, please follow the steps bellow:
-
-1. Build bitcoin node + electrum: `docker compose build`
-2. Up and running containers: `docker compose up -d node1`
+### Initial Setup
+1. Build bitcoin node + electrum: `docker-compose build`.
+2. Up and running Docker containers: `docker-compose up -d node1`.
 3. Load the command line: `source .commands`
-4. Send some coins to main wallet address: `node1 sendtoaddress {ADDRESS} 10`
-5. Mine a block: `node1 -generate`
-6. Running the tests: `TEST_WALLET_SEED="replace with a 12 word mnemonic for a wallet containing testnet sats" cargo test allow_transfer -- --test-threads 1`
+4. Download and install BDK cli: `cargo install bdk-cli`. We will use BDK to generate the mnemonic.
+5. Generate a new mnemonic: `bdk-cli generate`.
+6. Create an environment variable called **TEST_WALLET_SEED** with mnemonic generated in the **step 5**.
+7. Run the test to get main address: `cargo test --test wallet -- create_wallet --exact`.
+8. Load your wallet in the bitcoin node: `node1 loadwallet default`.
+9. Generate new first 500 blocks: `node1 -generate 500`.
+10. Send some coins to the main wallet address: `node1 sendtoaddress {ADDRESS} 10`. Change `{ADDRESS}` with the address generated in the **step 7**.
+11. Mine a new block: `node1 -generate 1`
+12. Run the test to check the balance: `cargo test --test wallet -- get_wallet_balance --exact`.
+
+### Running the tests
+Running the tests: `cargo test --test-threads 1`
 
 ### Troubleshooting
 

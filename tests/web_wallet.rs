@@ -1,10 +1,4 @@
 #![cfg(all(target_arch = "wasm32"))]
-
-use std::env;
-
-use wasm_bindgen::prelude::*;
-use wasm_bindgen_test::*;
-
 use bitmask_core::{
     debug, info,
     web::{
@@ -13,6 +7,8 @@ use bitmask_core::{
     },
     EncryptedWalletData, MnemonicSeedData, TransactionDetails, WalletData,
 };
+use wasm_bindgen::prelude::*;
+use wasm_bindgen_test::*;
 
 wasm_bindgen_test_configure!(run_in_browser);
 

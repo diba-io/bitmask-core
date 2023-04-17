@@ -5,57 +5,75 @@ use anyhow::Result;
 use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
+    routing::get,
     routing::post,
     Json, Router,
 };
 use bitmask_core::{
-    accept_transfer, create_asset,
-    data::structs::{AcceptRequest, AssetRequest, BlindRequest, IssueRequest, TransfersRequest},
-    get_blinded_utxo, import_asset, transfer_assets,
+    accept_transfer, create_invoice, create_psbt,
+    data::structs::{AcceptRequest, InvoiceRequest, IssueRequest, PsbtRequest, RgbTransferRequest},
+    issue_contract, list_contracts, list_interfaces, list_schemas, pay_asset,
 };
 use log::info;
 use tower_http::cors::CorsLayer;
 
 async fn issue(Json(issue): Json<IssueRequest>) -> Result<impl IntoResponse, AppError> {
-    let issue_res = create_asset(
+    let issue_res = issue_contract(
         &issue.ticker,
         &issue.name,
+        &issue.description,
         issue.precision,
         issue.supply,
-        &issue.utxo,
-    )?;
+        &issue.seal,
+        &issue.iface,
+    )
+    .await?;
 
     Ok((StatusCode::OK, Json(issue_res)))
 }
 
-async fn blind(Json(blind): Json<BlindRequest>) -> Result<impl IntoResponse, AppError> {
-    let blind_res = get_blinded_utxo(&Some(blind.utxo))?;
+async fn invoice(Json(invoice): Json<InvoiceRequest>) -> Result<impl IntoResponse, AppError> {
+    let invoice_res = create_invoice(
+        &invoice.contract_id,
+        &invoice.iface,
+        invoice.amount,
+        &invoice.seal,
+    )
+    .await?;
 
-    Ok((StatusCode::OK, Json(blind_res)))
+    Ok((StatusCode::OK, Json(invoice_res)))
 }
 
-async fn import(Json(asset): Json<AssetRequest>) -> Result<impl IntoResponse, AppError> {
-    let asset_res = import_asset(&asset.asset, asset.utxos)?;
-
-    Ok((StatusCode::OK, Json(asset_res)))
+async fn psbt(Json(psbt_req): Json<PsbtRequest>) -> Result<impl IntoResponse, AppError> {
+    let psbt_res = create_psbt(psbt_req).await?;
+    Ok((StatusCode::OK, Json(psbt_res)))
 }
 
 #[axum_macros::debug_handler]
-async fn transfer(Json(transfer): Json<TransfersRequest>) -> Result<impl IntoResponse, AppError> {
-    let transfer_res = transfer_assets(transfer).await?;
+async fn pay(Json(pay_req): Json<RgbTransferRequest>) -> Result<impl IntoResponse, AppError> {
+    let transfer_res = pay_asset(pay_req).await?;
 
     Ok((StatusCode::OK, Json(transfer_res)))
 }
 
-async fn accept(Json(accept): Json<AcceptRequest>) -> Result<impl IntoResponse, AppError> {
-    accept_transfer(
-        &accept.consignment,
-        &accept.blinding_factor,
-        &accept.outpoint,
-    )
-    .await?;
+async fn accept(Json(accept_req): Json<AcceptRequest>) -> Result<impl IntoResponse, AppError> {
+    let transfer_res = accept_transfer(accept_req).await?;
+    Ok((StatusCode::OK, Json(transfer_res)))
+}
 
-    Ok(StatusCode::OK)
+async fn contracts() -> Result<impl IntoResponse, AppError> {
+    let contracts_res = list_contracts().await?;
+    Ok((StatusCode::OK, Json(contracts_res)))
+}
+
+async fn interfaces() -> Result<impl IntoResponse, AppError> {
+    let interfaces_res = list_interfaces().await?;
+    Ok((StatusCode::OK, Json(interfaces_res)))
+}
+
+async fn schemas() -> Result<impl IntoResponse, AppError> {
+    let schemas_res = list_schemas().await?;
+    Ok((StatusCode::OK, Json(schemas_res)))
 }
 
 #[tokio::main]
@@ -68,10 +86,13 @@ async fn main() -> Result<()> {
 
     let app = Router::new()
         .route("/issue", post(issue))
-        .route("/blind", post(blind))
-        .route("/import", post(import))
-        .route("/transfer", post(transfer))
+        .route("/invoice", post(invoice))
+        .route("/psbt", post(psbt))
+        .route("/pay", post(pay))
         .route("/accept", post(accept))
+        .route("/contracts", get(contracts))
+        .route("/interfaces", get(interfaces))
+        .route("/schemas", get(schemas))
         .layer(CorsLayer::permissive());
 
     let addr = SocketAddr::from(([127, 0, 0, 1], 7070));

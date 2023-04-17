@@ -1,56 +1,51 @@
 #[macro_use]
-#[cfg(not(target_arch = "wasm32"))]
 extern crate amplify;
-
 use std::str::FromStr;
 
-use anyhow::anyhow;
+use amplify::hex::ToHex;
 use anyhow::Result;
 pub use bdk::TransactionDetails;
 use bdk::{wallet::AddressIndex, FeeRate, LocalUtxo};
-#[cfg(not(target_arch = "wasm32"))]
-use bitcoin::consensus::serialize as serialize_psbt; // Desktop
-use bitcoin::{util::address::Address, OutPoint}; // Shared
+use data::constants::BITCOIN_ELECTRUM_API;
+
+// RGB Imports
+use data::structs::{
+    AcceptRequest, AcceptResponse, ContractDetail, ContractsResponse, InterfaceDetail,
+    InterfacesResponse, InvoiceResult, IssueResponse, PsbtRequest, PsbtResponse,
+    RgbTransferRequest, RgbTransferResponse, SchemaDetail, SchemasResponse,
+};
+use operations::rgb::{
+    invoice::{accept_payment, create_invoice as create_rgb_invoice, pay_invoice},
+    issue::issue_contract as create_contract,
+    psbt::create_psbt as create_rgb_psbt,
+    resolvers::ExplorerResolver,
+};
+use rgbstd::containers::BindleContent;
+use rgbstd::persistence::{Inventory, Stash, Stock};
+
+use bitcoin::util::address::Address;
 use bitcoin_hashes::{sha256, Hash};
-use serde::{Deserialize, Serialize};
+
+use serde::Deserialize;
+use serde::Serialize;
 use serde_encrypt::{
     serialize::impls::BincodeSerializer, shared_key::SharedKey, traits::SerdeEncryptSharedKey,
     AsSharedKey, EncryptedMessage,
 };
+use strict_encoding::StrictSerialize;
 use tokio::try_join;
-
 pub mod data;
 pub mod operations;
 pub mod util;
 #[cfg(target_arch = "wasm32")]
 pub mod web;
 
-// Desktop
-#[cfg(not(target_arch = "wasm32"))]
-pub use crate::{
-    data::structs::{AcceptResponse, AssetResponse, FinalizeTransfer, TransfersResponse},
-    operations::rgb::{
-        self, blind_utxo, get_asset_by_genesis, get_assets, issue_asset, transfer_asset,
-        validate_transfer,
-    },
-};
-// Web
-#[cfg(target_arch = "wasm32")]
-pub use crate::{
-    data::structs::{
-        AcceptLambdaResponse, AcceptRequest, AssetRequest, BlindRequest, BlindResponse,
-        IssueRequest,
-    },
-    util::post_json,
-};
 // Shared
 pub use crate::{
     data::{
         constants::{get_endpoint, get_network, switch_host, switch_network},
         structs::{
-            BlindingUtxo, EncryptedWalletData, FullUtxo, FundVaultDetails, SatsInvoice, ThinAsset,
-            TransferResult, TransfersRequest, TransfersSerializeResponse, WalletData,
-            WalletTransaction,
+            EncryptedWalletData, FundVaultDetails, SatsInvoice, WalletData, WalletTransaction,
         },
     },
     operations::{
@@ -66,6 +61,7 @@ impl SerdeEncryptSharedKey for EncryptedWalletData {
     type S = BincodeSerializer<Self>; // you can specify serializer implementation (or implement it by yourself).
 }
 
+// Wallet Operations
 pub fn get_encrypted_wallet(
     password: &str,
     encrypted_descriptors: &str,
@@ -187,206 +183,6 @@ pub async fn get_new_address(
     let address = wallet.get_address(AddressIndex::New)?.to_string();
     info!(format!("address: {address}"));
     Ok(address)
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-pub fn list_assets(contract: &str) -> Result<Vec<AssetResponse>> {
-    info!("list_assets");
-    let assets = get_assets(contract)?;
-    info!(format!("get assets: {assets:#?}"));
-    Ok(assets)
-}
-
-// TODO: web list_assets
-
-#[derive(Serialize, Deserialize)]
-pub struct CreateAssetResult {
-    pub genesis: String,   // in bech32m encoding
-    pub id: String,        // contract ID
-    pub asset_id: String,  // asset ID
-    pub schema_id: String, // schema ID (i.e., RGB20)
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-pub fn create_asset(
-    ticker: &str,
-    name: &str,
-    precision: u8,
-    supply: u64,
-    utxo: &str,
-) -> Result<CreateAssetResult> {
-    let utxo = OutPoint::from_str(utxo)?;
-    let contract = issue_asset(ticker, name, precision, supply, utxo)?;
-    let genesis = contract.to_string();
-    let id = contract.id().to_string();
-    let asset_id = contract.contract_id().to_string();
-    let schema_id = contract.schema_id().to_string();
-
-    Ok(CreateAssetResult {
-        genesis,
-        id,
-        asset_id,
-        schema_id,
-    })
-}
-
-#[cfg(target_arch = "wasm32")]
-pub async fn create_asset(
-    ticker: &str,
-    name: &str,
-    precision: u8,
-    supply: u64,
-    utxo: &str,
-) -> Result<CreateAssetResult> {
-    let endpoint = &get_endpoint("issue").await;
-    let body = IssueRequest {
-        ticker: ticker.to_owned(),
-        name: name.to_owned(),
-        description: "TODO".to_owned(),
-        precision,
-        supply,
-        utxo: utxo.to_owned(),
-    };
-    let (issue_res, status) = post_json(endpoint, &body).await?;
-    if status != 200 {
-        return Err(anyhow!("Error calling {endpoint}"));
-    }
-    let CreateAssetResult {
-        genesis,
-        id,
-        asset_id,
-        schema_id,
-    } = serde_json::from_str(&issue_res)?;
-
-    Ok(CreateAssetResult {
-        genesis,
-        id,
-        asset_id,
-        schema_id,
-    })
-}
-
-pub async fn get_utxos(
-    descriptor: &str,
-    change_descriptor: Option<String>,
-) -> Result<Vec<LocalUtxo>> {
-    let rgb_wallet = get_wallet(descriptor, change_descriptor)?;
-    synchronize_wallet(&rgb_wallet).await?;
-    let utxos = rgb_wallet.list_unspent()?;
-
-    Ok(utxos)
-}
-
-pub fn parse_outpoints(outpoints: Vec<String>) -> Result<Vec<OutPoint>> {
-    outpoints
-        .into_iter()
-        .map(|outpoint| OutPoint::from_str(&outpoint).map_err(|e| anyhow!(e)))
-        .collect()
-}
-
-pub fn utxos_to_outpoints(utxos: Vec<LocalUtxo>) -> Vec<String> {
-    utxos
-        .into_iter()
-        .map(|utxo| utxo.outpoint.to_string())
-        .collect()
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-pub fn import_asset(asset: &str, utxos: Vec<String>) -> Result<ThinAsset> {
-    let utxos = parse_outpoints(utxos)?;
-
-    match asset.as_bytes() {
-        #[allow(unreachable_code)]
-        [b'r', b'g', b'b', b'1', ..] => Ok(todo!(
-            "asset persistence for asset_import not yet implemented"
-        )),
-        [b'r', b'g', b'b', b'c', b'1', ..] => {
-            info!("Getting asset by contract genesis:", asset);
-            get_asset_by_genesis(asset, &utxos)
-        }
-        _ => Err(anyhow!("Asset did not match expected format")),
-    }
-}
-
-#[cfg(target_arch = "wasm32")]
-pub async fn import_asset(asset: &str, utxo: &str) -> Result<ThinAsset> {
-    info!("Getting asset:", asset);
-
-    let endpoint = &get_endpoint("import").await;
-    let body = AssetRequest {
-        asset: asset.to_owned(),
-        utxos: vec![utxo.to_owned()],
-    };
-    let (asset_res, status) = post_json(endpoint, &body).await?;
-    if status != 200 {
-        return Err(anyhow!("Error calling {endpoint}"));
-    }
-    let ThinAsset {
-        id,
-        ticker,
-        name,
-        description,
-        allocations,
-        balance,
-        genesis,
-    } = serde_json::from_str(&asset_res)?;
-
-    Ok(ThinAsset {
-        id,
-        ticker,
-        name,
-        description,
-        allocations,
-        balance,
-        genesis,
-    })
-}
-
-#[derive(Serialize, Deserialize)]
-struct TransactionData {
-    blinding: String,
-    utxo: OutPoint,
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-pub fn get_blinded_utxo(utxo_string: &Option<String>) -> Result<BlindingUtxo> {
-    if let Some(utxo_string) = utxo_string {
-        let utxo = OutPoint::from_str(utxo_string)?;
-
-        let blind = blind_utxo(utxo)?;
-
-        let blinding_utxo = BlindingUtxo {
-            conceal: blind.conceal,
-            blinding: blind.blinding,
-            utxo,
-        };
-
-        Ok(blinding_utxo)
-    } else {
-        Err(anyhow!("No utxo string passed"))
-    }
-}
-
-#[cfg(target_arch = "wasm32")]
-pub async fn get_blinded_utxo(utxo_string: &str) -> Result<BlindingUtxo> {
-    let utxo = OutPoint::from_str(utxo_string)?;
-
-    let endpoint = &get_endpoint("blind").await;
-    let body = BlindRequest {
-        utxo: utxo.to_string(),
-    };
-    let (blind_res, status) = post_json(endpoint, &body).await?;
-    if status != 200 {
-        return Err(anyhow!("Error calling {endpoint}"));
-    }
-    let BlindResponse { conceal, blinding } = serde_json::from_str(&blind_res)?;
-    let blinding_utxo = BlindingUtxo {
-        conceal,
-        blinding,
-        utxo,
-    };
-
-    Ok(blinding_utxo)
 }
 
 pub async fn send_sats(
@@ -542,143 +338,200 @@ pub async fn get_assets_vault(
     })
 }
 
-#[cfg(not(target_arch = "wasm32"))]
-pub async fn transfer_assets(transfers: TransfersRequest) -> Result<TransfersSerializeResponse> {
-    use rgb_std::{Contract, StateTransfer};
-    use strict_encoding::strict_serialize;
+// RGB Operations
 
-    use crate::data::structs::{BlindedOrNotOutpoint, ChangeTansfer, DeclareRequest};
+pub async fn issue_contract(
+    ticker: &str,
+    name: &str,
+    description: &str,
+    precision: u8,
+    supply: u64,
+    seal: &str,
+    iface: &str,
+) -> Result<IssueResponse> {
+    // TODO: Get stock from Carbonado
+    let mut stock = Stock::default();
 
-    let resp = transfer_asset(transfers).await?;
+    let explorer_url = BITCOIN_ELECTRUM_API.read().await;
+    let tx_resolver = ExplorerResolver {
+        explorer_url: explorer_url.to_string(),
+    };
 
-    let psbt = serialize_psbt(&resp.psbt);
-    let psbt = base64::encode(&psbt);
-    let disclosure = serde_json::to_string(&resp.disclosure)?;
+    let contract = create_contract(
+        ticker,
+        name,
+        description,
+        precision,
+        supply,
+        iface,
+        seal,
+        tx_resolver,
+        &mut stock,
+    )?;
 
-    let mut transfers = vec![];
-    let mut change_transfers = vec![];
+    let contract_id = contract.contract_id().to_string();
+    let genesis = contract.bindle().to_string();
 
-    // Retrieve consignment information + transition state
-    let state_transfers: Vec<StateTransfer> =
-        resp.transfers.clone().into_iter().map(|(f, _)| f).collect();
-
-    for (index, asset_transfer_info) in resp.transaction_info.iter().enumerate() {
-        let consig = Contract::from_str(&asset_transfer_info.consignment.clone())?;
-        let state_transfer = state_transfers
-            .clone()
-            .into_iter()
-            .find(|st| st.contract_id() == consig.contract_id());
-
-        let state_serialize = strict_serialize(&state_transfer.unwrap())
-            .expect("Consignment information must be valid");
-        let state_serialize = util::bech32m_zip_encode("rgbc", &state_serialize)
-            .expect("Strict encoded information must be a valid consignment");
-
-        transfers.push(FinalizeTransfer {
-            consignment: state_serialize,
-            asset: asset_transfer_info.asset_contract.clone(),
-            beneficiaries: asset_transfer_info
-                .beneficiaries
-                .iter()
-                .map(|info| {
-                    let parts: Vec<&str> = info.split('@').collect();
-                    let balance = parts[0].parse::<u64>().unwrap();
-                    let outpoint = parts[1].to_string();
-                    BlindedOrNotOutpoint { outpoint, balance }
-                })
-                .collect(),
-            previous_utxo: resp.origin[index].outpoint.to_string(),
-        });
-        change_transfers.push(ChangeTansfer {
-            asset: asset_transfer_info.asset_contract.clone(),
-            change: BlindedOrNotOutpoint {
-                outpoint: asset_transfer_info.change_utxo.clone(),
-                balance: asset_transfer_info.change,
-            },
-            previous_utxo: resp.origin[index].outpoint.to_string(),
-        });
-    }
-
-    Ok(TransfersSerializeResponse {
-        psbt,
-        declare: DeclareRequest {
-            change_transfers,
-            transfers,
-            disclosure,
-        },
+    // TODO: Update Stock to Carbonado
+    Ok(IssueResponse {
+        contract_id,
+        iface: iface.to_string(),
+        genesis,
     })
 }
 
-#[cfg(target_arch = "wasm32")]
-pub async fn transfer_assets(transfers: TransfersRequest) -> Result<TransfersSerializeResponse> {
-    let endpoint = &get_endpoint("send").await;
-    let body = transfers;
+pub async fn create_invoice(
+    contract_id: &str,
+    iface: &str,
+    amount: u64,
+    seal: &str,
+) -> Result<InvoiceResult> {
+    // TODO: Get stock from Carbonado
+    let mut stock = Stock::default();
+    let invoice = create_rgb_invoice(contract_id, iface, amount, seal, &mut stock)?;
 
-    let (transfer_res, status) = post_json(endpoint, &body).await?;
-    if status != 200 {
-        return Err(anyhow!("Error calling {endpoint}"));
-    }
-
-    let transfer_res: TransfersSerializeResponse = serde_json::from_str(&transfer_res)?;
-
-    let _declare = async {
-        let declare_endpoint = &get_endpoint("declare").await;
-        let (_, status) = post_json(declare_endpoint, &transfer_res.declare).await?;
-        if status != 200 {
-            return Err(anyhow!("Error calling {declare_endpoint}"));
-        }
-        Ok(status)
-    }
-    .await?;
-
-    Ok(transfer_res)
+    // TODO: Update Stock to Carbonado
+    Ok(InvoiceResult {
+        invoice: invoice.to_string(),
+    })
 }
 
-#[cfg(not(target_arch = "wasm32"))]
-pub async fn accept_transfer(
-    consignment: &str,
-    blinding_factor: &str,
-    outpoint: &str,
-) -> Result<AcceptResponse> {
-    let (id, info, valid) = rgb::accept_transfer(consignment, blinding_factor, outpoint).await?;
-    if valid {
-        info!("Transaction accepted");
-        Ok(AcceptResponse { id, info, valid })
-    } else {
-        Err(anyhow!("Incorrect seals. id: {} stratus: {}", id, info))
-    }
-}
+pub async fn create_psbt(request: PsbtRequest) -> Result<PsbtResponse> {
+    let PsbtRequest {
+        descriptor_pub,
+        asset_utxo,
+        asset_utxo_terminal,
+        change_index,
+        bitcoin_changes,
+        fee,
+    } = request;
 
-#[cfg(target_arch = "wasm32")]
-pub async fn sign_psbt_web(rgb_descriptor_xprv: &str, psbt: &str) -> Result<TransactionDetails> {
-    use bitcoin::psbt::PartiallySignedTransaction;
-
-    let wallet = get_wallet(rgb_descriptor_xprv, None)?;
-    synchronize_wallet(&wallet).await?;
-
-    let psbt = PartiallySignedTransaction::from_str(psbt)?;
-    let transaction = sign_psbt(&wallet, psbt).await?;
-
-    Ok(transaction)
-}
-
-#[cfg(target_arch = "wasm32")]
-pub async fn accept_transfer(
-    consignment: &str,
-    blinding_factor: &str,
-    outpoint: &str,
-    blinded: &str,
-) -> Result<AcceptLambdaResponse> {
-    let endpoint = &get_endpoint("accept").await;
-    let body = AcceptRequest {
-        consignment: consignment.to_owned(),
-        blinding_factor: blinding_factor.to_owned(),
-        outpoint: outpoint.to_owned(),
-        blinded: blinded.to_owned(),
+    // TODO: Pull from Carbonado (?)
+    let explorer_url = BITCOIN_ELECTRUM_API.read().await;
+    let tx_resolver = ExplorerResolver {
+        explorer_url: explorer_url.to_string(),
     };
-    let (transfer_res, status) = post_json(endpoint, &body).await?;
-    if status != 200 {
-        return Err(anyhow!("Error calling {endpoint}"));
+
+    let psbt_file = create_rgb_psbt(
+        descriptor_pub,
+        asset_utxo,
+        asset_utxo_terminal,
+        change_index,
+        bitcoin_changes,
+        fee,
+        &tx_resolver,
+    )?;
+
+    let psbt = PsbtResponse {
+        psbt: psbt::serialize::Serialize::serialize(&psbt_file).to_hex(),
+    };
+    // TODO: Push to Carbonado (?)
+    Ok(psbt)
+}
+
+pub async fn pay_asset(request: RgbTransferRequest) -> Result<RgbTransferResponse> {
+    let RgbTransferRequest { rgb_invoice, psbt } = request;
+
+    // TODO: Pull from Carbonado
+    let mut stock = Stock::default();
+    let transfer = pay_invoice(rgb_invoice, psbt, &mut stock)?;
+
+    let consig = RgbTransferResponse {
+        consig_id: transfer.bindle_id().to_string(),
+        consig: transfer
+            .to_strict_serialized::<0xFFFFFF>()
+            .expect("invalid transfer serialization")
+            .to_hex(),
+    };
+    // TODO: Push to Carbonado
+    Ok(consig)
+}
+
+pub async fn accept_transfer(request: AcceptRequest) -> Result<AcceptResponse> {
+    let AcceptRequest { consignment } = request;
+
+    // TODO: Pull from Carbonado
+    let mut stock = Stock::default();
+
+    let explorer_url = BITCOIN_ELECTRUM_API.read().await;
+    let mut tx_resolver = ExplorerResolver {
+        explorer_url: explorer_url.to_string(),
+    };
+    let resp = match accept_payment(consignment, true, &mut tx_resolver, &mut stock) {
+        Ok(transfer) => AcceptResponse {
+            contract_id: transfer.contract_id().to_string(),
+            transfer_id: transfer.transfer_id().to_string(),
+            valid: true,
+        },
+        Err((transfer, _)) => AcceptResponse {
+            contract_id: transfer.contract_id().to_string(),
+            transfer_id: transfer.transfer_id().to_string(),
+            valid: false,
+        },
+    };
+
+    // TODO: Push to Carbonado
+    Ok(resp)
+}
+
+pub async fn list_contracts() -> Result<ContractsResponse> {
+    let mut stock = Stock::default();
+
+    let mut contracts = vec![];
+    for schema_id in stock.schema_ids().expect("invalid schemas state") {
+        let schema = stock.schema(schema_id).expect("invalid schemas state");
+        for (iface_id, _) in schema.clone().iimpls.into_iter() {
+            for contract_id in stock.contract_ids().expect("invalid contracts state") {
+                if stock.contract_iface(contract_id, iface_id).is_ok() {
+                    let face = stock.iface_by_id(iface_id).expect("invalid iface state");
+                    let item = ContractDetail {
+                        contract_id: contract_id.to_string(),
+                        iface: face.name.to_string(),
+                    };
+                    contracts.push(item)
+                }
+            }
+        }
     }
-    Ok(serde_json::from_str(&transfer_res)?)
+
+    Ok(ContractsResponse { contracts })
+}
+
+pub async fn list_interfaces() -> Result<InterfacesResponse> {
+    let stock = Stock::default();
+
+    let mut interfaces = vec![];
+    for schema_id in stock.schema_ids().expect("invalid schemas state") {
+        let schema = stock.schema(schema_id).expect("invalid schemas state");
+        for (iface_id, iimpl) in schema.clone().iimpls.into_iter() {
+            let face = stock.iface_by_id(iface_id).expect("invalid iface state");
+
+            let item = InterfaceDetail {
+                name: face.name.to_string(),
+                iface: iface_id.to_string(),
+                iimpl: iimpl.impl_id().to_string(),
+            };
+            interfaces.push(item)
+        }
+    }
+    Ok(InterfacesResponse { interfaces })
+}
+
+pub async fn list_schemas() -> Result<SchemasResponse> {
+    let stock = Stock::default();
+
+    let mut schemas = vec![];
+    for schema_id in stock.schema_ids().expect("invalid schemas state") {
+        let schema = stock.schema(schema_id).expect("invalid schemas state");
+        let mut ifaces = vec![];
+        for (iface_id, _) in schema.clone().iimpls.into_iter() {
+            let face = stock.iface_by_id(iface_id).expect("invalid iface state");
+            ifaces.push(face.name.to_string());
+        }
+        schemas.push(SchemaDetail {
+            schema: schema_id.to_string(),
+            ifaces,
+        })
+    }
+    Ok(SchemasResponse { schemas })
 }
