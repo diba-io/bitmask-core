@@ -2,6 +2,7 @@
 
 use anyhow::{Ok, Result};
 use bitmask_core::{
+    info,
     lightning::{AuthResponse, CreateWalletResponse},
     operations::lightning::{
         auth, check_payment, create_invoice, create_wallet, decode_invoice, get_balance, get_txs,
@@ -106,7 +107,7 @@ pub async fn get_balance_test() -> Result<()> {
 
 #[tokio::test]
 pub async fn pay_invoice_error_test() -> Result<()> {
-    // We create user Alice
+    info!("We create user Alice");
     let res = new_wallet().await?;
     let mut alice = String::new();
     if let CreateWalletResponse::Username { username } = res {
@@ -115,9 +116,9 @@ pub async fn pay_invoice_error_test() -> Result<()> {
     let alice_response = auth(&alice, &alice).await?;
     thread::sleep(time::Duration::from_secs(1));
     if let AuthResponse::Result { refresh: _, token } = alice_response {
-        // Alice invoice
+        info!("Alice invoice");
         let invoice = create_invoice("testing pay alice invoice", 33, &token).await?;
-        // We create user Bob
+        info!("We create user Bob");
         let res = new_wallet().await?;
         let mut bob = String::new();
         if let CreateWalletResponse::Username { username } = res {
@@ -126,7 +127,7 @@ pub async fn pay_invoice_error_test() -> Result<()> {
         let bob_response = auth(&bob, &bob).await?;
         thread::sleep(time::Duration::from_secs(1));
         if let AuthResponse::Result { refresh: _, token } = bob_response {
-            // We try to pay alice invoice from bob, which have balance = 0
+            info!("We try to pay alice invoice from bob, which have balance = 0");
             let response = pay_invoice(&invoice.payment_request.unwrap(), &token).await?;
             assert!(!response.success);
         }
