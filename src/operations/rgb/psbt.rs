@@ -1,8 +1,14 @@
 use std::str::FromStr;
 
-use bitcoin::{EcdsaSighashType, OutPoint};
+use amplify::hex::ToHex;
+use bitcoin::{EcdsaSighashType, OutPoint, Script};
 use bitcoin_blockchain::locks::{LockTime, SeqNo};
+use bitcoin_hashes::hex::FromHex;
 use bitcoin_scripts::PubkeyScript;
+use bp::dbc::tapret::TapretCommitment;
+use bp::TapScript;
+use commit_verify::mpc::Commitment;
+use commit_verify::CommitVerify;
 use miniscript_crate::Descriptor;
 use psbt::ProprietaryKeyType;
 use wallet::psbt::Psbt;
@@ -23,16 +29,27 @@ pub fn create_psbt(
     change_index: Option<String>,
     bitcoin_changes: Vec<String>,
     fee: u64,
+    tap_tweak: Option<String>,
     tx_resolver: &impl ResolveTx,
 ) -> Result<Psbt, ProprietaryKeyError> {
     let outpoint: OutPoint = asset_utxo.parse().expect("");
-    let inputs = vec![InputDescriptor {
+    let mut inputs = vec![InputDescriptor {
         outpoint,
         terminal: asset_utxo_terminal.parse().expect(""),
         seq_no: SeqNo::default(),
         tweak: None,
+        taptweak: None,
         sighash_type: EcdsaSighashType::All,
     }];
+
+    if let Some(tweak) = tap_tweak {
+        let mpc = Commitment::from_str(&tweak).expect("invalid mpc");
+        let tap = TapretCommitment::with(mpc, 0);
+        let tapscript = TapScript::commit(&tap);
+
+        let tweak = Script::from_hex(&tapscript.to_hex()).expect("invalid bitcoin script");
+        inputs[0].taptweak = Some(tweak);
+    }
 
     let bitcoin_addresses: Vec<AddressAmount> = bitcoin_changes
         .into_iter()

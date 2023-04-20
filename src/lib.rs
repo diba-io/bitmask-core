@@ -404,6 +404,7 @@ pub async fn create_psbt(request: PsbtRequest) -> Result<PsbtResponse> {
         change_index,
         bitcoin_changes,
         fee,
+        input_tweak,
     } = request;
 
     // TODO: Pull from Carbonado (?)
@@ -419,6 +420,7 @@ pub async fn create_psbt(request: PsbtRequest) -> Result<PsbtResponse> {
         change_index,
         bitcoin_changes,
         fee,
+        input_tweak,
         &tx_resolver,
     )?;
 

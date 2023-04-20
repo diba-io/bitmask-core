@@ -38,6 +38,7 @@ bitcoin_hashes = "0.11.0"
 bitcoin_scripts = "0.10.0-alpha.2"
 bitcoin_blockchain = "0.10.0-alpha.2"
 bp-core = "0.10.0"
+commit_verify = "0.10.0"
 bp-seals = "0.10.0"
 console_error_panic_hook = "0.1.7"
 # directories = "4.0.1"
@@ -108,5 +109,5 @@ wasm-bindgen-test = "0.3.33"
 # TODO: Remove this after merge and release a new version
 bitcoin_scripts = { git = "https://github.com/crisdut/bp-foundation", branch = "release/0.10.0-alpha.2" }
 bitcoin_blockchain = { git = "https://github.com/crisdut/bp-foundation", branch = "release/0.10.0-alpha.2" }
-descriptor-wallet = { git = "https://github.com/crisdut/descriptor-wallet", branch = "release/0.10.0-alpha.2" }
-psbt = { git = "https://github.com/crisdut/descriptor-wallet", branch = "release/0.10.0-alpha.2" }
+descriptor-wallet = { git = "https://github.com/crisdut/descriptor-wallet", branch = "exp/tapret-transfers" }
+psbt = { git = "https://github.com/crisdut/descriptor-wallet", branch = "exp/tapret-transfers" }

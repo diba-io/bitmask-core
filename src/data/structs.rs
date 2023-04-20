@@ -108,6 +108,8 @@ pub struct PsbtRequest {
     pub bitcoin_changes: Vec<String>,
     /// Bitcoin Fee
     pub fee: u64,
+    /// TapTweak used to spend outputs based in tapret commitments
+    pub input_tweak: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]
