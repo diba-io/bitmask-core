@@ -47,8 +47,6 @@ async fn allow_extract_commitment() -> anyhow::Result<()> {
 
     let (psbt, _) = result.unwrap();
 
-    println!("{}", psbt.to_string());
-
     let commit = extract_commit(psbt);
     assert!(commit.is_ok());
     Ok(())
