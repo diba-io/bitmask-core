@@ -53,6 +53,8 @@ pub const BTC_PATH: &str = "m/86h/1h/0h";
 pub const RGB_ASSETS_PATH: &str = "m/168h/20h/0h";
 // For UDAS ---> that's provisional, it will be replace for RGB final guidelines
 pub const RGB_UDAS_PATH: &str = "m/168h/21h/0h";
+// For NIP-06 Nostr signing and Carbonado encryption key derivation
+pub const NOSTR_PATH: &str = "m/44h/1237h/0h";
 
 pub static NETWORK: Lazy<RwLock<Network>> = Lazy::new(|| {
     RwLock::new(Network::from_str(&dot_env("BITCOIN_NETWORK")).expect("Parse Bitcoin network"))

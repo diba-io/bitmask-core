@@ -49,10 +49,10 @@ async fn create_wallet() -> Result<()> {
         &main_mnemonic_data.serialized_encrypted_message,
     )?;
 
-    let main_btc_wallet = get_wallet_data(&main_vault.btc_descriptor_xprv, None).await?;
+    let main_btc_wallet = get_wallet_data(&main_vault.private.btc_descriptor_xprv, None).await?;
 
     init_logging();
-    warn!("Descriptor:", main_vault.btc_descriptor_xprv);
+    warn!("Descriptor:", main_vault.private.btc_descriptor_xprv);
     warn!("Address:", main_btc_wallet.address);
 
     Ok(())
@@ -69,11 +69,11 @@ async fn get_wallet_balance() -> Result<()> {
         &main_mnemonic_data.serialized_encrypted_message,
     )?;
 
-    let main_btc_wallet = get_wallet_data(&main_vault.btc_descriptor_xprv, None).await?;
+    let main_btc_wallet = get_wallet_data(&main_vault.private.btc_descriptor_xprv, None).await?;
 
     init_logging();
-    let btc_wallet = get_wallet_data(&main_vault.btc_descriptor_xprv, None).await?;
-    warn!("Descriptor:", main_vault.btc_descriptor_xprv);
+    let btc_wallet = get_wallet_data(&main_vault.private.btc_descriptor_xprv, None).await?;
+    warn!("Descriptor:", main_vault.private.btc_descriptor_xprv);
     warn!("Address:", main_btc_wallet.address);
     warn!("Wallet Balance:", btc_wallet.balance.confirmed.to_string());
 

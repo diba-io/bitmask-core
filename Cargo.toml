@@ -39,6 +39,7 @@ bitcoin_scripts = "0.10.0-alpha.2"
 bitcoin_blockchain = "0.10.0-alpha.2"
 bp-core = "0.10.0"
 bp-seals = "0.10.0"
+carbonado = "0.3.0-rc.5"
 console_error_panic_hook = "0.1.7"
 # directories = "4.0.1"
 descriptor-wallet = { version = "0.10.0-alpha.2", features = [

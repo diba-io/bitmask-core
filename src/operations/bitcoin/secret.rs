@@ -11,8 +11,8 @@ use bitcoin::{secp256k1::Secp256k1, util::bip32::ChildNumber};
 use bitcoin_hashes::{sha256, Hash};
 
 use crate::data::{
-    constants::{BTC_PATH, NETWORK, RGB_ASSETS_PATH, RGB_UDAS_PATH},
-    structs::EncryptedWalletData,
+    constants::{BTC_PATH, NETWORK, NOSTR_PATH, RGB_ASSETS_PATH, RGB_UDAS_PATH},
+    structs::{EncryptedWalletData, PrivateWalletData, PublicWalletData},
 };
 
 fn get_random_buf() -> Result<[u8; 16], getrandom::Error> {
@@ -22,7 +22,7 @@ fn get_random_buf() -> Result<[u8; 16], getrandom::Error> {
 }
 
 fn get_descriptor<C: ScriptContext>(
-    xprv: ExtendedPrivKey,
+    xprv: &ExtendedPrivKey,
     path: &str,
     is_change: bool,
     is_secret: bool,
@@ -72,47 +72,59 @@ pub fn get_mnemonic(mnemonic_phrase: Mnemonic, seed_password: &str) -> Result<En
 
     let btc_descriptor_xprv = format!(
         "tr({})",
-        get_descriptor::<Tap>(xprv, BTC_PATH, false, true)?
+        get_descriptor::<Tap>(&xprv, BTC_PATH, false, true)?
     );
-    let btc_change_descriptor_xprv =
-        format!("tr({})", get_descriptor::<Tap>(xprv, BTC_PATH, true, true)?);
+    let btc_change_descriptor_xprv = format!(
+        "tr({})",
+        get_descriptor::<Tap>(&xprv, BTC_PATH, true, true)?
+    );
 
     let btc_descriptor_xpub = format!(
         "tr({})",
-        get_descriptor::<Tap>(xprv, BTC_PATH, false, false)?
+        get_descriptor::<Tap>(&xprv, BTC_PATH, false, false)?
     );
     let btc_change_descriptor_xpub = format!(
         "tr({})",
-        get_descriptor::<Tap>(xprv, BTC_PATH, true, false)?
+        get_descriptor::<Tap>(&xprv, BTC_PATH, true, false)?
     );
     let rgb_assets_descriptor_xprv = format!(
         "tr({})",
-        get_descriptor::<Tap>(xprv, RGB_ASSETS_PATH, false, true)?
+        get_descriptor::<Tap>(&xprv, RGB_ASSETS_PATH, false, true)?
     );
     let rgb_udas_descriptor_xprv = format!(
         "tr({})",
-        get_descriptor::<Tap>(xprv, RGB_UDAS_PATH, false, true)?
+        get_descriptor::<Tap>(&xprv, RGB_UDAS_PATH, false, true)?
     );
     let rgb_assets_descriptor_xpub = format!(
         "tr({})",
-        get_descriptor::<Tap>(xprv, RGB_ASSETS_PATH, false, false)?
+        get_descriptor::<Tap>(&xprv, RGB_ASSETS_PATH, false, false)?
     );
     let rgb_udas_descriptor_xpub = format!(
         "tr({})",
-        get_descriptor::<Tap>(xprv, RGB_UDAS_PATH, false, false)?
+        get_descriptor::<Tap>(&xprv, RGB_UDAS_PATH, false, false)?
     );
 
-    Ok(EncryptedWalletData {
-        btc_descriptor_xprv,
+    let nostr_prv = get_descriptor::<Tap>(&xprv, NOSTR_PATH, false, true)?;
+    let nostr_pub = get_descriptor::<Tap>(&xprv, NOSTR_PATH, false, false)?;
+
+    let public = PublicWalletData {
         btc_descriptor_xpub,
-        btc_change_descriptor_xprv,
         btc_change_descriptor_xpub,
-        rgb_assets_descriptor_xprv,
         rgb_assets_descriptor_xpub,
-        rgb_udas_descriptor_xprv,
         rgb_udas_descriptor_xpub,
+        nostr_pub,
         xprvkh,
         xpubkh,
+    };
+
+    let private = PrivateWalletData {
+        btc_descriptor_xprv,
+        btc_change_descriptor_xprv,
+        rgb_assets_descriptor_xprv,
+        rgb_udas_descriptor_xprv,
+        nostr_prv,
         mnemonic: mnemonic_phrase.to_string(),
-    })
+    };
+
+    Ok(EncryptedWalletData { private, public })
 }

@@ -96,7 +96,7 @@ pub fn get_mnemonic_seed(
     let encrypted_message = encrypted_wallet_data.encrypt(&SharedKey::from_array(shared_key))?;
     let serialized_encrypted_message = hex::encode(encrypted_message.serialize());
     let mnemonic_seed_data = MnemonicSeedData {
-        mnemonic: encrypted_wallet_data.mnemonic,
+        mnemonic: encrypted_wallet_data.private.mnemonic,
         serialized_encrypted_message,
     };
 
@@ -115,7 +115,7 @@ pub fn save_mnemonic_seed(
     let encrypted_message = vault_data.encrypt(&SharedKey::from_array(shared_key))?;
     let serialized_encrypted_message = hex::encode(encrypted_message.serialize());
     let mnemonic_seed_data = MnemonicSeedData {
-        mnemonic: vault_data.mnemonic,
+        mnemonic: vault_data.private.mnemonic,
         serialized_encrypted_message,
     };
 
