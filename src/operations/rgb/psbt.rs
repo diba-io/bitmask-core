@@ -1,10 +1,20 @@
 use std::str::FromStr;
 
-use bitcoin::{EcdsaSighashType, OutPoint};
+use amplify::hex::ToHex;
+use bitcoin::{EcdsaSighashType, OutPoint, Script};
 use bitcoin_blockchain::locks::{LockTime, SeqNo};
+use bitcoin_hashes::hex::FromHex;
 use bitcoin_scripts::PubkeyScript;
+use bp::dbc::tapret::TapretCommitment;
+use bp::TapScript;
+use commit_verify::mpc::Commitment;
+use commit_verify::CommitVerify;
 use miniscript_crate::Descriptor;
+use psbt::ProprietaryKey;
 use psbt::ProprietaryKeyType;
+use rgbwallet::psbt::DbcPsbtError;
+use rgbwallet::psbt::TapretKeyError;
+use rgbwallet::psbt::{PSBT_OUT_TAPRET_COMMITMENT, PSBT_OUT_TAPRET_HOST, PSBT_TAPRET_PREFIX};
 use wallet::psbt::Psbt;
 use wallet::{
     descriptors::InputDescriptor,
@@ -16,6 +26,7 @@ use wallet::{
 use super::constants::RGB_PSBT_TAPRET;
 use super::structs::AddressAmount;
 
+#[allow(clippy::too_many_arguments)]
 pub fn create_psbt(
     descriptor_pub: String,
     asset_utxo: String,
@@ -23,16 +34,27 @@ pub fn create_psbt(
     change_index: Option<String>,
     bitcoin_changes: Vec<String>,
     fee: u64,
+    tap_tweak: Option<String>,
     tx_resolver: &impl ResolveTx,
 ) -> Result<Psbt, ProprietaryKeyError> {
     let outpoint: OutPoint = asset_utxo.parse().expect("");
-    let inputs = vec![InputDescriptor {
+    let mut inputs = vec![InputDescriptor {
         outpoint,
         terminal: asset_utxo_terminal.parse().expect(""),
         seq_no: SeqNo::default(),
         tweak: None,
+        taptweak: None,
         sighash_type: EcdsaSighashType::All,
     }];
+
+    if let Some(tweak) = tap_tweak {
+        let mpc = Commitment::from_str(&tweak).expect("invalid mpc");
+        let tap = TapretCommitment::with(mpc, 0);
+        let tapscript = TapScript::commit(&tap);
+
+        let tweak = Script::from_hex(&tapscript.to_hex()).expect("invalid bitcoin script");
+        inputs[0].taptweak = Some(tweak);
+    }
 
     let bitcoin_addresses: Vec<AddressAmount> = bitcoin_changes
         .into_iter()
@@ -108,4 +130,31 @@ pub fn create_psbt(
     }
 
     Ok(psbt)
+}
+
+pub fn extract_commit(mut psbt: Psbt) -> Result<String, DbcPsbtError> {
+    let (_, output) = psbt
+        .outputs
+        .iter_mut()
+        .enumerate()
+        .find(|(_, output)| {
+            output.proprietary.contains_key(&ProprietaryKey {
+                prefix: PSBT_TAPRET_PREFIX.to_vec(),
+                subtype: PSBT_OUT_TAPRET_HOST,
+                key: vec![],
+            })
+        })
+        .ok_or(DbcPsbtError::NoHostOutput)
+        .expect("");
+
+    let commit_vec = output.proprietary.get(&ProprietaryKey {
+        prefix: PSBT_TAPRET_PREFIX.to_vec(),
+        subtype: PSBT_OUT_TAPRET_COMMITMENT,
+        key: vec![],
+    });
+
+    match commit_vec {
+        Some(commit) => Ok(commit.to_hex()),
+        _ => Err(DbcPsbtError::TapretKey(TapretKeyError::InvalidProof)),
+    }
 }

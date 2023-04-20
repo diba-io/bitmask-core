@@ -411,7 +411,7 @@ dependencies = [
 [[package]]
 name = "bitcoin_hd"
 version = "0.10.0-alpha.2"
-source = "git+https://github.com/crisdut/descriptor-wallet?branch=release/0.10.0-alpha.2#f021bb329f193c680e29ae9d9c9454938cecb157"
+source = "git+https://github.com/crisdut/descriptor-wallet?branch=exp/tapret-transfers#889ca14c1fd225ae0c72fb9c639b0d41afc59bb7"
 dependencies = [
  "amplify",
  "bitcoin 0.29.2",
@@ -424,7 +424,7 @@ dependencies = [
 [[package]]
 name = "bitcoin_onchain"
 version = "0.10.0-alpha.2"
-source = "git+https://github.com/crisdut/descriptor-wallet?branch=release/0.10.0-alpha.2#f021bb329f193c680e29ae9d9c9454938cecb157"
+source = "git+https://github.com/crisdut/descriptor-wallet?branch=exp/tapret-transfers#889ca14c1fd225ae0c72fb9c639b0d41afc59bb7"
 dependencies = [
  "amplify",
  "bitcoin 0.29.2",
@@ -474,6 +474,7 @@ dependencies = [
  "bitcoin_scripts",
  "bp-core",
  "bp-seals",
+ "commit_verify",
  "console_error_panic_hook",
  "deflate",
  "descriptor-wallet",
@@ -866,7 +867,7 @@ dependencies = [
 [[package]]
 name = "descriptor-wallet"
 version = "0.10.0-alpha.2"
-source = "git+https://github.com/crisdut/descriptor-wallet?branch=release/0.10.0-alpha.2#f021bb329f193c680e29ae9d9c9454938cecb157"
+source = "git+https://github.com/crisdut/descriptor-wallet?branch=exp/tapret-transfers#889ca14c1fd225ae0c72fb9c639b0d41afc59bb7"
 dependencies = [
  "amplify",
  "bitcoin 0.29.2",
@@ -883,7 +884,7 @@ dependencies = [
 [[package]]
 name = "descriptors"
 version = "0.10.0-alpha.2"
-source = "git+https://github.com/crisdut/descriptor-wallet?branch=release/0.10.0-alpha.2#f021bb329f193c680e29ae9d9c9454938cecb157"
+source = "git+https://github.com/crisdut/descriptor-wallet?branch=exp/tapret-transfers#889ca14c1fd225ae0c72fb9c639b0d41afc59bb7"
 dependencies = [
  "amplify",
  "bitcoin 0.29.2",
@@ -1834,7 +1835,7 @@ dependencies = [
 [[package]]
 name = "psbt"
 version = "0.10.0-alpha.2"
-source = "git+https://github.com/crisdut/descriptor-wallet?branch=release/0.10.0-alpha.2#f021bb329f193c680e29ae9d9c9454938cecb157"
+source = "git+https://github.com/crisdut/descriptor-wallet?branch=exp/tapret-transfers#889ca14c1fd225ae0c72fb9c639b0d41afc59bb7"
 dependencies = [
  "amplify",
  "bitcoin 0.29.2",
@@ -2360,7 +2361,7 @@ dependencies = [
 [[package]]
 name = "slip132"
 version = "0.10.0-alpha.2"
-source = "git+https://github.com/crisdut/descriptor-wallet?branch=release/0.10.0-alpha.2#f021bb329f193c680e29ae9d9c9454938cecb157"
+source = "git+https://github.com/crisdut/descriptor-wallet?branch=exp/tapret-transfers#889ca14c1fd225ae0c72fb9c639b0d41afc59bb7"
 dependencies = [
  "amplify",
  "bitcoin 0.29.2",
