@@ -130,8 +130,12 @@ pub struct RgbTransferRequest {
 pub struct RgbTransferResponse {
     /// Consignment ID
     pub consig_id: String,
-    /// Consignment encoded in hexadecimal
+    /// Consignment encoded (in hexadecimal)
     pub consig: String,
+    /// SBT File Information with tapret (in hexadecimal)
+    pub psbt: String,
+    /// Tapret Commitment (used to spend output)
+    pub commit: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

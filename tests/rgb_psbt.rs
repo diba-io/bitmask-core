@@ -1,8 +1,12 @@
 #![cfg(not(target_arch = "wasm32"))]
-use bitmask_core::operations::rgb::psbt::create_psbt;
+use bitmask_core::operations::rgb::{
+    invoice::pay_invoice,
+    psbt::{create_psbt, extract_commit},
+};
 
 mod rgb_test_utils;
-use rgb_test_utils::DumbResolve;
+use rgb_test_utils::{dumb_psbt, generate_new_contract, generate_new_invoice, DumbResolve};
+use rgbstd::persistence::Stock;
 
 #[tokio::test]
 async fn allow_create_psbt_file() -> anyhow::Result<()> {
@@ -20,9 +24,32 @@ async fn allow_create_psbt_file() -> anyhow::Result<()> {
         Some("0".to_string()),
         vec![],
         fee,
+        None,
         &tx_resolver,
     );
     assert!(psbt.is_ok());
 
+    Ok(())
+}
+
+#[tokio::test]
+async fn allow_extract_commitment() -> anyhow::Result<()> {
+    let mut stock = Stock::default();
+    let psbt = dumb_psbt();
+
+    let contract_id = generate_new_contract(&mut stock);
+
+    let seal = "tapret1st:ed823b41d8b9309933826b18e4af530363b359f05919c02bbe72f28cec6dec3e:0";
+    let invoice = generate_new_invoice(contract_id, seal, &mut stock);
+
+    let result = pay_invoice(invoice.to_string(), psbt.to_string(), &mut stock);
+    assert!(result.is_ok());
+
+    let (psbt, _) = result.unwrap();
+
+    println!("{}", psbt.to_string());
+
+    let commit = extract_commit(psbt);
+    assert!(commit.is_ok());
     Ok(())
 }
