@@ -66,15 +66,15 @@ async fn import_and_open_wallet() {
     let encrypted_wallet_data: EncryptedWalletData = json_parse(&encrypted_wallet_str);
 
     assert_eq!(
-        encrypted_wallet_data.btc_descriptor_xprv, DESCRIPTOR,
+        encrypted_wallet_data.private.btc_descriptor_xprv, DESCRIPTOR,
         "expected receive descriptor matches loaded wallet"
     );
     assert_eq!(
-        encrypted_wallet_data.btc_change_descriptor_xprv, CHANGE_DESCRIPTOR,
+        encrypted_wallet_data.private.btc_change_descriptor_xprv, CHANGE_DESCRIPTOR,
         "expected change descriptor matches loaded wallet"
     );
     assert_eq!(
-        encrypted_wallet_data.xpubkh, PUBKEY_HASH,
+        encrypted_wallet_data.public.xpubkh, PUBKEY_HASH,
         "expected xpubkh matches loaded wallet"
     );
 
@@ -120,8 +120,13 @@ async fn import_test_wallet() {
 
     info!("Get wallet data");
     let wallet_str: JsValue = resolve(get_wallet_data(
-        encrypted_wallet_data.btc_descriptor_xprv.clone(),
-        Some(encrypted_wallet_data.btc_change_descriptor_xprv.clone()),
+        encrypted_wallet_data.private.btc_descriptor_xprv.clone(),
+        Some(
+            encrypted_wallet_data
+                .private
+                .btc_change_descriptor_xprv
+                .clone(),
+        ),
     ))
     .await;
     let wallet_data: WalletData = json_parse(&wallet_str);
@@ -152,8 +157,8 @@ async fn import_test_wallet() {
 
     info!("Test sending a transaction back to itself for a thousand sats");
     let tx_details = resolve(send_sats(
-        encrypted_wallet_data.btc_descriptor_xprv,
-        encrypted_wallet_data.btc_change_descriptor_xprv,
+        encrypted_wallet_data.private.btc_descriptor_xprv,
+        encrypted_wallet_data.private.btc_change_descriptor_xprv,
         wallet_data.address,
         1_000,
         Some(1.1),
