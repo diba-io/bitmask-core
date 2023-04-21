@@ -47,12 +47,15 @@ pub static BITCOIN_ELECTRUM_API: Lazy<AsyncRwLock<String>> =
 pub static NODE_SERVER_BASE_URL: Lazy<String> = Lazy::new(|| dot_env("NODE_SERVER_BASE_URL"));
 
 // Descriptor strings
-// For SATS
-pub const BTC_PATH: &str = "m/86h/1h/0h";
-// For TOKENS ---> that's provisional, it will be replace for RGB final guidelines
-pub const RGB_ASSETS_PATH: &str = "m/168h/20h/0h";
-// For UDAS ---> that's provisional, it will be replace for RGB final guidelines
-pub const RGB_UDAS_PATH: &str = "m/168h/21h/0h";
+pub const BTC_MAINNET_PATH: &str = "m/86h/0h/0h";
+pub const BTC_TESTNET_PATH: &str = "m/86h/1h/0h";
+pub static BTC_PATH: Lazy<RwLock<String>> = Lazy::new(|| {
+    RwLock::new(if dot_env("BITCOIN_NETWORK") == "bitcoin" {
+        BTC_MAINNET_PATH.to_owned()
+    } else {
+        BTC_TESTNET_PATH.to_owned()
+    })
+});
 // For NIP-06 Nostr signing and Carbonado encryption key derivation
 pub const NOSTR_PATH: &str = "m/44h/1237h/0h";
 
@@ -72,7 +75,15 @@ pub fn get_network() -> Result<String> {
 pub async fn switch_network(network_str: &str) -> Result<()> {
     let network = Network::from_str(network_str)?;
 
-    *BITCOIN_EXPLORER_API.write().unwrap() = match network {
+    *BTC_PATH.write().expect("BTC_PATH is writable") = if network == Network::Bitcoin {
+        BTC_MAINNET_PATH.to_owned()
+    } else {
+        BTC_TESTNET_PATH.to_owned()
+    };
+
+    *BITCOIN_EXPLORER_API
+        .write()
+        .expect("BITCOIN_EXPLORER_API is writable") = match network {
         Network::Bitcoin => BITCOIN_EXPLORER_API_MAINNET.to_owned(),
         Network::Testnet => BITCOIN_EXPLORER_API_TESTNET.to_owned(),
         Network::Signet => BITCOIN_EXPLORER_API_SIGNET.to_owned(),
@@ -86,7 +97,7 @@ pub async fn switch_network(network_str: &str) -> Result<()> {
         Network::Regtest => BITCOIN_ELECTRUM_API_REGTEST.to_owned(),
     };
 
-    *NETWORK.write().unwrap() = network;
+    *NETWORK.write().expect("NETWORK is writable") = network;
 
     Ok(())
 }
