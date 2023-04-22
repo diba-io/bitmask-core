@@ -8,6 +8,7 @@ use bitmask_core::{
         auth, check_payment, create_invoice, create_wallet, decode_invoice, get_balance, get_txs,
         pay_invoice, Transaction,
     },
+    util::init_logging,
 };
 use std::{thread, time};
 
@@ -25,7 +26,8 @@ async fn new_wallet() -> Result<CreateWalletResponse> {
 
 #[tokio::test]
 pub async fn create_wallet_test() -> Result<()> {
-    pretty_env_logger::init();
+    init_logging("lightning=debug");
+
     let res = new_wallet().await?;
     let mut uname = String::new();
     if let CreateWalletResponse::Username { username } = res {
@@ -39,6 +41,8 @@ pub async fn create_wallet_test() -> Result<()> {
 
 #[tokio::test]
 pub async fn auth_test() -> Result<()> {
+    init_logging("lightning=warn");
+
     let res = new_wallet().await?;
     let mut uname = String::new();
     if let CreateWalletResponse::Username { username } = res {
@@ -55,6 +59,8 @@ pub async fn auth_test() -> Result<()> {
 
 #[tokio::test]
 pub async fn auth_failed_test() -> Result<()> {
+    init_logging("lightning=warn");
+
     let response = auth("fake_username", "fake_password").await?;
     if let AuthResponse::Error { error } = response {
         assert_eq!(error, "UserDoesNotExist");
@@ -65,6 +71,8 @@ pub async fn auth_failed_test() -> Result<()> {
 
 #[tokio::test]
 pub async fn create_decode_invoice_test() -> Result<()> {
+    init_logging("lightning=warn");
+
     let res = new_wallet().await?;
     let mut uname = String::new();
     if let CreateWalletResponse::Username { username } = res {
@@ -89,6 +97,8 @@ pub async fn create_decode_invoice_test() -> Result<()> {
 
 #[tokio::test]
 pub async fn get_balance_test() -> Result<()> {
+    init_logging("lightning=warn");
+
     let res = new_wallet().await?;
     let mut uname = String::new();
     if let CreateWalletResponse::Username { username } = res {
@@ -107,6 +117,8 @@ pub async fn get_balance_test() -> Result<()> {
 
 #[tokio::test]
 pub async fn pay_invoice_error_test() -> Result<()> {
+    init_logging("tests=debug");
+
     info!("We create user Alice");
     let res = new_wallet().await?;
     let mut alice = String::new();
@@ -138,6 +150,8 @@ pub async fn pay_invoice_error_test() -> Result<()> {
 
 #[tokio::test]
 pub async fn get_txs_test() -> Result<()> {
+    init_logging("lightning=warn");
+
     let res = new_wallet().await?;
     let mut uname = String::new();
     if let CreateWalletResponse::Username { username } = res {
@@ -155,6 +169,8 @@ pub async fn get_txs_test() -> Result<()> {
 
 #[tokio::test]
 pub async fn check_payment_test() -> Result<()> {
+    init_logging("lightning=warn");
+
     let res = new_wallet().await?;
     let mut uname = String::new();
     if let CreateWalletResponse::Username { username } = res {

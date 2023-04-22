@@ -1,11 +1,13 @@
 #![cfg(not(target_arch = "wasm32"))]
-use bitmask_core::operations::rgb::psbt::create_psbt;
+use bitmask_core::{operations::rgb::psbt::create_psbt, util::init_logging};
 
 mod rgb_test_utils;
 use rgb_test_utils::DumbResolve;
 
 #[tokio::test]
 async fn allow_create_psbt_file() -> anyhow::Result<()> {
+    init_logging("rgb_psbt=warn");
+
     let desc = "tr(m=[280a5963]/86h/1h/0h=[tpubDCa3US185mM8yGTXtPWY1wNRMCiX89kzN4dwTMKUJyiJnnq486MTeyYShvHiS8Dd1zR2myy5xyJFDs5YacVHn6JZbVaDAtkrXZE3tTVRHPu]/*/*)#8an50cqp";
     let asset_utxo = "5ca6cd1f54c081c8b3a7b4bcc988e55fe3c420ac87512b53a58c55233e15ba4f:1";
     let asset_utxo_terminal = "/0/0";

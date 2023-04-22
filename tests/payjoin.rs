@@ -5,6 +5,7 @@ use std::env;
 use anyhow::Result;
 use bitmask_core::{
     get_encrypted_wallet, get_wallet_data, save_mnemonic_seed, send_sats, switch_network,
+    util::init_logging,
 };
 use log::{debug, info};
 
@@ -13,14 +14,7 @@ const SEED_PASSWORD: &str = "";
 
 #[tokio::test]
 async fn payjoin() -> Result<()> {
-    if env::var("RUST_LOG").is_err() {
-        env::set_var(
-            "RUST_LOG",
-            "bitmask_core=debug,bitmask_core::operations::rgb=trace,payjoin=debug",
-        );
-    }
-
-    pretty_env_logger::init();
+    init_logging("payjoin=warn");
 
     switch_network("testnet").await?;
 

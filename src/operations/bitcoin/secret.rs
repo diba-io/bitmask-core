@@ -86,6 +86,8 @@ pub fn get_mnemonic(mnemonic_phrase: Mnemonic, seed_password: &str) -> Result<En
     let nostr_prv = get_descriptor(&xprv, NOSTR_PATH, 0, true)?;
     let nostr_pub = get_descriptor(&xprv, NOSTR_PATH, 0, false)?;
 
+    // TODO: nostr hex keys and npub/nsec.
+
     let public = PublicWalletData {
         btc_descriptor_xpub,
         btc_change_descriptor_xpub,

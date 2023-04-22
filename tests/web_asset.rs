@@ -1,3 +1,5 @@
+#![allow(unused_imports)]
+#![allow(unused_variables)]
 #![cfg(all(target_arch = "wasm32"))]
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_test::*;

@@ -238,3 +238,19 @@ pub fn bech32_decode(bech32_str: &str) -> Result<(String, Vec<u8>, Variant)> {
     let (hrp, words, variant) = decode(bech32_str)?;
     Ok((hrp, Vec::<u8>::from_base32(&words)?, variant))
 }
+
+#[cfg(not(target_arch = "wasm32"))]
+pub fn init_logging(default: &str) {
+    use std::env;
+
+    if env::var("RUST_LOG").is_err() {
+        env::set_var(
+            "RUST_LOG",
+            format!("bitmask_core=warn,bitmask_core::operations::rgb=warn,{default}"),
+        );
+    }
+
+    let _ = pretty_env_logger::formatted_builder()
+        .is_test(true)
+        .try_init();
+}
