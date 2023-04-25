@@ -6,11 +6,11 @@ use wasm_bindgen_test::*;
 
 use bitmask_core::{
     debug, info,
+    structs::{EncryptedWalletData, FundVaultDetails, MnemonicSeedData, WalletData},
     web::{
-        get_assets_vault, get_encrypted_wallet, get_wallet_data, json_parse, resolve,
-        save_mnemonic_seed, set_panic_hook,
+        bitcoin::{get_assets_vault, get_encrypted_wallet, get_wallet_data, save_mnemonic_seed},
+        json_parse, resolve, set_panic_hook,
     },
-    EncryptedWalletData, FundVaultDetails, MnemonicSeedData, WalletData,
 };
 
 wasm_bindgen_test_configure!(run_in_browser);

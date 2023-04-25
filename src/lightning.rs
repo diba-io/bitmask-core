@@ -1,12 +1,13 @@
-use crate::{
-    data::constants::LNDHUB_ENDPOINT,
-    util::{get, post_json_auth},
-};
+use std::{collections::HashMap, str::FromStr};
+
 use anyhow::Result;
 use lightning_invoice::Invoice;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::str::FromStr;
+
+use crate::{
+    constants::LNDHUB_ENDPOINT,
+    util::{get, post_json_auth},
+};
 
 /// Lightning wallet credentials
 #[derive(Debug, Serialize, Deserialize, Clone)]

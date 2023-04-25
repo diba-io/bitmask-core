@@ -1,6 +1,6 @@
 #![cfg(not(target_arch = "wasm32"))]
 use bitmask_core::{
-    operations::rgb::{
+    rgb::{
         invoice::pay_invoice,
         psbt::{create_psbt, extract_commit},
     },

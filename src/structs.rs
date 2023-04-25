@@ -1,7 +1,7 @@
-// Shared
-use bdk::{Balance, BlockTime};
-use bitcoin::{util::address::Address, Txid};
 use serde::{Deserialize, Serialize};
+
+pub use bdk::{Balance, BlockTime, TransactionDetails};
+pub use bitcoin::{util::address::Address, Txid};
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -54,6 +54,14 @@ pub struct EncryptedWalletData {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct MnemonicSeedData {
+    pub mnemonic: String,
+    pub serialized_encrypted_message: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
 pub struct FundVaultDetails {
     pub assets_output: Option<String>,
     pub assets_change_output: Option<String>,
@@ -63,6 +71,7 @@ pub struct FundVaultDetails {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct IssueRequest {
     /// The ticker of the asset
     pub ticker: String,
@@ -80,7 +89,8 @@ pub struct IssueRequest {
     pub iface: String,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct IssueResponse {
     /// The contract id
     pub contract_id: String,
@@ -91,6 +101,7 @@ pub struct IssueResponse {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct InvoiceRequest {
     /// The contract id
     pub contract_id: String,
@@ -102,13 +113,15 @@ pub struct InvoiceRequest {
     pub seal: String,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct InvoiceResult {
     /// Invoice encoded in Baid58
     pub invoice: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct PsbtRequest {
     /// Descriptor XPub
     pub descriptor_pub: String,
@@ -126,13 +139,15 @@ pub struct PsbtRequest {
     pub input_tweak: Option<String>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct PsbtResponse {
     /// PSBT encoded in Base64
     pub psbt: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct RgbTransferRequest {
     /// RGB Invoice
     pub rgb_invoice: String,
@@ -140,7 +155,8 @@ pub struct RgbTransferRequest {
     pub psbt: String,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct RgbTransferResponse {
     /// Consignment ID
     pub consig_id: String,
@@ -153,12 +169,14 @@ pub struct RgbTransferResponse {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct AcceptRequest {
     /// Consignment encoded in hexadecimal
     pub consignment: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct AcceptResponse {
     /// Transfer ID
     pub transfer_id: String,
@@ -169,12 +187,14 @@ pub struct AcceptResponse {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct ContractsResponse {
     /// List of avaliable contracts
     pub contracts: Vec<ContractDetail>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct ContractDetail {
     /// Contract ID
     pub contract_id: String,
@@ -183,12 +203,14 @@ pub struct ContractDetail {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct InterfacesResponse {
     /// List of avaliable interfaces and implementations
     pub interfaces: Vec<InterfaceDetail>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct InterfaceDetail {
     /// Interface Name
     pub name: String,
@@ -199,12 +221,14 @@ pub struct InterfaceDetail {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct SchemasResponse {
     /// List of avaliable schemas
     pub schemas: Vec<SchemaDetail>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct SchemaDetail {
     /// Schema ID
     pub schema: String,
@@ -213,12 +237,14 @@ pub struct SchemaDetail {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct SatsInvoice {
     pub amount: u64,
     pub address: Address,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct Amount {
     pub value: u64,
     pub blinding: String,
@@ -236,6 +262,7 @@ pub struct Allocation {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct ExportRequest {
     /// ContractId of the asset to export FROM the node
     pub asset: Option<String>,
@@ -243,6 +270,7 @@ pub struct ExportRequest {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct ExportRequestMini {
     /// ContractId of the asset to export FROM the node
     pub asset: String,

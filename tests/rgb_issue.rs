@@ -1,6 +1,6 @@
 #![cfg(not(target_arch = "wasm32"))]
 use anyhow::Result;
-use bitmask_core::{operations::rgb::issue::issue_contract, util::init_logging};
+use bitmask_core::{rgb::issue::issue_contract, util::init_logging};
 use rgbstd::persistence::Stock;
 
 mod rgb_test_utils;

@@ -8,7 +8,7 @@ use tokio::sync::RwLock;
 use crate::error;
 
 fn dot_env(key: &str) -> String {
-    let env_file = include_str!("../../.env");
+    let env_file = include_str!("../.env");
     match env::var(key) {
         Ok(val) => val,
         Err(_) => {
@@ -68,7 +68,7 @@ pub async fn get_network() -> String {
 }
 
 /// Switch Bitcoin network
-/// For options, see: https://docs.rs/bitcoin/0.27.1/src/bitcoin/network/constants.rs.html#62-75
+/// For options, see: <https://docs.rs/bitcoin/0.27.1/src/bitcoin/network/constants.rs.html#62-75>
 pub async fn switch_network(network_str: &str) -> Result<()> {
     let network = Network::from_str(network_str)?;
 

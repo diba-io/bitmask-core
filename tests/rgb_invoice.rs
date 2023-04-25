@@ -1,7 +1,7 @@
 #![cfg(not(target_arch = "wasm32"))]
 use amplify::hex::ToHex;
 use bitmask_core::{
-    operations::rgb::invoice::{accept_payment, create_invoice, pay_invoice},
+    rgb::invoice::{accept_payment, create_invoice, pay_invoice},
     util::init_logging,
 };
 use rgbstd::persistence::Stock;

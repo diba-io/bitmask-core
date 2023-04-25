@@ -6,12 +6,12 @@ use bitcoin::consensus::serialize;
 use payjoin::{PjUri, PjUriExt};
 
 use crate::{
-    data::structs::SatsInvoice,
-    debug, info,
-    operations::bitcoin::{
-        balance::synchronize_wallet,
+    bitcoin::{
         psbt::{sign_original_psbt, sign_psbt},
+        wallet::synchronize_wallet,
     },
+    debug, info,
+    structs::SatsInvoice,
 };
 
 pub async fn create_transaction(

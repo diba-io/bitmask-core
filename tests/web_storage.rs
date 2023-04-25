@@ -3,7 +3,10 @@ use wasm_bindgen_test::*;
 
 use bitmask_core::{
     info,
-    web::{co_retrieve, co_store, json_parse, resolve, set_panic_hook},
+    web::{
+        carbonado::{retrieve, store},
+        json_parse, resolve, set_panic_hook,
+    },
 };
 
 wasm_bindgen_test_configure!(run_in_browser);
@@ -16,10 +19,10 @@ async fn web_storage() {
     let data = b"Hello world!".to_vec();
 
     info!("Testing web data store");
-    resolve(co_store(sk.clone(), data.clone())).await;
+    resolve(store(sk.clone(), data.clone())).await;
 
     info!("Testing web data retrieve");
-    let result = resolve(co_retrieve(sk)).await;
+    let result = resolve(retrieve(sk)).await;
 
     info!("Parsing result");
     let result: Vec<u8> = json_parse(&result);
