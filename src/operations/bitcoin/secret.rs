@@ -2,12 +2,14 @@ use std::str::FromStr;
 
 use anyhow::{anyhow, Result};
 use bdk::{
-    bitcoin::util::bip32::{DerivationPath, ExtendedPrivKey, ExtendedPubKey, KeySource},
+    bitcoin::{
+        secp256k1::Secp256k1,
+        util::bip32::{ChildNumber, DerivationPath, ExtendedPrivKey, ExtendedPubKey, KeySource},
+    },
     keys::{DerivableKey, DescriptorKey, DescriptorKey::Secret as SecretDesc, DescriptorSecretKey},
     miniscript::Tap,
 };
 use bip39::{Language, Mnemonic};
-use bitcoin::{secp256k1::Secp256k1, util::bip32::ChildNumber};
 use bitcoin_hashes::{sha256, Hash};
 
 use crate::data::{
@@ -28,7 +30,7 @@ fn get_descriptor(xprv: &ExtendedPrivKey, path: &str, change: u32) -> Result<Des
     if let SecretDesc(desc_seckey, _, _) = derived_xprv_desc_key {
         Ok(desc_seckey)
     } else {
-        Err(anyhow!("Unexpected key variant"))
+        Err(anyhow!("Unexpected key variant in get_descriptor"))
     }
 }
 
@@ -46,10 +48,25 @@ fn xpub_desc(xprv: &ExtendedPrivKey, path: &str, change: u32) -> Result<String> 
     Ok(format!("tr({xpub})"))
 }
 
-fn first_keypair(xprv: &ExtendedPrivKey, path: &str, change: u32) -> Result<(String, String)> {
-    let _xprv = get_descriptor(xprv, path, change)?;
-    // TODO: nostr hex keys and npub/nsec.
-    Ok(("TODO".to_owned(), "TODO".to_owned()))
+fn nostr_keypair(xprv: &ExtendedPrivKey, path: &str, change: u32) -> Result<(String, String)> {
+    let secp = Secp256k1::new();
+    let xprv = get_descriptor(xprv, path, change)?;
+
+    if let DescriptorSecretKey::XPrv(desc_xkey) = xprv {
+        let first_keypair = desc_xkey
+            .xkey
+            .ckd_priv(&secp, ChildNumber::from_normal_idx(0)?)?
+            .to_keypair(&secp);
+
+        first_keypair.secret_bytes();
+
+        Ok((
+            hex::encode(first_keypair.secret_bytes()),
+            hex::encode(first_keypair.x_only_public_key().0.serialize()),
+        ))
+    } else {
+        Err(anyhow!("Unexpected key variant in nostr_keypair"))
+    }
 }
 
 pub fn new_mnemonic(seed_password: &str) -> Result<EncryptedWalletData> {
@@ -88,7 +105,7 @@ pub fn get_mnemonic(mnemonic_phrase: Mnemonic, seed_password: &str) -> Result<En
     let rgb_assets_descriptor_xpub = xpub_desc(&xprv, &btc_path, 20)?;
     let rgb_udas_descriptor_xpub = xpub_desc(&xprv, &btc_path, 30)?;
 
-    let (nostr_prv, nostr_pub) = first_keypair(&xprv, NOSTR_PATH, 0)?;
+    let (nostr_prv, nostr_pub) = nostr_keypair(&xprv, NOSTR_PATH, 0)?;
 
     let public = PublicWalletData {
         btc_descriptor_xpub,
