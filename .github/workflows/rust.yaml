@@ -130,6 +130,9 @@ jobs:
           MAIN_VAULT_ADDRESS: ${{ secrets.MAIN_VAULT_ADDRESS }}
           RUST_BACKTRACE: 1
 
+      - name: Run bitmaskd node
+        run: cargo run --features server & sleep 1
+
       - name: Test WASM
         run: wasm-pack test --headless --chrome
         env:

@@ -1,6 +1,6 @@
-#![allow(unused_variables)]
 use crate::data::structs::{AcceptRequest, PsbtRequest, RgbTransferRequest};
-use crate::lightning;
+use crate::{carbonado, lightning};
+
 use js_sys::Promise;
 use serde::de::DeserializeOwned;
 use wasm_bindgen::prelude::*;
@@ -57,7 +57,7 @@ pub fn get_mnemonic_seed(encryption_password: String, seed_password: String) -> 
     set_panic_hook();
 
     future_to_promise(async move {
-        match crate::get_mnemonic_seed(&encryption_password, &seed_password) {
+        match crate::new_mnemonic_seed(&encryption_password, &seed_password).await {
             Ok(result) => Ok(JsValue::from_string(
                 serde_json::to_string(&result).unwrap(),
             )),
@@ -75,7 +75,7 @@ pub fn save_mnemonic_seed(
     set_panic_hook();
 
     future_to_promise(async move {
-        match crate::save_mnemonic_seed(&mnemonic, &encryption_password, &seed_password) {
+        match crate::save_mnemonic_seed(&mnemonic, &encryption_password, &seed_password).await {
             Ok(result) => Ok(JsValue::from_string(
                 serde_json::to_string(&result).unwrap(),
             )),
@@ -342,12 +342,11 @@ pub fn get_network() -> Promise {
     set_panic_hook();
 
     future_to_promise(async move {
-        match crate::get_network() {
-            Ok(result) => Ok(JsValue::from_string(
-                serde_json::to_string(&result).unwrap(),
-            )),
-            Err(err) => Err(JsValue::from_string(err.to_string())),
-        }
+        let result = crate::get_network().await;
+
+        Ok(JsValue::from_string(
+            serde_json::to_string(&result).unwrap(),
+        ))
     })
 }
 
@@ -366,11 +365,12 @@ pub fn switch_network(network_str: String) -> Promise {
 }
 
 #[wasm_bindgen]
-pub fn get_endpoint(path: String) -> Promise {
+pub fn get_env(key: String) -> Promise {
     set_panic_hook();
 
     future_to_promise(async move {
-        let result = crate::get_endpoint(&path).await;
+        let result = crate::get_env(&key).await;
+
         Ok(JsValue::from_string(
             serde_json::to_string(&result).unwrap(),
         ))
@@ -378,11 +378,12 @@ pub fn get_endpoint(path: String) -> Promise {
 }
 
 #[wasm_bindgen]
-pub fn switch_host(host: String) -> Promise {
+pub fn set_env(key: String, value: String) -> Promise {
     set_panic_hook();
 
     future_to_promise(async move {
-        crate::switch_host(&host).await;
+        crate::set_env(&key, &value).await;
+
         Ok(JsValue::UNDEFINED)
     })
 }
@@ -477,6 +478,34 @@ pub fn ln_check_payment(payment_hash: String) -> Promise {
 
     future_to_promise(async move {
         match lightning::check_payment(&payment_hash).await {
+            Ok(result) => Ok(JsValue::from_string(
+                serde_json::to_string(&result).unwrap(),
+            )),
+            Err(err) => Err(JsValue::from_string(err.to_string())),
+        }
+    })
+}
+
+#[wasm_bindgen]
+pub fn co_store(secret_key: String, data: Vec<u8>) -> Promise {
+    set_panic_hook();
+
+    future_to_promise(async move {
+        match carbonado::store(&secret_key, &data).await {
+            Ok(result) => Ok(JsValue::from_string(
+                serde_json::to_string(&result).unwrap(),
+            )),
+            Err(err) => Err(JsValue::from_string(err.to_string())),
+        }
+    })
+}
+
+#[wasm_bindgen]
+pub fn co_retrieve(secret_key: String) -> Promise {
+    set_panic_hook();
+
+    future_to_promise(async move {
+        match carbonado::retrieve(&secret_key).await {
             Ok(result) => Ok(JsValue::from_string(
                 serde_json::to_string(&result).unwrap(),
             )),

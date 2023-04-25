@@ -10,7 +10,7 @@ use crate::{
     debug,
 };
 
-pub fn get_wallet(
+pub async fn get_wallet(
     descriptor: &str,
     change_descriptor: Option<String>,
 ) -> Result<Wallet<AnyDatabase>> {
@@ -46,7 +46,7 @@ pub fn get_wallet(
     let wallet = Wallet::new(
         descriptor,
         change_descriptor.as_deref(),
-        *NETWORK.read().unwrap(),
+        *NETWORK.read().await,
         db,
     )?;
     debug!(format!("Using wallet: {wallet:#?}"));
@@ -54,13 +54,13 @@ pub fn get_wallet(
     Ok(wallet)
 }
 
-pub fn get_blockchain() -> EsploraBlockchain {
+pub async fn get_blockchain() -> EsploraBlockchain {
     debug!("Getting blockchain");
-    EsploraBlockchain::new(&BITCOIN_EXPLORER_API.read().unwrap(), 100)
+    EsploraBlockchain::new(&BITCOIN_EXPLORER_API.read().await, 100)
 }
 
 pub async fn synchronize_wallet(wallet: &Wallet<AnyDatabase>) -> Result<()> {
-    let blockchain = get_blockchain();
+    let blockchain = get_blockchain().await;
     wallet.sync(&blockchain, SyncOptions::default()).await?;
     debug!("Synced");
     Ok(())

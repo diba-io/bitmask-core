@@ -1,10 +1,13 @@
 #![cfg(not(target_arch = "wasm32"))]
 mod rgb_test_utils;
+use bitmask_core::util::init_logging;
 use rgb_test_utils::generate_new_contract;
 use rgbstd::persistence::{Inventory, Stash, Stock};
 
 #[tokio::test]
 async fn allow_list_contracts() -> anyhow::Result<()> {
+    init_logging("rgb_stock=warn");
+
     let mut stock = Stock::default();
     generate_new_contract(&mut stock);
 
@@ -28,6 +31,8 @@ async fn allow_list_contracts() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn allow_list_interfaces() -> anyhow::Result<()> {
+    init_logging("rgb_stock=warn");
+
     let mut stock = Stock::default();
     generate_new_contract(&mut stock);
 
@@ -47,6 +52,8 @@ async fn allow_list_interfaces() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn allow_list_schemas() -> anyhow::Result<()> {
+    init_logging("rgb_stock=warn");
+
     let mut stock = Stock::default();
     generate_new_contract(&mut stock);
 

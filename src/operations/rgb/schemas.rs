@@ -28,7 +28,7 @@ pub fn default_fungible_schema() -> SubSchema {
     let types = StandardTypes::new();
 
     let code = [RgbIsa::Contract(ContractOp::PcVs(OS_ASSETS))];
-    let alu_lib = Lib::assemble(&code).unwrap();
+    let alu_lib = Lib::assemble(&code).expect("assemble library from bytecode");
     let alu_id = alu_lib.id();
 
     Schema {
