@@ -53,8 +53,9 @@ hex = "0.4.3"
 lightning-invoice = "0.21.0"
 log = "0.4.17"
 miniscript_crate = { package = "miniscript", version = "9.0.0" }
+nostr-sdk = "0.21"
 once_cell = "1.17.0"
-payjoin = { version = "0.6.0", features = ["sender"] }
+payjoin = { version = "0.7.0", features = ["sender"] }
 pretty_env_logger = "0.4.0"
 psbt = { version = "0.10.0-alpha.2", features = [
     "sign",
