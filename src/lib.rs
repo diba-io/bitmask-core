@@ -84,14 +84,14 @@ pub struct MnemonicSeedData {
     pub serialized_encrypted_message: String,
 }
 
-pub fn new_mnemonic_seed(
+pub async fn new_mnemonic_seed(
     encryption_password: &str,
     seed_password: &str,
 ) -> Result<MnemonicSeedData> {
     let hash = sha256::Hash::hash(encryption_password.as_bytes());
     let shared_key: [u8; 32] = hash.into_inner();
 
-    let encrypted_wallet_data = new_mnemonic(seed_password)?;
+    let encrypted_wallet_data = new_mnemonic(seed_password).await?;
     let encrypted_message = encrypted_wallet_data.encrypt(&SharedKey::from_array(shared_key))?;
     let serialized_encrypted_message = hex::encode(encrypted_message.serialize());
     let mnemonic_seed_data = MnemonicSeedData {
@@ -102,7 +102,7 @@ pub fn new_mnemonic_seed(
     Ok(mnemonic_seed_data)
 }
 
-pub fn save_mnemonic_seed(
+pub async fn save_mnemonic_seed(
     mnemonic_phrase: &str,
     encryption_password: &str,
     seed_password: &str,
@@ -110,7 +110,7 @@ pub fn save_mnemonic_seed(
     let hash = sha256::Hash::hash(encryption_password.as_bytes());
     let shared_key: [u8; 32] = hash.into_inner();
 
-    let vault_data = save_mnemonic(mnemonic_phrase, seed_password)?;
+    let vault_data = save_mnemonic(mnemonic_phrase, seed_password).await?;
     let encrypted_message = vault_data.encrypt(&SharedKey::from_array(shared_key))?;
     let serialized_encrypted_message = hex::encode(encrypted_message.serialize());
     let mnemonic_seed_data = MnemonicSeedData {
@@ -129,7 +129,7 @@ pub async fn get_wallet_data(
     info!(format!("descriptor: {descriptor}"));
     info!(format!("change_descriptor {change_descriptor:?}"));
 
-    let wallet = get_wallet(descriptor, change_descriptor)?;
+    let wallet = get_wallet(descriptor, change_descriptor).await?;
     synchronize_wallet(&wallet).await?;
     let address = wallet.get_address(AddressIndex::LastUnused)?.to_string();
     info!(format!("address: {address}"));
@@ -177,7 +177,7 @@ pub async fn get_new_address(
     info!(format!("descriptor: {descriptor}"));
     info!(format!("change_descriptor: {change_descriptor:?}"));
 
-    let wallet = get_wallet(descriptor, change_descriptor)?;
+    let wallet = get_wallet(descriptor, change_descriptor).await?;
     synchronize_wallet(&wallet).await?;
     let address = wallet.get_address(AddressIndex::New)?.to_string();
     info!(format!("address: {address}"));
@@ -193,7 +193,7 @@ pub async fn send_sats(
 ) -> Result<TransactionDetails> {
     use payjoin::UriExt;
 
-    let wallet = get_wallet(descriptor, Some(change_descriptor.to_owned()))?;
+    let wallet = get_wallet(descriptor, Some(change_descriptor.to_owned())).await?;
     synchronize_wallet(&wallet).await?;
 
     let fee_rate = fee_rate.map(FeeRate::from_sat_per_vb);
@@ -237,7 +237,8 @@ pub async fn fund_vault(
     let wallet = get_wallet(
         btc_descriptor_xprv,
         Some(btc_change_descriptor_xprv.to_owned()),
-    )?;
+    )
+    .await?;
     synchronize_wallet(&wallet).await?;
 
     let asset_invoice = SatsInvoice {
@@ -298,8 +299,8 @@ pub async fn get_assets_vault(
     rgb_assets_descriptor_xpub: &str,
     rgb_udas_descriptor_xpub: &str,
 ) -> Result<FundVaultDetails> {
-    let assets_wallet = get_wallet(rgb_assets_descriptor_xpub, None)?;
-    let udas_wallet = get_wallet(rgb_udas_descriptor_xpub, None)?;
+    let assets_wallet = get_wallet(rgb_assets_descriptor_xpub, None).await?;
+    let udas_wallet = get_wallet(rgb_udas_descriptor_xpub, None).await?;
 
     try_join!(
         synchronize_wallet(&assets_wallet),

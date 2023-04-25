@@ -57,7 +57,7 @@ pub fn get_mnemonic_seed(encryption_password: String, seed_password: String) -> 
     set_panic_hook();
 
     future_to_promise(async move {
-        match crate::new_mnemonic_seed(&encryption_password, &seed_password) {
+        match crate::new_mnemonic_seed(&encryption_password, &seed_password).await {
             Ok(result) => Ok(JsValue::from_string(
                 serde_json::to_string(&result).unwrap(),
             )),
@@ -75,7 +75,7 @@ pub fn save_mnemonic_seed(
     set_panic_hook();
 
     future_to_promise(async move {
-        match crate::save_mnemonic_seed(&mnemonic, &encryption_password, &seed_password) {
+        match crate::save_mnemonic_seed(&mnemonic, &encryption_password, &seed_password).await {
             Ok(result) => Ok(JsValue::from_string(
                 serde_json::to_string(&result).unwrap(),
             )),
@@ -342,7 +342,7 @@ pub fn get_network() -> Promise {
     set_panic_hook();
 
     future_to_promise(async move {
-        let result = crate::get_network();
+        let result = crate::get_network().await;
 
         Ok(JsValue::from_string(
             serde_json::to_string(&result).unwrap(),

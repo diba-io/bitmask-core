@@ -67,23 +67,29 @@ fn nostr_keypair(xprv: &ExtendedPrivKey, path: &str, change: u32) -> Result<(Str
     }
 }
 
-pub fn new_mnemonic(seed_password: &str) -> Result<EncryptedWalletData> {
+pub async fn new_mnemonic(seed_password: &str) -> Result<EncryptedWalletData> {
     let mut rng = bip39::rand::thread_rng();
     let mnemonic_phrase = Mnemonic::generate_in_with(&mut rng, Language::English, 12)?;
 
-    get_mnemonic(mnemonic_phrase, seed_password)
+    get_mnemonic(mnemonic_phrase, seed_password).await
 }
 
-pub fn save_mnemonic(mnemonic_phrase: &str, seed_password: &str) -> Result<EncryptedWalletData> {
+pub async fn save_mnemonic(
+    mnemonic_phrase: &str,
+    seed_password: &str,
+) -> Result<EncryptedWalletData> {
     let mnemonic = Mnemonic::from_str(mnemonic_phrase)?;
 
-    get_mnemonic(mnemonic, seed_password)
+    get_mnemonic(mnemonic, seed_password).await
 }
 
-pub fn get_mnemonic(mnemonic_phrase: Mnemonic, seed_password: &str) -> Result<EncryptedWalletData> {
+pub async fn get_mnemonic(
+    mnemonic_phrase: Mnemonic,
+    seed_password: &str,
+) -> Result<EncryptedWalletData> {
     let seed = mnemonic_phrase.to_seed_normalized(seed_password);
 
-    let network = NETWORK.blocking_read();
+    let network = NETWORK.read().await;
     let xprv = ExtendedPrivKey::new_master(*network, &seed)?;
     let xprvkh = sha256::Hash::hash(&xprv.to_priv().to_bytes()).to_string();
 
@@ -91,7 +97,7 @@ pub fn get_mnemonic(mnemonic_phrase: Mnemonic, seed_password: &str) -> Result<En
     let xpub = ExtendedPubKey::from_priv(&secp, &xprv);
     let xpubkh = xpub.to_pub().pubkey_hash().to_string();
 
-    let btc_path = BTC_PATH.blocking_read();
+    let btc_path = BTC_PATH.read().await;
 
     let btc_descriptor_xprv = xprv_desc(&xprv, &btc_path, 0)?;
     let btc_change_descriptor_xprv = xprv_desc(&xprv, &btc_path, 1)?;

@@ -20,7 +20,7 @@ pub async fn sign_psbt(
         let fee_amount = psbt.fee_amount().expect("fee amount on PSBT is known");
         let tx = psbt.extract_tx();
         debug!("tx:", base64::encode(&serialize(&tx.clone())));
-        let blockchain = get_blockchain();
+        let blockchain = get_blockchain().await;
         blockchain.broadcast(&tx).await?;
         synchronize_wallet(wallet).await?;
         let txid = tx.txid();

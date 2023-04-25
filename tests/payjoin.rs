@@ -20,7 +20,7 @@ async fn payjoin() -> Result<()> {
 
     info!("Import wallets");
     let mnemonic = env::var("TEST_WALLET_SEED")?;
-    let mnemonic_data = save_mnemonic_seed(&mnemonic, ENCRYPTION_PASSWORD, SEED_PASSWORD)?;
+    let mnemonic_data = save_mnemonic_seed(&mnemonic, ENCRYPTION_PASSWORD, SEED_PASSWORD).await?;
 
     let vault = get_encrypted_wallet(
         ENCRYPTION_PASSWORD,

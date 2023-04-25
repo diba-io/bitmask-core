@@ -63,8 +63,8 @@ pub static NETWORK: Lazy<RwLock<Network>> = Lazy::new(|| {
     RwLock::new(Network::from_str(&dot_env("BITCOIN_NETWORK")).expect("Parse Bitcoin network"))
 });
 
-pub fn get_network() -> String {
-    NETWORK.blocking_read().to_string()
+pub async fn get_network() -> String {
+    NETWORK.read().await.to_string()
 }
 
 /// Switch Bitcoin network

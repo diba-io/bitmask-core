@@ -15,12 +15,13 @@ const SEED_PASSWORD: &str = "";
 async fn error_for_bad_mnemonic() -> Result<()> {
     init_logging("wallet=warn");
 
-    let network = get_network();
+    let network = get_network().await;
     info!("Wallet test on {network}");
 
     info!("Import wallets");
     let mnemonic = "this is a bad mnemonic that is meant to break";
-    let mnemonic_data_result = save_mnemonic_seed(mnemonic, ENCRYPTION_PASSWORD, SEED_PASSWORD);
+    let mnemonic_data_result =
+        save_mnemonic_seed(mnemonic, ENCRYPTION_PASSWORD, SEED_PASSWORD).await;
 
     assert!(mnemonic_data_result.is_err());
 
@@ -31,13 +32,13 @@ async fn error_for_bad_mnemonic() -> Result<()> {
 async fn create_wallet() -> Result<()> {
     init_logging("wallet=warn");
 
-    let network = get_network();
+    let network = get_network().await;
     info!("Asset test on {network}");
 
     info!("Import wallets");
     let main_mnemonic = env::var("TEST_WALLET_SEED")?;
     let main_mnemonic_data =
-        save_mnemonic_seed(&main_mnemonic, ENCRYPTION_PASSWORD, SEED_PASSWORD)?;
+        save_mnemonic_seed(&main_mnemonic, ENCRYPTION_PASSWORD, SEED_PASSWORD).await?;
 
     let main_vault = get_encrypted_wallet(
         ENCRYPTION_PASSWORD,
@@ -58,7 +59,7 @@ async fn get_wallet_balance() -> Result<()> {
 
     let main_mnemonic = env::var("TEST_WALLET_SEED")?;
     let main_mnemonic_data =
-        save_mnemonic_seed(&main_mnemonic, ENCRYPTION_PASSWORD, SEED_PASSWORD)?;
+        save_mnemonic_seed(&main_mnemonic, ENCRYPTION_PASSWORD, SEED_PASSWORD).await?;
 
     let main_vault = get_encrypted_wallet(
         ENCRYPTION_PASSWORD,
