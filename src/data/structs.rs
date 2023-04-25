@@ -122,6 +122,8 @@ pub struct PsbtRequest {
     pub bitcoin_changes: Vec<String>,
     /// Bitcoin Fee
     pub fee: u64,
+    /// TapTweak used to spend outputs based in tapret commitments
+    pub input_tweak: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -142,8 +144,12 @@ pub struct RgbTransferRequest {
 pub struct RgbTransferResponse {
     /// Consignment ID
     pub consig_id: String,
-    /// Consignment encoded in hexadecimal
+    /// Consignment encoded (in hexadecimal)
     pub consig: String,
+    /// SBT File Information with tapret (in hexadecimal)
+    pub psbt: String,
+    /// Tapret Commitment (used to spend output)
+    pub commit: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

@@ -14,6 +14,7 @@ use data::structs::{
     InterfacesResponse, InvoiceResult, IssueResponse, PsbtRequest, PsbtResponse,
     RgbTransferRequest, RgbTransferResponse, SchemaDetail, SchemasResponse,
 };
+use operations::rgb::psbt::extract_commit;
 use operations::rgb::{
     invoice::{accept_payment, create_invoice as create_rgb_invoice, pay_invoice},
     issue::issue_contract as create_contract,
@@ -403,6 +404,7 @@ pub async fn create_psbt(request: PsbtRequest) -> Result<PsbtResponse> {
         change_index,
         bitcoin_changes,
         fee,
+        input_tweak,
     } = request;
 
     // TODO: Pull from Carbonado (?)
@@ -418,6 +420,7 @@ pub async fn create_psbt(request: PsbtRequest) -> Result<PsbtResponse> {
         change_index,
         bitcoin_changes,
         fee,
+        input_tweak,
         &tx_resolver,
     )?;
 
@@ -433,14 +436,18 @@ pub async fn pay_asset(request: RgbTransferRequest) -> Result<RgbTransferRespons
 
     // TODO: Pull from Carbonado
     let mut stock = Stock::default();
-    let transfer = pay_invoice(rgb_invoice, psbt, &mut stock)?;
+    let (psbt, transfer) = pay_invoice(rgb_invoice, psbt, &mut stock)?;
 
+    let commit = extract_commit(psbt.clone())?;
+    let psbt = psbt.to_string();
     let consig = RgbTransferResponse {
         consig_id: transfer.bindle_id().to_string(),
         consig: transfer
             .to_strict_serialized::<0xFFFFFF>()
             .expect("invalid transfer serialization")
             .to_hex(),
+        psbt,
+        commit,
     };
     // TODO: Push to Carbonado
     Ok(consig)

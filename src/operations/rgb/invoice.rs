@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use amplify::confinement::Confined;
+use amplify::{confinement::Confined, hex::ToHex};
 use bitcoin_30::psbt::Psbt as PSBT;
 use bitcoin_hashes::hex::FromHex;
 use bp::{Txid, Vout};
@@ -83,7 +83,7 @@ pub fn pay_invoice(
     invoice: String,
     psbt: String,
     stock: &mut Stock,
-) -> Result<Bindle<Transfer>, PaymentError> {
+) -> Result<(Psbt, Bindle<Transfer>), PaymentError> {
     let invoice = RgbInvoice::from_str(&invoice).expect("invalid Invoice format");
     let psbt_file = Psbt::from_str(&psbt).expect("invalid PSBT format");
 
@@ -93,7 +93,10 @@ pub fn pay_invoice(
     let transfer = stock
         .pay(invoice, &mut psbt_final, CloseMethod::TapretFirst)
         .expect("pay_invoice failed");
-    Ok(transfer)
+
+    let psbt_file =
+        Psbt::from_str(&PSBT::serialize(&psbt_final).to_hex()).expect("invalid PSBT format");
+    Ok((psbt_file, transfer))
 }
 
 pub fn validate_payment<R: ResolveTx>(
