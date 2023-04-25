@@ -44,7 +44,7 @@ pub mod web;
 // Shared
 pub use crate::{
     data::{
-        constants::{get_endpoint, get_network, switch_host, switch_network},
+        constants::{get_env, get_network, set_env, switch_network},
         structs::{
             EncryptedWalletData, FundVaultDetails, SatsInvoice, WalletData, WalletTransaction,
         },

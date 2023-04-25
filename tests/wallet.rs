@@ -15,7 +15,7 @@ const SEED_PASSWORD: &str = "";
 async fn error_for_bad_mnemonic() -> Result<()> {
     init_logging("wallet=warn");
 
-    let network = get_network()?;
+    let network = get_network();
     info!("Wallet test on {network}");
 
     info!("Import wallets");
@@ -31,7 +31,7 @@ async fn error_for_bad_mnemonic() -> Result<()> {
 async fn create_wallet() -> Result<()> {
     init_logging("wallet=warn");
 
-    let network = get_network()?;
+    let network = get_network();
     info!("Asset test on {network}");
 
     info!("Import wallets");

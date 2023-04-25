@@ -46,7 +46,7 @@ pub fn get_wallet(
     let wallet = Wallet::new(
         descriptor,
         change_descriptor.as_deref(),
-        *NETWORK.read().unwrap(),
+        *NETWORK.blocking_read(),
         db,
     )?;
     debug!(format!("Using wallet: {wallet:#?}"));
@@ -56,7 +56,7 @@ pub fn get_wallet(
 
 pub fn get_blockchain() -> EsploraBlockchain {
     debug!("Getting blockchain");
-    EsploraBlockchain::new(&BITCOIN_EXPLORER_API.read().unwrap(), 100)
+    EsploraBlockchain::new(&BITCOIN_EXPLORER_API.blocking_read(), 100)
 }
 
 pub async fn synchronize_wallet(wallet: &Wallet<AnyDatabase>) -> Result<()> {
