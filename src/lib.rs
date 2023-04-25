@@ -8,17 +8,16 @@ pub use bdk::TransactionDetails;
 use bdk::{wallet::AddressIndex, FeeRate, LocalUtxo};
 use data::constants::BITCOIN_ELECTRUM_API;
 
-// RGB Imports
 use data::structs::{
     AcceptRequest, AcceptResponse, ContractDetail, ContractsResponse, InterfaceDetail,
     InterfacesResponse, InvoiceResult, IssueResponse, PsbtRequest, PsbtResponse,
     RgbTransferRequest, RgbTransferResponse, SchemaDetail, SchemasResponse,
 };
-use operations::rgb::psbt::extract_commit;
 use operations::rgb::{
     invoice::{accept_payment, create_invoice as create_rgb_invoice, pay_invoice},
     issue::issue_contract as create_contract,
     psbt::create_psbt as create_rgb_psbt,
+    psbt::extract_commit,
     resolvers::ExplorerResolver,
 };
 use rgbstd::containers::BindleContent;
@@ -44,7 +43,7 @@ pub mod web;
 // Shared
 pub use crate::{
     data::{
-        constants::{get_endpoint, get_network, switch_host, switch_network},
+        constants::{get_env, get_network, set_env, switch_network},
         structs::{
             EncryptedWalletData, FundVaultDetails, SatsInvoice, WalletData, WalletTransaction,
         },
@@ -54,7 +53,7 @@ pub use crate::{
             create_payjoin, create_transaction, dust_tx, get_wallet, new_mnemonic, save_mnemonic,
             sign_psbt, synchronize_wallet,
         },
-        lightning,
+        carbonado, lightning,
     },
 };
 
@@ -85,26 +84,25 @@ pub struct MnemonicSeedData {
     pub serialized_encrypted_message: String,
 }
 
-// TODO: should probably be called "new_mnemonic_seed"
-pub fn get_mnemonic_seed(
+pub async fn new_mnemonic_seed(
     encryption_password: &str,
     seed_password: &str,
 ) -> Result<MnemonicSeedData> {
     let hash = sha256::Hash::hash(encryption_password.as_bytes());
     let shared_key: [u8; 32] = hash.into_inner();
 
-    let encrypted_wallet_data = new_mnemonic(seed_password)?;
+    let encrypted_wallet_data = new_mnemonic(seed_password).await?;
     let encrypted_message = encrypted_wallet_data.encrypt(&SharedKey::from_array(shared_key))?;
     let serialized_encrypted_message = hex::encode(encrypted_message.serialize());
     let mnemonic_seed_data = MnemonicSeedData {
-        mnemonic: encrypted_wallet_data.mnemonic,
+        mnemonic: encrypted_wallet_data.private.mnemonic,
         serialized_encrypted_message,
     };
 
     Ok(mnemonic_seed_data)
 }
 
-pub fn save_mnemonic_seed(
+pub async fn save_mnemonic_seed(
     mnemonic_phrase: &str,
     encryption_password: &str,
     seed_password: &str,
@@ -112,11 +110,11 @@ pub fn save_mnemonic_seed(
     let hash = sha256::Hash::hash(encryption_password.as_bytes());
     let shared_key: [u8; 32] = hash.into_inner();
 
-    let vault_data = save_mnemonic(mnemonic_phrase, seed_password)?;
+    let vault_data = save_mnemonic(mnemonic_phrase, seed_password).await?;
     let encrypted_message = vault_data.encrypt(&SharedKey::from_array(shared_key))?;
     let serialized_encrypted_message = hex::encode(encrypted_message.serialize());
     let mnemonic_seed_data = MnemonicSeedData {
-        mnemonic: vault_data.mnemonic,
+        mnemonic: vault_data.private.mnemonic,
         serialized_encrypted_message,
     };
 
@@ -131,7 +129,7 @@ pub async fn get_wallet_data(
     info!(format!("descriptor: {descriptor}"));
     info!(format!("change_descriptor {change_descriptor:?}"));
 
-    let wallet = get_wallet(descriptor, change_descriptor)?;
+    let wallet = get_wallet(descriptor, change_descriptor).await?;
     synchronize_wallet(&wallet).await?;
     let address = wallet.get_address(AddressIndex::LastUnused)?.to_string();
     info!(format!("address: {address}"));
@@ -179,7 +177,7 @@ pub async fn get_new_address(
     info!(format!("descriptor: {descriptor}"));
     info!(format!("change_descriptor: {change_descriptor:?}"));
 
-    let wallet = get_wallet(descriptor, change_descriptor)?;
+    let wallet = get_wallet(descriptor, change_descriptor).await?;
     synchronize_wallet(&wallet).await?;
     let address = wallet.get_address(AddressIndex::New)?.to_string();
     info!(format!("address: {address}"));
@@ -195,7 +193,7 @@ pub async fn send_sats(
 ) -> Result<TransactionDetails> {
     use payjoin::UriExt;
 
-    let wallet = get_wallet(descriptor, Some(change_descriptor.to_owned()))?;
+    let wallet = get_wallet(descriptor, Some(change_descriptor.to_owned())).await?;
     synchronize_wallet(&wallet).await?;
 
     let fee_rate = fee_rate.map(FeeRate::from_sat_per_vb);
@@ -239,7 +237,8 @@ pub async fn fund_vault(
     let wallet = get_wallet(
         btc_descriptor_xprv,
         Some(btc_change_descriptor_xprv.to_owned()),
-    )?;
+    )
+    .await?;
     synchronize_wallet(&wallet).await?;
 
     let asset_invoice = SatsInvoice {
@@ -300,8 +299,8 @@ pub async fn get_assets_vault(
     rgb_assets_descriptor_xpub: &str,
     rgb_udas_descriptor_xpub: &str,
 ) -> Result<FundVaultDetails> {
-    let assets_wallet = get_wallet(rgb_assets_descriptor_xpub, None)?;
-    let udas_wallet = get_wallet(rgb_udas_descriptor_xpub, None)?;
+    let assets_wallet = get_wallet(rgb_assets_descriptor_xpub, None).await?;
+    let udas_wallet = get_wallet(rgb_udas_descriptor_xpub, None).await?;
 
     try_join!(
         synchronize_wallet(&assets_wallet),

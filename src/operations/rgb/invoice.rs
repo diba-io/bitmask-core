@@ -45,7 +45,11 @@ pub fn create_invoice(
     };
 
     let contract_id = ContractId::from_str(contract_id).expect("");
-    if !stock.contract_ids().unwrap().contains(&contract_id) {
+    if !stock
+        .contract_ids()
+        .expect("contract_ids from stock")
+        .contains(&contract_id)
+    {
         return Err(InvoiceError::ContractNotfound(contract_id));
     };
 

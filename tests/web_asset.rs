@@ -1,3 +1,5 @@
+#![allow(unused_imports)]
+#![allow(unused_variables)]
 #![cfg(all(target_arch = "wasm32"))]
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_test::*;
@@ -43,13 +45,13 @@ async fn asset_import() {
 
     info!("Get Wallets");
     let assets_wallet = resolve(get_wallet_data(
-        wallet_data.rgb_assets_descriptor_xpub.clone(),
+        wallet_data.public.rgb_assets_descriptor_xpub.clone(),
         None,
     ))
     .await;
     let assets_wallet: WalletData = json_parse(&assets_wallet);
     let udas_wallet = resolve(get_wallet_data(
-        wallet_data.rgb_udas_descriptor_xpub.clone(),
+        wallet_data.public.rgb_udas_descriptor_xpub.clone(),
         None,
     ))
     .await;
@@ -57,8 +59,8 @@ async fn asset_import() {
 
     info!("Check Asset Vault");
     let vault_details = resolve(get_assets_vault(
-        wallet_data.rgb_assets_descriptor_xpub.clone(),
-        wallet_data.rgb_udas_descriptor_xpub,
+        wallet_data.public.rgb_assets_descriptor_xpub.clone(),
+        wallet_data.public.rgb_udas_descriptor_xpub,
     ))
     .await;
     let vault_details: FundVaultDetails = json_parse(&vault_details);

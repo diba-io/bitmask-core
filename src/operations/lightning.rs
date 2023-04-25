@@ -123,7 +123,7 @@ pub struct CheckPaymentResponse {
 
 /// Creates a new lightning custodial wallet
 pub async fn create_wallet(username: &str, password: &str) -> Result<CreateWalletResponse> {
-    let endpoint = LNDHUB_ENDPOINT.to_string();
+    let endpoint = LNDHUB_ENDPOINT.read().await;
     let creds = Credentials {
         username: username.to_string(),
         password: password.to_string(),
@@ -142,7 +142,7 @@ pub async fn auth(username: &str, password: &str) -> Result<AuthResponse> {
         username: username.to_string(),
         password: password.to_string(),
     };
-    let endpoint = LNDHUB_ENDPOINT.to_string();
+    let endpoint = LNDHUB_ENDPOINT.read().await;
     let auth_url = format!("{endpoint}/auth");
     let response = post_json_auth(&auth_url, &Some(creds), None).await?;
     let response: AuthResponse = serde_json::from_str(&response)?;
@@ -156,7 +156,7 @@ pub async fn create_invoice(
     amount: u32,
     token: &str,
 ) -> Result<AddInvoiceResponse> {
-    let endpoint = LNDHUB_ENDPOINT.to_string();
+    let endpoint = LNDHUB_ENDPOINT.read().await;
     let amount = amount as f32 / 100_000_000.0;
     let amt_str = amount.to_string();
     let url = format!("{endpoint}/addinvoice?amount={amt_str}&meta={description}");
@@ -175,7 +175,7 @@ pub fn decode_invoice(payment_request: &str) -> Result<Invoice> {
 
 /// Get user lightning balance
 pub async fn get_balance(token: &str) -> Result<Vec<Account>> {
-    let endpoint = LNDHUB_ENDPOINT.to_string();
+    let endpoint = LNDHUB_ENDPOINT.read().await;
     let url = format!("{endpoint}/balance");
     let response = get(&url, Some(token)).await?;
     let balance: BalancesResponse = serde_json::from_str(&response)?;
@@ -189,7 +189,7 @@ pub async fn get_balance(token: &str) -> Result<Vec<Account>> {
 
 /// Pay a lightning invoice
 pub async fn pay_invoice(payment_request: &str, token: &str) -> Result<PayInvoiceResponse> {
-    let endpoint = LNDHUB_ENDPOINT.to_string();
+    let endpoint = LNDHUB_ENDPOINT.read().await;
     let url = format!("{endpoint}/payinvoice");
     let req = PayInvoiceRequest {
         payment_request: payment_request.to_string(),
@@ -202,7 +202,7 @@ pub async fn pay_invoice(payment_request: &str, token: &str) -> Result<PayInvoic
 
 /// Get successful lightning transactions user made. Order newest to oldest.
 pub async fn get_txs(token: &str) -> Result<Vec<Transaction>> {
-    let endpoint = LNDHUB_ENDPOINT.to_string();
+    let endpoint = LNDHUB_ENDPOINT.read().await;
     let url = format!("{endpoint}/gettxs");
     let response = get(&url, Some(token)).await?;
     let txs = serde_json::from_str(&response)?;
@@ -212,7 +212,7 @@ pub async fn get_txs(token: &str) -> Result<Vec<Transaction>> {
 
 /// Check if a lightning invoice has been paid
 pub async fn check_payment(payment_hash: &str) -> Result<bool> {
-    let endpoint = LNDHUB_ENDPOINT.to_string();
+    let endpoint = LNDHUB_ENDPOINT.read().await;
     let url = format!("{endpoint}/checkpayment?payment_hash={payment_hash}");
     let response = get(&url, None).await?;
     let r = serde_json::from_str::<CheckPaymentResponse>(&response)?;

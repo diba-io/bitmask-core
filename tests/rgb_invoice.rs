@@ -1,6 +1,9 @@
 #![cfg(not(target_arch = "wasm32"))]
 use amplify::hex::ToHex;
-use bitmask_core::operations::rgb::invoice::{accept_payment, create_invoice, pay_invoice};
+use bitmask_core::{
+    operations::rgb::invoice::{accept_payment, create_invoice, pay_invoice},
+    util::init_logging,
+};
 use rgbstd::persistence::Stock;
 
 mod rgb_test_utils;
@@ -11,6 +14,8 @@ use crate::rgb_test_utils::{dumb_psbt, generate_new_invoice, DumbResolve};
 
 #[tokio::test]
 async fn allow_create_invoice() -> anyhow::Result<()> {
+    init_logging("rgb_invoice=warn");
+
     let iface = "RGB20";
     let seal = "tapret1st:ed823b41d8b9309933826b18e4af530363b359f05919c02bbe72f28cec6dec3e:0";
     let amount = 1;
@@ -25,6 +30,8 @@ async fn allow_create_invoice() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn allow_pay_invoice() -> anyhow::Result<()> {
+    init_logging("rgb_invoice=warn");
+
     let mut resolver = DumbResolve {};
     let mut stock = Stock::default();
     let psbt = dumb_psbt();
@@ -46,6 +53,8 @@ async fn allow_pay_invoice() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn allow_accept_invoice() -> anyhow::Result<()> {
+    init_logging("rgb_invoice=warn");
+
     let mut resolver = DumbResolve {};
     let mut stock = Stock::default();
     let psbt = dumb_psbt();

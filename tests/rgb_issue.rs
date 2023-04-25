@@ -1,6 +1,6 @@
 #![cfg(not(target_arch = "wasm32"))]
 use anyhow::Result;
-use bitmask_core::operations::rgb::issue::issue_contract;
+use bitmask_core::{operations::rgb::issue::issue_contract, util::init_logging};
 use rgbstd::persistence::Stock;
 
 mod rgb_test_utils;
@@ -8,6 +8,8 @@ use rgb_test_utils::DumbResolve;
 
 #[tokio::test]
 async fn issue_contract_test() -> Result<()> {
+    init_logging("rgb_issue=warn");
+
     let ticker = "DIBA1";
     let name = "DIBA1";
     let description =
