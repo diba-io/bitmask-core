@@ -25,7 +25,6 @@ const PUBKEY_HASH: &str = "41e7fa8bc772add75092e31f0a15c10675163e82";
 
 /// Create wallet
 #[wasm_bindgen_test]
-#[ignore]
 async fn create_wallet() {
     set_panic_hook();
 
@@ -43,7 +42,6 @@ async fn create_wallet() {
 /// Can import a hardcoded mnemonic
 /// Can open a wallet and view address and balance
 #[wasm_bindgen_test]
-#[ignore]
 async fn import_and_open_wallet() {
     set_panic_hook();
 
@@ -95,7 +93,6 @@ async fn import_and_open_wallet() {
 /// Can import the testing mnemonic
 /// Can open a wallet and view address and balance
 #[wasm_bindgen_test]
-#[ignore]
 async fn import_test_wallet() {
     set_panic_hook();
 

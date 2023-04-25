@@ -1,6 +1,6 @@
-#![allow(unused_variables)]
 use crate::data::structs::{AcceptRequest, PsbtRequest, RgbTransferRequest};
-use crate::lightning;
+use crate::{carbonado, lightning};
+
 use js_sys::Promise;
 use serde::de::DeserializeOwned;
 use wasm_bindgen::prelude::*;
@@ -478,6 +478,34 @@ pub fn ln_check_payment(payment_hash: String) -> Promise {
 
     future_to_promise(async move {
         match lightning::check_payment(&payment_hash).await {
+            Ok(result) => Ok(JsValue::from_string(
+                serde_json::to_string(&result).unwrap(),
+            )),
+            Err(err) => Err(JsValue::from_string(err.to_string())),
+        }
+    })
+}
+
+#[wasm_bindgen]
+pub fn co_store(secret_key: String, data: Vec<u8>) -> Promise {
+    set_panic_hook();
+
+    future_to_promise(async move {
+        match carbonado::store(&secret_key, &data).await {
+            Ok(result) => Ok(JsValue::from_string(
+                serde_json::to_string(&result).unwrap(),
+            )),
+            Err(err) => Err(JsValue::from_string(err.to_string())),
+        }
+    })
+}
+
+#[wasm_bindgen]
+pub fn co_retrieve(secret_key: String) -> Promise {
+    set_panic_hook();
+
+    future_to_promise(async move {
+        match carbonado::retrieve(&secret_key).await {
             Ok(result) => Ok(JsValue::from_string(
                 serde_json::to_string(&result).unwrap(),
             )),

@@ -8,17 +8,16 @@ pub use bdk::TransactionDetails;
 use bdk::{wallet::AddressIndex, FeeRate, LocalUtxo};
 use data::constants::BITCOIN_ELECTRUM_API;
 
-// RGB Imports
 use data::structs::{
     AcceptRequest, AcceptResponse, ContractDetail, ContractsResponse, InterfaceDetail,
     InterfacesResponse, InvoiceResult, IssueResponse, PsbtRequest, PsbtResponse,
     RgbTransferRequest, RgbTransferResponse, SchemaDetail, SchemasResponse,
 };
-use operations::rgb::psbt::extract_commit;
 use operations::rgb::{
     invoice::{accept_payment, create_invoice as create_rgb_invoice, pay_invoice},
     issue::issue_contract as create_contract,
     psbt::create_psbt as create_rgb_psbt,
+    psbt::extract_commit,
     resolvers::ExplorerResolver,
 };
 use rgbstd::containers::BindleContent;
@@ -54,7 +53,7 @@ pub use crate::{
             create_payjoin, create_transaction, dust_tx, get_wallet, new_mnemonic, save_mnemonic,
             sign_psbt, synchronize_wallet,
         },
-        lightning,
+        carbonado, lightning,
     },
 };
 
