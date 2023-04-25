@@ -3,7 +3,9 @@ use std::env;
 
 use anyhow::Result;
 use bitmask_core::{
-    get_encrypted_wallet, get_network, get_wallet_data, save_mnemonic_seed, util::init_logging,
+    bitcoin::{get_encrypted_wallet, get_wallet_data, save_mnemonic_seed},
+    constants::get_network,
+    util::init_logging,
     warn,
 };
 use log::info;

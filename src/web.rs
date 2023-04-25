@@ -38,55 +38,59 @@ impl FromString for JsValue {
     }
 }
 
-#[wasm_bindgen]
-pub fn get_network() -> Promise {
-    set_panic_hook();
+pub mod constants {
+    use super::*;
 
-    future_to_promise(async move {
-        let result = crate::constants::get_network().await;
+    #[wasm_bindgen]
+    pub fn get_network() -> Promise {
+        set_panic_hook();
 
-        Ok(JsValue::from_string(
-            serde_json::to_string(&result).unwrap(),
-        ))
-    })
-}
+        future_to_promise(async move {
+            let result = crate::constants::get_network().await;
 
-#[wasm_bindgen]
-pub fn switch_network(network_str: String) -> Promise {
-    set_panic_hook();
-
-    future_to_promise(async move {
-        match crate::constants::switch_network(&network_str).await {
-            Ok(result) => Ok(JsValue::from_string(
+            Ok(JsValue::from_string(
                 serde_json::to_string(&result).unwrap(),
-            )),
-            Err(err) => Err(JsValue::from_string(err.to_string())),
-        }
-    })
-}
+            ))
+        })
+    }
 
-#[wasm_bindgen]
-pub fn get_env(key: String) -> Promise {
-    set_panic_hook();
+    #[wasm_bindgen]
+    pub fn switch_network(network_str: String) -> Promise {
+        set_panic_hook();
 
-    future_to_promise(async move {
-        let result = crate::constants::get_env(&key).await;
+        future_to_promise(async move {
+            match crate::constants::switch_network(&network_str).await {
+                Ok(result) => Ok(JsValue::from_string(
+                    serde_json::to_string(&result).unwrap(),
+                )),
+                Err(err) => Err(JsValue::from_string(err.to_string())),
+            }
+        })
+    }
 
-        Ok(JsValue::from_string(
-            serde_json::to_string(&result).unwrap(),
-        ))
-    })
-}
+    #[wasm_bindgen]
+    pub fn get_env(key: String) -> Promise {
+        set_panic_hook();
 
-#[wasm_bindgen]
-pub fn set_env(key: String, value: String) -> Promise {
-    set_panic_hook();
+        future_to_promise(async move {
+            let result = crate::constants::get_env(&key).await;
 
-    future_to_promise(async move {
-        crate::constants::set_env(&key, &value).await;
+            Ok(JsValue::from_string(
+                serde_json::to_string(&result).unwrap(),
+            ))
+        })
+    }
 
-        Ok(JsValue::UNDEFINED)
-    })
+    #[wasm_bindgen]
+    pub fn set_env(key: String, value: String) -> Promise {
+        set_panic_hook();
+
+        future_to_promise(async move {
+            crate::constants::set_env(&key, &value).await;
+
+            Ok(JsValue::UNDEFINED)
+        })
+    }
 }
 
 pub mod bitcoin {
@@ -277,7 +281,7 @@ pub mod rgb {
     }
 
     #[wasm_bindgen]
-    pub fn create_invoice(
+    pub fn rgb_create_invoice(
         contract_id: String,
         iface: String,
         amount: u64,
@@ -415,7 +419,7 @@ pub mod lightning {
     }
 
     #[wasm_bindgen]
-    pub fn create_invoice(description: String, amount: u32, token: String) -> Promise {
+    pub fn ln_create_invoice(description: String, amount: u32, token: String) -> Promise {
         set_panic_hook();
 
         future_to_promise(async move {
