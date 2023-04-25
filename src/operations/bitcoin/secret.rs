@@ -58,8 +58,6 @@ fn nostr_keypair(xprv: &ExtendedPrivKey, path: &str, change: u32) -> Result<(Str
             .ckd_priv(&secp, ChildNumber::from_normal_idx(0)?)?
             .to_keypair(&secp);
 
-        first_keypair.secret_bytes();
-
         Ok((
             hex::encode(first_keypair.secret_bytes()),
             hex::encode(first_keypair.x_only_public_key().0.serialize()),
