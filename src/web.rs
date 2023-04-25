@@ -342,12 +342,11 @@ pub fn get_network() -> Promise {
     set_panic_hook();
 
     future_to_promise(async move {
-        match crate::get_network() {
-            Ok(result) => Ok(JsValue::from_string(
-                serde_json::to_string(&result).unwrap(),
-            )),
-            Err(err) => Err(JsValue::from_string(err.to_string())),
-        }
+        let result = crate::get_network();
+
+        Ok(JsValue::from_string(
+            serde_json::to_string(&result).unwrap(),
+        ))
     })
 }
 
@@ -366,11 +365,12 @@ pub fn switch_network(network_str: String) -> Promise {
 }
 
 #[wasm_bindgen]
-pub fn get_endpoint(path: String) -> Promise {
+pub fn get_env(key: String) -> Promise {
     set_panic_hook();
 
     future_to_promise(async move {
-        let result = crate::get_endpoint(&path).await;
+        let result = crate::get_env(&key).await;
+
         Ok(JsValue::from_string(
             serde_json::to_string(&result).unwrap(),
         ))
@@ -378,11 +378,12 @@ pub fn get_endpoint(path: String) -> Promise {
 }
 
 #[wasm_bindgen]
-pub fn switch_host(host: String) -> Promise {
+pub fn set_env(key: String, value: String) -> Promise {
     set_panic_hook();
 
     future_to_promise(async move {
-        crate::switch_host(&host).await;
+        crate::set_env(&key, &value).await;
+
         Ok(JsValue::UNDEFINED)
     })
 }
