@@ -10,11 +10,7 @@ use bp::TapScript;
 use commit_verify::mpc::Commitment;
 use commit_verify::CommitVerify;
 use miniscript_crate::Descriptor;
-use psbt::ProprietaryKey;
 use psbt::ProprietaryKeyType;
-use rgbwallet::psbt::DbcPsbtError;
-use rgbwallet::psbt::TapretKeyError;
-use rgbwallet::psbt::{PSBT_OUT_TAPRET_COMMITMENT, PSBT_OUT_TAPRET_HOST, PSBT_TAPRET_PREFIX};
 use wallet::psbt::Psbt;
 use wallet::{
     descriptors::InputDescriptor,
@@ -130,31 +126,4 @@ pub fn create_psbt(
     }
 
     Ok(psbt)
-}
-
-pub fn extract_commit(mut psbt: Psbt) -> Result<String, DbcPsbtError> {
-    let (_, output) = psbt
-        .outputs
-        .iter_mut()
-        .enumerate()
-        .find(|(_, output)| {
-            output.proprietary.contains_key(&ProprietaryKey {
-                prefix: PSBT_TAPRET_PREFIX.to_vec(),
-                subtype: PSBT_OUT_TAPRET_HOST,
-                key: vec![],
-            })
-        })
-        .ok_or(DbcPsbtError::NoHostOutput)
-        .expect("");
-
-    let commit_vec = output.proprietary.get(&ProprietaryKey {
-        prefix: PSBT_TAPRET_PREFIX.to_vec(),
-        subtype: PSBT_OUT_TAPRET_COMMITMENT,
-        key: vec![],
-    });
-
-    match commit_vec {
-        Some(commit) => Ok(commit.to_hex()),
-        _ => Err(DbcPsbtError::TapretKey(TapretKeyError::InvalidProof)),
-    }
 }

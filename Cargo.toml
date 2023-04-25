@@ -65,6 +65,7 @@ psbt = { version = "0.10.0-alpha.2", features = [
 ] }
 regex = "1.7.0"
 reqwest = { version = "0.11.16", features = ["json"] }
+rgb-contracts = { version = "0.10.0" }
 rgb-std = { version = "0.10.0" }
 rgb-wallet = { version = "0.10.0" }
 serde = "1.0.152"
@@ -112,3 +113,4 @@ bitcoin_scripts = { git = "https://github.com/crisdut/bp-foundation", branch = "
 bitcoin_blockchain = { git = "https://github.com/crisdut/bp-foundation", branch = "release/0.10.0-alpha.2" }
 descriptor-wallet = { git = "https://github.com/crisdut/descriptor-wallet", branch = "exp/tapret-transfers" }
 psbt = { git = "https://github.com/crisdut/descriptor-wallet", branch = "exp/tapret-transfers" }
+rgb-contracts = { git = "https://github.com/crisdut/rgb", branch = "master" }

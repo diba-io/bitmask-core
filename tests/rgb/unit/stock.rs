@@ -1,15 +1,15 @@
 #![cfg(not(target_arch = "wasm32"))]
-mod rgb_test_utils;
 use bitmask_core::util::init_logging;
-use rgb_test_utils::generate_new_contract;
 use rgbstd::persistence::{Inventory, Stash, Stock};
+
+use crate::rgb::utils::create_fake_contract;
 
 #[tokio::test]
 async fn allow_list_contracts() -> anyhow::Result<()> {
     init_logging("rgb_stock=warn");
 
     let mut stock = Stock::default();
-    generate_new_contract(&mut stock);
+    create_fake_contract(&mut stock);
 
     let mut contracts = vec![];
     for schema_id in stock.schema_ids().expect("invalid schemas state") {
@@ -34,7 +34,7 @@ async fn allow_list_interfaces() -> anyhow::Result<()> {
     init_logging("rgb_stock=warn");
 
     let mut stock = Stock::default();
-    generate_new_contract(&mut stock);
+    create_fake_contract(&mut stock);
 
     let mut interfaces = vec![];
     for schema_id in stock.schema_ids().expect("invalid schemas state") {
@@ -55,7 +55,7 @@ async fn allow_list_schemas() -> anyhow::Result<()> {
     init_logging("rgb_stock=warn");
 
     let mut stock = Stock::default();
-    generate_new_contract(&mut stock);
+    create_fake_contract(&mut stock);
 
     let mut schemas = vec![];
     for schema_id in stock.schema_ids().expect("invalid schemas state") {

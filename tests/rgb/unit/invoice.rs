@@ -5,12 +5,9 @@ use bitmask_core::{
     util::init_logging,
 };
 use rgbstd::persistence::Stock;
-
-mod rgb_test_utils;
-use rgb_test_utils::generate_new_contract;
 use strict_encoding::StrictSerialize;
 
-use crate::rgb_test_utils::{dumb_psbt, generate_new_invoice, DumbResolve};
+use crate::rgb::utils::{create_fake_contract, create_fake_invoice, create_fake_psbt, DumbResolve};
 
 #[tokio::test]
 async fn allow_create_invoice() -> anyhow::Result<()> {
@@ -21,7 +18,7 @@ async fn allow_create_invoice() -> anyhow::Result<()> {
     let amount = 1;
 
     let mut stock = Stock::default();
-    let contract_id = generate_new_contract(&mut stock);
+    let contract_id = create_fake_contract(&mut stock);
     let result = create_invoice(&contract_id.to_string(), iface, amount, seal, &mut stock);
 
     assert!(result.is_ok());
@@ -34,12 +31,12 @@ async fn allow_pay_invoice() -> anyhow::Result<()> {
 
     let mut resolver = DumbResolve {};
     let mut stock = Stock::default();
-    let psbt = dumb_psbt();
+    let psbt = create_fake_psbt();
 
-    let contract_id = generate_new_contract(&mut stock);
+    let contract_id = create_fake_contract(&mut stock);
 
     let seal = "tapret1st:ed823b41d8b9309933826b18e4af530363b359f05919c02bbe72f28cec6dec3e:0";
-    let invoice = generate_new_invoice(contract_id, seal, &mut stock);
+    let invoice = create_fake_invoice(contract_id, seal, &mut stock);
 
     let result = pay_invoice(invoice.to_string(), psbt.to_string(), &mut stock);
     assert!(result.is_ok());
@@ -57,12 +54,12 @@ async fn allow_accept_invoice() -> anyhow::Result<()> {
 
     let mut resolver = DumbResolve {};
     let mut stock = Stock::default();
-    let psbt = dumb_psbt();
+    let psbt = create_fake_psbt();
 
-    let contract_id = generate_new_contract(&mut stock);
+    let contract_id = create_fake_contract(&mut stock);
 
     let seal = "tapret1st:ed823b41d8b9309933826b18e4af530363b359f05919c02bbe72f28cec6dec3e:0";
-    let invoice = generate_new_invoice(contract_id, seal, &mut stock);
+    let invoice = create_fake_invoice(contract_id, seal, &mut stock);
 
     let result = pay_invoice(invoice.to_string(), psbt.to_string(), &mut stock);
     assert!(result.is_ok());
