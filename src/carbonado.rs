@@ -2,7 +2,7 @@ use amplify::hex::ToHex;
 use anyhow::{anyhow, Context, Result};
 use bitcoin_30::secp256k1::{PublicKey, SecretKey};
 
-use crate::data::constants::CARBONADO_ENDPOINT;
+use crate::constants::CARBONADO_ENDPOINT;
 
 pub async fn store(sk: &str, input: &[u8]) -> Result<()> {
     let level = 15;

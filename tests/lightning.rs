@@ -3,10 +3,9 @@
 use anyhow::{Ok, Result};
 use bitmask_core::{
     info,
-    lightning::{AuthResponse, CreateWalletResponse},
-    operations::lightning::{
+    lightning::{
         auth, check_payment, create_invoice, create_wallet, decode_invoice, get_balance, get_txs,
-        pay_invoice, Transaction,
+        pay_invoice, AuthResponse, CreateWalletResponse, Transaction,
     },
     util::init_logging,
 };

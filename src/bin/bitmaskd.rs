@@ -1,4 +1,4 @@
-// #![cfg(feature = "server")]
+#![cfg(feature = "server")]
 use std::{env, net::SocketAddr};
 
 use anyhow::Result;
@@ -12,9 +12,11 @@ use axum::{
 };
 use bitcoin_hashes::hex::ToHex;
 use bitmask_core::{
-    accept_transfer, create_invoice, create_psbt,
-    data::structs::{AcceptRequest, InvoiceRequest, IssueRequest, PsbtRequest, RgbTransferRequest},
-    issue_contract, list_contracts, list_interfaces, list_schemas, pay_asset,
+    rgb::{
+        accept_transfer, create_invoice, create_psbt, issue_contract, list_contracts,
+        list_interfaces, list_schemas, pay_asset,
+    },
+    structs::{AcceptRequest, InvoiceRequest, IssueRequest, PsbtRequest, RgbTransferRequest},
 };
 use carbonado::file::Header;
 use log::info;

@@ -12,7 +12,7 @@ use bdk::{
 use bip39::{Language, Mnemonic};
 use bitcoin_hashes::{sha256, Hash};
 
-use crate::data::{
+use crate::{
     constants::{BTC_PATH, NETWORK, NOSTR_PATH},
     structs::{EncryptedWalletData, PrivateWalletData, PublicWalletData},
 };

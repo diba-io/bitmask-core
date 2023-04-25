@@ -1,11 +1,13 @@
 #![cfg(all(target_arch = "wasm32"))]
 use bitmask_core::{
     debug, info,
+    structs::{EncryptedWalletData, MnemonicSeedData, TransactionDetails, WalletData},
     web::{
-        get_encrypted_wallet, get_mnemonic_seed, get_wallet_data, json_parse, resolve,
-        save_mnemonic_seed, send_sats, set_panic_hook, to_string,
+        bitcoin::{
+            get_encrypted_wallet, get_mnemonic_seed, get_wallet_data, save_mnemonic_seed, send_sats,
+        },
+        json_parse, resolve, set_panic_hook, to_string,
     },
-    EncryptedWalletData, MnemonicSeedData, TransactionDetails, WalletData,
 };
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_test::*;

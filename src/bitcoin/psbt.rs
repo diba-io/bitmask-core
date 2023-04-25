@@ -5,7 +5,10 @@ use bdk::{
 };
 use bitcoin::{consensus::serialize, util::psbt::PartiallySignedTransaction};
 
-use crate::{debug, operations::bitcoin::balance::get_blockchain, synchronize_wallet};
+use crate::{
+    bitcoin::{get_blockchain, synchronize_wallet},
+    debug,
+};
 
 /// Signs and broadcasts a transaction given a Psbt
 pub async fn sign_psbt(

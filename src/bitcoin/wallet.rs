@@ -6,7 +6,7 @@ use bdk::{
 };
 
 use crate::{
-    data::constants::{BITCOIN_EXPLORER_API, NETWORK},
+    constants::{BITCOIN_EXPLORER_API, NETWORK},
     debug,
 };
 

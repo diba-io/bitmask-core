@@ -2,9 +2,7 @@ use std::{convert::Infallible, str::FromStr};
 
 use amplify::hex::{FromHex, ToHex};
 use bitcoin::Transaction;
-use bitmask_core::{
-    operations::rgb::invoice::create_invoice, operations::rgb::issue::issue_contract,
-};
+use bitmask_core::{rgb::invoice::create_invoice, rgb::issue::issue_contract};
 use bp::{Sats, ScriptPubkey, Tx, TxIn, TxOut, TxVer, Txid, VarIntArray};
 use psbt::{serialize::Deserialize, Psbt};
 use rgbstd::{
