@@ -14,9 +14,8 @@ use std::{thread, time};
 
 async fn new_wallet() -> Result<CreateWalletResponse> {
     // we generate a random string to be used as username and password
-    let mut buf = [0u8; 8];
-    getrandom::getrandom(&mut buf)?;
-    let s = buf.map(|d| format!("{d:02x}")).join("");
+    let random_number = bip39::rand::random::<u64>();
+    let s = hex::encode(random_number.to_le_bytes());
     // We put to sleep the test to avoid hit too fast the API
     thread::sleep(time::Duration::from_secs(1));
     let res = create_wallet(&s, &s).await?;

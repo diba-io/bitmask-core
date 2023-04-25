@@ -3,10 +3,10 @@ use std::str::FromStr;
 use anyhow::{anyhow, Result};
 use bdk::{
     bitcoin::util::bip32::{DerivationPath, ExtendedPrivKey, ExtendedPubKey, KeySource},
-    keys::{DerivableKey, DescriptorKey, DescriptorKey::Secret as SecretDesc},
+    keys::{DerivableKey, DescriptorKey, DescriptorKey::Secret as SecretDesc, DescriptorSecretKey},
     miniscript::Tap,
 };
-use bip39::Mnemonic;
+use bip39::{Language, Mnemonic};
 use bitcoin::{secp256k1::Secp256k1, util::bip32::ChildNumber};
 use bitcoin_hashes::{sha256, Hash};
 
@@ -15,18 +15,7 @@ use crate::data::{
     structs::{EncryptedWalletData, PrivateWalletData, PublicWalletData},
 };
 
-fn get_random_buf() -> Result<[u8; 16], getrandom::Error> {
-    let mut buf = [0u8; 16];
-    getrandom::getrandom(&mut buf)?;
-    Ok(buf)
-}
-
-fn get_descriptor(
-    xprv: &ExtendedPrivKey,
-    path: &str,
-    change: u32,
-    is_secret: bool,
-) -> Result<String> {
+fn get_descriptor(xprv: &ExtendedPrivKey, path: &str, change: u32) -> Result<DescriptorSecretKey> {
     let secp = Secp256k1::new();
     let deriv_descriptor: DerivationPath = DerivationPath::from_str(path)?;
     let derived_xprv = &xprv.derive_priv(&secp, &deriv_descriptor)?;
@@ -37,25 +26,42 @@ fn get_descriptor(
     )?;
 
     if let SecretDesc(desc_seckey, _, _) = derived_xprv_desc_key {
-        if is_secret {
-            Ok(desc_seckey.to_string())
-        } else {
-            let desc_pubkey = desc_seckey.to_public(&secp)?;
-            Ok(desc_pubkey.to_string())
-        }
+        Ok(desc_seckey)
     } else {
-        Err(anyhow!("Invalid key variant"))
+        Err(anyhow!("Unexpected key variant"))
     }
 }
 
+fn xprv_desc(xprv: &ExtendedPrivKey, path: &str, change: u32) -> Result<String> {
+    let xprv = get_descriptor(xprv, path, change)?;
+
+    Ok(format!("tr({xprv})"))
+}
+
+fn xpub_desc(xprv: &ExtendedPrivKey, path: &str, change: u32) -> Result<String> {
+    let secp = Secp256k1::new();
+    let xprv = get_descriptor(xprv, path, change)?;
+    let xpub = xprv.to_public(&secp)?;
+
+    Ok(format!("tr({xpub})"))
+}
+
+fn first_keypair(xprv: &ExtendedPrivKey, path: &str, change: u32) -> Result<(String, String)> {
+    let _xprv = get_descriptor(xprv, path, change)?;
+    // TODO: nostr hex keys and npub/nsec.
+    Ok(("TODO".to_owned(), "TODO".to_owned()))
+}
+
 pub fn new_mnemonic(seed_password: &str) -> Result<EncryptedWalletData> {
-    let entropy = get_random_buf()?;
-    let mnemonic_phrase = Mnemonic::from_entropy(&entropy)?;
+    let mut rng = bip39::rand::thread_rng();
+    let mnemonic_phrase = Mnemonic::generate_in_with(&mut rng, Language::English, 12)?;
+
     get_mnemonic(mnemonic_phrase, seed_password)
 }
 
 pub fn save_mnemonic(mnemonic_phrase: &str, seed_password: &str) -> Result<EncryptedWalletData> {
     let mnemonic = Mnemonic::from_str(mnemonic_phrase)?;
+
     get_mnemonic(mnemonic, seed_password)
 }
 
@@ -72,21 +78,17 @@ pub fn get_mnemonic(mnemonic_phrase: Mnemonic, seed_password: &str) -> Result<En
 
     let btc_path = BTC_PATH.read().unwrap();
 
-    let btc_descriptor_xprv = format!("tr({})", get_descriptor(&xprv, &btc_path, 0, true)?);
-    let btc_change_descriptor_xprv = format!("tr({})", get_descriptor(&xprv, &btc_path, 1, true)?);
+    let btc_descriptor_xprv = xprv_desc(&xprv, &btc_path, 0)?;
+    let btc_change_descriptor_xprv = xprv_desc(&xprv, &btc_path, 1)?;
 
-    let btc_descriptor_xpub = format!("tr({})", get_descriptor(&xprv, &btc_path, 0, false)?);
-    let btc_change_descriptor_xpub = format!("tr({})", get_descriptor(&xprv, &btc_path, 1, false)?);
-    let rgb_assets_descriptor_xprv = format!("tr({})", get_descriptor(&xprv, &btc_path, 20, true)?);
-    let rgb_udas_descriptor_xprv = format!("tr({})", get_descriptor(&xprv, &btc_path, 30, true)?);
-    let rgb_assets_descriptor_xpub =
-        format!("tr({})", get_descriptor(&xprv, &btc_path, 20, false)?);
-    let rgb_udas_descriptor_xpub = format!("tr({})", get_descriptor(&xprv, &btc_path, 30, false)?);
+    let btc_descriptor_xpub = xpub_desc(&xprv, &btc_path, 0)?;
+    let btc_change_descriptor_xpub = xpub_desc(&xprv, &btc_path, 1)?;
+    let rgb_assets_descriptor_xprv = xprv_desc(&xprv, &btc_path, 20)?;
+    let rgb_udas_descriptor_xprv = xprv_desc(&xprv, &btc_path, 30)?;
+    let rgb_assets_descriptor_xpub = xpub_desc(&xprv, &btc_path, 20)?;
+    let rgb_udas_descriptor_xpub = xpub_desc(&xprv, &btc_path, 30)?;
 
-    let nostr_prv = get_descriptor(&xprv, NOSTR_PATH, 0, true)?;
-    let nostr_pub = get_descriptor(&xprv, NOSTR_PATH, 0, false)?;
-
-    // TODO: nostr hex keys and npub/nsec.
+    let (nostr_prv, nostr_pub) = first_keypair(&xprv, NOSTR_PATH, 0)?;
 
     let public = PublicWalletData {
         btc_descriptor_xpub,

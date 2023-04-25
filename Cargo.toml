@@ -31,7 +31,7 @@ aluvm = "0.10.0"
 amplify = "4.0.0"
 base64 = { package = "base64-compat", version = "1.0.0" }
 bech32 = "0.9.1"
-bip39 = "1.0.1"
+bip39 = { version = "2.0.0", features = ["rand"] }
 bitcoin_30 = { package = "bitcoin", version = "0.30", features = ["base64"] }
 bitcoin = { version = "0.29.2", features = ["base64"] }
 bitcoin_hashes = "0.11.0"
@@ -49,7 +49,6 @@ descriptor-wallet = { version = "0.10.0-alpha.2", features = [
     "miniscript",
 ] }
 futures = "0.3.25"
-getrandom = { version = "0.2.8", features = ["js"] }
 hex = "0.4.3"
 lightning-invoice = "0.21.0"
 log = "0.4.17"
