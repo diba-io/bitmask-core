@@ -2,7 +2,7 @@
 use bitmask_core::util::init_logging;
 use rgbstd::persistence::{Inventory, Stash, Stock};
 
-use crate::rgb::utils::create_fake_contract;
+use crate::rgb::unit::utils::create_fake_contract;
 
 #[tokio::test]
 async fn allow_list_contracts() -> anyhow::Result<()> {

@@ -1,14 +1,15 @@
 mod rgb {
-    mod utils;
+
     mod unit {
-        mod commits;
         mod invoice;
         mod issue;
         mod psbt;
         mod stock;
+        mod utils;
     }
 
     mod integration {
-        mod selection;
+        mod utils;
+        mod utxo_selection;
     }
 }

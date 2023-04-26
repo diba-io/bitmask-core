@@ -1,5 +1,6 @@
 use bitcoin::Address;
-use std::str::FromStr;
+use rgb::{persistence::Stock, RgbWallet};
+use std::{collections::HashMap, str::FromStr};
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug, Display)]
 #[display("{address}:{amount}", alt = "{address:#}:{amount:#}")]
@@ -21,4 +22,10 @@ impl FromStr for AddressAmount {
         let amount = u64::from_str(split[1]).expect("invalid address format");
         Ok(AddressAmount { address, amount })
     }
+}
+
+#[derive(Clone, Debug)]
+pub struct RgbAccount {
+    pub stock: Stock,
+    pub wallets: HashMap<String, RgbWallet>,
 }

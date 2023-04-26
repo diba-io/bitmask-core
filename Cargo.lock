@@ -2285,7 +2285,7 @@ dependencies = [
 [[package]]
 name = "rgb-contracts"
 version = "0.10.0"
-source = "git+https://github.com/crisdut/rgb?branch=master#e8533526b1914974db7e666578459508ad96e4b6"
+source = "git+https://github.com/crisdut/rgb?branch=feat/expose-resolver#5b1fe5301576159707a548d286b877bd437b24a2"
 dependencies = [
  "amplify",
  "baid58",
@@ -2326,7 +2326,7 @@ dependencies = [
 [[package]]
 name = "rgb-persist-fs"
 version = "0.10.0"
-source = "git+https://github.com/crisdut/rgb?branch=master#e8533526b1914974db7e666578459508ad96e4b6"
+source = "git+https://github.com/crisdut/rgb?branch=feat/expose-resolver#5b1fe5301576159707a548d286b877bd437b24a2"
 dependencies = [
  "amplify",
  "rgb-std",

@@ -8,23 +8,25 @@ use rgbstd::{
 use strict_encoding::StrictSerialize;
 
 pub mod accept;
-pub mod commits;
 pub mod constants;
-pub mod invoice;
 pub mod issue;
 pub mod psbt;
 pub mod resolvers;
 pub mod schemas;
 pub mod structs;
+pub mod transfer;
+pub mod wallets;
 
 use crate::{
     constants::BITCOIN_ELECTRUM_API,
     rgb::{
-        commits::extract_psbt_commit,
-        invoice::{accept_payment, create_invoice as create_rgb_invoice, pay_invoice},
         issue::issue_contract as create_contract,
-        psbt::create_psbt as create_rgb_psbt,
+        psbt::{create_psbt as create_rgb_psbt, extract_commit},
         resolvers::ExplorerResolver,
+        transfer::{
+            accept_transfer as accept_rgb_transfer, create_invoice as create_rgb_invoice,
+            pay_invoice,
+        },
     },
     structs::{
         AcceptRequest, AcceptResponse, ContractDetail, ContractsResponse, InterfaceDetail,
@@ -133,7 +135,7 @@ pub async fn pay_asset(request: RgbTransferRequest) -> Result<RgbTransferRespons
     let mut stock = Stock::default();
     let (psbt, transfer) = pay_invoice(rgb_invoice, psbt, &mut stock)?;
 
-    let commit = extract_psbt_commit(psbt.clone())?;
+    let commit = extract_commit(psbt.clone())?;
     let psbt = psbt.to_string();
     let consig = RgbTransferResponse {
         consig_id: transfer.bindle_id().to_string(),
@@ -158,7 +160,7 @@ pub async fn accept_transfer(request: AcceptRequest) -> Result<AcceptResponse> {
     let mut tx_resolver = ExplorerResolver {
         explorer_url: explorer_url.to_string(),
     };
-    let resp = match accept_payment(consignment, false, &mut tx_resolver, &mut stock) {
+    let resp = match accept_rgb_transfer(consignment, false, &mut tx_resolver, &mut stock) {
         Ok(transfer) => AcceptResponse {
             contract_id: transfer.contract_id().to_string(),
             transfer_id: transfer.transfer_id().to_string(),

@@ -1,13 +1,15 @@
 #![cfg(not(target_arch = "wasm32"))]
 use amplify::hex::ToHex;
 use bitmask_core::{
-    rgb::invoice::{accept_payment, create_invoice, pay_invoice},
+    rgb::transfer::{accept_transfer, create_invoice, pay_invoice},
     util::init_logging,
 };
 use rgbstd::persistence::Stock;
 use strict_encoding::StrictSerialize;
 
-use crate::rgb::utils::{create_fake_contract, create_fake_invoice, create_fake_psbt, DumbResolve};
+use crate::rgb::unit::utils::{
+    create_fake_contract, create_fake_invoice, create_fake_psbt, DumbResolve,
+};
 
 #[tokio::test]
 async fn allow_create_invoice() -> anyhow::Result<()> {
@@ -71,7 +73,7 @@ async fn allow_accept_invoice() -> anyhow::Result<()> {
         .unwrap()
         .to_hex();
 
-    let pay_status = accept_payment(transfer_hex, true, &mut resolver, &mut stock);
+    let pay_status = accept_transfer(transfer_hex, true, &mut resolver, &mut stock);
     assert!(pay_status.is_ok());
     Ok(())
 }

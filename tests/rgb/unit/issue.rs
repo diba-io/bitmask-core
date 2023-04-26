@@ -3,7 +3,7 @@ use anyhow::Result;
 use bitmask_core::{rgb::issue::issue_contract, util::init_logging};
 use rgbstd::persistence::Stock;
 
-use crate::rgb::utils::DumbResolve;
+use crate::rgb::unit::utils::DumbResolve;
 
 #[tokio::test]
 async fn issue_contract_test() -> Result<()> {

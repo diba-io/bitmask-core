@@ -103,7 +103,7 @@ pub fn pay_invoice(
     Ok((psbt_file, transfer))
 }
 
-pub fn validate_payment<R: ResolveTx>(
+pub fn validate_transfer<R: ResolveTx>(
     transfer: String,
     resolver: &mut R,
 ) -> Result<(ContractId, Status), (ContractId, PaymentError)> {
@@ -123,7 +123,7 @@ pub fn validate_payment<R: ResolveTx>(
     }
 }
 
-pub fn accept_payment<T>(
+pub fn accept_transfer<T>(
     transfer: String,
     force: bool,
     resolver: &mut T,
