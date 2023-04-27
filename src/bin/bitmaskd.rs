@@ -1,4 +1,6 @@
+#![allow(unused_imports)]
 #![cfg(feature = "server")]
+#![cfg(not(target_arch = "wasm32"))]
 use std::{env, net::SocketAddr};
 
 use anyhow::Result;
@@ -10,7 +12,6 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
-use bitcoin_hashes::hex::ToHex;
 use bitmask_core::{
     rgb::{
         accept_transfer, create_invoice, create_psbt, issue_contract, list_contracts,
@@ -18,15 +19,18 @@ use bitmask_core::{
     },
     structs::{AcceptRequest, InvoiceRequest, IssueRequest, PsbtRequest, RgbTransferRequest},
 };
-use carbonado::file::Header;
 use log::info;
 use tokio::fs;
 use tower_http::cors::CorsLayer;
 
+/* TODO: ECDH bearer auth.
 async fn issue(Json(issue): Json<IssueRequest>) -> Result<impl IntoResponse, AppError> {
     info!("POST /issue {issue:?}");
 
+    // let nostr_hex_sk =
+
     let issue_res = issue_contract(
+        nostr_hex_sk,
         &issue.ticker,
         &issue.name,
         &issue.description,
@@ -102,28 +106,32 @@ async fn schemas() -> Result<impl IntoResponse, AppError> {
 
     Ok((StatusCode::OK, Json(schemas_res)))
 }
+ */
 
-async fn co_store(body: Bytes) -> Result<impl IntoResponse, AppError> {
-    info!("POST /carbonado {} bytes", body.len());
+async fn co_store(
+    Path((pk, name)): Path<(String, String)>,
+    body: Bytes,
+) -> Result<impl IntoResponse, AppError> {
+    info!("POST /carbonado/{pk}/{name}, {} bytes", body.len());
 
-    let bytes = body.as_ref();
-    let header: Header = Header::try_from(bytes)?;
-    let pk = header.pubkey.to_hex();
-    let path = "/tmp/bitmaskd/carbonado";
-    let filename = format!("{path}/{pk}.c15");
+    let path = format!("/tmp/bitmaskd/carbonado/{pk}");
+    let filename = format!("{path}/{name}");
 
     fs::create_dir_all(path).await?;
-    info!("write {} bytes to {}", bytes.len(), filename);
-    fs::write(filename, bytes).await?;
+    info!("write {} bytes to {}", body.len(), filename);
+    fs::write(filename, body).await?;
 
     Ok(StatusCode::OK)
 }
 
-async fn co_retrieve(Path(pk): Path<String>) -> Result<impl IntoResponse, AppError> {
-    info!("GET /carbonado/{pk}");
+async fn co_retrieve(
+    Path((pk, name)): Path<(String, String)>,
+) -> Result<impl IntoResponse, AppError> {
+    info!("GET /carbonado/{pk}/{name}");
 
-    let path = "/tmp/bitmaskd/carbonado";
-    let filename = format!("{path}/{pk}");
+    let path = option_env!("CARBONADO_DIR").unwrap_or("/tmp/bitmaskd/carbonado");
+    let filename = format!("{path}/{pk}/{name}");
+
     info!("read {}", filename);
     let bytes = fs::read(filename).await?;
 
@@ -139,6 +147,7 @@ async fn main() -> Result<()> {
     pretty_env_logger::init();
 
     let app = Router::new()
+        /* TODO: ECDH bearer auth.
         .route("/issue", post(issue))
         .route("/invoice", post(invoice))
         .route("/psbt", post(psbt))
@@ -146,9 +155,9 @@ async fn main() -> Result<()> {
         .route("/accept", post(accept))
         .route("/contracts", get(contracts))
         .route("/interfaces", get(interfaces))
-        .route("/schemas", get(schemas))
-        .route("/carbonado", post(co_store))
-        .route("/carbonado/:pk", get(co_retrieve))
+        .route("/schemas", get(schemas)) */
+        .route("/carbonado/:pk/:name", post(co_store))
+        .route("/carbonado/:pk/:name", get(co_retrieve))
         .layer(CorsLayer::permissive());
 
     let addr = SocketAddr::from(([127, 0, 0, 1], 7070));
