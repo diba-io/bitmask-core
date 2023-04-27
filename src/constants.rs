@@ -157,3 +157,7 @@ pub async fn set_env(key: &str, value: &str) {
         }
     };
 }
+
+pub mod storage_keys {
+    pub const ASSETS_STOCK: &str = "bitmask-fungible_assets_stock.c15";
+}

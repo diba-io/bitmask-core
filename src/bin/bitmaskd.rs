@@ -1,3 +1,4 @@
+#![allow(unused_imports)]
 #![cfg(feature = "server")]
 #![cfg(not(target_arch = "wasm32"))]
 use std::{env, net::SocketAddr};
@@ -22,10 +23,14 @@ use log::info;
 use tokio::fs;
 use tower_http::cors::CorsLayer;
 
+/* TODO: ECDH bearer auth.
 async fn issue(Json(issue): Json<IssueRequest>) -> Result<impl IntoResponse, AppError> {
     info!("POST /issue {issue:?}");
 
+    // let nostr_hex_sk =
+
     let issue_res = issue_contract(
+        nostr_hex_sk,
         &issue.ticker,
         &issue.name,
         &issue.description,
@@ -101,6 +106,7 @@ async fn schemas() -> Result<impl IntoResponse, AppError> {
 
     Ok((StatusCode::OK, Json(schemas_res)))
 }
+ */
 
 async fn co_store(
     Path((pk, name)): Path<(String, String)>,
@@ -141,6 +147,7 @@ async fn main() -> Result<()> {
     pretty_env_logger::init();
 
     let app = Router::new()
+        /* TODO: ECDH bearer auth.
         .route("/issue", post(issue))
         .route("/invoice", post(invoice))
         .route("/psbt", post(psbt))
@@ -148,7 +155,7 @@ async fn main() -> Result<()> {
         .route("/accept", post(accept))
         .route("/contracts", get(contracts))
         .route("/interfaces", get(interfaces))
-        .route("/schemas", get(schemas))
+        .route("/schemas", get(schemas)) */
         .route("/carbonado/:pk/:name", post(co_store))
         .route("/carbonado/:pk/:name", get(co_retrieve))
         .layer(CorsLayer::permissive());
