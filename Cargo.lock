@@ -537,6 +537,7 @@ dependencies = [
  "miniscript",
  "once_cell",
  "payjoin",
+ "percent-encoding",
  "pretty_env_logger",
  "psbt",
  "regex",
