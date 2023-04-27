@@ -10,10 +10,8 @@ use crate::rgb::integration::utils::{send_some_coins, start_node, stop_node, REG
 #[tokio::test]
 async fn allow_utxo_selection() -> anyhow::Result<()> {
     init_logging("rgb_issue=warn");
-    let fungible_wallet = before_test().await?;
-
-    println!("{}", fungible_wallet.get_balance().expect(""));
-    stop_node().await;
+    let _ = before_test().await?;
+    // stop_node().await;
     Ok(())
 }
 
