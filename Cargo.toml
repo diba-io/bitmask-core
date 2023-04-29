@@ -90,7 +90,7 @@ wasm-bindgen-futures = "0.4.34"
 web-sys = "0.3.61"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-axum = "0.6.1"
+axum = { version = "0.6.17", features = ["headers"] }
 axum-macros = "0.3.0"
 bdk = { version = "0.28.0", features = [
     "use-esplora-async",
