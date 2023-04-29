@@ -1,5 +1,7 @@
 use std::{env, process::Stdio};
 
+use bdk::{database::AnyDatabase, Wallet};
+use bitmask_core::bitcoin::{get_wallet, get_wallet_data, synchronize_wallet};
 use tokio::process::Command;
 
 pub const REGTEST_MNEMONIC: &str =
@@ -49,4 +51,31 @@ pub async fn send_some_coins(address: &str, amount: &str) {
         .wait()
         .await
         .expect("");
+}
+
+pub async fn setup_integration() -> anyhow::Result<Wallet<AnyDatabase>> {
+    if env::var("LOCAL_TESTS").is_ok() {
+        // Start Node
+        start_node().await;
+    }
+    let mnemonic_phrase = REGTEST_MNEMONIC;
+    let seed_password = "";
+    let vault_data = bitmask_core::bitcoin::save_mnemonic(mnemonic_phrase, seed_password).await?;
+
+    // Send Coins to RGB Wallet
+    let fungible_wallet = get_wallet(&vault_data.public.rgb_assets_descriptor_xpub, None).await?;
+    let fungible_snapshot =
+        get_wallet_data(&vault_data.public.rgb_assets_descriptor_xpub, None).await?;
+
+    send_some_coins(&fungible_snapshot.address, "0.01").await;
+    synchronize_wallet(&fungible_wallet).await?;
+    Ok(fungible_wallet)
+}
+
+pub async fn shutdown_integration() -> anyhow::Result<()> {
+    if env::var("LOCAL_TESTS").is_ok() {
+        // Start Node
+        stop_node().await;
+    }
+    Ok(())
 }

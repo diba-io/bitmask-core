@@ -9,7 +9,7 @@ mod rgb {
     }
 
     mod integration {
+        mod coin_selection;
         mod utils;
-        mod utxo_selection;
     }
 }
