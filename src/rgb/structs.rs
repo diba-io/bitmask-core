@@ -1,5 +1,6 @@
-use bitcoin::Address;
 use std::str::FromStr;
+
+use bitcoin::Address;
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug, Display)]
 #[display("{address}:{amount}", alt = "{address:#}:{amount:#}")]

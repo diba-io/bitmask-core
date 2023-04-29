@@ -1,17 +1,18 @@
-use rgbstd::resolvers::ResolveHeight;
-use rgbstd::validation::ResolveTx;
 use std::str::FromStr;
-use strict_types::{svstr, svstruct, StrictVal};
 
-use super::schemas::{default_fungible_iimpl, default_fungible_schema};
 use amplify::confinement::U16;
 use bp::seals::txout::ExplicitSeal;
-use rgbstd::containers::Contract;
-use rgbstd::contract::GenesisSeal;
-use rgbstd::interface::{BuilderError, ContractBuilder, Iface};
-use rgbstd::persistence::{Inventory, Stash, Stock};
-use rgbstd::Txid;
-use strict_types::encoding::TypeName;
+use rgbstd::{
+    containers::Contract,
+    contract::GenesisSeal,
+    interface::{BuilderError, ContractBuilder, Iface},
+    persistence::{Inventory, Stash, Stock},
+    Txid,
+};
+use rgbstd::{resolvers::ResolveHeight, validation::ResolveTx};
+use strict_types::{encoding::TypeName, svstr, svstruct, StrictVal};
+
+use super::schemas::{default_fungible_iimpl, default_fungible_schema};
 
 #[derive(Clone, Eq, PartialEq, Debug, Display, Error, From)]
 #[display(doc_comments)]

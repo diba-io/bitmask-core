@@ -4,8 +4,7 @@ use amplify::hex::ToHex;
 use bdk::blockchain::EsploraBlockchain;
 use bp::{LockTime, Outpoint, Tx, TxIn, TxOut, Txid, VarIntArray};
 use futures::executor;
-use rgbstd::resolvers::ResolveHeight;
-use rgbstd::validation::ResolveTx as ResolveCommiment;
+use rgbstd::{resolvers::ResolveHeight, validation::ResolveTx as ResolveCommiment};
 use wallet::onchain::{ResolveTx, TxResolverError};
 
 pub struct ExplorerResolver {

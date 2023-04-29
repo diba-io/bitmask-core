@@ -44,7 +44,7 @@ pub fn get_encrypted_wallet(
 ) -> Result<EncryptedWalletData> {
     // read hash digest and consume hasher
     let hash = sha256::Hash::hash(password.as_bytes());
-    let shared_key: [u8; 32] = hash.into_inner();
+    let shared_key: [u8; 32] = hash.to_byte_array();
     let encrypted_descriptors: Vec<u8> = hex::decode(encrypted_descriptors)?;
     let encrypted_message = EncryptedMessage::deserialize(encrypted_descriptors)?;
     Ok(EncryptedWalletData::decrypt_owned(
@@ -58,7 +58,7 @@ pub async fn new_mnemonic_seed(
     seed_password: &str,
 ) -> Result<MnemonicSeedData> {
     let hash = sha256::Hash::hash(encryption_password.as_bytes());
-    let shared_key: [u8; 32] = hash.into_inner();
+    let shared_key: [u8; 32] = hash.to_byte_array();
 
     let encrypted_wallet_data = new_mnemonic(seed_password).await?;
     let encrypted_message = encrypted_wallet_data.encrypt(&SharedKey::from_array(shared_key))?;
@@ -77,7 +77,7 @@ pub async fn save_mnemonic_seed(
     seed_password: &str,
 ) -> Result<MnemonicSeedData> {
     let hash = sha256::Hash::hash(encryption_password.as_bytes());
-    let shared_key: [u8; 32] = hash.into_inner();
+    let shared_key: [u8; 32] = hash.to_byte_array();
 
     let vault_data = save_mnemonic(mnemonic_phrase, seed_password).await?;
     let encrypted_message = vault_data.encrypt(&SharedKey::from_array(shared_key))?;

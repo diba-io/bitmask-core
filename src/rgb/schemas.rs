@@ -1,22 +1,15 @@
-use aluvm::library::Lib;
-use aluvm::library::LibSite;
+use aluvm::library::{Lib, LibSite};
 use amplify::{confined_bmap, tiny_bmap};
-use rgbstd::interface::rgb20;
-use rgbstd::interface::IfaceImpl;
-use rgbstd::interface::NamedType;
-use rgbstd::schema::FungibleType;
-use rgbstd::schema::GlobalStateSchema;
-use rgbstd::schema::Occurrences;
-use rgbstd::schema::StateSchema;
-use rgbstd::schema::TransitionSchema;
-use rgbstd::vm::EntryPoint;
 use rgbstd::{
-    schema::{GenesisSchema, Schema, Script, SubSchema},
+    interface::{rgb20, IfaceImpl, NamedType},
+    schema::{
+        FungibleType, GenesisSchema, GlobalStateSchema, Occurrences, Schema, Script, StateSchema,
+        SubSchema, TransitionSchema,
+    },
     stl::StandardTypes,
-    vm::{AluScript, ContractOp, RgbIsa},
+    vm::{AluScript, ContractOp, EntryPoint, RgbIsa},
 };
-use strict_types::tn;
-use strict_types::{SemId, Ty};
+use strict_types::{tn, SemId, Ty};
 
 const GS_NOMINAL: u16 = 0;
 const GS_CONTRACT: u16 = 1;

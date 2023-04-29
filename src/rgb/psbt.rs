@@ -3,24 +3,20 @@ use std::str::FromStr;
 use amplify::hex::ToHex;
 use bitcoin::{EcdsaSighashType, OutPoint, Script};
 use bitcoin_blockchain::locks::{LockTime, SeqNo};
-use bitcoin_hashes::hex::FromHex;
 use bitcoin_scripts::PubkeyScript;
-use bp::dbc::tapret::TapretCommitment;
-use bp::TapScript;
-use commit_verify::mpc::Commitment;
-use commit_verify::CommitVerify;
+use bp::{dbc::tapret::TapretCommitment, TapScript};
+use commit_verify::{mpc::Commitment, CommitVerify};
 use miniscript_crate::Descriptor;
-use psbt::ProprietaryKey;
-use psbt::ProprietaryKeyType;
-use rgbwallet::psbt::DbcPsbtError;
-use rgbwallet::psbt::TapretKeyError;
-use rgbwallet::psbt::{PSBT_OUT_TAPRET_COMMITMENT, PSBT_OUT_TAPRET_HOST, PSBT_TAPRET_PREFIX};
-use wallet::psbt::Psbt;
+use psbt::{ProprietaryKey, ProprietaryKeyType};
+use rgbwallet::psbt::{
+    DbcPsbtError, TapretKeyError, PSBT_OUT_TAPRET_COMMITMENT, PSBT_OUT_TAPRET_HOST,
+    PSBT_TAPRET_PREFIX,
+};
 use wallet::{
     descriptors::InputDescriptor,
     hd::{DerivationAccount, UnhardenedIndex},
     onchain::ResolveTx,
-    psbt::{ProprietaryKeyDescriptor, ProprietaryKeyError, ProprietaryKeyLocation},
+    psbt::{ProprietaryKeyDescriptor, ProprietaryKeyError, ProprietaryKeyLocation, Psbt},
 };
 
 use super::constants::RGB_PSBT_TAPRET;
@@ -52,7 +48,7 @@ pub fn create_psbt(
         let tap = TapretCommitment::with(mpc, 0);
         let tapscript = TapScript::commit(&tap);
 
-        let tweak = Script::from_hex(&tapscript.to_hex()).expect("invalid bitcoin script");
+        let tweak = Script::from_str(&tapscript.to_hex()).expect("invalid bitcoin script");
         inputs[0].taptweak = Some(tweak);
     }
 
