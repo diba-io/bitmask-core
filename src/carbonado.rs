@@ -1,10 +1,13 @@
 use amplify::hex::ToHex;
 use anyhow::{anyhow, Context, Result};
 use bitcoin_30::secp256k1::{PublicKey, SecretKey};
+use percent_encoding::utf8_percent_encode;
 
-use crate::constants::CARBONADO_ENDPOINT;
+pub mod constants;
 
-pub async fn store(sk: &str, input: &[u8]) -> Result<()> {
+use crate::{carbonado::constants::FORM, constants::CARBONADO_ENDPOINT};
+
+pub async fn store(sk: &str, name: &str, input: &[u8]) -> Result<()> {
     let level = 15;
     let sk = hex::decode(sk)?;
     let secret_key = SecretKey::from_slice(&sk)?;
@@ -13,7 +16,10 @@ pub async fn store(sk: &str, input: &[u8]) -> Result<()> {
 
     let (body, _encode_info) = carbonado::file::encode(&sk, Some(&pk), input, level)?;
 
-    let url = CARBONADO_ENDPOINT.read().await.to_string();
+    let endpoint = CARBONADO_ENDPOINT.read().await.to_string();
+    let name = utf8_percent_encode(name, FORM);
+    let pk_hex = hex::encode(pk);
+    let url = format!("{endpoint}/{pk_hex}/{name}");
     let client = reqwest::Client::new();
     let response = client
         .post(&url)
@@ -38,14 +44,15 @@ pub async fn store(sk: &str, input: &[u8]) -> Result<()> {
     }
 }
 
-pub async fn retrieve(sk: &str) -> Result<Vec<u8>> {
+pub async fn retrieve(sk: &str, name: &str) -> Result<Vec<u8>> {
     let sk = hex::decode(sk)?;
     let secret_key = SecretKey::from_slice(&sk)?;
     let public_key = PublicKey::from_secret_key_global(&secret_key);
     let pk = public_key.to_hex();
 
     let endpoint = CARBONADO_ENDPOINT.read().await.to_string();
-    let url = format!("{endpoint}/{pk}.c15");
+    let name = utf8_percent_encode(name, FORM);
+    let url = format!("{endpoint}/{pk}/{name}");
     let client = reqwest::Client::new();
     let response = client
         .get(&url)

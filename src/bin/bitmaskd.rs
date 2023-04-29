@@ -1,16 +1,19 @@
+#![allow(unused_imports)]
 #![cfg(feature = "server")]
-use std::{env, net::SocketAddr};
+#![cfg(not(target_arch = "wasm32"))]
+use std::{env, net::SocketAddr, str::FromStr};
 
 use anyhow::Result;
 use axum::{
     body::Bytes,
     extract::Path,
+    headers::{authorization::Bearer, Authorization},
     http::StatusCode,
     response::{IntoResponse, Response},
     routing::{get, post},
-    Json, Router,
+    Json, Router, TypedHeader,
 };
-use bitcoin_hashes::hex::ToHex;
+use bitcoin_30::secp256k1::{ecdh::SharedSecret, PublicKey, SecretKey};
 use bitmask_core::{
     rgb::{
         accept_transfer, create_invoice, create_psbt, issue_contract, list_contracts,
@@ -18,15 +21,20 @@ use bitmask_core::{
     },
     structs::{AcceptRequest, InvoiceRequest, IssueRequest, PsbtRequest, RgbTransferRequest},
 };
-use carbonado::file::Header;
 use log::info;
 use tokio::fs;
 use tower_http::cors::CorsLayer;
 
-async fn issue(Json(issue): Json<IssueRequest>) -> Result<impl IntoResponse, AppError> {
+async fn issue(
+    TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
+    Json(issue): Json<IssueRequest>,
+) -> Result<impl IntoResponse, AppError> {
     info!("POST /issue {issue:?}");
 
+    let nostr_hex_sk = auth.token();
+
     let issue_res = issue_contract(
+        nostr_hex_sk,
         &issue.ticker,
         &issue.name,
         &issue.description,
@@ -40,10 +48,16 @@ async fn issue(Json(issue): Json<IssueRequest>) -> Result<impl IntoResponse, App
     Ok((StatusCode::OK, Json(issue_res)))
 }
 
-async fn invoice(Json(invoice): Json<InvoiceRequest>) -> Result<impl IntoResponse, AppError> {
+async fn invoice(
+    TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
+    Json(invoice): Json<InvoiceRequest>,
+) -> Result<impl IntoResponse, AppError> {
     info!("POST /invoice {invoice:?}");
 
+    let nostr_hex_sk = auth.token();
+
     let invoice_res = create_invoice(
+        nostr_hex_sk,
         &invoice.contract_id,
         &invoice.iface,
         invoice.amount,
@@ -54,80 +68,122 @@ async fn invoice(Json(invoice): Json<InvoiceRequest>) -> Result<impl IntoRespons
     Ok((StatusCode::OK, Json(invoice_res)))
 }
 
-async fn psbt(Json(psbt_req): Json<PsbtRequest>) -> Result<impl IntoResponse, AppError> {
+async fn psbt(
+    TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
+    Json(psbt_req): Json<PsbtRequest>,
+) -> Result<impl IntoResponse, AppError> {
     info!("POST /psbt {psbt_req:?}");
 
-    let psbt_res = create_psbt(psbt_req).await?;
+    let nostr_hex_sk = auth.token();
+
+    let psbt_res = create_psbt(nostr_hex_sk, psbt_req).await?;
 
     Ok((StatusCode::OK, Json(psbt_res)))
 }
 
 #[axum_macros::debug_handler]
-async fn pay(Json(pay_req): Json<RgbTransferRequest>) -> Result<impl IntoResponse, AppError> {
+async fn pay(
+    TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
+    Json(pay_req): Json<RgbTransferRequest>,
+) -> Result<impl IntoResponse, AppError> {
     info!("POST /pay {pay_req:?}");
 
-    let transfer_res = pay_asset(pay_req).await?;
+    let nostr_hex_sk = auth.token();
+
+    let transfer_res = pay_asset(nostr_hex_sk, pay_req).await?;
 
     Ok((StatusCode::OK, Json(transfer_res)))
 }
 
-async fn accept(Json(accept_req): Json<AcceptRequest>) -> Result<impl IntoResponse, AppError> {
+async fn accept(
+    TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
+    Json(accept_req): Json<AcceptRequest>,
+) -> Result<impl IntoResponse, AppError> {
     info!("POST /accept {accept_req:?}");
 
-    let transfer_res = accept_transfer(accept_req).await?;
+    let nostr_hex_sk = auth.token();
+
+    let transfer_res = accept_transfer(nostr_hex_sk, accept_req).await?;
 
     Ok((StatusCode::OK, Json(transfer_res)))
 }
 
-async fn contracts() -> Result<impl IntoResponse, AppError> {
+async fn contracts(
+    TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
+) -> Result<impl IntoResponse, AppError> {
     info!("GET /contracts");
 
-    let contracts_res = list_contracts().await?;
+    let nostr_hex_sk = auth.token();
+
+    let contracts_res = list_contracts(nostr_hex_sk).await?;
 
     Ok((StatusCode::OK, Json(contracts_res)))
 }
 
-async fn interfaces() -> Result<impl IntoResponse, AppError> {
+async fn interfaces(
+    TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
+) -> Result<impl IntoResponse, AppError> {
     info!("GET /interfaces");
 
-    let interfaces_res = list_interfaces().await?;
+    let nostr_hex_sk = auth.token();
+
+    let interfaces_res = list_interfaces(nostr_hex_sk).await?;
 
     Ok((StatusCode::OK, Json(interfaces_res)))
 }
 
-async fn schemas() -> Result<impl IntoResponse, AppError> {
+async fn schemas(
+    TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
+) -> Result<impl IntoResponse, AppError> {
     info!("GET /schemas");
 
-    let schemas_res = list_schemas().await?;
+    let nostr_hex_sk = auth.token();
+
+    let schemas_res = list_schemas(nostr_hex_sk).await?;
 
     Ok((StatusCode::OK, Json(schemas_res)))
 }
 
-async fn co_store(body: Bytes) -> Result<impl IntoResponse, AppError> {
-    info!("POST /carbonado {} bytes", body.len());
+async fn co_store(
+    Path((pk, name)): Path<(String, String)>,
+    body: Bytes,
+) -> Result<impl IntoResponse, AppError> {
+    info!("POST /carbonado/{pk}/{name}, {} bytes", body.len());
 
-    let bytes = body.as_ref();
-    let header: Header = Header::try_from(bytes)?;
-    let pk = header.pubkey.to_hex();
-    let path = "/tmp/bitmaskd/carbonado";
-    let filename = format!("{path}/{pk}.c15");
+    let path = format!("/tmp/bitmaskd/carbonado/{pk}");
+    let filename = format!("{path}/{name}");
 
     fs::create_dir_all(path).await?;
-    info!("write {} bytes to {}", bytes.len(), filename);
-    fs::write(filename, bytes).await?;
+    info!("write {} bytes to {}", body.len(), filename);
+    fs::write(filename, body).await?;
 
     Ok(StatusCode::OK)
 }
 
-async fn co_retrieve(Path(pk): Path<String>) -> Result<impl IntoResponse, AppError> {
-    info!("GET /carbonado/{pk}");
+async fn co_retrieve(
+    Path((pk, name)): Path<(String, String)>,
+) -> Result<impl IntoResponse, AppError> {
+    info!("GET /carbonado/{pk}/{name}");
 
-    let path = "/tmp/bitmaskd/carbonado";
-    let filename = format!("{path}/{pk}");
+    let path = option_env!("CARBONADO_DIR").unwrap_or("/tmp/bitmaskd/carbonado");
+    let filename = format!("{path}/{pk}/{name}");
+
     info!("read {}", filename);
     let bytes = fs::read(filename).await?;
 
     Ok((StatusCode::OK, bytes))
+}
+
+async fn key(Path(pk): Path<String>) -> Result<impl IntoResponse, AppError> {
+    let sk = env::var("NOSTR_SK")?;
+    let sk = SecretKey::from_str(&sk)?;
+
+    let pk = PublicKey::from_str(&pk)?;
+
+    let ss = SharedSecret::new(&pk, &sk);
+    let ss = ss.display_secret();
+
+    Ok(ss.to_string())
 }
 
 #[tokio::main]
@@ -147,8 +203,9 @@ async fn main() -> Result<()> {
         .route("/contracts", get(contracts))
         .route("/interfaces", get(interfaces))
         .route("/schemas", get(schemas))
-        .route("/carbonado", post(co_store))
-        .route("/carbonado/:pk", get(co_retrieve))
+        .route("/key/:pk", get(key))
+        .route("/carbonado/:pk/:name", post(co_store))
+        .route("/carbonado/:pk/:name", get(co_retrieve))
         .layer(CorsLayer::permissive());
 
     let addr = SocketAddr::from(([127, 0, 0, 1], 7070));

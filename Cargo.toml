@@ -56,6 +56,7 @@ miniscript_crate = { package = "miniscript", version = "9.0.0" }
 # nostr-sdk = "0.21"
 once_cell = "1.17.0"
 payjoin = { version = "0.7.0", features = ["sender"] }
+percent-encoding = "2.2.0"
 pretty_env_logger = "0.4.0"
 psbt = { version = "0.10.0-alpha.2", features = [
     "sign",
@@ -92,7 +93,7 @@ wasm-bindgen-futures = "0.4.34"
 web-sys = "0.3.61"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-axum = "0.6.1"
+axum = { version = "0.6.17", features = ["headers"] }
 axum-macros = "0.3.0"
 bdk = { version = "0.28.0", features = [
     "use-esplora-async",

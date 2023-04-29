@@ -3,7 +3,7 @@ use amplify::hex::ToHex;
 use anyhow::Result;
 use rgbstd::{
     containers::BindleContent,
-    persistence::{Inventory, Stash, Stock},
+    persistence::{Inventory, Stash},
 };
 use strict_encoding::StrictSerialize;
 
@@ -13,16 +13,18 @@ pub mod issue;
 pub mod psbt;
 pub mod resolvers;
 pub mod schemas;
+pub mod stock;
 pub mod structs;
 pub mod transfer;
 pub mod wallets;
 
 use crate::{
-    constants::BITCOIN_ELECTRUM_API,
+    constants::{storage_keys::ASSETS_STOCK, BITCOIN_ELECTRUM_API},
     rgb::{
         issue::issue_contract as create_contract,
         psbt::{create_psbt as create_rgb_psbt, extract_commit},
         resolvers::ExplorerResolver,
+        stock::{retrieve_stock, store_stock},
         transfer::{
             accept_transfer as accept_rgb_transfer, create_invoice as create_rgb_invoice,
             pay_invoice,
@@ -36,8 +38,9 @@ use crate::{
 };
 
 /// RGB Operations
-
+#[allow(clippy::too_many_arguments)]
 pub async fn issue_contract(
+    sk: &str,
     ticker: &str,
     name: &str,
     description: &str,
@@ -46,8 +49,7 @@ pub async fn issue_contract(
     seal: &str,
     iface: &str,
 ) -> Result<IssueResponse> {
-    // TODO: Get stock from Carbonado
-    let mut stock = Stock::default();
+    let mut stock = retrieve_stock(sk, ASSETS_STOCK).await?;
 
     let explorer_url = BITCOIN_ELECTRUM_API.read().await;
     let tx_resolver = ExplorerResolver {
@@ -69,7 +71,8 @@ pub async fn issue_contract(
     let contract_id = contract.contract_id().to_string();
     let genesis = contract.bindle().to_string();
 
-    // TODO: Update Stock to Carbonado
+    store_stock(sk, ASSETS_STOCK, &stock).await?;
+
     Ok(IssueResponse {
         contract_id,
         iface: iface.to_string(),
@@ -78,22 +81,24 @@ pub async fn issue_contract(
 }
 
 pub async fn create_invoice(
+    sk: &str,
     contract_id: &str,
     iface: &str,
     amount: u64,
     seal: &str,
 ) -> Result<InvoiceResult> {
-    // TODO: Get stock from Carbonado
-    let mut stock = Stock::default();
+    let mut stock = retrieve_stock(sk, ASSETS_STOCK).await?;
+
     let invoice = create_rgb_invoice(contract_id, iface, amount, seal, &mut stock)?;
 
-    // TODO: Update Stock to Carbonado
+    store_stock(sk, ASSETS_STOCK, &stock).await?;
+
     Ok(InvoiceResult {
         invoice: invoice.to_string(),
     })
 }
 
-pub async fn create_psbt(request: PsbtRequest) -> Result<PsbtResponse> {
+pub async fn create_psbt(sk: &str, request: PsbtRequest) -> Result<PsbtResponse> {
     let PsbtRequest {
         descriptor_pub,
         asset_utxo,
@@ -104,7 +109,7 @@ pub async fn create_psbt(request: PsbtRequest) -> Result<PsbtResponse> {
         input_tweak,
     } = request;
 
-    // TODO: Pull from Carbonado (?)
+    let stock = retrieve_stock(sk, ASSETS_STOCK).await?;
     let explorer_url = BITCOIN_ELECTRUM_API.read().await;
     let tx_resolver = ExplorerResolver {
         explorer_url: explorer_url.to_string(),
@@ -124,15 +129,16 @@ pub async fn create_psbt(request: PsbtRequest) -> Result<PsbtResponse> {
     let psbt = PsbtResponse {
         psbt: Serialize::serialize(&psbt_file).to_hex(),
     };
-    // TODO: Push to Carbonado (?)
+
+    store_stock(sk, ASSETS_STOCK, &stock).await?;
+
     Ok(psbt)
 }
 
-pub async fn pay_asset(request: RgbTransferRequest) -> Result<RgbTransferResponse> {
+pub async fn pay_asset(sk: &str, request: RgbTransferRequest) -> Result<RgbTransferResponse> {
     let RgbTransferRequest { rgb_invoice, psbt } = request;
 
-    // TODO: Pull from Carbonado
-    let mut stock = Stock::default();
+    let mut stock = retrieve_stock(sk, ASSETS_STOCK).await?;
     let (psbt, transfer) = pay_invoice(rgb_invoice, psbt, &mut stock)?;
 
     let commit = extract_commit(psbt.clone())?;
@@ -146,15 +152,16 @@ pub async fn pay_asset(request: RgbTransferRequest) -> Result<RgbTransferRespons
         psbt,
         commit,
     };
-    // TODO: Push to Carbonado
+
+    store_stock(sk, ASSETS_STOCK, &stock).await?;
+
     Ok(consig)
 }
 
-pub async fn accept_transfer(request: AcceptRequest) -> Result<AcceptResponse> {
+pub async fn accept_transfer(sk: &str, request: AcceptRequest) -> Result<AcceptResponse> {
     let AcceptRequest { consignment } = request;
 
-    // TODO: Pull from Carbonado
-    let mut stock = Stock::default();
+    let mut stock = retrieve_stock(sk, ASSETS_STOCK).await?;
 
     let explorer_url = BITCOIN_ELECTRUM_API.read().await;
     let mut tx_resolver = ExplorerResolver {
@@ -173,12 +180,13 @@ pub async fn accept_transfer(request: AcceptRequest) -> Result<AcceptResponse> {
         },
     };
 
-    // TODO: Push to Carbonado
+    store_stock(sk, ASSETS_STOCK, &stock).await?;
+
     Ok(resp)
 }
 
-pub async fn list_contracts() -> Result<ContractsResponse> {
-    let mut stock = Stock::default();
+pub async fn list_contracts(sk: &str) -> Result<ContractsResponse> {
+    let mut stock = retrieve_stock(sk, ASSETS_STOCK).await?;
 
     let mut contracts = vec![];
     for schema_id in stock.schema_ids().expect("invalid schemas state") {
@@ -200,8 +208,8 @@ pub async fn list_contracts() -> Result<ContractsResponse> {
     Ok(ContractsResponse { contracts })
 }
 
-pub async fn list_interfaces() -> Result<InterfacesResponse> {
-    let stock = Stock::default();
+pub async fn list_interfaces(sk: &str) -> Result<InterfacesResponse> {
+    let stock = retrieve_stock(sk, ASSETS_STOCK).await?;
 
     let mut interfaces = vec![];
     for schema_id in stock.schema_ids().expect("invalid schemas state") {
@@ -217,11 +225,12 @@ pub async fn list_interfaces() -> Result<InterfacesResponse> {
             interfaces.push(item)
         }
     }
+
     Ok(InterfacesResponse { interfaces })
 }
 
-pub async fn list_schemas() -> Result<SchemasResponse> {
-    let stock = Stock::default();
+pub async fn list_schemas(sk: &str) -> Result<SchemasResponse> {
+    let stock = retrieve_stock(sk, ASSETS_STOCK).await?;
 
     let mut schemas = vec![];
     for schema_id in stock.schema_ids().expect("invalid schemas state") {
@@ -236,5 +245,6 @@ pub async fn list_schemas() -> Result<SchemasResponse> {
             ifaces,
         })
     }
+
     Ok(SchemasResponse { schemas })
 }

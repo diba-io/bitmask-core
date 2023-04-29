@@ -16,13 +16,14 @@ async fn web_storage() {
     set_panic_hook();
 
     let sk = "76e9a09d5fa501c9048cb7ff48415786f7f6580726f33823010d130b19f61680".to_owned();
+    let name = "test my@rly$neat_file".to_owned();
     let data = b"Hello world!".to_vec();
 
     info!("Testing web data store");
-    resolve(store(sk.clone(), data.clone())).await;
+    resolve(store(sk.clone(), name.clone(), data.clone())).await;
 
     info!("Testing web data retrieve");
-    let result = resolve(retrieve(sk)).await;
+    let result = resolve(retrieve(sk, name)).await;
 
     info!("Parsing result");
     let result: Vec<u8> = json_parse(&result);
