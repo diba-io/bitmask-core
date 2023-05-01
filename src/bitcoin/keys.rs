@@ -136,8 +136,5 @@ pub async fn get_mnemonic(
         xpubkh,
     };
 
-    println!("PRIVATE: {}", serde_json::to_string_pretty(&private)?);
-    println!("PUBLIC: {}", serde_json::to_string_pretty(&public)?);
-
     Ok(EncryptedWalletData { private, public })
 }
