@@ -1,3 +1,4 @@
+#![cfg(not(target_arch = "wasm32"))]
 use bitmask_core::{
     bitcoin::{get_wallet, get_wallet_data, synchronize_wallet},
     structs::EncryptedWalletData,
