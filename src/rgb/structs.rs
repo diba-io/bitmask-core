@@ -1,5 +1,6 @@
 use bitcoin::Address;
-use rgb::{persistence::Stock, RgbWallet};
+use bitcoin_scripts::address::AddressCompat;
+use rgb::{persistence::Stock, RgbWallet, TerminalPath};
 use std::{collections::HashMap, str::FromStr};
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug, Display)]
@@ -28,4 +29,11 @@ impl FromStr for AddressAmount {
 pub struct RgbAccount {
     pub stock: Stock,
     pub wallets: HashMap<String, RgbWallet>,
+}
+
+#[derive(Clone, PartialEq, Eq, Hash, Debug, Display)]
+#[display("{address}")]
+pub struct AddressTerminal {
+    pub address: AddressCompat,
+    pub terminal: TerminalPath,
 }

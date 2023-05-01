@@ -1,7 +1,8 @@
+use bitmask_core::{
+    bitcoin::{get_wallet, get_wallet_data, synchronize_wallet},
+    structs::EncryptedWalletData,
+};
 use std::{env, process::Stdio};
-
-use bdk::{database::AnyDatabase, Wallet};
-use bitmask_core::bitcoin::{get_wallet, get_wallet_data, synchronize_wallet};
 use tokio::process::Command;
 
 pub const REGTEST_MNEMONIC: &str =
@@ -53,8 +54,8 @@ pub async fn send_some_coins(address: &str, amount: &str) {
         .expect("");
 }
 
-pub async fn setup_integration() -> anyhow::Result<Wallet<AnyDatabase>> {
-    if env::var("LOCAL_TESTS").is_ok() {
+pub async fn setup_integration() -> anyhow::Result<EncryptedWalletData> {
+    if env::var("RESET_DOCKER_ENV").is_ok() {
         // Start Node
         start_node().await;
     }
@@ -69,11 +70,11 @@ pub async fn setup_integration() -> anyhow::Result<Wallet<AnyDatabase>> {
 
     send_some_coins(&fungible_snapshot.address, "0.01").await;
     synchronize_wallet(&fungible_wallet).await?;
-    Ok(fungible_wallet)
+    Ok(vault_data)
 }
 
 pub async fn shutdown_integration() -> anyhow::Result<()> {
-    if env::var("LOCAL_TESTS").is_ok() {
+    if env::var("RESET_DOCKER_ENV").is_ok() {
         // Start Node
         stop_node().await;
     }

@@ -44,6 +44,7 @@ pub struct PublicWalletData {
     pub nostr_pub: String,
     pub xprvkh: String,
     pub xpubkh: String,
+    pub xpub: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -98,6 +99,30 @@ pub struct IssueResponse {
     pub iface: String,
     /// The genesis state (encoded in hex)
     pub genesis: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub enum ImportType {
+    Contract,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ImportRequest {
+    /// The type data
+    pub import: ImportType,
+    /// The payload data (in hexadecimal)
+    pub data: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ImportResponse {
+    /// The contract id
+    pub contract_id: String,
+    /// The contract interfaces
+    pub ifaces: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

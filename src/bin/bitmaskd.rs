@@ -16,10 +16,12 @@ use axum::{
 use bitcoin_30::secp256k1::{ecdh::SharedSecret, PublicKey, SecretKey};
 use bitmask_core::{
     rgb::{
-        accept_transfer, create_invoice, create_psbt, issue_contract, list_contracts,
+        accept_transfer, create_invoice, create_psbt, import, issue_contract, list_contracts,
         list_interfaces, list_schemas, pay_asset,
     },
-    structs::{AcceptRequest, InvoiceRequest, IssueRequest, PsbtRequest, RgbTransferRequest},
+    structs::{
+        AcceptRequest, ImportRequest, InvoiceRequest, IssueRequest, PsbtRequest, RgbTransferRequest,
+    },
 };
 use log::info;
 use tokio::fs;
@@ -144,6 +146,18 @@ async fn schemas(
     Ok((StatusCode::OK, Json(schemas_res)))
 }
 
+async fn imports(
+    TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
+    Json(import_req): Json<ImportRequest>,
+) -> Result<impl IntoResponse, AppError> {
+    info!("POST /accept {import_req:?}");
+
+    let nostr_hex_sk = auth.token();
+    let import_res = import(nostr_hex_sk, import_req).await?;
+
+    Ok((StatusCode::OK, Json(import_res)))
+}
+
 async fn co_store(
     Path((pk, name)): Path<(String, String)>,
     body: Bytes,
@@ -203,6 +217,7 @@ async fn main() -> Result<()> {
         .route("/contracts", get(contracts))
         .route("/interfaces", get(interfaces))
         .route("/schemas", get(schemas))
+        .route("/imports", post(imports))
         .route("/key/:pk", get(key))
         .route("/carbonado/:pk/:name", post(co_store))
         .route("/carbonado/:pk/:name", get(co_retrieve))

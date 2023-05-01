@@ -1,15 +1,73 @@
-use std::{convert::Infallible, str::FromStr};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    convert::Infallible,
+    str::FromStr,
+};
 
 use amplify::hex::ToHex;
 use bdk::blockchain::EsploraBlockchain;
+use bitcoin::Script;
+use bitcoin_hashes::hex::FromHex;
 use bp::{LockTime, Outpoint, Tx, TxIn, TxOut, Txid, VarIntArray};
 use futures::executor;
+use rgb::{
+    prelude::{DeriveInfo, MiningStatus},
+    Utxo,
+};
 use rgbstd::resolvers::ResolveHeight;
 use rgbstd::validation::ResolveTx as ResolveCommiment;
 use wallet::onchain::{ResolveTx, TxResolverError};
 
 pub struct ExplorerResolver {
     pub explorer_url: String,
+}
+
+impl rgb::Resolver for ExplorerResolver {
+    fn resolve_utxo<'s>(
+        &mut self,
+        scripts: BTreeMap<DeriveInfo, bitcoin_30::ScriptBuf>,
+    ) -> Result<BTreeSet<rgb::prelude::Utxo>, String> {
+        let mut utxos = bset![];
+        let explorer_client = EsploraBlockchain::new(&self.explorer_url, 100);
+        // TODO: Remove that after bitcoin v.30 full compatibility
+        let script_list = scripts
+            .into_iter()
+            .map(|(d, sc)| (d, Script::from_hex(&sc.to_hex()).expect("invalid script")));
+
+        for (derive, script) in script_list {
+            let txs = match executor::block_on(explorer_client.scripthash_txs(&script, none!())) {
+                Ok(txs) => txs,
+                _ => vec![],
+            };
+
+            txs.into_iter().for_each(|tx| {
+                let index = tx
+                    .vout
+                    .clone()
+                    .into_iter()
+                    .position(|txout| txout.scriptpubkey == script);
+                if let Some(index) = index {
+                    let index = index;
+
+                    let status = match tx.status.block_height {
+                        Some(height) => MiningStatus::Blockchain(height),
+                        _ => MiningStatus::Mempool,
+                    };
+                    let outpoint =
+                        Outpoint::new(Txid::from_str(&tx.txid.to_hex()).expect(""), index as u32);
+                    let new_utxo = Utxo {
+                        outpoint,
+                        status,
+                        amount: tx.vout[index].value,
+                        derivation: derive.clone(),
+                    };
+                    utxos.insert(new_utxo);
+                }
+            });
+        }
+
+        Ok(utxos)
+    }
 }
 
 impl ResolveTx for ExplorerResolver {
@@ -64,5 +122,39 @@ impl ResolveCommiment for ExplorerResolver {
             .expect("consensus-invalid transaction"),
             lock_time: LockTime::from(tx.lock_time.0),
         })
+    }
+}
+
+#[derive(Clone, Debug, Display, Error, From)]
+#[display(doc_comments)]
+pub enum SpendResolverError {
+    /// transaction {0} is not mined
+    Unknown(bitcoin::Txid),
+}
+
+pub trait ResolveSpent {
+    type Error: std::error::Error;
+
+    fn resolve_spent_status(
+        &mut self,
+        txid: bitcoin::Txid,
+        index: u64,
+    ) -> Result<bool, Self::Error>;
+}
+
+impl ResolveSpent for ExplorerResolver {
+    type Error = SpendResolverError;
+    fn resolve_spent_status(
+        &mut self,
+        txid: bitcoin::Txid,
+        index: u64,
+    ) -> Result<bool, Self::Error> {
+        let explorer_client = EsploraBlockchain::new(&self.explorer_url, 100);
+        match executor::block_on(explorer_client.get_output_status(&txid, index))
+            .expect("service unavaliable")
+        {
+            Some(status) => Ok(status.spent),
+            _ => Err(SpendResolverError::Unknown(txid)),
+        }
     }
 }

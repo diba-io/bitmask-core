@@ -119,6 +119,7 @@ pub async fn get_mnemonic(
         nostr_pub,
         xprvkh,
         xpubkh,
+        xpub: xpub.to_string(),
     };
 
     let private = PrivateWalletData {
