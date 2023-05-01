@@ -11,6 +11,7 @@ use bdk::{
 };
 use bip39::{Language, Mnemonic};
 use bitcoin_hashes::{sha256, Hash};
+use nostr_sdk::prelude::{FromSkStr, ToBech32};
 
 use crate::{
     constants::{BTC_PATH, NETWORK, NOSTR_PATH},
@@ -110,16 +111,9 @@ pub async fn get_mnemonic(
     let rgb_udas_descriptor_xpub = xpub_desc(&xprv, &btc_path, 30)?;
 
     let (nostr_prv, nostr_pub) = nostr_keypair(&xprv, NOSTR_PATH, 0)?;
-
-    let public = PublicWalletData {
-        btc_descriptor_xpub,
-        btc_change_descriptor_xpub,
-        rgb_assets_descriptor_xpub,
-        rgb_udas_descriptor_xpub,
-        nostr_pub,
-        xprvkh,
-        xpubkh,
-    };
+    let nostr_keys = nostr_sdk::Keys::from_sk_str(&nostr_prv)?;
+    let nostr_nsec = nostr_keys.secret_key()?.to_bech32()?;
+    let nostr_npub = nostr_keys.public_key().to_bech32()?;
 
     let private = PrivateWalletData {
         btc_descriptor_xprv,
@@ -127,7 +121,19 @@ pub async fn get_mnemonic(
         rgb_assets_descriptor_xprv,
         rgb_udas_descriptor_xprv,
         nostr_prv,
+        nostr_nsec,
         mnemonic: mnemonic_phrase.to_string(),
+    };
+
+    let public = PublicWalletData {
+        btc_descriptor_xpub,
+        btc_change_descriptor_xpub,
+        rgb_assets_descriptor_xpub,
+        rgb_udas_descriptor_xpub,
+        nostr_pub,
+        nostr_npub,
+        xprvkh,
+        xpubkh,
     };
 
     Ok(EncryptedWalletData { private, public })

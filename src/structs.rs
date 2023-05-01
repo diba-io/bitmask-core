@@ -31,6 +31,7 @@ pub struct PrivateWalletData {
     pub rgb_assets_descriptor_xprv: String,
     pub rgb_udas_descriptor_xprv: String,
     pub nostr_prv: String,
+    pub nostr_nsec: String,
     pub mnemonic: String,
 }
 
@@ -42,6 +43,7 @@ pub struct PublicWalletData {
     pub rgb_assets_descriptor_xpub: String,
     pub rgb_udas_descriptor_xpub: String,
     pub nostr_pub: String,
+    pub nostr_npub: String,
     pub xprvkh: String,
     pub xpubkh: String,
 }
