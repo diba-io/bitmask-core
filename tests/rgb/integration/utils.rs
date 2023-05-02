@@ -1,9 +1,10 @@
 #![cfg(not(target_arch = "wasm32"))]
+use std::{env, process::Stdio};
+
 use bitmask_core::{
     bitcoin::{get_wallet, get_wallet_data, synchronize_wallet},
     structs::EncryptedWalletData,
 };
-use std::{env, process::Stdio};
 use tokio::process::Command;
 
 pub const REGTEST_MNEMONIC: &str =

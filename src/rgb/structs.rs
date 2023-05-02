@@ -1,7 +1,8 @@
+use std::{collections::HashMap, str::FromStr};
+
 use bitcoin::Address;
 use bitcoin_scripts::address::AddressCompat;
 use rgb::{persistence::Stock, RgbWallet, TerminalPath};
-use std::{collections::HashMap, str::FromStr};
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug, Display)]
 #[display("{address}:{amount}", alt = "{address:#}:{amount:#}")]

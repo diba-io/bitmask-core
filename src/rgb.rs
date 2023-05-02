@@ -9,7 +9,7 @@ use strict_encoding::StrictSerialize;
 
 pub mod accept;
 pub mod constants;
-pub mod imports;
+pub mod import;
 pub mod issue;
 pub mod psbt;
 pub mod resolvers;
@@ -39,7 +39,7 @@ use crate::{
     },
 };
 
-use self::imports::import_contract;
+use self::import::import_contract;
 
 /// RGB Operations
 #[allow(clippy::too_many_arguments)]
