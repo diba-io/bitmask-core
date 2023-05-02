@@ -2,7 +2,7 @@ use std::{convert::Infallible, str::FromStr};
 
 use amplify::hex::{FromHex, ToHex};
 use bitcoin::Transaction;
-use bitmask_core::{rgb::invoice::create_invoice, rgb::issue::issue_contract};
+use bitmask_core::{rgb::issue::issue_contract, rgb::transfer::create_invoice};
 use bp::{Sats, ScriptPubkey, Tx, TxIn, TxOut, TxVer, Txid, VarIntArray};
 use psbt::{serialize::Deserialize, Psbt};
 use rgbstd::{
@@ -70,13 +70,13 @@ impl RgbResolveTx for DumbResolve {
 
 // Helpers
 #[allow(dead_code)]
-pub fn dumb_psbt() -> Psbt {
+pub fn create_fake_psbt() -> Psbt {
     let psbt_hex = "70736274ff01005e02000000014fba153e23558ca5532b5187ac20c4e35fe588c9bcb4a7b3c881c0541fcda65c0100000000ffffffff0118ddf505000000002251202aa594ee4dc05d289387c77a44ee3d5401a7edc269e355f2345c2792d9f8d014000000004f01043587cf034a3acf0b80000000fe80c9c11d65f2a2bfbf8e582c49b829e0f453e2a7138ec303ddd724aa295ebf02008b0bc2899bf59a892479c553d7c7e6901a0fc8db3e5570529101bc783743bf10280a59635600008001000080000000800001008902000000019d8420cc5666b02f260bbaea43326c50a2c2eb99292fcf4c42a6179e132344de0000000000fdffffff02db9a8b44000000002251205d853a4a3da1dc163d2a2d9e8a76ae63db83f9310a25caa5d216a0fd962923a900e1f505000000002251206a61bf8aea7388b8541f16d773b77f897110eaa6bc17ada61c50bc70a93e5d61f4010000010304010000002116e7e50584e394cb1b467f440e8760bf3806835d55378f78cbacb8c651d2e11d0f1900280a59635600008001000080000000800000000000000000011720e7e50584e394cb1b467f440e8760bf3806835d55378f78cbacb8c651d2e11d0f0022020269c3a787c625331a17fd8a5cf7094d4672fb0385b5fd8fa2813181de3a1cef3e18280a5963560000800100008000000080010000000000000001052069c3a787c625331a17fd8a5cf7094d4672fb0385b5fd8fa2813181de3a1cef3e09fc06544150524554000000";
     Psbt::from_str(psbt_hex).expect("invalid dumb psbt")
 }
 
 #[allow(dead_code)]
-pub fn generate_new_contract(stock: &mut Stock) -> ContractId {
+pub fn create_fake_contract(stock: &mut Stock) -> ContractId {
     let ticker = "DIBA1";
     let name = "DIBA1";
     let description =
@@ -114,7 +114,7 @@ pub fn generate_new_contract(stock: &mut Stock) -> ContractId {
 }
 
 #[allow(dead_code)]
-pub fn generate_new_invoice(contract_id: ContractId, seal: &str, stock: &mut Stock) -> RgbInvoice {
+pub fn create_fake_invoice(contract_id: ContractId, seal: &str, stock: &mut Stock) -> RgbInvoice {
     let amount = 1;
     let iface = "RGB20";
     create_invoice(&contract_id.to_string(), iface, amount, seal, stock)

@@ -134,6 +134,7 @@ pub async fn get_mnemonic(
         nostr_npub,
         xprvkh,
         xpubkh,
+        xpub: xpub.to_string(),
     };
 
     Ok(EncryptedWalletData { private, public })

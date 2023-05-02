@@ -1,14 +1,15 @@
 #![cfg(not(target_arch = "wasm32"))]
+use crate::rgb::unit::utils::{
+    create_fake_contract, create_fake_invoice, create_fake_psbt, DumbResolve,
+};
 use bitmask_core::{
     rgb::{
-        invoice::pay_invoice,
         psbt::{create_psbt, extract_commit},
+        transfer::pay_invoice,
     },
     util::init_logging,
 };
-mod rgb_test_utils;
-use rgb_test_utils::{dumb_psbt, generate_new_contract, generate_new_invoice, DumbResolve};
-use rgbstd::persistence::Stock;
+use rgb::persistence::Stock;
 
 #[tokio::test]
 async fn allow_create_psbt_file() -> anyhow::Result<()> {
@@ -37,14 +38,14 @@ async fn allow_create_psbt_file() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
-async fn allow_extract_commitment() -> anyhow::Result<()> {
+async fn allow_extract_commit_from_psbt() -> anyhow::Result<()> {
     let mut stock = Stock::default();
-    let psbt = dumb_psbt();
+    let psbt = create_fake_psbt();
 
-    let contract_id = generate_new_contract(&mut stock);
+    let contract_id = create_fake_contract(&mut stock);
 
     let seal = "tapret1st:ed823b41d8b9309933826b18e4af530363b359f05919c02bbe72f28cec6dec3e:0";
-    let invoice = generate_new_invoice(contract_id, seal, &mut stock);
+    let invoice = create_fake_invoice(contract_id, seal, &mut stock);
 
     let result = pay_invoice(invoice.to_string(), psbt.to_string(), &mut stock);
     assert!(result.is_ok());

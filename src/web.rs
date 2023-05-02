@@ -1,4 +1,4 @@
-use crate::structs::{AcceptRequest, PsbtRequest, RgbTransferRequest};
+use crate::structs::{AcceptRequest, ImportRequest, PsbtRequest, RgbTransferRequest};
 // use crate::{carbonado, lightning, rgb};
 
 use js_sys::Promise;
@@ -384,6 +384,21 @@ pub mod rgb {
 
         future_to_promise(async move {
             match crate::rgb::list_schemas(&nostr_hex_sk).await {
+                Ok(result) => Ok(JsValue::from_string(
+                    serde_json::to_string(&result).unwrap(),
+                )),
+                Err(err) => Err(JsValue::from_string(err.to_string())),
+            }
+        })
+    }
+
+    #[wasm_bindgen]
+    pub fn import(nostr_hex_sk: String, request: JsValue) -> Promise {
+        set_panic_hook();
+
+        future_to_promise(async move {
+            let req: ImportRequest = serde_wasm_bindgen::from_value(request).unwrap();
+            match crate::rgb::import(&nostr_hex_sk, req).await {
                 Ok(result) => Ok(JsValue::from_string(
                     serde_json::to_string(&result).unwrap(),
                 )),

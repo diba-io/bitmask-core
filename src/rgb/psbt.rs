@@ -10,11 +10,11 @@ use bp::TapScript;
 use commit_verify::mpc::Commitment;
 use commit_verify::CommitVerify;
 use miniscript_crate::Descriptor;
-use psbt::ProprietaryKey;
-use psbt::ProprietaryKeyType;
-use rgbwallet::psbt::DbcPsbtError;
-use rgbwallet::psbt::TapretKeyError;
-use rgbwallet::psbt::{PSBT_OUT_TAPRET_COMMITMENT, PSBT_OUT_TAPRET_HOST, PSBT_TAPRET_PREFIX};
+use psbt::{ProprietaryKey, ProprietaryKeyType};
+use rgb::psbt::{
+    DbcPsbtError, TapretKeyError, PSBT_OUT_TAPRET_COMMITMENT, PSBT_OUT_TAPRET_HOST,
+    PSBT_TAPRET_PREFIX,
+};
 use wallet::psbt::Psbt;
 use wallet::{
     descriptors::InputDescriptor,
