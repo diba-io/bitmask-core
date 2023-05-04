@@ -66,7 +66,7 @@ pub fn create_invoice(
     // Generate Contract
     let invoice = RgbInvoice {
         transport: RgbTransport::UnspecifiedMeans,
-        contract: contract_id,
+        contract: Some(contract_id),
         iface: iface.name.clone(),
         operation: None,
         assignment: None,

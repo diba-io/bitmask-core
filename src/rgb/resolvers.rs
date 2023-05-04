@@ -8,7 +8,7 @@ use amplify::hex::ToHex;
 use bdk::blockchain::EsploraBlockchain;
 use bitcoin::Script;
 use bitcoin_hashes::hex::FromHex;
-use bp::{LockTime, Outpoint, Tx, TxIn, TxOut, Txid, VarIntArray};
+use bp::{LockTime, Outpoint, SeqNo, Tx, TxIn, TxOut, TxVer, Txid, VarIntArray, Witness};
 use futures::executor;
 use rgb::{
     prelude::{DeriveInfo, MiningStatus},
@@ -102,7 +102,7 @@ impl ResolveCommiment for ExplorerResolver {
             .expect("service unavaliable")
             .unwrap();
         Ok(Tx {
-            version: (tx.version as u8)
+            version: TxVer::from_consensus_i32(tx.version)
                 .try_into()
                 .expect("non-consensus tx version"),
             inputs: VarIntArray::try_from_iter(tx.input.into_iter().map(|txin| TxIn {
@@ -111,7 +111,8 @@ impl ResolveCommiment for ExplorerResolver {
                     txin.previous_output.vout,
                 ),
                 sig_script: txin.script_sig.to_bytes().into(),
-                sequence: txin.sequence.0.into(),
+                sequence: SeqNo::from_consensus_u32(txin.sequence.to_consensus_u32()),
+                witness: Witness::from_consensus_stack(txin.witness.to_vec()),
             }))
             .expect("consensus-invalid transaction"),
             outputs: VarIntArray::try_from_iter(tx.output.into_iter().map(|txout| TxOut {
@@ -119,7 +120,7 @@ impl ResolveCommiment for ExplorerResolver {
                 script_pubkey: txout.script_pubkey.to_bytes().into(),
             }))
             .expect("consensus-invalid transaction"),
-            lock_time: LockTime::from(tx.lock_time.0),
+            lock_time: LockTime::from_consensus_u32(tx.lock_time.0),
         })
     }
 }

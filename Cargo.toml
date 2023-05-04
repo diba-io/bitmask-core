@@ -27,7 +27,7 @@ server = ["tokio/full", "tower-http/cors"]
 
 [dependencies]
 anyhow = "1.0.68"
-aluvm = "0.10.0"
+aluvm = "0.10.1"
 amplify = "4.0.0"
 base64 = { package = "base64-compat", version = "1.0.0" }
 bech32 = "0.9.1"
@@ -76,10 +76,9 @@ rgb-wallet = { version = "0.10.0" }
 serde = "1.0.152"
 serde_json = "1.0.91"
 serde-encrypt = "0.7.0"
-strict_types = "1.0.0"
-strict_encoding = "2.0.1"
-tokio = { version = "1.27.0", features = ["macros", "sync"] }
-
+strict_types = "1.1.0"
+strict_encoding = "2.1.1"
+tokio = { version = "1.28.0", features = ["macros", "sync"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 bdk = { version = "0.28.0", features = [
@@ -113,7 +112,16 @@ tokio = { version = "1.27.0", features = ["full"] }
 wasm-bindgen-test = "0.3.34"
 
 [patch.crates-io]
-# TODO: Remove this after merge and release a new version
+# TODO: Remove this after release an official LNPBP versions
+commit_verify = { git = "https://github.com/LNP-BP/client_side_validation", branch = "commit_encode_derive" }
+bp-core = { git = "https://github.com/BP-WG/bp-core", branch = "commit_derive" }
+bp-primitives = { git = "https://github.com/BP-WG/bp-core", branch = "commit_derive" }
+bp-dbc = { git = "https://github.com/BP-WG/bp-core", branch = "commit_derive" }
+bp-seals = { git = "https://github.com/BP-WG/bp-core", branch = "commit_derive" }
+rgb-core = { git = "https://github.com/RGB-WG/rgb-core", branch = "fix/op-conceal" }
+rgb-wallet = { git = "https://github.com/RGB-WG/rgb-wallet", branch = "rgb20" }
+rgb-std = { git = "https://github.com/RGB-WG/rgb-wallet", branch = "rgb20" }
+# TODO: Remove this after merge and release fixies
 rgb-contracts = { git = "https://github.com/crisdut/rgb", branch = "exp/fixies" }
 bitcoin_scripts = { git = "https://github.com/crisdut/bp-foundation", branch = "release/0.10.0-alpha.2" }
 bitcoin_blockchain = { git = "https://github.com/crisdut/bp-foundation", branch = "release/0.10.0-alpha.2" }

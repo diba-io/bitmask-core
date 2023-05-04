@@ -3,7 +3,10 @@ use std::{convert::Infallible, str::FromStr};
 use amplify::hex::{FromHex, ToHex};
 use bitcoin::Transaction;
 use bitmask_core::{rgb::issue::issue_contract, rgb::transfer::create_invoice};
-use bp::{Sats, ScriptPubkey, Tx, TxIn, TxOut, TxVer, Txid, VarIntArray};
+use bp::{
+    LockTime, Outpoint, Sats, ScriptPubkey, SeqNo, Tx, TxIn, TxOut, TxVer, Txid, VarIntArray,
+    Witness,
+};
 use psbt::{serialize::Deserialize, Psbt};
 use rgbstd::{
     containers::BindleContent, contract::ContractId, persistence::Stock, resolvers::ResolveHeight,
@@ -41,12 +44,13 @@ impl RgbResolveTx for DumbResolve {
         let tx_input = &transaction.input[0];
         let prevout = &transaction.input[0].previous_output;
         let input = TxIn {
-            prev_output: bp::Outpoint {
-                txid: bp::Txid::from_hex(&prevout.txid.to_hex()).expect("fail"),
-                vout: bp::Vout::from(prevout.vout),
-            },
-            sequence: bp::SeqNo::from(tx_input.sequence.0),
-            sig_script: bp::SigScript::default(),
+            prev_output: Outpoint::new(
+                Txid::from_str(&tx_input.previous_output.txid.to_hex()).expect(""),
+                tx_input.previous_output.vout,
+            ),
+            sig_script: tx_input.script_sig.to_bytes().into(),
+            sequence: SeqNo::from_consensus_u32(tx_input.sequence.to_consensus_u32()),
+            witness: Witness::from_consensus_stack(tx_input.witness.to_vec()),
         };
         ti.push(input).expect("fail");
 
@@ -62,7 +66,7 @@ impl RgbResolveTx for DumbResolve {
             version: TxVer::V2,
             inputs: ti,
             outputs: to,
-            lock_time: 422.into(),
+            lock_time: LockTime::from_consensus_u32(422),
         };
         Ok(tx)
     }
