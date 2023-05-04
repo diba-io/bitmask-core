@@ -6,10 +6,15 @@ use wasm_bindgen_test::*;
 
 use bitmask_core::{
     debug, info,
-    structs::{EncryptedWalletData, FundVaultDetails, MnemonicSeedData, WalletData},
+    structs::{
+        EncryptedWalletData, FundVaultDetails, ImportRequest, ImportType, MnemonicSeedData,
+        WalletData,
+    },
     web::{
         bitcoin::{get_assets_vault, get_encrypted_wallet, get_wallet_data, save_mnemonic_seed},
-        json_parse, resolve, set_panic_hook,
+        json_parse, resolve,
+        rgb::import_contract,
+        set_panic_hook,
     },
 };
 
@@ -18,9 +23,41 @@ wasm_bindgen_test_configure!(run_in_browser);
 const ENCRYPTION_PASSWORD: &str = "hunter2";
 const SEED_PASSWORD: &str = "";
 
-/// Test asset import
 #[wasm_bindgen_test]
-async fn asset_import() {
+async fn contract_import() {
+    set_panic_hook();
+    let mnemonic = env!("TEST_WALLET_SEED", "TEST_WALLET_SEED variable not set");
+
+    info!("Import wallet");
+    let mnemonic_data_str = resolve(save_mnemonic_seed(
+        mnemonic.to_owned(),
+        ENCRYPTION_PASSWORD.to_owned(),
+        SEED_PASSWORD.to_owned(),
+    ))
+    .await;
+    let mnemonic_data: MnemonicSeedData = json_parse(&mnemonic_data_str);
+
+    info!("Get vault properties");
+    let vault_str: JsValue = resolve(get_encrypted_wallet(
+        ENCRYPTION_PASSWORD.to_owned(),
+        mnemonic_data.serialized_encrypted_message,
+    ))
+    .await;
+    let wallet_data: EncryptedWalletData = json_parse(&vault_str);
+
+    info!("Import Contract");
+    let sk = wallet_data.private.nostr_prv;
+    let contract_import = ImportRequest {
+        import: ImportType::Contract,
+        data: "".to_string(),
+    };
+
+    let req = serde_wasm_bindgen::to_value(&contract_import).expect("");
+    let _ = resolve(import_contract(sk, req)).await;
+}
+
+#[wasm_bindgen_test]
+async fn asset_transfer() {
     set_panic_hook();
 
     let mnemonic = env!("TEST_WALLET_SEED", "TEST_WALLET_SEED variable not set");
@@ -64,41 +101,4 @@ async fn asset_import() {
     ))
     .await;
     let vault_details: FundVaultDetails = json_parse(&vault_details);
-
-    // TODO: WASM asset test
-
-    // info!("Check Main Asset Vault");
-    // if vault_details.assets_output.is_none() {
-    //     info!("Missing an asset UTXO in vault. Funding vault...");
-    //     let new_vault_details = resolve(fund_vault(
-    //         wallet_data.btc_descriptor_xprv,
-    //         wallet_data.btc_change_descriptor_xprv,
-    //         assets_wallet.address,
-    //         udas_wallet.address,
-    //         1546,
-    //         1546,
-    //         Some(1.0),
-    //     ))
-    //     .await;
-    //     vault_details = json_parse(&new_vault_details);
-    //     debug!("Fund vault details: {assets_vault_details:#?}");
-    // }
-
-    // resolve(import_asset(
-    //     ASSET.to_owned(),
-    //     wallet_data.rgb_assets_descriptor_xpub,
-    // ))
-    // .await;
-
-    // // Get wallet data
-    // let wallet_str: JsValue = resolve(get_wallet_data(
-    //     wallet_data.rgb_assets_descriptor_xprv.clone(),
-    //     None,
-    // ))
-    // .await;
-
-    // // Parse wallet data
-    // let wallet_data: WalletData = json_parse(&wallet_str);
-
-    // assert_eq!(wallet_data.transactions, vec![]);
 }

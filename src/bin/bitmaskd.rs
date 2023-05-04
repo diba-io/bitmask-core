@@ -17,7 +17,7 @@ use bitcoin_30::secp256k1::{ecdh::SharedSecret, PublicKey, SecretKey};
 use bitmask_core::{
     rgb::{
         accept_transfer, create_invoice, create_psbt, import as rgb_import, issue_contract,
-        list_contracts, list_interfaces, list_schemas, pay_asset,
+        list_contracts, list_interfaces, list_schemas, transfer_asset,
     },
     structs::{
         AcceptRequest, ImportRequest, InvoiceRequest, IssueRequest, PsbtRequest, RgbTransferRequest,
@@ -92,7 +92,7 @@ async fn pay(
 
     let nostr_hex_sk = auth.token();
 
-    let transfer_res = pay_asset(nostr_hex_sk, pay_req).await?;
+    let transfer_res = transfer_asset(nostr_hex_sk, pay_req).await?;
 
     Ok((StatusCode::OK, Json(transfer_res)))
 }
@@ -104,7 +104,6 @@ async fn accept(
     info!("POST /accept {accept_req:?}");
 
     let nostr_hex_sk = auth.token();
-
     let transfer_res = accept_transfer(nostr_hex_sk, accept_req).await?;
 
     Ok((StatusCode::OK, Json(transfer_res)))

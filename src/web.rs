@@ -321,12 +321,12 @@ pub mod rgb {
     }
 
     #[wasm_bindgen]
-    pub fn pay_asset(nostr_hex_sk: String, request: JsValue) -> Promise {
+    pub fn transfer_asset(nostr_hex_sk: String, request: JsValue) -> Promise {
         set_panic_hook();
 
         future_to_promise(async move {
             let pay_req: RgbTransferRequest = serde_wasm_bindgen::from_value(request).unwrap();
-            match crate::rgb::pay_asset(&nostr_hex_sk, pay_req).await {
+            match crate::rgb::transfer_asset(&nostr_hex_sk, pay_req).await {
                 Ok(result) => Ok(JsValue::from_string(
                     serde_json::to_string(&result).unwrap(),
                 )),

@@ -42,7 +42,6 @@ impl RgbResolveTx for DumbResolve {
 
         let mut ti = VarIntArray::new();
         let tx_input = &transaction.input[0];
-        let prevout = &transaction.input[0].previous_output;
         let input = TxIn {
             prev_output: Outpoint::new(
                 Txid::from_str(&tx_input.previous_output.txid.to_hex()).expect(""),

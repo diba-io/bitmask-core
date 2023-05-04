@@ -139,7 +139,7 @@ pub async fn create_psbt(sk: &str, request: PsbtRequest) -> Result<PsbtResponse>
     Ok(psbt)
 }
 
-pub async fn pay_asset(sk: &str, request: RgbTransferRequest) -> Result<RgbTransferResponse> {
+pub async fn transfer_asset(sk: &str, request: RgbTransferRequest) -> Result<RgbTransferResponse> {
     let RgbTransferRequest { rgb_invoice, psbt } = request;
 
     let mut stock = retrieve_stock(sk, ASSETS_STOCK).await?;
@@ -265,10 +265,11 @@ pub async fn import(sk: &str, request: ImportRequest) -> Result<ImportResponse> 
     let contract = import_contract(&data, &mut stock, &mut resolver)?;
 
     let ifaces: Vec<String> = contract.ifaces.keys().map(|f| f.to_string()).collect();
+    store_stock(sk, ASSETS_STOCK, &stock).await?;
+
     let resp = ImportResponse {
         contract_id: contract.contract_id().to_string(),
         ifaces,
     };
-
     Ok(resp)
 }
