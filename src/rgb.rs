@@ -273,7 +273,6 @@ pub async fn import(sk: &str, request: ImportRequest) -> Result<ImportResponse> 
     let contract = import_contract(&data, &mut stock, &mut resolver)?;
 
     let ifaces: Vec<String> = contract.ifaces.keys().map(|f| f.to_string()).collect();
-    contract.ifaces
 
     let resp = ImportResponse {
         contract_id: contract.contract_id().to_string(),
