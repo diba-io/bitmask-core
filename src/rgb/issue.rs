@@ -13,6 +13,8 @@ use rgbstd::Txid;
 use strict_types::encoding::TypeName;
 use strict_types::{svstr, svstruct, StrictVal};
 
+use crate::info;
+
 use super::schemas::{default_fungible_iimpl, default_fungible_schema};
 
 #[derive(Clone, Eq, PartialEq, Debug, Display, Error, From)]
@@ -44,34 +46,28 @@ where
         Ok(name) => name,
         _ => return Err(IssueError::Forge(BuilderError::InterfaceMismatch)),
     };
-
     let binding = stock.to_owned();
     let iface = match binding.iface_by_name(&iface_name) {
         Ok(name) => name,
         _ => return Err(IssueError::Forge(BuilderError::InterfaceMismatch)),
     };
-
     let contract_issued = match iface.name.as_str() {
         "RGB20" => issue_fungible_asset(ticker, name, description, precision, supply, iface, seal),
         _ => return Err(IssueError::ContractNotfound(iface.name.to_string())),
     };
-
     let resp = match contract_issued {
         Ok(resp) => resp,
         Err(err) => return Err(IssueError::Forge(err)),
     };
-
     let resp = match resp.clone().validate(&mut resolver) {
         Ok(resp) => resp,
         Err(_) => return Err(IssueError::ContractInvalid(resp.contract_id().to_string())),
     };
-
     stock
         .import_contract(resp.clone(), &mut resolver)
         .or(Err(IssueError::ImportContract(
             resp.contract_id().to_string(),
         )))?;
-
     Ok(resp)
 }
 
@@ -123,7 +119,6 @@ pub fn issue_fungible_asset(
             .add_global_state(global.name.clone(), serialized)
             .expect("invalid global state data");
     }
-
     // Issuer State
     let seal = ExplicitSeal::<Txid>::from_str(seal).expect("invalid seal definition");
     let seal = GenesisSeal::from(seal);

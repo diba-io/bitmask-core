@@ -183,9 +183,12 @@ async fn co_retrieve(
     let filename = format!("{path}/{pk}/{name}");
 
     info!("read {}", filename);
-    let bytes = fs::read(filename).await?;
+    let bytes = fs::read(filename).await;
 
-    Ok((StatusCode::OK, bytes))
+    match bytes {
+        Ok(bytes) => Ok((StatusCode::OK, bytes)),
+        Err(_e) => Ok((StatusCode::OK, Vec::<u8>::new())),
+    }
 }
 
 async fn key(Path(pk): Path<String>) -> Result<impl IntoResponse, AppError> {
