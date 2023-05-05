@@ -21,6 +21,7 @@ pub mod wallet;
 
 use crate::{
     constants::{storage_keys::ASSETS_STOCK, BITCOIN_ELECTRUM_API},
+    info,
     rgb::{
         issue::issue_contract as create_contract,
         psbt::{create_psbt as create_rgb_psbt, extract_commit},
@@ -54,12 +55,14 @@ pub async fn issue_contract(
     iface: &str,
 ) -> Result<IssueResponse> {
     let mut stock = retrieve_stock(sk, ASSETS_STOCK).await?;
+    info!("stock: ");
 
     let explorer_url = BITCOIN_ELECTRUM_API.read().await;
+    info!("stock 1.5: ");
     let tx_resolver = ExplorerResolver {
         explorer_url: explorer_url.to_string(),
     };
-
+    info!("stock 2: ");
     let contract = create_contract(
         ticker,
         name,
@@ -70,13 +73,18 @@ pub async fn issue_contract(
         seal,
         tx_resolver,
         &mut stock,
-    )?;
+    )
+    .map_err(|e| {
+        info!("Failed with: {}", e.to_string());
+    })
+    .unwrap();
 
+    info!("stock 3: ");
     let contract_id = contract.contract_id().to_string();
     let genesis = contract.bindle().to_string();
-
+    info!("stock: 4");
     store_stock(sk, ASSETS_STOCK, &stock).await?;
-
+    info!("stock: 5");
     Ok(IssueResponse {
         contract_id,
         iface: iface.to_string(),
@@ -265,6 +273,8 @@ pub async fn import(sk: &str, request: ImportRequest) -> Result<ImportResponse> 
     let contract = import_contract(&data, &mut stock, &mut resolver)?;
 
     let ifaces: Vec<String> = contract.ifaces.keys().map(|f| f.to_string()).collect();
+    contract.ifaces
+
     let resp = ImportResponse {
         contract_id: contract.contract_id().to_string(),
         ifaces,
