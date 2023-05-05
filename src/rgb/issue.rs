@@ -13,6 +13,8 @@ use rgbstd::Txid;
 use strict_types::encoding::TypeName;
 use strict_types::{svstr, svstruct, StrictVal};
 
+use crate::info;
+
 use super::schemas::{default_fungible_iimpl, default_fungible_schema};
 
 #[derive(Clone, Eq, PartialEq, Debug, Display, Error, From)]
