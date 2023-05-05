@@ -5,7 +5,7 @@ use percent_encoding::utf8_percent_encode;
 
 pub mod constants;
 
-use crate::{carbonado::constants::FORM, constants::CARBONADO_ENDPOINT, info};
+use crate::{carbonado::constants::FORM, constants::CARBONADO_ENDPOINT};
 
 pub async fn store(sk: &str, name: &str, input: &[u8]) -> Result<()> {
     let level = 15;
@@ -73,14 +73,7 @@ pub async fn retrieve(sk: &str, name: &str) -> Result<Vec<u8>> {
     }
 
     let encoded = response.bytes().await?;
-    info!("encoded:  bytes");
-    if encoded.is_empty() {
-        info!("encoded:  bytes empty");
-        Ok(Vec::new())
-    } else {
-        let (_header, decoded) = carbonado::file::decode(&sk, &encoded)?;
-        info!("decoded:  bytes");
+    let (_header, decoded) = carbonado::file::decode(&sk, &encoded)?;
 
-        Ok(decoded)
-    }
+    Ok(decoded)
 }
