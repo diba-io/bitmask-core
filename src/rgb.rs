@@ -59,6 +59,7 @@ pub async fn issue_contract(
     let tx_resolver = ExplorerResolver {
         explorer_url: explorer_url.to_string(),
     };
+
     let contract = create_contract(
         ticker,
         name,
@@ -73,7 +74,9 @@ pub async fn issue_contract(
 
     let contract_id = contract.contract_id().to_string();
     let genesis = contract.bindle().to_string();
+
     store_stock(sk, ASSETS_STOCK, &stock).await?;
+
     Ok(IssueResponse {
         contract_id,
         iface: iface.to_string(),
@@ -262,7 +265,6 @@ pub async fn import(sk: &str, request: ImportRequest) -> Result<ImportResponse> 
     let contract = import_contract(&data, &mut stock, &mut resolver)?;
 
     let ifaces: Vec<String> = contract.ifaces.keys().map(|f| f.to_string()).collect();
-
     let resp = ImportResponse {
         contract_id: contract.contract_id().to_string(),
         ifaces,
