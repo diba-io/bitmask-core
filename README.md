@@ -56,11 +56,11 @@ For running bitmask-core tests in Regtest Mode, please follow the steps below:
 
 ### Initial Setup
 1. Build bitcoin node + electrum: `docker-compose build`.
-2. Up and running Docker containers: `docker-compose up -d node1`.
+2. Up and running Docker containers: `docker-compose up -d node1 bitmaskd`.
 3. Load the command line: `source .commands`
 4. Download and install BDK cli: `cargo install bdk-cli`. We will use BDK to generate the mnemonic.
 5. Generate a new mnemonic: `bdk-cli generate`.
-6. Create an environment variable called **TEST_WALLET_SEED** with mnemonic generated in the **step 5**.
+6. Create an environment variable called **TEST_WALLET_SEED** with mnemonic generated in the **step 5** (only wasm32).
 7. Run the test to get main address: `cargo test --test wallet -- create_wallet --exact`.
 8. Load your wallet in the bitcoin node: `node1 loadwallet default`.
 9. Generate new first 500 blocks: `node1 -generate 500`.
