@@ -51,7 +51,7 @@ descriptor-wallet = { version = "0.10.0-alpha.2", features = [
     "serde",
     "miniscript",
 ] }
-futures = "0.3.25"
+futures = { version = "0.3.28", default-features = false }
 hex = "0.4.3"
 lightning-invoice = "0.21.0"
 log = "0.4.17"
@@ -82,8 +82,7 @@ tokio = { version = "1.28.0", features = ["macros", "sync"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 bdk = { version = "0.28.0", features = [
-    "use-esplora-async",
-    "async-interface",
+    "use-esplora-blocking",
 ], default-features = false }
 gloo-console = "0.2.3"
 gloo-net = "0.2.6"
@@ -94,13 +93,11 @@ wasm-bindgen-futures = "0.4.34"
 web-sys = "0.3.61"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+bdk = { version = "0.28.0", features = [
+    "use-esplora-blocking",
+], default-features = false }
 axum = { version = "0.6.17", features = ["headers"] }
 axum-macros = "0.3.0"
-bdk = { version = "0.28.0", features = [
-    "use-esplora-async",
-    "async-interface",
-    "reqwest-default-tls",
-], default-features = false }
 deflate = "1.0.0"
 inflate = "0.4.5"
 tower-http = { version = "0.3.5", features = ["cors"], optional = true }
@@ -122,7 +119,7 @@ rgb-core = { git = "https://github.com/RGB-WG/rgb-core", branch = "fix/op-concea
 rgb-wallet = { git = "https://github.com/RGB-WG/rgb-wallet", branch = "rgb20" }
 rgb-std = { git = "https://github.com/RGB-WG/rgb-wallet", branch = "rgb20" }
 # TODO: Remove this after merge and release fixies
-rgb-contracts = { path = "../rgb" }
+rgb-contracts = { git = "https://github.com/crisdut/rgb", branch = "exp/fixies" }
 bitcoin_scripts = { git = "https://github.com/crisdut/bp-foundation", branch = "release/0.10.0-alpha.2" }
 bitcoin_blockchain = { git = "https://github.com/crisdut/bp-foundation", branch = "release/0.10.0-alpha.2" }
 # TODO: Remove this after propose a universal tweak in descriptor-wallet

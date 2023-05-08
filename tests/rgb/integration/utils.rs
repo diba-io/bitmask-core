@@ -1,10 +1,7 @@
 #![cfg(not(target_arch = "wasm32"))]
 use std::{env, process::Stdio};
 
-use bitmask_core::{
-    bitcoin::{get_wallet, get_wallet_data, synchronize_wallet},
-    structs::EncryptedWalletData,
-};
+use bitmask_core::bitcoin::get_wallet_data;
 use tokio::process::Command;
 
 pub const ISSUER_MNEMONIC: &str =
@@ -62,28 +59,27 @@ pub async fn stop_node() {
         .expect("");
 }
 
-pub async fn setup_regtest(
-    force: bool,
-    mnemonic: Option<&str>,
-) -> anyhow::Result<EncryptedWalletData> {
+pub async fn setup_regtest(force: bool, mnemonic: Option<&str>) {
     if force {
         // Restart Nodes
         start_node().await;
     }
-    let mnemonic_phrase = match mnemonic {
-        Some(words) => words,
-        _ => ISSUER_MNEMONIC,
-    };
-    let seed_password = "";
-    let vault_data = bitmask_core::bitcoin::save_mnemonic(mnemonic_phrase, seed_password).await?;
+    match mnemonic {
+        Some(words) => {
+            let seed_password = "";
+            let vault_data = bitmask_core::bitcoin::save_mnemonic(words, seed_password)
+                .await
+                .expect("invalid mnemonic");
 
-    // Send Coins to RGB Wallet
-    let fungible_wallet = get_wallet(&vault_data.public.rgb_assets_descriptor_xpub, None).await?;
-    let fungible_snapshot =
-        get_wallet_data(&vault_data.public.rgb_assets_descriptor_xpub, None).await?;
-    send_some_coins(&fungible_snapshot.address, "0.1").await;
-    synchronize_wallet(&fungible_wallet).await?;
-    Ok(vault_data)
+            // Send Coins to RGB Wallet
+            let fungible_snapshot =
+                get_wallet_data(&vault_data.public.rgb_assets_descriptor_xpub, None)
+                    .await
+                    .expect("invalid wallet snapshot");
+            send_some_coins(&fungible_snapshot.address, "0.1").await;
+        }
+        _ => {}
+    };
 }
 
 #[allow(dead_code)]

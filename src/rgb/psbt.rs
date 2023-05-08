@@ -66,6 +66,7 @@ pub fn create_psbt(
         .map(|AddressAmount { address, amount }| (address.script_pubkey().into(), amount))
         .collect();
 
+    let descriptor_pub = descriptor_pub.replace("/20/*", "/*/*");
     let descriptor: &Descriptor<DerivationAccount> =
         &Descriptor::from_str(&descriptor_pub).expect("");
     let proprietary_keys = vec![ProprietaryKeyDescriptor {

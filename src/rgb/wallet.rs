@@ -90,7 +90,7 @@ pub fn next_address(
     let addresses: Vec<AddressTerminal> = scripts
         .into_iter()
         .map(|(d, sb)| {
-            let sc = Script::from_hex(&sb.to_hex()).expect("");
+            let sc = Script::from_str(&sb.to_hex_string()).expect("");
             let address = AddressCompat::from_script(&sc.into(), network).expect("");
             let terminal = d.terminal;
             AddressTerminal { address, terminal }
@@ -128,7 +128,6 @@ pub fn next_utxo(
             break;
         }
     }
-
     Ok(next_utxo)
 }
 
@@ -208,7 +207,10 @@ pub fn list_allocations(
                         owners.push(AllocationDetail {
                             utxo: utxo.outpoint.to_string(),
                             value: allocation.value,
-                            derivation: utxo.derivation.to_string(),
+                            derivation: format!(
+                                "/{}/{}",
+                                utxo.derivation.terminal.app, utxo.derivation.terminal.index
+                            ),
                             is_mine: true,
                         });
                     } else {
@@ -229,5 +231,5 @@ pub fn list_allocations(
         });
     }
 
-    Ok(vec![])
+    Ok(details)
 }

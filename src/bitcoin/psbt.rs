@@ -24,13 +24,15 @@ pub async fn sign_psbt(
         let tx = psbt.extract_tx();
         debug!("tx:", base64::encode(&serialize(&tx.clone())));
         let blockchain = get_blockchain().await;
-        blockchain.broadcast(&tx).await?;
+        // TODO: Find a way to run async function synchronously (wasm32)
+        blockchain.broadcast(&tx)?;
         synchronize_wallet(wallet).await?;
         let txid = tx.txid();
+        // TODO: Find a way to run async function synchronously (wasm32)
         let tx = blockchain
             .get_tx(&txid)
-            .await?
-            .expect("tx that was just broadcasted now exists");
+            .expect("tx that was just broadcasted now exists")
+            .unwrap();
 
         let sent = tx.output.iter().fold(0, |sum, output| output.value + sum);
 

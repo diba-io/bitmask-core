@@ -5,11 +5,9 @@ use std::{
 };
 
 use amplify::hex::ToHex;
-use bdk::blockchain::EsploraBlockchain;
+use bdk::esplora_client;
 use bitcoin::Script;
-use bitcoin_hashes::hex::FromHex;
 use bp::{LockTime, Outpoint, SeqNo, Tx, TxIn, TxOut, TxVer, Txid, VarIntArray, Witness};
-use futures::executor;
 use rgb::{
     prelude::{DeriveInfo, MiningStatus},
     Utxo,
@@ -27,14 +25,20 @@ impl rgb::Resolver for ExplorerResolver {
         scripts: BTreeMap<DeriveInfo, bitcoin_30::ScriptBuf>,
     ) -> Result<BTreeSet<rgb::prelude::Utxo>, String> {
         let mut utxos = bset![];
-        let explorer_client = EsploraBlockchain::new(&self.explorer_url, 100);
+        // TODO: Find a way to run async function synchronously (wasm32)
+        let explorer_client = esplora_client::Builder::new(&self.explorer_url)
+            .build_blocking()
+            .expect("service unavaliable");
         // TODO: Remove that after bitcoin v.30 full compatibility
-        let script_list = scripts
-            .into_iter()
-            .map(|(d, sc)| (d, Script::from_hex(&sc.to_hex()).expect("invalid script")));
+        let script_list = scripts.into_iter().map(|(d, sc)| {
+            (
+                d,
+                Script::from_str(&sc.to_hex_string()).expect("invalid script"),
+            )
+        });
 
         for (derive, script) in script_list {
-            let txs = match executor::block_on(explorer_client.scripthash_txs(&script, none!())) {
+            let txs = match explorer_client.scripthash_txs(&script, none!()) {
                 Ok(txs) => txs,
                 _ => vec![],
             };
@@ -74,10 +78,13 @@ impl ResolveTx for ExplorerResolver {
         &self,
         txid: bitcoin::Txid,
     ) -> Result<bitcoin::Transaction, wallet::onchain::TxResolverError> {
-        let explorer_client = EsploraBlockchain::new(&self.explorer_url, 100);
+        // TODO: Find a way to run async function synchronously (wasm32)
+        let explorer_client = esplora_client::Builder::new(&self.explorer_url)
+            .build_blocking()
+            .expect("service unavaliable");
 
         // TODO: Review that!
-        match executor::block_on(explorer_client.get_tx(&txid)).expect("service unavaliable") {
+        match explorer_client.get_tx(&txid).expect("service unavaliable") {
             Some(tx) => Ok(tx),
             _ => Err(TxResolverError { txid, err: none!() }),
         }
@@ -95,10 +102,14 @@ impl ResolveHeight for ExplorerResolver {
 // TODO: Review after migrate to rust-bitcoin v0.30
 impl ResolveCommiment for ExplorerResolver {
     fn resolve_tx(&self, txid: Txid) -> Result<Tx, rgbstd::validation::TxResolverError> {
-        let explorer_client = EsploraBlockchain::new(&self.explorer_url, 100);
+        // TODO: Find a way to run async function synchronously (wasm32)
+        let explorer_client = esplora_client::Builder::new(&self.explorer_url)
+            .build_blocking()
+            .expect("service unavaliable");
 
         let transaction_id = &bitcoin::Txid::from_str(&txid.to_hex()).expect("");
-        let tx = executor::block_on(explorer_client.get_tx(transaction_id))
+        let tx = explorer_client
+            .get_tx(transaction_id)
             .expect("service unavaliable")
             .unwrap();
         Ok(Tx {
@@ -147,8 +158,12 @@ impl ResolveSpent for ExplorerResolver {
         txid: bitcoin::Txid,
         index: u64,
     ) -> Result<bool, Self::Error> {
-        let explorer_client = EsploraBlockchain::new(&self.explorer_url, 100);
-        match executor::block_on(explorer_client.get_output_status(&txid, index))
+        // TODO: Find a way to run async function synchronously (wasm32)
+        let explorer_client = esplora_client::Builder::new(&self.explorer_url)
+            .build_blocking()
+            .expect("service unavaliable");
+        match explorer_client
+            .get_output_status(&txid, index)
             .expect("service unavaliable")
         {
             Some(status) => Ok(status.spent),

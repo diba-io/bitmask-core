@@ -15,12 +15,15 @@ use axum::{
 };
 use bitcoin_30::secp256k1::{ecdh::SharedSecret, PublicKey, SecretKey};
 use bitmask_core::{
+    bitcoin::sign_psbt_file,
     rgb::{
-        accept_transfer, create_invoice, create_psbt, import as rgb_import, issue_contract,
-        list_contracts, list_interfaces, list_schemas, transfer_asset, watcher_details,
+        accept_transfer, create_invoice, create_psbt, create_watcher, import as rgb_import,
+        issue_contract, list_contracts, list_interfaces, list_schemas, transfer_asset,
+        watcher_details as rgb_watcher_details, watcher_next_address, watcher_next_utxo,
     },
     structs::{
-        AcceptRequest, ImportRequest, InvoiceRequest, IssueRequest, PsbtRequest, RgbTransferRequest,
+        AcceptRequest, ImportRequest, InvoiceRequest, IssueRequest, PsbtRequest,
+        RgbTransferRequest, SignPsbtRequest, WatcherRequest,
     },
 };
 use log::info;
@@ -65,6 +68,18 @@ async fn psbt(
     Ok((StatusCode::OK, Json(psbt_res)))
 }
 
+async fn _sign_psbt(
+    TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
+    Json(psbt_req): Json<SignPsbtRequest>,
+) -> Result<impl IntoResponse, AppError> {
+    info!("POST /sign {psbt_req:?}");
+
+    let nostr_hex_sk = auth.token();
+    let psbt_res = sign_psbt_file(nostr_hex_sk, psbt_req).await?;
+
+    Ok((StatusCode::OK, Json(psbt_res)))
+}
+
 #[axum_macros::debug_handler]
 async fn pay(
     TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
@@ -103,6 +118,19 @@ async fn contracts(
     Ok((StatusCode::OK, Json(contracts_res)))
 }
 
+async fn contract_detail(
+    TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
+    Path(name): Path<String>,
+) -> Result<impl IntoResponse, AppError> {
+    info!("GET /contract/{name:?}");
+
+    let nostr_hex_sk = auth.token();
+
+    let contracts_res = list_contracts(nostr_hex_sk).await?;
+
+    Ok((StatusCode::OK, Json(contracts_res)))
+}
+
 async fn interfaces(
     TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
 ) -> Result<impl IntoResponse, AppError> {
@@ -131,7 +159,7 @@ async fn import(
     TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
     Json(import_req): Json<ImportRequest>,
 ) -> Result<impl IntoResponse, AppError> {
-    info!("POST /accept {import_req:?}");
+    info!("POST /import {import_req:?}");
 
     let nostr_hex_sk = auth.token();
     let import_res = rgb_import(nostr_hex_sk, import_req).await?;
@@ -141,26 +169,50 @@ async fn import(
 
 async fn watcher(
     TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
-    Json(import_req): Json<ImportRequest>,
+    Json(request): Json<WatcherRequest>,
 ) -> Result<impl IntoResponse, AppError> {
-    info!("POST /accept {import_req:?}");
+    info!("POST /watcher {request:?}");
 
     let nostr_hex_sk = auth.token();
-    let import_res = rgb_import(nostr_hex_sk, import_req).await?;
+    let resp = create_watcher(nostr_hex_sk, request).await?;
 
-    Ok((StatusCode::OK, Json(import_res)))
+    Ok((StatusCode::OK, Json(resp)))
 }
 
-async fn show_watcher(
+async fn watcher_details(
     TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
     Path(name): Path<String>,
 ) -> Result<impl IntoResponse, AppError> {
     info!("GET /watcher/{name:?}");
 
     let nostr_hex_sk = auth.token();
-    let import_res = watcher_details(nostr_hex_sk, &name).await?;
+    let resp = rgb_watcher_details(nostr_hex_sk, &name).await?;
 
-    Ok((StatusCode::OK, Json(import_res)))
+    Ok((StatusCode::OK, Json(resp)))
+}
+
+async fn next_address(
+    TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
+    Path(name): Path<String>,
+) -> Result<impl IntoResponse, AppError> {
+    info!("GET /watcher/{name:?}/address");
+
+    let nostr_hex_sk = auth.token();
+    let resp = watcher_next_address(nostr_hex_sk, &name).await?;
+
+    Ok((StatusCode::OK, Json(resp)))
+}
+
+async fn next_utxo(
+    TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
+    Path(name): Path<String>,
+) -> Result<impl IntoResponse, AppError> {
+    info!("GET /watcher/{name:?}/utxo");
+
+    let nostr_hex_sk = auth.token();
+    let resp = watcher_next_utxo(nostr_hex_sk, &name).await?;
+
+    Ok((StatusCode::OK, Json(resp)))
 }
 
 async fn co_store(
@@ -217,14 +269,18 @@ async fn main() -> Result<()> {
         .route("/issue", post(issue))
         .route("/invoice", post(invoice))
         .route("/psbt", post(psbt))
+        // .route("/sign", post(sign_psbt))
         .route("/pay", post(pay))
         .route("/accept", post(accept))
         .route("/contracts", get(contracts))
+        .route("/contract/:id", get(contract_detail))
         .route("/interfaces", get(interfaces))
         .route("/schemas", get(schemas))
         .route("/import", post(import))
         .route("/watcher", post(watcher))
-        .route("/watcher/:name", get(show_watcher))
+        .route("/watcher/:name", get(watcher_details))
+        .route("/watcher/:name/address", get(next_address))
+        .route("/watcher/:name/utxo", get(next_utxo))
         .route("/key/:pk", get(key))
         .route("/carbonado/:pk/:name", post(co_store))
         .route("/carbonado/:pk/:name", get(co_retrieve))

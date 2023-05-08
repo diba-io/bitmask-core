@@ -1,8 +1,10 @@
 use std::str::FromStr;
 
 pub use ::bitcoin::util::address::Address;
+use ::psbt::Psbt;
 use anyhow::Result;
 pub use bdk::{wallet::AddressIndex, FeeRate, LocalUtxo, TransactionDetails};
+use bitcoin::psbt::PartiallySignedTransaction;
 pub use bitcoin_hashes::{sha256, Hash};
 use serde_encrypt::{
     serialize::impls::BincodeSerializer, shared_key::SharedKey, traits::SerdeEncryptSharedKey,
@@ -16,6 +18,7 @@ mod payment;
 mod psbt;
 mod wallet;
 
+use crate::structs::{SignPsbtRequest, SignPsbtResponse};
 pub use crate::{
     bitcoin::{
         assets::dust_tx,
@@ -305,4 +308,22 @@ pub async fn get_assets_vault(
         udas_change_output,
         is_funded,
     })
+}
+
+pub async fn sign_psbt_file(_sk: &str, request: SignPsbtRequest) -> Result<SignPsbtResponse> {
+    let SignPsbtRequest {
+        psbt,
+        mnemonic,
+        seed_password,
+    } = request;
+
+    let original_psbt = Psbt::from_str(&psbt)?;
+    let final_psbt = PartiallySignedTransaction::from(original_psbt);
+
+    let encrypt_wallet = save_mnemonic(&mnemonic, &seed_password).await?;
+    let wallet = get_wallet(&encrypt_wallet.private.rgb_assets_descriptor_xprv, None).await?;
+    synchronize_wallet(&wallet).await?;
+
+    let sign = sign_psbt(&wallet, final_psbt).await;
+    Ok(SignPsbtResponse { sign: sign.is_ok() })
 }

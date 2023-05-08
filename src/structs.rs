@@ -177,6 +177,24 @@ pub struct PsbtResponse {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
+pub struct SignPsbtRequest {
+    /// PSBT encoded in Base64
+    pub psbt: String,
+    /// mnemonic
+    pub mnemonic: String,
+    /// password
+    pub seed_password: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct SignPsbtResponse {
+    /// PSBT is signed?
+    pub sign: bool,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct RgbTransferRequest {
     /// RGB Invoice
     pub rgb_invoice: String,
@@ -202,6 +220,8 @@ pub struct RgbTransferResponse {
 pub struct AcceptRequest {
     /// Consignment encoded in hexadecimal
     pub consignment: String,
+    /// Force Consignment accept
+    pub force: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -227,8 +247,14 @@ pub struct ContractsResponse {
 pub struct ContractDetail {
     /// Contract ID
     pub contract_id: String,
-    /// Interface Name
+    /// Contract Interface
     pub iface: String,
+    /// Contract Ticker
+    pub ticker: String,
+    /// Contract Name
+    pub name: String,
+    /// Contract Details
+    pub details: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -308,6 +334,19 @@ pub struct AllocationDetail {
     pub derivation: String,
     /// Derivation Path
     pub is_mine: bool,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct NextAddressReponse {
+    pub address: String,
+    pub network: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct NextUtxoReponse {
+    pub utxo: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

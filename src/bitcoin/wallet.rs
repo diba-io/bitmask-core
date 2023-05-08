@@ -61,7 +61,8 @@ pub async fn get_blockchain() -> EsploraBlockchain {
 
 pub async fn synchronize_wallet(wallet: &Wallet<AnyDatabase>) -> Result<()> {
     let blockchain = get_blockchain().await;
-    wallet.sync(&blockchain, SyncOptions::default()).await?;
+    // TODO: Find a way to run async function synchronously (wasm32)
+    wallet.sync(&blockchain, SyncOptions::default())?;
     debug!("Synced");
     Ok(())
 }

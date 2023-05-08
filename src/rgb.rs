@@ -5,8 +5,11 @@ use amplify::hex::ToHex;
 use anyhow::{anyhow, Result};
 use bech32::{encode, ToBase32};
 use bitcoin_30::bip32::ExtendedPubKey;
+use bitcoin_scripts::address::AddressNetwork;
+use miniscript_crate::DescriptorPublicKey;
 use rgbstd::{
     containers::BindleContent,
+    contract::ContractId,
     persistence::{Inventory, Stash},
 };
 use strict_encoding::StrictSerialize;
@@ -26,7 +29,7 @@ pub mod wallet;
 use crate::{
     constants::{
         storage_keys::{ASSETS_STOCK, ASSETS_WALLETS},
-        BITCOIN_ELECTRUM_API,
+        BITCOIN_EXPLORER_API, NETWORK,
     },
     rgb::{
         carbonado::{retrieve_stock, store_stock},
@@ -41,16 +44,16 @@ use crate::{
     structs::{
         AcceptRequest, AcceptResponse, ContractDetail, ContractsResponse, ImportRequest,
         ImportResponse, InterfaceDetail, InterfacesResponse, InvoiceRequest, InvoiceResponse,
-        IssueRequest, IssueResponse, PsbtRequest, PsbtResponse, RgbTransferRequest,
-        RgbTransferResponse, SchemaDetail, SchemasResponse, WatcherDetailReponse, WatcherRequest,
-        WatcherResponse,
+        IssueRequest, IssueResponse, NextAddressReponse, NextUtxoReponse, PsbtRequest,
+        PsbtResponse, RgbTransferRequest, RgbTransferResponse, SchemaDetail, SchemasResponse,
+        WatcherDetailReponse, WatcherRequest, WatcherResponse,
     },
 };
 
 use self::{
     carbonado::{retrieve_wallets, store_wallets},
     import::import_contract,
-    wallet::{create_wallet, list_allocations},
+    wallet::{create_wallet, list_allocations, next_address, next_utxo, sync_wallet},
 };
 
 /// RGB Operations
@@ -67,7 +70,7 @@ pub async fn issue_contract(sk: &str, request: IssueRequest) -> Result<IssueResp
     } = request;
     let mut stock = retrieve_stock(sk, ASSETS_STOCK).await?;
 
-    let explorer_url = BITCOIN_ELECTRUM_API.read().await;
+    let explorer_url = BITCOIN_EXPLORER_API.read().await;
     let tx_resolver = ExplorerResolver {
         explorer_url: explorer_url.to_string(),
     };
@@ -134,7 +137,7 @@ pub async fn create_psbt(sk: &str, request: PsbtRequest) -> Result<PsbtResponse>
     } = request;
 
     let stock = retrieve_stock(sk, ASSETS_STOCK).await?;
-    let explorer_url = BITCOIN_ELECTRUM_API.read().await;
+    let explorer_url = BITCOIN_EXPLORER_API.read().await;
     let tx_resolver = ExplorerResolver {
         explorer_url: explorer_url.to_string(),
     };
@@ -183,15 +186,15 @@ pub async fn transfer_asset(sk: &str, request: RgbTransferRequest) -> Result<Rgb
 }
 
 pub async fn accept_transfer(sk: &str, request: AcceptRequest) -> Result<AcceptResponse> {
-    let AcceptRequest { consignment } = request;
+    let AcceptRequest { consignment, force } = request;
 
     let mut stock = retrieve_stock(sk, ASSETS_STOCK).await?;
 
-    let explorer_url = BITCOIN_ELECTRUM_API.read().await;
+    let explorer_url = BITCOIN_EXPLORER_API.read().await;
     let mut tx_resolver = ExplorerResolver {
         explorer_url: explorer_url.to_string(),
     };
-    let resp = match accept_rgb_transfer(consignment, false, &mut tx_resolver, &mut stock) {
+    let resp = match accept_rgb_transfer(consignment, force, &mut tx_resolver, &mut stock) {
         Ok(transfer) => AcceptResponse {
             contract_id: transfer.contract_id().to_string(),
             transfer_id: transfer.transfer_id().to_string(),
@@ -218,10 +221,28 @@ pub async fn list_contracts(sk: &str) -> Result<ContractsResponse> {
         for (iface_id, _) in schema.clone().iimpls.into_iter() {
             for contract_id in stock.contract_ids().expect("invalid contracts state") {
                 if stock.contract_iface(contract_id, iface_id).is_ok() {
+                    let contract_iface = stock.contract_iface(contract_id, iface_id)?;
+                    let ticker = match contract_iface.global(tn!("Ticker")) {
+                        Ok(values) => values.to_vec()[0].to_string(),
+                        _ => String::new(),
+                    };
+
+                    let name = match contract_iface.global(tn!("Name")) {
+                        Ok(values) => values.to_vec()[0].to_string(),
+                        _ => String::new(),
+                    };
+
+                    let details = match contract_iface.global(tn!("Details")) {
+                        Ok(values) => values.to_vec()[0].to_string(),
+                        _ => String::new(),
+                    };
                     let face = stock.iface_by_id(iface_id).expect("invalid iface state");
                     let item = ContractDetail {
                         contract_id: contract_id.to_string(),
                         iface: face.name.to_string(),
+                        ticker,
+                        name,
+                        details,
                     };
                     contracts.push(item)
                 }
@@ -277,7 +298,7 @@ pub async fn import(sk: &str, request: ImportRequest) -> Result<ImportResponse> 
     let ImportRequest { data, import: _ } = request;
     let mut stock = retrieve_stock(sk, ASSETS_STOCK).await?;
 
-    let explorer_url = BITCOIN_ELECTRUM_API.read().await;
+    let explorer_url = BITCOIN_EXPLORER_API.read().await;
     let mut resolver = ExplorerResolver {
         explorer_url: explorer_url.to_string(),
     };
@@ -298,10 +319,14 @@ pub async fn create_watcher(sk: &str, request: WatcherRequest) -> Result<Watcher
     let WatcherRequest { name, xpub } = request;
     let mut rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await?;
 
-    if !rgb_account.wallets.contains_key(&name) {
-        let iface_index = 20;
-        let xpub = ExtendedPubKey::from_str(&xpub)?;
-        create_wallet(&iface_index.to_string(), xpub, &mut rgb_account.wallets)?;
+    if rgb_account.wallets.contains_key(&name) {
+        rgb_account.wallets.remove(&name);
+    }
+    let xdesc = DescriptorPublicKey::from_str(&xpub)?;
+    if let DescriptorPublicKey::XPub(xpub) = xdesc {
+        let xpub = xpub.xkey;
+        let xpub = ExtendedPubKey::from_str(&xpub.to_string())?;
+        create_wallet(&name, xpub, &mut rgb_account.wallets)?;
     }
 
     store_wallets(sk, ASSETS_WALLETS, &rgb_account).await?;
@@ -313,7 +338,7 @@ pub async fn watcher_details(sk: &str, name: &str) -> Result<WatcherDetailRepons
     let mut rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await?;
 
     let mut resolver = ExplorerResolver {
-        explorer_url: BITCOIN_ELECTRUM_API.read().await.to_string(),
+        explorer_url: BITCOIN_EXPLORER_API.read().await.to_string(),
     };
 
     let wallet = match rgb_account.wallets.get(name) {
@@ -331,4 +356,52 @@ pub async fn watcher_details(sk: &str, name: &str) -> Result<WatcherDetailRepons
     rgb_account.wallets.insert(name.to_string(), wallet);
     store_wallets(sk, ASSETS_WALLETS, &rgb_account).await?;
     Ok(resp)
+}
+
+pub async fn watcher_next_address(sk: &str, name: &str) -> Result<NextAddressReponse> {
+    let rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await?;
+
+    let network = NETWORK.read().await.to_string();
+    let network = AddressNetwork::from_str(&network)?;
+
+    let wallet = match rgb_account.wallets.get(name) {
+        Some(wallet) => Ok(wallet.to_owned()),
+        _ => Err(anyhow!("Oh no")),
+    };
+
+    let iface_index = 20;
+    let wallet = wallet?;
+    let next_address = next_address(iface_index, wallet, network)?;
+
+    let resp = NextAddressReponse {
+        address: next_address.address.to_string(),
+        network: network.to_string(),
+    };
+    Ok(resp)
+}
+
+pub async fn watcher_next_utxo(sk: &str, name: &str) -> Result<NextUtxoReponse> {
+    let rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await?;
+
+    let wallet = match rgb_account.wallets.get(name) {
+        Some(wallet) => Ok(wallet.to_owned()),
+        _ => Err(anyhow!("Oh no")),
+    };
+
+    let mut resolver = ExplorerResolver {
+        explorer_url: BITCOIN_EXPLORER_API.read().await.to_string(),
+    };
+
+    let iface_index = 20;
+    let mut wallet = wallet?;
+
+    sync_wallet(iface_index, &mut wallet, &mut resolver);
+    let utxo = match next_utxo(iface_index, wallet, &mut resolver)? {
+        Some(next_utxo) => next_utxo.outpoint.to_string(),
+        _ => String::new(),
+    };
+
+    store_wallets(sk, ASSETS_WALLETS, &rgb_account).await?;
+
+    Ok(NextUtxoReponse { utxo })
 }
