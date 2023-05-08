@@ -17,7 +17,7 @@ use bitcoin_30::secp256k1::{ecdh::SharedSecret, PublicKey, SecretKey};
 use bitmask_core::{
     rgb::{
         accept_transfer, create_invoice, create_psbt, import as rgb_import, issue_contract,
-        list_contracts, list_interfaces, list_schemas, transfer_asset,
+        list_contracts, list_interfaces, list_schemas, transfer_asset, watcher_details,
     },
     structs::{
         AcceptRequest, ImportRequest, InvoiceRequest, IssueRequest, PsbtRequest, RgbTransferRequest,
@@ -35,17 +35,7 @@ async fn issue(
 
     let nostr_hex_sk = auth.token();
 
-    let issue_res = issue_contract(
-        nostr_hex_sk,
-        &issue.ticker,
-        &issue.name,
-        &issue.description,
-        issue.precision,
-        issue.supply,
-        &issue.seal,
-        &issue.iface,
-    )
-    .await?;
+    let issue_res = issue_contract(nostr_hex_sk, issue).await?;
 
     Ok((StatusCode::OK, Json(issue_res)))
 }
@@ -57,15 +47,7 @@ async fn invoice(
     info!("POST /invoice {invoice:?}");
 
     let nostr_hex_sk = auth.token();
-
-    let invoice_res = create_invoice(
-        nostr_hex_sk,
-        &invoice.contract_id,
-        &invoice.iface,
-        invoice.amount,
-        &invoice.seal,
-    )
-    .await?;
+    let invoice_res = create_invoice(nostr_hex_sk, invoice).await?;
 
     Ok((StatusCode::OK, Json(invoice_res)))
 }
@@ -157,6 +139,30 @@ async fn import(
     Ok((StatusCode::OK, Json(import_res)))
 }
 
+async fn watcher(
+    TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
+    Json(import_req): Json<ImportRequest>,
+) -> Result<impl IntoResponse, AppError> {
+    info!("POST /accept {import_req:?}");
+
+    let nostr_hex_sk = auth.token();
+    let import_res = rgb_import(nostr_hex_sk, import_req).await?;
+
+    Ok((StatusCode::OK, Json(import_res)))
+}
+
+async fn show_watcher(
+    TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
+    Path(name): Path<String>,
+) -> Result<impl IntoResponse, AppError> {
+    info!("GET /watcher/{name:?}");
+
+    let nostr_hex_sk = auth.token();
+    let import_res = watcher_details(nostr_hex_sk, &name).await?;
+
+    Ok((StatusCode::OK, Json(import_res)))
+}
+
 async fn co_store(
     Path((pk, name)): Path<(String, String)>,
     body: Bytes,
@@ -202,7 +208,7 @@ async fn key(Path(pk): Path<String>) -> Result<impl IntoResponse, AppError> {
 #[tokio::main]
 async fn main() -> Result<()> {
     if env::var("RUST_LOG").is_err() {
-        env::set_var("RUST_LOG", "info");
+        env::set_var("RUST_LOG", "debug");
     }
 
     pretty_env_logger::init();
@@ -217,12 +223,14 @@ async fn main() -> Result<()> {
         .route("/interfaces", get(interfaces))
         .route("/schemas", get(schemas))
         .route("/import", post(import))
+        .route("/watcher", post(watcher))
+        .route("/watcher/:name", get(show_watcher))
         .route("/key/:pk", get(key))
         .route("/carbonado/:pk/:name", post(co_store))
         .route("/carbonado/:pk/:name", get(co_retrieve))
         .layer(CorsLayer::permissive());
 
-    let addr = SocketAddr::from(([127, 0, 0, 1], 7070));
+    let addr = SocketAddr::from(([0, 0, 0, 0], 7070));
 
     info!("bitmaskd REST server successfully running at {addr}");
 

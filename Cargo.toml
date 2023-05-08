@@ -122,7 +122,7 @@ rgb-core = { git = "https://github.com/RGB-WG/rgb-core", branch = "fix/op-concea
 rgb-wallet = { git = "https://github.com/RGB-WG/rgb-wallet", branch = "rgb20" }
 rgb-std = { git = "https://github.com/RGB-WG/rgb-wallet", branch = "rgb20" }
 # TODO: Remove this after merge and release fixies
-rgb-contracts = { git = "https://github.com/crisdut/rgb", branch = "exp/fixies" }
+rgb-contracts = { path = "../rgb" }
 bitcoin_scripts = { git = "https://github.com/crisdut/bp-foundation", branch = "release/0.10.0-alpha.2" }
 bitcoin_blockchain = { git = "https://github.com/crisdut/bp-foundation", branch = "release/0.10.0-alpha.2" }
 # TODO: Remove this after propose a universal tweak in descriptor-wallet

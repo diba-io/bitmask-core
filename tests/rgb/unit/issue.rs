@@ -34,6 +34,5 @@ async fn issue_contract_test() -> Result<()> {
     );
 
     assert!(contract.is_ok());
-
     Ok(())
 }

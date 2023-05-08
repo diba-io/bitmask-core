@@ -9,6 +9,7 @@ mod rgb {
     }
 
     mod integration {
+        mod transfer;
         mod utils;
         mod wallet;
     }

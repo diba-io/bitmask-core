@@ -1,6 +1,10 @@
+use std::str::FromStr;
+
 use ::psbt::serialize::Serialize;
 use amplify::hex::ToHex;
-use anyhow::Result;
+use anyhow::{anyhow, Result};
+use bech32::{encode, ToBase32};
+use bitcoin_30::bip32::ExtendedPubKey;
 use rgbstd::{
     containers::BindleContent,
     persistence::{Inventory, Stash},
@@ -8,24 +12,27 @@ use rgbstd::{
 use strict_encoding::StrictSerialize;
 
 pub mod accept;
+pub mod carbonado;
 pub mod constants;
 pub mod import;
 pub mod issue;
 pub mod psbt;
 pub mod resolvers;
 pub mod schemas;
-pub mod stock;
 pub mod structs;
 pub mod transfer;
 pub mod wallet;
 
 use crate::{
-    constants::{storage_keys::ASSETS_STOCK, BITCOIN_ELECTRUM_API},
+    constants::{
+        storage_keys::{ASSETS_STOCK, ASSETS_WALLETS},
+        BITCOIN_ELECTRUM_API,
+    },
     rgb::{
+        carbonado::{retrieve_stock, store_stock},
         issue::issue_contract as create_contract,
         psbt::{create_psbt as create_rgb_psbt, extract_commit},
         resolvers::ExplorerResolver,
-        stock::{retrieve_stock, store_stock},
         transfer::{
             accept_transfer as accept_rgb_transfer, create_invoice as create_rgb_invoice,
             pay_invoice,
@@ -33,26 +40,31 @@ use crate::{
     },
     structs::{
         AcceptRequest, AcceptResponse, ContractDetail, ContractsResponse, ImportRequest,
-        ImportResponse, InterfaceDetail, InterfacesResponse, InvoiceResult, IssueResponse,
-        PsbtRequest, PsbtResponse, RgbTransferRequest, RgbTransferResponse, SchemaDetail,
-        SchemasResponse,
+        ImportResponse, InterfaceDetail, InterfacesResponse, InvoiceRequest, InvoiceResponse,
+        IssueRequest, IssueResponse, PsbtRequest, PsbtResponse, RgbTransferRequest,
+        RgbTransferResponse, SchemaDetail, SchemasResponse, WatcherDetailReponse, WatcherRequest,
+        WatcherResponse,
     },
 };
 
-use self::import::import_contract;
+use self::{
+    carbonado::{retrieve_wallets, store_wallets},
+    import::import_contract,
+    wallet::{create_wallet, list_allocations},
+};
 
 /// RGB Operations
 #[allow(clippy::too_many_arguments)]
-pub async fn issue_contract(
-    sk: &str,
-    ticker: &str,
-    name: &str,
-    description: &str,
-    precision: u8,
-    supply: u64,
-    seal: &str,
-    iface: &str,
-) -> Result<IssueResponse> {
+pub async fn issue_contract(sk: &str, request: IssueRequest) -> Result<IssueResponse> {
+    let IssueRequest {
+        ticker,
+        name,
+        description,
+        precision,
+        supply,
+        iface,
+        seal,
+    } = request;
     let mut stock = retrieve_stock(sk, ASSETS_STOCK).await?;
 
     let explorer_url = BITCOIN_ELECTRUM_API.read().await;
@@ -61,43 +73,51 @@ pub async fn issue_contract(
     };
 
     let contract = create_contract(
-        ticker,
-        name,
-        description,
+        &ticker,
+        &name,
+        &description,
         precision,
         supply,
-        iface,
-        seal,
+        &iface,
+        &seal,
         tx_resolver,
         &mut stock,
     )?;
 
     let contract_id = contract.contract_id().to_string();
-    let genesis = contract.bindle().to_string();
+    let contract = encode(
+        "rgb",
+        contract
+            .bindle()
+            .to_strict_serialized::<0xFFFFFF>()?
+            .to_base32(),
+        bech32::Variant::Bech32m,
+    )?;
 
     store_stock(sk, ASSETS_STOCK, &stock).await?;
 
     Ok(IssueResponse {
         contract_id,
         iface: iface.to_string(),
-        genesis,
+        contract,
+        issue_utxo: seal.replace("tapret1st:", ""),
     })
 }
 
-pub async fn create_invoice(
-    sk: &str,
-    contract_id: &str,
-    iface: &str,
-    amount: u64,
-    seal: &str,
-) -> Result<InvoiceResult> {
+pub async fn create_invoice(sk: &str, request: InvoiceRequest) -> Result<InvoiceResponse> {
+    let InvoiceRequest {
+        contract_id,
+        iface,
+        seal,
+        amount,
+    } = request;
     let mut stock = retrieve_stock(sk, ASSETS_STOCK).await?;
 
-    let invoice = create_rgb_invoice(contract_id, iface, amount, seal, &mut stock)?;
+    let invoice = create_rgb_invoice(&contract_id, &iface, amount, &seal, &mut stock)?;
 
     store_stock(sk, ASSETS_STOCK, &stock).await?;
 
-    Ok(InvoiceResult {
+    Ok(InvoiceResponse {
         invoice: invoice.to_string(),
     })
 }
@@ -271,5 +291,44 @@ pub async fn import(sk: &str, request: ImportRequest) -> Result<ImportResponse> 
         contract_id: contract.contract_id().to_string(),
         ifaces,
     };
+    Ok(resp)
+}
+
+pub async fn create_watcher(sk: &str, request: WatcherRequest) -> Result<WatcherResponse> {
+    let WatcherRequest { name, xpub } = request;
+    let mut rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await?;
+
+    if !rgb_account.wallets.contains_key(&name) {
+        let iface_index = 20;
+        let xpub = ExtendedPubKey::from_str(&xpub)?;
+        create_wallet(&iface_index.to_string(), xpub, &mut rgb_account.wallets)?;
+    }
+
+    store_wallets(sk, ASSETS_WALLETS, &rgb_account).await?;
+    Ok(WatcherResponse { name })
+}
+
+pub async fn watcher_details(sk: &str, name: &str) -> Result<WatcherDetailReponse> {
+    let mut stock = retrieve_stock(sk, ASSETS_STOCK).await?;
+    let mut rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await?;
+
+    let mut resolver = ExplorerResolver {
+        explorer_url: BITCOIN_ELECTRUM_API.read().await.to_string(),
+    };
+
+    let wallet = match rgb_account.wallets.get(name) {
+        Some(wallet) => Ok(wallet.to_owned()),
+        _ => Err(anyhow!("Oh no")),
+    };
+
+    let mut wallet = wallet?;
+    let allocations = list_allocations(&mut wallet, &mut stock, &mut resolver)?;
+
+    let resp = WatcherDetailReponse {
+        contracts: allocations,
+    };
+
+    rgb_account.wallets.insert(name.to_string(), wallet);
+    store_wallets(sk, ASSETS_WALLETS, &rgb_account).await?;
     Ok(resp)
 }

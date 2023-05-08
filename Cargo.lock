@@ -2433,7 +2433,6 @@ dependencies = [
 [[package]]
 name = "rgb-contracts"
 version = "0.10.0"
-source = "git+https://github.com/crisdut/rgb?branch=exp/fixies#e771b1a409a3a3595611184c3b469db9046997e0"
 dependencies = [
  "amplify",
  "baid58",
@@ -2472,7 +2471,6 @@ dependencies = [
 [[package]]
 name = "rgb-persist-fs"
 version = "0.10.0"
-source = "git+https://github.com/crisdut/rgb?branch=exp/fixies#e771b1a409a3a3595611184c3b469db9046997e0"
 dependencies = [
  "amplify",
  "rgb-std",

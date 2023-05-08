@@ -43,7 +43,6 @@ pub fn create_invoice(
         Ok(iface) => iface,
         Err(_) => return Err(InvoiceError::InterfaceNotFound(iface.to_string())),
     };
-
     let contract_id = ContractId::from_str(contract_id).expect("");
     if !stock
         .contract_ids()

@@ -10,6 +10,7 @@ networks:
 
 volumes:
   node1_data:
+  bitmaskd_data:
 
 services:
   node1:

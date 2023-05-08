@@ -6,7 +6,11 @@ use bitcoin_scripts::address::{AddressCompat, AddressNetwork};
 use bp::dbc::tapret::TapretCommitment;
 use commit_verify::mpc::Commitment;
 use rgb::{DeriveInfo, Resolver, RgbDescr, RgbWallet, SpkDescriptor, Tapret, TerminalPath, Utxo};
+use rgbstd::persistence::{Inventory, Stash, Stock};
 use std::{collections::HashMap, str::FromStr};
+use strict_encoding::tn;
+
+use crate::structs::{AllocationDetail, WatcherDetail};
 
 use super::{resolvers::ResolveSpent, structs::AddressTerminal};
 
@@ -24,6 +28,7 @@ pub fn create_wallet(
         descr,
         utxos: empty!(),
     };
+
     wallets.insert(iface.to_string(), wallet.clone());
     Ok(wallet)
 }
@@ -176,4 +181,53 @@ pub fn sync_wallet(iface_index: u32, wallet: &mut RgbWallet, resolver: &mut impl
         wallet.utxos.append(&mut new_utxos);
         index += step;
     }
+}
+
+pub fn list_allocations(
+    wallet: &mut RgbWallet,
+    stock: &mut Stock,
+    resolver: &mut impl Resolver,
+) -> Result<Vec<WatcherDetail>, anyhow::Error> {
+    let iface_name = "RGB20";
+    let iface_index = 20;
+
+    let mut details = vec![];
+
+    sync_wallet(iface_index, wallet, resolver);
+    for contract_id in stock.contract_ids()? {
+        let iface = stock.iface_by_name(&tn!(iface_name))?;
+        let contract = stock
+            .contract_iface(contract_id, iface.iface_id())
+            .expect("");
+
+        let mut owners = vec![];
+        for owned in &contract.iface.assignments {
+            if let Ok(allocations) = contract.fungible(owned.name.clone()) {
+                for allocation in allocations {
+                    if let Some(utxo) = wallet.utxo(allocation.owner) {
+                        owners.push(AllocationDetail {
+                            utxo: utxo.outpoint.to_string(),
+                            value: allocation.value,
+                            derivation: utxo.derivation.to_string(),
+                            is_mine: true,
+                        });
+                    } else {
+                        owners.push(AllocationDetail {
+                            utxo: allocation.owner.to_string(),
+                            value: allocation.value,
+                            derivation: default!(),
+                            is_mine: false,
+                        });
+                    }
+                }
+            }
+        }
+
+        details.push(WatcherDetail {
+            contract_id: contract_id.to_string(),
+            allocations: owners,
+        });
+    }
+
+    Ok(vec![])
 }

@@ -76,7 +76,7 @@ where
 }
 
 /// RGB20 interface
-pub fn issue_fungible_asset(
+fn issue_fungible_asset(
     ticker: &str,
     name: &str,
     description: &str,

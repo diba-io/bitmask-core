@@ -1,4 +1,6 @@
-use crate::structs::{AcceptRequest, ImportRequest, PsbtRequest, RgbTransferRequest};
+use crate::structs::{
+    AcceptRequest, ImportRequest, InvoiceRequest, IssueRequest, PsbtRequest, RgbTransferRequest,
+};
 // use crate::{carbonado, lightning, rgb};
 
 use js_sys::Promise;
@@ -250,31 +252,12 @@ pub mod rgb {
 
     #[allow(clippy::too_many_arguments)]
     #[wasm_bindgen]
-    pub fn issue_contract(
-        nostr_hex_sk: String,
-        ticker: String,
-        name: String,
-        description: String,
-        precision: u8,
-        supply: u64,
-        seal: String,
-        iface: String,
-    ) -> Promise {
+    pub fn issue_contract(nostr_hex_sk: String, request: JsValue) -> Promise {
         set_panic_hook();
 
         future_to_promise(async move {
-            match crate::rgb::issue_contract(
-                &nostr_hex_sk,
-                &ticker,
-                &name,
-                &description,
-                precision,
-                supply,
-                &seal,
-                &iface,
-            )
-            .await
-            {
+            let req: IssueRequest = serde_wasm_bindgen::from_value(request).unwrap();
+            match crate::rgb::issue_contract(&nostr_hex_sk, req).await {
                 Ok(result) => Ok(JsValue::from_string(
                     serde_json::to_string(&result).unwrap(),
                 )),
@@ -284,19 +267,12 @@ pub mod rgb {
     }
 
     #[wasm_bindgen]
-    pub fn rgb_create_invoice(
-        nostr_hex_sk: String,
-        contract_id: String,
-        iface: String,
-        amount: u64,
-        seal: String,
-    ) -> Promise {
+    pub fn rgb_create_invoice(nostr_hex_sk: String, request: JsValue) -> Promise {
         set_panic_hook();
 
         future_to_promise(async move {
-            match crate::rgb::create_invoice(&nostr_hex_sk, &contract_id, &iface, amount, &seal)
-                .await
-            {
+            let req: InvoiceRequest = serde_wasm_bindgen::from_value(request).unwrap();
+            match crate::rgb::create_invoice(&nostr_hex_sk, req).await {
                 Ok(result) => Ok(JsValue::from_string(
                     serde_json::to_string(&result).unwrap(),
                 )),

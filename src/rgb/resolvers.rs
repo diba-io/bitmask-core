@@ -102,9 +102,7 @@ impl ResolveCommiment for ExplorerResolver {
             .expect("service unavaliable")
             .unwrap();
         Ok(Tx {
-            version: TxVer::from_consensus_i32(tx.version)
-                .try_into()
-                .expect("non-consensus tx version"),
+            version: TxVer::from_consensus_i32(tx.version),
             inputs: VarIntArray::try_from_iter(tx.input.into_iter().map(|txin| TxIn {
                 prev_output: Outpoint::new(
                     Txid::from_str(&txin.previous_output.txid.to_hex()).expect(""),

@@ -31,7 +31,7 @@ pub fn create_psbt(
     descriptor_pub: String,
     asset_utxo: String,
     asset_utxo_terminal: String,
-    change_index: Option<String>,
+    change_index: Option<u16>,
     bitcoin_changes: Vec<String>,
     fee: u64,
     tap_tweak: Option<String>,
@@ -81,7 +81,7 @@ pub fn create_psbt(
 
     let lock_time = LockTime::anytime();
     let change_index = match change_index {
-        Some(index) => UnhardenedIndex::from_str(index.as_str()).expect(""),
+        Some(index) => UnhardenedIndex::from_str(&index.to_string()).expect(""),
         _ => UnhardenedIndex::default(),
     };
 

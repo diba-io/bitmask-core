@@ -18,7 +18,7 @@ FROM rust:slim AS runtime
 
 ARG BUILDER_DIR=/srv/bitmask
 ARG BIN_DIR=/usr/local/bin
-ARG DATA_DIR=/var/lib/bitmask
+ARG DATA_DIR=/tmp/bitmaskd/carbonado/
 ARG USER=bitmask
 
 RUN apt-get update -y \
