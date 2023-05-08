@@ -9,10 +9,9 @@ use bitcoin_scripts::address::AddressNetwork;
 use miniscript_crate::DescriptorPublicKey;
 use rgbstd::{
     containers::BindleContent,
-    contract::ContractId,
     persistence::{Inventory, Stash},
 };
-use strict_encoding::StrictSerialize;
+use strict_encoding::{tn, StrictSerialize, TypeName};
 
 pub mod accept;
 pub mod carbonado;
@@ -221,18 +220,23 @@ pub async fn list_contracts(sk: &str) -> Result<ContractsResponse> {
         for (iface_id, _) in schema.clone().iimpls.into_iter() {
             for contract_id in stock.contract_ids().expect("invalid contracts state") {
                 if stock.contract_iface(contract_id, iface_id).is_ok() {
-                    let contract_iface = stock.contract_iface(contract_id, iface_id)?;
-                    let ticker = match contract_iface.global(tn!("Ticker")) {
+                    let contract_iface = stock
+                        .contract_iface(contract_id, iface_id)
+                        .expect("invalid contracts state");
+                    let ty: TypeName = tn!("Ticker");
+                    let ticker = match contract_iface.global(ty) {
                         Ok(values) => values.to_vec()[0].to_string(),
                         _ => String::new(),
                     };
 
-                    let name = match contract_iface.global(tn!("Name")) {
+                    let ty: TypeName = tn!("Name");
+                    let name = match contract_iface.global(ty) {
                         Ok(values) => values.to_vec()[0].to_string(),
                         _ => String::new(),
                     };
 
-                    let details = match contract_iface.global(tn!("Details")) {
+                    let ty: TypeName = tn!("Details");
+                    let details = match contract_iface.global(ty) {
                         Ok(values) => values.to_vec()[0].to_string(),
                         _ => String::new(),
                     };
@@ -343,7 +347,7 @@ pub async fn watcher_details(sk: &str, name: &str) -> Result<WatcherDetailRepons
 
     let wallet = match rgb_account.wallets.get(name) {
         Some(wallet) => Ok(wallet.to_owned()),
-        _ => Err(anyhow!("Oh no")),
+        _ => Err(anyhow!("Wallet watcher not found")),
     };
 
     let mut wallet = wallet?;
@@ -366,7 +370,7 @@ pub async fn watcher_next_address(sk: &str, name: &str) -> Result<NextAddressRep
 
     let wallet = match rgb_account.wallets.get(name) {
         Some(wallet) => Ok(wallet.to_owned()),
-        _ => Err(anyhow!("Oh no")),
+        _ => Err(anyhow!("Wallet watcher not found")),
     };
 
     let iface_index = 20;
@@ -385,7 +389,7 @@ pub async fn watcher_next_utxo(sk: &str, name: &str) -> Result<NextUtxoReponse> 
 
     let wallet = match rgb_account.wallets.get(name) {
         Some(wallet) => Ok(wallet.to_owned()),
-        _ => Err(anyhow!("Oh no")),
+        _ => Err(anyhow!("Wallet watcher not found")),
     };
 
     let mut resolver = ExplorerResolver {
