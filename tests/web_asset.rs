@@ -73,7 +73,7 @@ async fn contract_import() {
         data: "".to_string(),
     };
 
-    let req = serde_wasm_bindgen::to_value(&contract_import).expect("");
+    let req = serde_wasm_bindgen::to_value(&contract_import).expect("oh no!");
     let _ = resolve(import_contract(sk, req)).await;
 }
 

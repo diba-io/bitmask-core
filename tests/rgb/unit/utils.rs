@@ -44,7 +44,7 @@ impl RgbResolveTx for DumbResolve {
         let tx_input = &transaction.input[0];
         let input = TxIn {
             prev_output: Outpoint::new(
-                Txid::from_str(&tx_input.previous_output.txid.to_hex()).expect(""),
+                Txid::from_str(&tx_input.previous_output.txid.to_hex()).expect("oh no!"),
                 tx_input.previous_output.vout,
             ),
             sig_script: tx_input.script_sig.to_bytes().into(),

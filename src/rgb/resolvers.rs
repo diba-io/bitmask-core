@@ -29,7 +29,6 @@ impl rgb::Resolver for ExplorerResolver {
         scripts: BTreeMap<DeriveInfo, bitcoin_30::ScriptBuf>,
     ) -> Result<BTreeSet<rgb::prelude::Utxo>, String> {
         let mut utxos = bset![];
-        // TODO: Find a way to run async function synchronously (wasm32)
         let explorer_client = esplora_block::Builder::new(&self.explorer_url)
             .build_blocking()
             .expect("service unavaliable");
@@ -60,8 +59,10 @@ impl rgb::Resolver for ExplorerResolver {
                         Some(height) => MiningStatus::Blockchain(height),
                         _ => MiningStatus::Mempool,
                     };
-                    let outpoint =
-                        Outpoint::new(Txid::from_str(&tx.txid.to_hex()).expect(""), index as u32);
+                    let outpoint = Outpoint::new(
+                        Txid::from_str(&tx.txid.to_hex()).expect("invalid outpoint parse"),
+                        index as u32,
+                    );
                     let new_utxo = Utxo {
                         outpoint,
                         status,
@@ -86,21 +87,22 @@ impl rgb::Resolver for ExplorerResolver {
 }
 
 impl ResolveTx for ExplorerResolver {
-    // #[cfg(not(target_arch = "wasm32"))]
-    // fn resolve_tx(
-    //     &self,
-    //     txid: bitcoin::Txid,
-    // ) -> Result<bitcoin::Transaction, wallet::onchain::TxResolverError> {
-    //     let explorer_client = esplora_block::Builder::new(&self.explorer_url)
-    //         .build_blocking()
-    //         .expect("service unavaliable");
+    #[cfg(not(target_arch = "wasm32"))]
+    fn resolve_tx(
+        &self,
+        txid: bitcoin::Txid,
+    ) -> Result<bitcoin::Transaction, wallet::onchain::TxResolverError> {
+        let explorer_client = esplora_block::Builder::new(&self.explorer_url)
+            .build_blocking()
+            .expect("service unavaliable");
 
-    //     match explorer_client.get_tx(&txid).expect("service unavaliable") {
-    //         Some(tx) => Ok(tx),
-    //         _ => Err(TxResolverError { txid, err: none!() }),
-    //     }
-    // }
+        match explorer_client.get_tx(&txid).expect("service unavaliable") {
+            Some(tx) => Ok(tx),
+            _ => Err(TxResolverError { txid, err: none!() }),
+        }
+    }
 
+    #[cfg(target_arch = "wasm32")]
     fn resolve_tx(
         &self,
         txid: bitcoin::Txid,
@@ -124,26 +126,29 @@ impl ResolveHeight for ExplorerResolver {
 impl ResolveCommiment for ExplorerResolver {
     #[cfg(not(target_arch = "wasm32"))]
     fn resolve_tx(&self, txid: Txid) -> Result<Tx, rgbstd::validation::TxResolverError> {
-        // TODO: Find a way to run async function synchronously (wasm32)
         let explorer_client = esplora_block::Builder::new(&self.explorer_url)
             .build_blocking()
             .expect("service unavaliable");
 
-        let transaction_id = &bitcoin::Txid::from_str(&txid.to_hex()).expect("");
+        let transaction_id =
+            &bitcoin::Txid::from_str(&txid.to_hex()).expect("invalid transaction id parse");
         let tx = explorer_client
             .get_tx(transaction_id)
             .expect("service unavaliable")
             .unwrap();
         Ok(Tx {
             version: TxVer::from_consensus_i32(tx.version),
-            inputs: VarIntArray::try_from_iter(tx.input.into_iter().map(|txin| TxIn {
-                prev_output: Outpoint::new(
-                    Txid::from_str(&txin.previous_output.txid.to_hex()).expect(""),
-                    txin.previous_output.vout,
-                ),
-                sig_script: txin.script_sig.to_bytes().into(),
-                sequence: SeqNo::from_consensus_u32(txin.sequence.to_consensus_u32()),
-                witness: Witness::from_consensus_stack(txin.witness.to_vec()),
+            inputs: VarIntArray::try_from_iter(tx.input.into_iter().map(|txin| {
+                TxIn {
+                    prev_output: Outpoint::new(
+                        Txid::from_str(&txin.previous_output.txid.to_hex())
+                            .expect("invalid transaction id parse"),
+                        txin.previous_output.vout,
+                    ),
+                    sig_script: txin.script_sig.to_bytes().into(),
+                    sequence: SeqNo::from_consensus_u32(txin.sequence.to_consensus_u32()),
+                    witness: Witness::from_consensus_stack(txin.witness.to_vec()),
+                }
             }))
             .expect("consensus-invalid transaction"),
             outputs: VarIntArray::try_from_iter(tx.output.into_iter().map(|txout| TxOut {
@@ -206,7 +211,7 @@ impl ResolveSpent for ExplorerResolver {
         txid: bitcoin::Txid,
         index: u64,
     ) -> Result<bool, Self::Error> {
-        let outpoint = format!("{}:{}", txid.to_hex(), index.to_string());
+        let outpoint = format!("{}:{}", txid.to_hex(), index);
         Ok(self.next_utxo == outpoint)
     }
 }

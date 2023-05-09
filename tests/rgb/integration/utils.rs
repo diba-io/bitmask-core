@@ -13,8 +13,8 @@ pub const OWNER_MNEMONIC: &str =
 
 #[allow(dead_code)]
 pub async fn start_node() {
-    let path = env::current_dir().expect("");
-    let path = path.to_str().expect("");
+    let path = env::current_dir().expect("oh no!");
+    let path = path.to_str().expect("oh no!");
     let full_file = format!("{}/tests/scripts/startup_node.sh", path);
     Command::new("bash")
         .arg(full_file)
@@ -24,12 +24,12 @@ pub async fn start_node() {
         .unwrap()
         .wait()
         .await
-        .expect("");
+        .expect("oh no!");
 }
 
 pub async fn send_some_coins(address: &str, amount: &str) {
-    let path = env::current_dir().expect("");
-    let path = path.to_str().expect("");
+    let path = env::current_dir().expect("oh no!");
+    let path = path.to_str().expect("oh no!");
     let full_file = format!("{}/tests/scripts/send_coins.sh", path);
     Command::new("bash")
         .arg(full_file)
@@ -40,13 +40,13 @@ pub async fn send_some_coins(address: &str, amount: &str) {
         .unwrap()
         .wait()
         .await
-        .expect("");
+        .expect("oh no!");
 }
 
 #[allow(dead_code)]
 pub async fn stop_node() {
-    let path = env::current_dir().expect("");
-    let path = path.to_str().expect("");
+    let path = env::current_dir().expect("oh no!");
+    let path = path.to_str().expect("oh no!");
     let full_file = format!("{}/tests/scripts/stop_node.sh", path);
     Command::new("bash")
         .arg(full_file)
@@ -56,7 +56,7 @@ pub async fn stop_node() {
         .unwrap()
         .wait()
         .await
-        .expect("");
+        .expect("oh no!");
 }
 
 pub async fn setup_regtest(force: bool, mnemonic: Option<&str>) {

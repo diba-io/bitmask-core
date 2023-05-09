@@ -39,11 +39,11 @@ pub fn create_invoice(
     seal: &str,
     stock: &mut Stock,
 ) -> Result<RgbInvoice, InvoiceError> {
-    let iface = match stock.iface_by_name(&TypeName::from_str(iface).expect("")) {
+    let iface = match stock.iface_by_name(&TypeName::from_str(iface).expect("iface not found")) {
         Ok(iface) => iface,
         Err(_) => return Err(InvoiceError::InterfaceNotFound(iface.to_string())),
     };
-    let contract_id = ContractId::from_str(contract_id).expect("");
+    let contract_id = ContractId::from_str(contract_id).expect("invalid contract_id parse");
     if !stock
         .contract_ids()
         .expect("contract_ids from stock")
@@ -106,15 +106,17 @@ pub fn validate_transfer<R: ResolveTx>(
     transfer: String,
     resolver: &mut R,
 ) -> Result<(ContractId, Status), (ContractId, PaymentError)> {
-    let serialized = Vec::<u8>::from_hex(&transfer).expect("invalid hex");
-    let confined = Confined::try_from_iter(serialized.iter().copied()).expect("");
+    let serialized =
+        Vec::<u8>::from_hex(&transfer).expect("invalid transfer hexadecimal format data");
+    let confined = Confined::try_from_iter(serialized.iter().copied())
+        .expect("invalid strict transfer format data");
     let confined_transfer = Transfer::from_strict_serialized::<{ usize::MAX }>(confined);
 
-    let transfer = confined_transfer.expect("");
+    let transfer = confined_transfer.expect("invalid strict transfer format data");
     let transfer_status = transfer
         .clone()
         .validate(resolver)
-        .expect("validate_pay failed");
+        .expect("transfer cannot be validated");
 
     match transfer_status.into_validation_status() {
         Some(status) => Ok((transfer.contract_id(), status)),
@@ -132,12 +134,16 @@ where
     T: ResolveHeight + ResolveTx,
     T::Error: 'static,
 {
-    let serialized = Vec::<u8>::from_hex(&transfer).expect("invalid hex");
-    let confined = Confined::try_from_iter(serialized.iter().copied()).expect("");
+    let serialized =
+        Vec::<u8>::from_hex(&transfer).expect("invalid transfer hexadecimal format data");
+    let confined = Confined::try_from_iter(serialized.iter().copied())
+        .expect("invalid strict transfer format data");
     let confined_transfer = Transfer::from_strict_serialized::<{ usize::MAX }>(confined);
 
-    let transfer = confined_transfer.expect("");
-    let transfer_status = transfer.validate(resolver).expect("validate_pay failed");
+    let transfer = confined_transfer.expect("invalid strict transfer format data");
+    let transfer_status = transfer
+        .validate(resolver)
+        .expect("transfer cannot be validated");
 
     let bindle = Bindle::new(transfer_status.clone());
     match stock.accept_transfer(transfer_status, resolver, force) {

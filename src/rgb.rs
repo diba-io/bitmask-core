@@ -370,7 +370,7 @@ pub async fn import(sk: &str, request: ImportRequest) -> Result<ImportResponse> 
         ticker,
         name,
         description,
-        precision: precision,
+        precision,
         supply,
         seal,
         ifaces,

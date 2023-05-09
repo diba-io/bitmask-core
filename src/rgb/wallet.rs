@@ -54,8 +54,9 @@ pub fn list_addresses(
     Ok(scripts
         .into_iter()
         .map(|(d, sb)| {
-            let sc = Script::from_hex(&sb.to_hex()).expect("");
-            let address = AddressCompat::from_script(&sc.into(), network).expect("");
+            let sc = Script::from_hex(&sb.to_hex()).expect("invalid script data");
+            let address =
+                AddressCompat::from_script(&sc.into(), network).expect("invalid address data");
             let terminal = d.terminal;
             AddressTerminal { address, terminal }
         })
@@ -89,8 +90,9 @@ pub fn next_address(
     let addresses: Vec<AddressTerminal> = scripts
         .into_iter()
         .map(|(d, sb)| {
-            let sc = Script::from_str(&sb.to_hex_string()).expect("");
-            let address = AddressCompat::from_script(&sc.into(), network).expect("");
+            let sc = Script::from_str(&sb.to_hex_string()).expect("invalid script data");
+            let address =
+                AddressCompat::from_script(&sc.into(), network).expect("invalid address data");
             let terminal = d.terminal;
             AddressTerminal { address, terminal }
         })
@@ -118,7 +120,8 @@ pub fn next_utxo(
 
     let mut next_utxo: Option<Utxo> = None;
     for utxo in utxos {
-        let txid = Txid::from_hex(&utxo.outpoint.txid.to_hex()).expect("");
+        let txid =
+            Txid::from_hex(&utxo.outpoint.txid.to_hex()).expect("invalid transaction id parse");
         let is_spent = resolver
             .resolve_spent_status(txid, utxo.outpoint.vout.into_u32().into())
             .expect("unavaliable service");
@@ -146,7 +149,7 @@ pub fn save_commitment(
         .find(|utxo| {
             utxo.derivation.terminal.app == iface_index && utxo.derivation.terminal == path
         })
-        .expect("");
+        .expect("invalid UTXO reference");
 
     wallet.utxos.remove(&utxo);
     utxo.derivation.tweak = Some(tap_commit);
@@ -172,7 +175,9 @@ pub fn sync_wallet(iface_index: u32, wallet: &mut RgbWallet, resolver: &mut impl
             .map(|(d, sc)| (d, sc))
             .collect();
 
-        let mut new_utxos = resolver.resolve_utxo(new_scripts).expect("");
+        let mut new_utxos = resolver
+            .resolve_utxo(new_scripts)
+            .expect("service unavalible");
         if new_utxos.is_empty() {
             break;
         }
@@ -196,7 +201,7 @@ pub fn list_allocations(
         let iface = stock.iface_by_name(&tn!(iface_name))?;
         let contract = stock
             .contract_iface(contract_id, iface.iface_id())
-            .expect("");
+            .expect("contract iface not found");
 
         let mut owners = vec![];
         for owned in &contract.iface.assignments {

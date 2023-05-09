@@ -23,20 +23,22 @@ where
     R::Error: 'static,
 {
     let serialized = if contract.starts_with("rgb1") {
-        let (_, serialized, _) = decode(contract).expect("");
-        Vec::<u8>::from_base32(&serialized).expect("invalid hex")
+        let (_, serialized, _) =
+            decode(contract).expect("invalid serialized contract (bech32m format)");
+        Vec::<u8>::from_base32(&serialized).expect("invalid hexadecimal contract (bech32m format)")
     } else {
-        Vec::<u8>::from_hex(contract).expect("invalid hex")
+        Vec::<u8>::from_hex(contract).expect("invalid hexadecimal contract (baid58 format)")
     };
 
-    let confined = Confined::try_from_iter(serialized.iter().copied()).expect("");
-    let contract = Contract::from_strict_serialized::<{ usize::MAX }>(confined).expect("");
-    let contract = contract.validate(resolver).expect("");
+    let confined = Confined::try_from_iter(serialized.iter().copied())
+        .expect("invalid strict serialized data");
+    let contract = Contract::from_strict_serialized::<{ usize::MAX }>(confined)
+        .expect("invalid strict contract data");
+    let contract = contract.validate(resolver).expect("invalid contract state");
 
-    let _ = unsafe {
-        stock
-            .import_contract_force(contract.clone(), resolver)
-            .expect("")
-    };
+    stock
+        .import_contract(contract.clone(), resolver)
+        .expect("import contract failed");
+
     Ok(contract)
 }

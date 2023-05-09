@@ -60,6 +60,23 @@ async fn allow_issuer_transfer_asset() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
+async fn allow_issuer_sign_psbt() -> anyhow::Result<()> {
+    let issuer_keys = save_mnemonic(ISSUER_MNEMONIC, "").await?;
+    let issuer_resp = issuer_issue_contract(false).await?;
+    let psbt_resp = create_new_psbt(issuer_keys.clone(), issuer_resp).await?;
+
+    let original_psbt = Psbt::from_str(&psbt_resp.psbt)?;
+    let final_psbt = PartiallySignedTransaction::from(original_psbt);
+
+    let issuer_wallet = get_wallet(&issuer_keys.private.rgb_assets_descriptor_xprv, None).await?;
+    synchronize_wallet(&issuer_wallet).await?;
+
+    let sign = sign_psbt(&issuer_wallet, final_psbt).await;
+    assert!(sign.is_ok());
+    Ok(())
+}
+
+#[tokio::test]
 async fn allow_beneficiary_accept_tranfer() -> anyhow::Result<()> {
     let issuer_keys = save_mnemonic(ISSUER_MNEMONIC, "").await?;
     let issuer_resp = issuer_issue_contract(false).await?;
@@ -83,23 +100,6 @@ async fn allow_beneficiary_accept_tranfer() -> anyhow::Result<()> {
 
     let resp = accept_transfer(&sk, request).await;
     assert!(resp.is_ok());
-    Ok(())
-}
-
-#[tokio::test]
-async fn allow_issuer_sign_psbt() -> anyhow::Result<()> {
-    let issuer_keys = save_mnemonic(ISSUER_MNEMONIC, "").await?;
-    let issuer_resp = issuer_issue_contract(false).await?;
-    let psbt_resp = create_new_psbt(issuer_keys.clone(), issuer_resp).await?;
-
-    let original_psbt = Psbt::from_str(&psbt_resp.psbt)?;
-    let final_psbt = PartiallySignedTransaction::from(original_psbt);
-
-    let issuer_wallet = get_wallet(&issuer_keys.private.rgb_assets_descriptor_xprv, None).await?;
-    synchronize_wallet(&issuer_wallet).await?;
-
-    let sign = sign_psbt(&issuer_wallet, final_psbt).await;
-    assert!(sign.is_ok());
     Ok(())
 }
 

@@ -41,57 +41,56 @@ pub async fn prefetch_resolve_watcher(
 #[cfg(not(target_arch = "wasm32"))]
 pub async fn prefetch_resolve_txs(txids: Vec<Txid>, explorer: &mut ExplorerResolver) {}
 
-pub fn prefetch_result<R: ResolveTx>(expected: Txid, txid: Txid, explorer: &mut R) {
-    assert_eq!(expected, explorer.resolve_tx(txid).expect("").txid());
-}
-
 #[cfg(target_arch = "wasm32")]
 pub async fn prefetch_resolve_commit_utxo(contract: &str, explorer: &mut ExplorerResolver) {
     let esplora_client: EsploraBlockchain = EsploraBlockchain::new(&explorer.explorer_url, 100);
     let serialized = if contract.starts_with("rgb1") {
-        let (_, serialized, _) = decode(contract).expect("");
-        Vec::<u8>::from_base32(&serialized).expect("invalid hex")
+        let (_, serialized, _) =
+            decode(contract).expect("invalid serialized contract (bech32m format)");
+        Vec::<u8>::from_base32(&serialized).expect("invalid hexadecimal contract (bech32m format)")
     } else {
-        Vec::<u8>::from_hex(contract).expect("invalid hex")
+        Vec::<u8>::from_hex(contract).expect("invalid hexadecimal contract (baid58 format)")
     };
 
-    let confined = Confined::try_from_iter(serialized.iter().copied()).expect("");
-    let contract = Contract::from_strict_serialized::<{ usize::MAX }>(confined).expect("");
+    let confined = Confined::try_from_iter(serialized.iter().copied())
+        .expect("invalid strict serialized data");
+    let contract = Contract::from_strict_serialized::<{ usize::MAX }>(confined)
+        .expect("invalid strict contract data");
 
     for anchor_bundle in contract.bundles {
-        let transaction_id =
-            &bitcoin::Txid::from_str(&anchor_bundle.anchor.txid.to_hex()).expect("");
+        let transaction_id = &bitcoin::Txid::from_str(&anchor_bundle.anchor.txid.to_hex())
+            .expect("invalid transaction ID");
 
-        let tx = esplora_client
+        let tx_raw = esplora_client
             .get_tx(transaction_id)
             .await
             .expect("service unavaliable");
 
-        match tx {
-            Some(tx) => {
-                let new_tx = Tx {
-                    version: TxVer::from_consensus_i32(tx.version),
-                    inputs: VarIntArray::try_from_iter(tx.input.into_iter().map(|txin| TxIn {
+        if let Some(tx) = tx_raw {
+            let new_tx = Tx {
+                version: TxVer::from_consensus_i32(tx.version),
+                inputs: VarIntArray::try_from_iter(tx.input.into_iter().map(|txin| {
+                    TxIn {
                         prev_output: Outpoint::new(
-                            BpTxid::from_str(&txin.previous_output.txid.to_hex()).expect(""),
+                            BpTxid::from_str(&txin.previous_output.txid.to_hex())
+                                .expect("invalid transaction ID"),
                             txin.previous_output.vout,
                         ),
                         sig_script: txin.script_sig.to_bytes().into(),
                         sequence: SeqNo::from_consensus_u32(txin.sequence.to_consensus_u32()),
                         witness: Witness::from_consensus_stack(txin.witness.to_vec()),
-                    }))
-                    .expect("consensus-invalid transaction"),
-                    outputs: VarIntArray::try_from_iter(tx.output.into_iter().map(|txout| TxOut {
-                        value: txout.value.into(),
-                        script_pubkey: txout.script_pubkey.to_bytes().into(),
-                    }))
-                    .expect("consensus-invalid transaction"),
-                    lock_time: LockTime::from_consensus_u32(tx.lock_time.0),
-                };
+                    }
+                }))
+                .expect("consensus-invalid transaction"),
+                outputs: VarIntArray::try_from_iter(tx.output.into_iter().map(|txout| TxOut {
+                    value: txout.value.into(),
+                    script_pubkey: txout.script_pubkey.to_bytes().into(),
+                }))
+                .expect("consensus-invalid transaction"),
+                lock_time: LockTime::from_consensus_u32(tx.lock_time.0),
+            };
 
-                explorer.bp_txs.insert(anchor_bundle.anchor.txid, new_tx);
-            }
-            _ => {}
+            explorer.bp_txs.insert(anchor_bundle.anchor.txid, new_tx);
         }
     }
 }
@@ -100,17 +99,14 @@ pub async fn prefetch_resolve_commit_utxo(contract: &str, explorer: &mut Explore
 pub async fn prefetch_resolve_psbt_tx(asset_utxo: &str, explorer: &mut ExplorerResolver) {
     let esplora_client: EsploraBlockchain = EsploraBlockchain::new(&explorer.explorer_url, 100);
 
-    let outpoint: OutPoint = asset_utxo.parse().expect("");
+    let outpoint: OutPoint = asset_utxo.parse().expect("invalid outpoint format");
     let txid = outpoint.txid;
-    match esplora_client
+    if let Some(tx) = esplora_client
         .get_tx(&txid)
         .await
         .expect("service unavaliable")
     {
-        Some(tx) => {
-            explorer.txs.insert(txid, tx);
-        }
-        _ => {}
+        explorer.txs.insert(txid, tx);
     }
 }
 
@@ -131,20 +127,17 @@ pub async fn prefetch_resolve_spend(
 
     if !utxos.is_empty() {
         for utxo in utxos {
-            let txid =
-                bitcoin_hashes::hex::FromHex::from_hex(&utxo.outpoint.txid.to_hex()).expect("");
-            match esplora_client
+            let txid = bitcoin_hashes::hex::FromHex::from_hex(&utxo.outpoint.txid.to_hex())
+                .expect("invalid outpoint format");
+            if let Some(status) = esplora_client
                 .get_output_status(&txid, utxo.outpoint.vout.into_u32().into())
                 .await
                 .expect("service unavaliable")
             {
-                Some(status) => {
-                    if status.spent {
-                        explorer.next_utxo = utxo.outpoint.to_string();
-                        break;
-                    }
+                if status.spent {
+                    explorer.next_utxo = utxo.outpoint.to_string();
+                    break;
                 }
-                _ => {}
             }
         }
     }
@@ -205,7 +198,7 @@ pub async fn prefetch_resolve_watcher(
                         _ => MiningStatus::Mempool,
                     };
                     let outpoint = Outpoint::new(
-                        bp::Txid::from_str(&tx.txid.to_hex()).expect(""),
+                        bp::Txid::from_str(&tx.txid.to_hex()).expect("invalid transactionID parse"),
                         index as u32,
                     );
                     let new_utxo = Utxo {
@@ -231,15 +224,12 @@ pub async fn prefetch_resolve_watcher(
 pub async fn prefetch_resolve_txs(txids: Vec<Txid>, explorer: &mut ExplorerResolver) {
     let esplora_client = EsploraBlockchain::new(&explorer.explorer_url, 100);
     for txid in txids {
-        match esplora_client
+        if let Some(tx) = esplora_client
             .get_tx(&txid)
             .await
             .expect("service unavaliable")
         {
-            Some(tx) => {
-                explorer.txs.insert(txid, tx);
-            }
-            _ => {}
+            explorer.txs.insert(txid, tx);
         }
     }
 }
