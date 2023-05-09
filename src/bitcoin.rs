@@ -1,11 +1,11 @@
 use std::str::FromStr;
 
-pub use ::bitcoin::util::address::Address;
+use ::bitcoin::util::address::Address;
 use ::psbt::Psbt;
-use anyhow::Result;
-pub use bdk::{wallet::AddressIndex, FeeRate, LocalUtxo, TransactionDetails};
+use anyhow::{anyhow, Result};
+use bdk::{wallet::AddressIndex, FeeRate, LocalUtxo, TransactionDetails};
 use bitcoin::psbt::PartiallySignedTransaction;
-pub use bitcoin_hashes::{sha256, Hash};
+use bitcoin_hashes::{sha256, Hash};
 use serde_encrypt::{
     serialize::impls::BincodeSerializer, shared_key::SharedKey, traits::SerdeEncryptSharedKey,
     AsSharedKey, EncryptedMessage,
@@ -18,6 +18,7 @@ mod payment;
 mod psbt;
 mod wallet;
 
+use crate::structs::EncryptedWalletDataV04;
 use crate::structs::{SignPsbtRequest, SignPsbtResponse};
 pub use crate::{
     bitcoin::{
@@ -36,7 +37,11 @@ pub use crate::{
 };
 
 impl SerdeEncryptSharedKey for EncryptedWalletData {
-    type S = BincodeSerializer<Self>; // you can specify serializer implementation (or implement it by yourself).
+    type S = BincodeSerializer<Self>;
+}
+
+impl SerdeEncryptSharedKey for EncryptedWalletDataV04 {
+    type S = BincodeSerializer<Self>;
 }
 
 /// Bitcoin Wallet Operations
@@ -50,10 +55,54 @@ pub fn get_encrypted_wallet(
     let shared_key: [u8; 32] = hash.into_inner();
     let encrypted_descriptors: Vec<u8> = hex::decode(encrypted_descriptors)?;
     let encrypted_message = EncryptedMessage::deserialize(encrypted_descriptors)?;
+
     Ok(EncryptedWalletData::decrypt_owned(
         &encrypted_message,
         &SharedKey::from_array(shared_key),
     )?)
+}
+
+pub async fn upgrade_wallet(
+    password: &str,
+    encrypted_descriptors: &str,
+    seed_password: &str,
+) -> Result<String> {
+    // read hash digest and consume hasher
+    let hash = sha256::Hash::hash(password.as_bytes());
+    let shared_key: [u8; 32] = hash.into_inner();
+    let encrypted_descriptors: Vec<u8> = hex::decode(encrypted_descriptors)?;
+    let encrypted_message = EncryptedMessage::deserialize(encrypted_descriptors)?;
+
+    let descriptor = match EncryptedWalletData::decrypt_owned(
+        &encrypted_message,
+        &SharedKey::from_array(shared_key),
+    ) {
+        Ok(_data) => None,
+        Err(_err) => {
+            // If there's a deserialization error, attempt to recover just the mnemnonic.
+            let recovered_wallet_data = EncryptedWalletDataV04::decrypt_owned(
+                &encrypted_message,
+                &SharedKey::from_array(shared_key),
+            )?;
+
+            // println!("Recovered wallet data: {recovered_wallet_data:?}"); // Keep commented out for security
+
+            let upgraded_descriptor =
+                save_mnemonic_seed(&recovered_wallet_data.mnemonic, password, seed_password)
+                    .await?;
+
+            Some(upgraded_descriptor.serialized_encrypted_message)
+        }
+    };
+
+    // if descriptor.is_none() {
+    //     todo!("Add later version migrations here");
+    // }
+
+    match descriptor {
+        Some(result) => Ok(result),
+        None => Err(anyhow!("Descriptor does not need to be upgraded")),
+    }
 }
 
 pub async fn new_mnemonic_seed(
@@ -67,7 +116,7 @@ pub async fn new_mnemonic_seed(
     let encrypted_message = encrypted_wallet_data.encrypt(&SharedKey::from_array(shared_key))?;
     let serialized_encrypted_message = hex::encode(encrypted_message.serialize());
     let mnemonic_seed_data = MnemonicSeedData {
-        mnemonic: encrypted_wallet_data.private.mnemonic,
+        mnemonic: encrypted_wallet_data.mnemonic,
         serialized_encrypted_message,
     };
 
@@ -86,7 +135,7 @@ pub async fn save_mnemonic_seed(
     let encrypted_message = vault_data.encrypt(&SharedKey::from_array(shared_key))?;
     let serialized_encrypted_message = hex::encode(encrypted_message.serialize());
     let mnemonic_seed_data = MnemonicSeedData {
-        mnemonic: vault_data.private.mnemonic,
+        mnemonic: vault_data.mnemonic,
         serialized_encrypted_message,
     };
 

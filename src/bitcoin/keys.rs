@@ -136,7 +136,6 @@ pub async fn get_mnemonic(
         rgb_udas_descriptor_xprv,
         nostr_prv,
         nostr_nsec,
-        mnemonic: mnemonic_phrase.to_string(),
     };
 
     let public = PublicWalletData {
@@ -151,5 +150,9 @@ pub async fn get_mnemonic(
         xpub: xpub_plain,
     };
 
-    Ok(EncryptedWalletData { private, public })
+    Ok(EncryptedWalletData {
+        mnemonic: mnemonic_phrase.to_string(),
+        private,
+        public,
+    })
 }
