@@ -125,6 +125,18 @@ pub struct ImportRequest {
 pub struct ImportResponse {
     /// The contract id
     pub contract_id: String,
+    /// Ticker of the asset
+    pub ticker: String,
+    /// Name of the asset
+    pub name: String,
+    /// Description of the asset
+    pub description: String,
+    /// Precision of the asset
+    pub precision: String,
+    /// Amount of the asset
+    pub supply: u64,
+    /// Seal of the initial owner
+    pub seal: String,
     /// The contract interfaces
     pub ifaces: Vec<String>,
 }

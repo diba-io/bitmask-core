@@ -9,6 +9,7 @@ use bitcoin_scripts::address::AddressNetwork;
 use miniscript_crate::DescriptorPublicKey;
 use rgbstd::{
     containers::BindleContent,
+    interface::IfaceId,
     persistence::{Inventory, Stash},
 };
 use strict_encoding::{tn, StrictSerialize, TypeName};
@@ -321,12 +322,57 @@ pub async fn import(sk: &str, request: ImportRequest) -> Result<ImportResponse> 
     prefetch_resolve_commit_utxo(&data, &mut resolver).await;
 
     let contract = import_contract(&data, &mut stock, &mut resolver)?;
-
     let ifaces: Vec<String> = contract.ifaces.keys().map(|f| f.to_string()).collect();
+    let iface_id = IfaceId::from_str(&ifaces[0]).expect("iface parse error");
+
+    let contract_iface = stock
+        .contract_iface(contract.contract_id(), iface_id.to_owned())
+        .expect("invalid contracts state");
+    let ty: TypeName = tn!("Ticker");
+    let ticker = match contract_iface.global(ty) {
+        Ok(values) => values.to_vec()[0].to_string(),
+        _ => String::new(),
+    };
+
+    let ty: TypeName = tn!("Name");
+    let name = match contract_iface.global(ty) {
+        Ok(values) => values.to_vec()[0].to_string(),
+        _ => String::new(),
+    };
+
+    let ty: TypeName = tn!("Details");
+    let description = match contract_iface.global(ty) {
+        Ok(values) => values.to_vec()[0].to_string(),
+        _ => String::new(),
+    };
+
+    let ty: TypeName = tn!("Precision");
+    let precision = match contract_iface.global(ty) {
+        Ok(values) => values.to_vec()[0].to_string(),
+        _ => String::new(),
+    };
+
+    let mut supply = 0;
+    let mut seal = String::new();
+    for owned in &contract_iface.iface.assignments {
+        if let Ok(allocations) = contract_iface.fungible(owned.name.clone()) {
+            for allocation in allocations {
+                supply = allocation.value;
+                seal = allocation.owner.to_string();
+            }
+        }
+    }
+
     store_stock(sk, ASSETS_STOCK, &stock).await?;
 
     let resp = ImportResponse {
         contract_id: contract.contract_id().to_string(),
+        ticker,
+        name,
+        description,
+        precision: precision,
+        supply,
+        seal,
         ifaces,
     };
     Ok(resp)
