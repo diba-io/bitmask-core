@@ -2,7 +2,7 @@
 use std::str::FromStr;
 
 use bdk::wallet::AddressIndex;
-use bitcoin::psbt::PartiallySignedTransaction;
+use bitcoin::{consensus, psbt::PartiallySignedTransaction, Transaction};
 use bitmask_core::{
     bitcoin::{get_wallet, save_mnemonic, sign_psbt, sign_psbt_file, synchronize_wallet},
     rgb::{
@@ -15,6 +15,7 @@ use bitmask_core::{
         RgbTransferRequest, RgbTransferResponse, SignPsbtRequest, WatcherRequest,
     },
 };
+use futures::executor::block_on;
 use psbt::Psbt;
 
 use super::utils::ISSUER_MNEMONIC;
@@ -232,4 +233,20 @@ async fn create_new_transfer(
     let sk = issuer_keys.private.nostr_prv;
     let resp = transfer_asset(&sk, transfer_req).await;
     resp
+}
+
+#[tokio::test]
+async fn test_blocking_server() -> anyhow::Result<()> {
+    let txid = bitcoin::Txid::from_str(
+        "6a64b7ed232f6d66409ad6716f51b5915ca999b3da356d924aae48dc7fcd3e04",
+    )?;
+
+    block_on(async {
+        let final_url = &format!("{}/tx/{}/raw", "https://mempool.space/testnet/api", txid);
+        let result = surf::get(final_url).recv_bytes().await.expect("");
+        let tx: Transaction = consensus::deserialize::<Transaction>(&result).expect("");
+        println!("{:?}", tx);
+    });
+
+    Ok(())
 }

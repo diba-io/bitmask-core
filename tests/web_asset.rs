@@ -1,9 +1,7 @@
 #![allow(unused_imports)]
 #![allow(unused_variables)]
 #![cfg(all(target_arch = "wasm32"))]
-use wasm_bindgen::prelude::*;
-use wasm_bindgen_test::*;
-
+use bitcoin::{consensus, Transaction};
 use bitmask_core::{
     debug, info,
     structs::{
@@ -17,11 +15,31 @@ use bitmask_core::{
         set_panic_hook,
     },
 };
+use futures::executor::block_on;
+use std::str::FromStr;
+use wasm_bindgen::prelude::*;
+use wasm_bindgen_test::*;
 
 wasm_bindgen_test_configure!(run_in_browser);
 
 const ENCRYPTION_PASSWORD: &str = "hunter2";
 const SEED_PASSWORD: &str = "";
+
+#[wasm_bindgen_test]
+async fn test_blocking_client() -> anyhow::Result<()> {
+    let txid = bitcoin::Txid::from_str(
+        "6a64b7ed232f6d66409ad6716f51b5915ca999b3da356d924aae48dc7fcd3e04",
+    )?;
+
+    block_on(async {
+        let final_url = &format!("{}/tx/{}/raw", "https://mempool.space/testnet/api", txid);
+        let result = surf::get(final_url).recv_bytes().await.expect("");
+        let tx: Transaction = consensus::deserialize::<Transaction>(&result).expect("");
+        println!("{:?}", tx);
+    });
+
+    Ok(())
+}
 
 #[wasm_bindgen_test]
 async fn contract_import() {
