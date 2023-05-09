@@ -1,11 +1,13 @@
 #![allow(unused_imports)]
 #![allow(unused_variables)]
 #![cfg(all(target_arch = "wasm32"))]
-use wasm_bindgen::prelude::*;
-use wasm_bindgen_test::*;
+use std::{assert_eq, str::FromStr, vec};
 
+use bdk::blockchain::EsploraBlockchain;
+use bitcoin::{consensus, Transaction};
 use bitmask_core::{
     debug, info,
+    rgb::{prefetch::prefetch_resolve_txs, prefetch::prefetch_result, resolvers::ExplorerResolver},
     structs::{
         EncryptedWalletData, FundVaultDetails, ImportRequest, ImportType, MnemonicSeedData,
         WalletData,
@@ -17,11 +19,30 @@ use bitmask_core::{
         set_panic_hook,
     },
 };
+use wasm_bindgen::prelude::*;
+use wasm_bindgen_futures::JsFuture;
+use wasm_bindgen_test::*;
+use web_sys::console;
 
 wasm_bindgen_test_configure!(run_in_browser);
 
 const ENCRYPTION_PASSWORD: &str = "hunter2";
 const SEED_PASSWORD: &str = "";
+
+#[wasm_bindgen_test]
+async fn test_prefetch() -> anyhow::Result<()> {
+    set_panic_hook();
+    let txid = bitcoin::Txid::from_str(
+        "6a64b7ed232f6d66409ad6716f51b5915ca999b3da356d924aae48dc7fcd3e04",
+    )?;
+    let final_url = "https://mempool.space/testnet/api";
+    let mut resolver = ExplorerResolver::default();
+    resolver.explorer_url = final_url.to_string();
+
+    prefetch_resolve_txs(vec![txid], &mut resolver).await;
+    prefetch_result(txid, txid, &mut resolver);
+    Ok(())
+}
 
 #[wasm_bindgen_test]
 async fn contract_import() {

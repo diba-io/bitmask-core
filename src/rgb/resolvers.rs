@@ -1,32 +1,36 @@
+#![allow(unused_imports)]
+#![allow(unused_variables)]
+use amplify::hex::ToHex;
+use bitcoin::Script;
+use bp::{LockTime, Outpoint, SeqNo, Tx, TxIn, TxOut, TxVer, Txid, VarIntArray, Witness};
+use rgb::{prelude::DeriveInfo, MiningStatus, Utxo};
+use rgbstd::{resolvers::ResolveHeight, validation::ResolveTx as ResolveCommiment};
 use std::{
-    collections::{BTreeMap, BTreeSet},
+    collections::{BTreeMap, BTreeSet, HashMap},
     convert::Infallible,
     str::FromStr,
 };
-
-use amplify::hex::ToHex;
-use bdk::esplora_client;
-use bitcoin::Script;
-use bp::{LockTime, Outpoint, SeqNo, Tx, TxIn, TxOut, TxVer, Txid, VarIntArray, Witness};
-use rgb::{
-    prelude::{DeriveInfo, MiningStatus},
-    Utxo,
-};
-use rgbstd::{resolvers::ResolveHeight, validation::ResolveTx as ResolveCommiment};
 use wallet::onchain::{ResolveTx, TxResolverError};
 
+#[derive(Default)]
 pub struct ExplorerResolver {
     pub explorer_url: String,
+    // Prefetch Data (wasm32)
+    pub utxos: BTreeSet<Utxo>,
+    pub next_utxo: String,
+    pub txs: HashMap<bitcoin::Txid, bitcoin::Transaction>,
+    pub bp_txs: HashMap<Txid, Tx>,
 }
 
 impl rgb::Resolver for ExplorerResolver {
+    #[cfg(not(target_arch = "wasm32"))]
     fn resolve_utxo<'s>(
         &mut self,
         scripts: BTreeMap<DeriveInfo, bitcoin_30::ScriptBuf>,
     ) -> Result<BTreeSet<rgb::prelude::Utxo>, String> {
         let mut utxos = bset![];
         // TODO: Find a way to run async function synchronously (wasm32)
-        let explorer_client = esplora_client::Builder::new(&self.explorer_url)
+        let explorer_client = esplora_block::Builder::new(&self.explorer_url)
             .build_blocking()
             .expect("service unavaliable");
         // TODO: Remove that after bitcoin v.30 full compatibility
@@ -71,21 +75,38 @@ impl rgb::Resolver for ExplorerResolver {
 
         Ok(utxos)
     }
+
+    #[cfg(target_arch = "wasm32")]
+    fn resolve_utxo<'s>(
+        &mut self,
+        scripts: BTreeMap<DeriveInfo, bitcoin_30::ScriptBuf>,
+    ) -> Result<BTreeSet<rgb::prelude::Utxo>, String> {
+        Ok(self.utxos.clone())
+    }
 }
 
 impl ResolveTx for ExplorerResolver {
+    // #[cfg(not(target_arch = "wasm32"))]
+    // fn resolve_tx(
+    //     &self,
+    //     txid: bitcoin::Txid,
+    // ) -> Result<bitcoin::Transaction, wallet::onchain::TxResolverError> {
+    //     let explorer_client = esplora_block::Builder::new(&self.explorer_url)
+    //         .build_blocking()
+    //         .expect("service unavaliable");
+
+    //     match explorer_client.get_tx(&txid).expect("service unavaliable") {
+    //         Some(tx) => Ok(tx),
+    //         _ => Err(TxResolverError { txid, err: none!() }),
+    //     }
+    // }
+
     fn resolve_tx(
         &self,
         txid: bitcoin::Txid,
     ) -> Result<bitcoin::Transaction, wallet::onchain::TxResolverError> {
-        // TODO: Find a way to run async function synchronously (wasm32)
-        let explorer_client = esplora_client::Builder::new(&self.explorer_url)
-            .build_blocking()
-            .expect("service unavaliable");
-
-        // TODO: Review that!
-        match explorer_client.get_tx(&txid).expect("service unavaliable") {
-            Some(tx) => Ok(tx),
+        match self.txs.get(&txid) {
+            Some(tx) => Ok(tx.to_owned()),
             _ => Err(TxResolverError { txid, err: none!() }),
         }
     }
@@ -101,9 +122,10 @@ impl ResolveHeight for ExplorerResolver {
 
 // TODO: Review after migrate to rust-bitcoin v0.30
 impl ResolveCommiment for ExplorerResolver {
+    #[cfg(not(target_arch = "wasm32"))]
     fn resolve_tx(&self, txid: Txid) -> Result<Tx, rgbstd::validation::TxResolverError> {
         // TODO: Find a way to run async function synchronously (wasm32)
-        let explorer_client = esplora_client::Builder::new(&self.explorer_url)
+        let explorer_client = esplora_block::Builder::new(&self.explorer_url)
             .build_blocking()
             .expect("service unavaliable");
 
@@ -132,6 +154,14 @@ impl ResolveCommiment for ExplorerResolver {
             lock_time: LockTime::from_consensus_u32(tx.lock_time.0),
         })
     }
+
+    #[cfg(target_arch = "wasm32")]
+    fn resolve_tx(&self, txid: Txid) -> Result<Tx, rgbstd::validation::TxResolverError> {
+        match self.bp_txs.get(&txid) {
+            Some(tx) => Ok(tx.clone()),
+            _ => Err(rgbstd::validation::TxResolverError::Unknown(txid)),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Display, Error, From)]
@@ -153,13 +183,13 @@ pub trait ResolveSpent {
 
 impl ResolveSpent for ExplorerResolver {
     type Error = SpendResolverError;
+    #[cfg(not(target_arch = "wasm32"))]
     fn resolve_spent_status(
         &mut self,
         txid: bitcoin::Txid,
         index: u64,
     ) -> Result<bool, Self::Error> {
-        // TODO: Find a way to run async function synchronously (wasm32)
-        let explorer_client = esplora_client::Builder::new(&self.explorer_url)
+        let explorer_client = esplora_block::Builder::new(&self.explorer_url)
             .build_blocking()
             .expect("service unavaliable");
         match explorer_client
@@ -169,5 +199,14 @@ impl ResolveSpent for ExplorerResolver {
             Some(status) => Ok(status.spent),
             _ => Err(SpendResolverError::Unknown(txid)),
         }
+    }
+    #[cfg(target_arch = "wasm32")]
+    fn resolve_spent_status(
+        &mut self,
+        txid: bitcoin::Txid,
+        index: u64,
+    ) -> Result<bool, Self::Error> {
+        let outpoint = format!("{}:{}", txid.to_hex(), index.to_string());
+        Ok(self.next_utxo == outpoint)
     }
 }

@@ -134,8 +134,7 @@ async fn issuer_issue_contract(force: bool) -> Result<IssueResponse, anyhow::Err
         iface: "RGB20".to_string(),
     };
 
-    let resp = issue_contract(&sk, request).await;
-    resp
+    issue_contract(&sk, request).await
 }
 
 async fn create_new_invoice(issuer_resp: IssueResponse) -> Result<InvoiceResponse, anyhow::Error> {
@@ -172,8 +171,7 @@ async fn create_new_invoice(issuer_resp: IssueResponse) -> Result<InvoiceRespons
         seal,
     };
 
-    let resp = create_invoice(&nostr_sk, invoice_req).await;
-    resp
+    create_invoice(&nostr_sk, invoice_req).await
 }
 
 async fn create_new_psbt(
@@ -214,8 +212,7 @@ async fn create_new_psbt(
         input_tweak: None,
     };
 
-    let resp = create_psbt(&sk, req).await;
-    resp
+    create_psbt(&sk, req).await
 }
 
 async fn create_new_transfer(
@@ -230,6 +227,6 @@ async fn create_new_transfer(
     };
 
     let sk = issuer_keys.private.nostr_prv;
-    let resp = transfer_asset(&sk, transfer_req).await;
-    resp
+
+    transfer_asset(&sk, transfer_req).await
 }

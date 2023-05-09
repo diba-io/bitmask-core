@@ -33,7 +33,7 @@ pub async fn send_some_coins(address: &str, amount: &str) {
     let full_file = format!("{}/tests/scripts/send_coins.sh", path);
     Command::new("bash")
         .arg(full_file)
-        .args(&[address, amount])
+        .args([address, amount])
         .stdout(Stdio::null())
         // .stderr(Stdio::null())
         .spawn()

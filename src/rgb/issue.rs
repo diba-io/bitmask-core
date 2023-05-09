@@ -66,11 +66,13 @@ where
         Err(_) => return Err(IssueError::ContractInvalid(resp.contract_id().to_string())),
     };
 
-    stock
-        .import_contract(resp.clone(), &mut resolver)
-        .or(Err(IssueError::ImportContract(
-            resp.contract_id().to_string(),
-        )))?;
+    unsafe {
+        stock
+            .import_contract_force(resp.clone(), &mut resolver)
+            .or(Err(IssueError::ImportContract(
+                resp.contract_id().to_string(),
+            )))
+    }?;
 
     Ok(resp)
 }

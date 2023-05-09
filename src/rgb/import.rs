@@ -33,6 +33,10 @@ where
     let contract = Contract::from_strict_serialized::<{ usize::MAX }>(confined).expect("");
     let contract = contract.validate(resolver).expect("");
 
-    let _ = stock.import_contract(contract.clone(), resolver).expect("");
+    let _ = unsafe {
+        stock
+            .import_contract_force(contract.clone(), resolver)
+            .expect("")
+    };
     Ok(contract)
 }

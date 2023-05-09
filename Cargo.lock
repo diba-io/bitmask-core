@@ -352,6 +352,7 @@ dependencies = [
  "bdk-macros",
  "bitcoin 0.29.2",
  "esplora-client",
+ "futures",
  "getrandom",
  "js-sys",
  "log",
@@ -545,6 +546,7 @@ dependencies = [
  "console_error_panic_hook",
  "deflate",
  "descriptor-wallet",
+ "esplora-client",
  "futures",
  "gloo-console",
  "gloo-net",
@@ -1181,6 +1183,7 @@ checksum = "847e59bd6ee1c3f2bdf217118ee3640b97a1b1d8becb55771e67e533b87da66f"
 dependencies = [
  "bitcoin 0.29.2",
  "log",
+ "reqwest",
  "serde",
  "ureq",
 ]
