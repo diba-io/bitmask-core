@@ -7,9 +7,11 @@ use bitmask_core::{
 };
 use tokio::process::Command;
 
+#[allow(dead_code)]
 pub const REGTEST_MNEMONIC: &str =
     "ordinary crucial edit settle pencil lion appear unlock left fly century license";
 
+#[allow(dead_code)]
 pub async fn start_node() {
     let path = env::current_dir().expect("");
     let path = path.to_str().expect("");
@@ -25,6 +27,7 @@ pub async fn start_node() {
         .expect("");
 }
 
+#[allow(dead_code)]
 pub async fn stop_node() {
     let path = env::current_dir().expect("");
     let path = path.to_str().expect("");
@@ -40,6 +43,7 @@ pub async fn stop_node() {
         .expect("");
 }
 
+#[allow(dead_code)]
 pub async fn send_some_coins(address: &str, amount: &str) {
     let path = env::current_dir().expect("");
     let path = path.to_str().expect("");
@@ -56,6 +60,7 @@ pub async fn send_some_coins(address: &str, amount: &str) {
         .expect("");
 }
 
+#[allow(dead_code)]
 pub async fn setup_integration() -> anyhow::Result<EncryptedWalletData> {
     if env::var("RESET_DOCKER_ENV").is_ok() {
         // Start Node
@@ -75,6 +80,7 @@ pub async fn setup_integration() -> anyhow::Result<EncryptedWalletData> {
     Ok(vault_data)
 }
 
+#[allow(dead_code)]
 pub async fn shutdown_integration() -> anyhow::Result<()> {
     if env::var("RESET_DOCKER_ENV").is_ok() {
         // Start Node
