@@ -111,11 +111,17 @@ pub mod bitcoin {
     }
 
     #[wasm_bindgen]
-    pub fn upgrade_wallet(password: String, encrypted_descriptors: String) -> Promise {
+    pub fn upgrade_wallet(
+        password: String,
+        encrypted_descriptors: String,
+        seed_password: String,
+    ) -> Promise {
         set_panic_hook();
 
         future_to_promise(async move {
-            match crate::bitcoin::upgrade_wallet(&password, &encrypted_descriptors) {
+            match crate::bitcoin::upgrade_wallet(&password, &encrypted_descriptors, &seed_password)
+                .await
+            {
                 Ok(result) => Ok(JsValue::from_string(
                     serde_json::to_string(&result).unwrap(),
                 )),

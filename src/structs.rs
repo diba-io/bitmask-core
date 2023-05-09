@@ -51,9 +51,9 @@ pub struct PublicWalletData {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct EncryptedWalletData {
+    pub mnemonic: String,
     pub private: PrivateWalletData,
     pub public: PublicWalletData,
-    pub mnemonic: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
