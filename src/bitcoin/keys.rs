@@ -137,8 +137,8 @@ pub async fn get_mnemonic(
     };
 
     Ok(EncryptedWalletData {
+        mnemonic: mnemonic_phrase.to_string(),
         private,
         public,
-        mnemonic: mnemonic_phrase.to_string(),
     })
 }
