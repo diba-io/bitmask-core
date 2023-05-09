@@ -70,9 +70,11 @@ pub async fn upgrade_wallet(
     let encrypted_descriptors: Vec<u8> = hex::decode(encrypted_descriptors)?;
     let encrypted_message = EncryptedMessage::deserialize(encrypted_descriptors)?;
 
-    match EncryptedWalletData::decrypt_owned(&encrypted_message, &SharedKey::from_array(shared_key))
-    {
-        Ok(_data) => Err(anyhow!("Descriptor does not need to be upgraded")),
+    let descriptor = match EncryptedWalletData::decrypt_owned(
+        &encrypted_message,
+        &SharedKey::from_array(shared_key),
+    ) {
+        Ok(_data) => None,
         Err(_err) => {
             // If there's a deserialization error, attempt to recover just the mnemnonic.
             let recovered_wallet_data = EncryptedWalletDataV04::decrypt_owned(
@@ -86,8 +88,17 @@ pub async fn upgrade_wallet(
                 save_mnemonic_seed(&recovered_wallet_data.mnemonic, password, seed_password)
                     .await?;
 
-            Ok(upgraded_descriptor.serialized_encrypted_message)
+            Some(upgraded_descriptor.serialized_encrypted_message)
         }
+    };
+
+    // if descriptor.is_none() {
+    //     todo!("Add later version migrations here");
+    // }
+
+    match descriptor {
+        Some(result) => Ok(result),
+        None => Err(anyhow!("Descriptor does not need to be upgraded")),
     }
 }
 
