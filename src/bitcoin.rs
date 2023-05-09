@@ -93,7 +93,7 @@ pub async fn upgrade_wallet(
     };
 
     // if descriptor.is_none() {
-
+    //     todo!("Add later version migrations here");
     // }
 
     match descriptor {
