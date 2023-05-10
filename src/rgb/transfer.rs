@@ -62,7 +62,7 @@ pub fn create_invoice(
         _ => return Err(InvoiceError::InvalidBlindSeal),
     };
 
-    // Generate Contract
+    // Generate Invoice
     let invoice = RgbInvoice {
         transport: RgbTransport::UnspecifiedMeans,
         contract: Some(contract_id),
