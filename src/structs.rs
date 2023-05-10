@@ -46,6 +46,7 @@ pub struct PublicWalletData {
     pub xprvkh: String,
     pub xpubkh: String,
     pub xpub: String,
+    pub watcher_xpub: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

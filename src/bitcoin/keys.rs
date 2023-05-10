@@ -50,7 +50,7 @@ fn xpub_desc(xprv: &ExtendedPrivKey, path: &str, change: u32) -> Result<String> 
     Ok(format!("tr({xpub})"))
 }
 
-fn xpub_plain(xprv: &ExtendedPrivKey, path: &str, change: u32) -> Result<String> {
+fn watcher_xpub(xprv: &ExtendedPrivKey, path: &str, change: u32) -> Result<String> {
     let secp = Secp256k1::new();
     let xprv = get_descriptor(xprv, path, change)?;
     let xpub = xprv.to_public(&secp)?;
@@ -122,7 +122,7 @@ pub async fn get_mnemonic(
     let rgb_udas_descriptor_xprv = xprv_desc(&xprv, &btc_path, 30)?;
     let rgb_assets_descriptor_xpub = xpub_desc(&xprv, &btc_path, 20)?;
     let rgb_udas_descriptor_xpub = xpub_desc(&xprv, &btc_path, 30)?;
-    let xpub_plain = xpub_plain(&xprv, &btc_path, 0)?;
+    let watcher_xpub = watcher_xpub(&xprv, &btc_path, 0)?;
 
     let (nostr_prv, nostr_pub) = nostr_keypair(&xprv, NOSTR_PATH, 0)?;
     let nostr_keys = nostr_sdk::Keys::from_sk_str(&nostr_prv)?;
@@ -147,7 +147,8 @@ pub async fn get_mnemonic(
         nostr_npub,
         xprvkh,
         xpubkh,
-        xpub: xpub_plain,
+        xpub: xpub.to_string(),
+        watcher_xpub,
     };
 
     Ok(EncryptedWalletData {

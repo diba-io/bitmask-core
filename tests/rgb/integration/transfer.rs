@@ -110,7 +110,7 @@ async fn issuer_issue_contract(force: bool) -> Result<IssueResponse, anyhow::Err
     let watcher_name = "default";
     let create_watch_req = WatcherRequest {
         name: watcher_name.to_string(),
-        xpub: issuer_keys.public.xpub.to_string(),
+        xpub: issuer_keys.public.watcher_xpub,
     };
 
     // Create Watcher
