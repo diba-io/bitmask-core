@@ -16,6 +16,7 @@ use strict_encoding::StrictDeserialize;
 use wallet::onchain::ResolveTx;
 
 use super::resolvers::ExplorerResolver;
+
 #[cfg(not(target_arch = "wasm32"))]
 pub async fn prefetch_resolve_commit_utxo(contract: &str, explorer: &mut ExplorerResolver) {}
 
@@ -68,8 +69,8 @@ pub async fn prefetch_resolve_commit_utxo(contract: &str, explorer: &mut Explore
 
         if let Some(tx) = tx_raw {
             let new_tx = Tx {
-                version: TxVer::from_consensus_i32(tx.version),
-                inputs: VarIntArray::try_from_iter(tx.input.into_iter().map(|txin| {
+                version: TxVer::from_consensus_i32(tx.clone().version),
+                inputs: VarIntArray::try_from_iter(tx.clone().input.into_iter().map(|txin| {
                     TxIn {
                         prev_output: Outpoint::new(
                             BpTxid::from_str(&txin.previous_output.txid.to_hex())
@@ -82,14 +83,17 @@ pub async fn prefetch_resolve_commit_utxo(contract: &str, explorer: &mut Explore
                     }
                 }))
                 .expect("consensus-invalid transaction"),
-                outputs: VarIntArray::try_from_iter(tx.output.into_iter().map(|txout| TxOut {
-                    value: txout.value.into(),
-                    script_pubkey: txout.script_pubkey.to_bytes().into(),
+                outputs: VarIntArray::try_from_iter(tx.clone().output.into_iter().map(|txout| {
+                    TxOut {
+                        value: txout.value.into(),
+                        script_pubkey: txout.script_pubkey.to_bytes().into(),
+                    }
                 }))
                 .expect("consensus-invalid transaction"),
                 lock_time: LockTime::from_consensus_u32(tx.lock_time.0),
             };
 
+            explorer.txs.insert(tx.txid(), tx);
             explorer.bp_txs.insert(anchor_bundle.anchor.txid, new_tx);
         }
     }
@@ -134,10 +138,10 @@ pub async fn prefetch_resolve_spend(
                 .await
                 .expect("service unavaliable")
             {
-                if status.spent {
-                    explorer.next_utxo = utxo.outpoint.to_string();
+                if !status.spent {
                     break;
                 }
+                explorer.utxos_spent.push(utxo.outpoint.to_string());
             }
         }
     }

@@ -17,7 +17,7 @@ pub struct ExplorerResolver {
     pub explorer_url: String,
     // Prefetch Data (wasm32)
     pub utxos: BTreeSet<Utxo>,
-    pub next_utxo: String,
+    pub utxos_spent: Vec<String>,
     pub txs: HashMap<bitcoin::Txid, bitcoin::Transaction>,
     pub bp_txs: HashMap<Txid, Tx>,
 }
@@ -212,6 +212,6 @@ impl ResolveSpent for ExplorerResolver {
         index: u64,
     ) -> Result<bool, Self::Error> {
         let outpoint = format!("{}:{}", txid.to_hex(), index);
-        Ok(self.next_utxo == outpoint)
+        Ok(self.utxos_spent.contains(&outpoint))
     }
 }
