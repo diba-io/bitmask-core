@@ -125,9 +125,11 @@ jobs:
           docker-compose exec -T node1 cli loadwallet default
           docker-compose exec -T node1 cli -generate 500
           docker-compose exec -T node1 cli sendtoaddress $MAIN_VAULT_ADDRESS 10
+          docker-compose exec -T node1 cli sendtoaddress $RGB_VAULT_ADDRESS 10
           docker-compose exec -T node1 cli -generate 1
         env:
           MAIN_VAULT_ADDRESS: ${{ secrets.MAIN_VAULT_ADDRESS }}
+          RGB_VAULT_ADDRESS: ${{ secrets.RGB_VAULT_ADDRESS }}
           RUST_BACKTRACE: 1
 
       - name: Run bitmaskd node
