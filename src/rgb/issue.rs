@@ -33,7 +33,7 @@ pub fn issue_contract<T>(
     supply: u64,
     iface: &str,
     seal: &str,
-    mut resolver: T,
+    resolver: &mut T,
     stock: &mut Stock,
 ) -> Result<Contract, IssueError>
 where
@@ -61,18 +61,16 @@ where
         Err(err) => return Err(IssueError::Forge(err)),
     };
 
-    let resp = match resp.clone().validate(&mut resolver) {
+    let resp = match resp.clone().validate(resolver) {
         Ok(resp) => resp,
         Err(_) => return Err(IssueError::ContractInvalid(resp.contract_id().to_string())),
     };
 
-    unsafe {
-        stock
-            .import_contract_force(resp.clone(), &mut resolver)
-            .or(Err(IssueError::ImportContract(
-                resp.contract_id().to_string(),
-            )))
-    }?;
+    stock
+        .import_contract(resp.clone(), resolver)
+        .or(Err(IssueError::ImportContract(
+            resp.contract_id().to_string(),
+        )))?;
 
     Ok(resp)
 }

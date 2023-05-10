@@ -77,7 +77,7 @@ async fn allow_issuer_sign_psbt() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
-async fn allow_beneficiary_accept_tranfer() -> anyhow::Result<()> {
+async fn allow_beneficiary_accept_transfer() -> anyhow::Result<()> {
     let issuer_keys = save_mnemonic(ISSUER_MNEMONIC, "").await?;
     let issuer_resp = issuer_issue_contract(false).await?;
     let owner_resp = create_new_invoice(issuer_resp.clone()).await?;
@@ -100,6 +100,7 @@ async fn allow_beneficiary_accept_tranfer() -> anyhow::Result<()> {
 
     let resp = accept_transfer(&sk, request).await;
     assert!(resp.is_ok());
+    assert!(resp?.valid);
     Ok(())
 }
 
@@ -144,7 +145,7 @@ async fn create_new_invoice(issuer_resp: IssueResponse) -> Result<InvoiceRespons
     // Import Contract
     let import_req = ImportRequest {
         import: ImportType::Contract,
-        data: issuer_resp.contract,
+        data: issuer_resp.contract.legacy,
     };
     let nostr_sk = owner_data.private.nostr_prv.to_string();
     let resp = import(&nostr_sk, import_req).await;

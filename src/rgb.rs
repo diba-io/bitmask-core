@@ -3,20 +3,16 @@ use std::str::FromStr;
 use ::psbt::serialize::Serialize;
 use amplify::hex::ToHex;
 use anyhow::{anyhow, Result};
-use bech32::{encode, ToBase32};
 use bitcoin_30::bip32::ExtendedPubKey;
 use bitcoin_scripts::address::AddressNetwork;
 use miniscript_crate::DescriptorPublicKey;
-use rgbstd::{
-    containers::BindleContent,
-    interface::IfaceId,
-    persistence::{Inventory, Stash},
-};
-use strict_encoding::{tn, StrictSerialize, TypeName};
+use rgbstd::{containers::BindleContent, persistence::Stash};
+use strict_encoding::StrictSerialize;
 
 pub mod accept;
 pub mod carbonado;
 pub mod constants;
+pub mod contract;
 pub mod import;
 pub mod issue;
 pub mod prefetch;
@@ -43,16 +39,17 @@ use crate::{
         },
     },
     structs::{
-        AcceptRequest, AcceptResponse, ContractDetail, ContractsResponse, ImportRequest,
-        ImportResponse, InterfaceDetail, InterfacesResponse, InvoiceRequest, InvoiceResponse,
-        IssueRequest, IssueResponse, NextAddressReponse, NextUtxoReponse, PsbtRequest,
-        PsbtResponse, RgbTransferRequest, RgbTransferResponse, SchemaDetail, SchemasResponse,
+        AcceptRequest, AcceptResponse, ContractsResponse, ImportRequest, ImportResponse,
+        InterfaceDetail, InterfacesResponse, InvoiceRequest, InvoiceResponse, IssueRequest,
+        IssueResponse, NextAddressReponse, NextUtxoReponse, PsbtRequest, PsbtResponse,
+        RgbTransferRequest, RgbTransferResponse, SchemaDetail, SchemasResponse,
         WatcherDetailReponse, WatcherRequest, WatcherResponse,
     },
 };
 
 use self::{
     carbonado::{retrieve_wallets, store_wallets},
+    contract::extract_contract_by_id,
     import::import_contract,
     prefetch::{
         prefetch_resolve_commit_utxo, prefetch_resolve_psbt_tx, prefetch_resolve_spend,
@@ -68,15 +65,15 @@ pub async fn issue_contract(sk: &str, request: IssueRequest) -> Result<IssueResp
         ticker,
         name,
         description,
-        precision,
         supply,
+        precision,
         iface,
         seal,
     } = request;
     let mut stock = retrieve_stock(sk, ASSETS_STOCK).await?;
 
     // Resolvers Workaround
-    let resolver = ExplorerResolver {
+    let mut resolver = ExplorerResolver {
         explorer_url: BITCOIN_EXPLORER_API.read().await.to_string(),
         ..Default::default()
     };
@@ -88,25 +85,34 @@ pub async fn issue_contract(sk: &str, request: IssueRequest) -> Result<IssueResp
         supply,
         &iface,
         &seal,
-        resolver,
+        &mut resolver,
         &mut stock,
     )?;
 
-    let contract_id = contract.contract_id().to_string();
-    let contract = encode(
-        "rgb",
-        contract
-            .bindle()
-            .to_strict_serialized::<0xFFFFFF>()?
-            .to_base32(),
-        bech32::Variant::Bech32m,
-    )?;
+    let ImportResponse {
+        contract_id,
+        iimpl_id,
+        iface,
+        ticker,
+        name,
+        description,
+        supply,
+        precision: _,
+        balance: _,
+        allocations: _,
+        contract,
+    } = extract_contract_by_id(contract.contract_id(), &mut stock, &mut resolver, None)?;
 
     store_stock(sk, ASSETS_STOCK, &stock).await?;
-
     Ok(IssueResponse {
         contract_id,
-        iface: iface.to_string(),
+        iface,
+        iimpl_id,
+        ticker,
+        name,
+        description,
+        supply,
+        precision,
         contract,
         issue_utxo: seal.replace("tapret1st:", ""),
     })
@@ -225,45 +231,30 @@ pub async fn accept_transfer(sk: &str, request: AcceptRequest) -> Result<AcceptR
 
 pub async fn list_contracts(sk: &str) -> Result<ContractsResponse> {
     let mut stock = retrieve_stock(sk, ASSETS_STOCK).await?;
+    let rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await?;
+
+    // Resolvers Workaround
+    let mut resolver = ExplorerResolver {
+        explorer_url: BITCOIN_EXPLORER_API.read().await.to_string(),
+        ..Default::default()
+    };
+
+    let wallet = rgb_account.wallets.get("default");
+    let wallet = match wallet {
+        Some(wallet) => {
+            let mut fetch_wallet = wallet.to_owned();
+
+            prefetch_resolve_watcher(20, &mut resolver, &mut fetch_wallet).await;
+            Some(fetch_wallet)
+        }
+        _ => None,
+    };
 
     let mut contracts = vec![];
-    for schema_id in stock.schema_ids().expect("invalid schemas state") {
-        let schema = stock.schema(schema_id).expect("invalid schemas state");
-        for (iface_id, _) in schema.clone().iimpls.into_iter() {
-            for contract_id in stock.contract_ids().expect("invalid contracts state") {
-                if stock.contract_iface(contract_id, iface_id).is_ok() {
-                    let contract_iface = stock
-                        .contract_iface(contract_id, iface_id)
-                        .expect("invalid contracts state");
-                    let ty: TypeName = tn!("Ticker");
-                    let ticker = match contract_iface.global(ty) {
-                        Ok(values) => values.to_vec()[0].to_string(),
-                        _ => String::new(),
-                    };
 
-                    let ty: TypeName = tn!("Name");
-                    let name = match contract_iface.global(ty) {
-                        Ok(values) => values.to_vec()[0].to_string(),
-                        _ => String::new(),
-                    };
-
-                    let ty: TypeName = tn!("Details");
-                    let details = match contract_iface.global(ty) {
-                        Ok(values) => values.to_vec()[0].to_string(),
-                        _ => String::new(),
-                    };
-                    let face = stock.iface_by_id(iface_id).expect("invalid iface state");
-                    let item = ContractDetail {
-                        contract_id: contract_id.to_string(),
-                        iface: face.name.to_string(),
-                        ticker,
-                        name,
-                        details,
-                    };
-                    contracts.push(item)
-                }
-            }
-        }
+    for contract_id in stock.contract_ids().expect("invalid contracts state") {
+        let resp = extract_contract_by_id(contract_id, &mut stock, &mut resolver, wallet.clone())?;
+        contracts.push(resp);
     }
 
     Ok(ContractsResponse { contracts })
@@ -313,6 +304,7 @@ pub async fn list_schemas(sk: &str) -> Result<SchemasResponse> {
 pub async fn import(sk: &str, request: ImportRequest) -> Result<ImportResponse> {
     let ImportRequest { data, import: _ } = request;
     let mut stock = retrieve_stock(sk, ASSETS_STOCK).await?;
+    let rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await?;
 
     // Resolvers Workaround
     let mut resolver = ExplorerResolver {
@@ -321,60 +313,20 @@ pub async fn import(sk: &str, request: ImportRequest) -> Result<ImportResponse> 
     };
     prefetch_resolve_commit_utxo(&data, &mut resolver).await;
 
-    let contract = import_contract(&data, &mut stock, &mut resolver)?;
-    let ifaces: Vec<String> = contract.ifaces.keys().map(|f| f.to_string()).collect();
-    let iface_id = IfaceId::from_str(&ifaces[0]).expect("iface parse error");
+    let wallet = rgb_account.wallets.get("default");
+    let wallet = match wallet {
+        Some(wallet) => {
+            let mut fetch_wallet = wallet.to_owned();
 
-    let contract_iface = stock
-        .contract_iface(contract.contract_id(), iface_id.to_owned())
-        .expect("invalid contracts state");
-    let ty: TypeName = tn!("Ticker");
-    let ticker = match contract_iface.global(ty) {
-        Ok(values) => values.to_vec()[0].to_string(),
-        _ => String::new(),
-    };
-
-    let ty: TypeName = tn!("Name");
-    let name = match contract_iface.global(ty) {
-        Ok(values) => values.to_vec()[0].to_string(),
-        _ => String::new(),
-    };
-
-    let ty: TypeName = tn!("Details");
-    let description = match contract_iface.global(ty) {
-        Ok(values) => values.to_vec()[0].to_string(),
-        _ => String::new(),
-    };
-
-    let ty: TypeName = tn!("Precision");
-    let precision = match contract_iface.global(ty) {
-        Ok(values) => values.to_vec()[0].to_string(),
-        _ => String::new(),
-    };
-
-    let mut supply = 0;
-    let mut seal = String::new();
-    for owned in &contract_iface.iface.assignments {
-        if let Ok(allocations) = contract_iface.fungible(owned.name.clone()) {
-            for allocation in allocations {
-                supply = allocation.value;
-                seal = allocation.owner.to_string();
-            }
+            prefetch_resolve_watcher(20, &mut resolver, &mut fetch_wallet).await;
+            Some(fetch_wallet)
         }
-    }
-
-    store_stock(sk, ASSETS_STOCK, &stock).await?;
-
-    let resp = ImportResponse {
-        contract_id: contract.contract_id().to_string(),
-        ticker,
-        name,
-        description,
-        precision,
-        supply,
-        seal,
-        ifaces,
+        _ => None,
     };
+
+    let contract = import_contract(&data, &mut stock, &mut resolver)?;
+    let resp = extract_contract_by_id(contract.contract_id(), &mut stock, &mut resolver, wallet)?;
+    store_stock(sk, ASSETS_STOCK, &stock).await?;
     Ok(resp)
 }
 
@@ -411,7 +363,7 @@ pub async fn watcher_details(sk: &str, name: &str) -> Result<WatcherDetailRepons
         explorer_url: BITCOIN_EXPLORER_API.read().await.to_string(),
         ..Default::default()
     };
-    prefetch_resolve_watcher(20, &mut wallet, &mut resolver).await;
+    prefetch_resolve_watcher(20, &mut resolver, &mut wallet).await;
 
     let allocations = list_allocations(&mut wallet, &mut stock, &mut resolver)?;
 
@@ -421,6 +373,7 @@ pub async fn watcher_details(sk: &str, name: &str) -> Result<WatcherDetailRepons
 
     rgb_account.wallets.insert(name.to_string(), wallet);
     store_wallets(sk, ASSETS_WALLETS, &rgb_account).await?;
+
     Ok(resp)
 }
 
@@ -462,7 +415,7 @@ pub async fn watcher_next_utxo(sk: &str, name: &str) -> Result<NextUtxoReponse> 
         explorer_url: BITCOIN_EXPLORER_API.read().await.to_string(),
         ..Default::default()
     };
-    prefetch_resolve_watcher(iface_index, &mut wallet, &mut resolver).await;
+    prefetch_resolve_watcher(iface_index, &mut resolver, &mut wallet).await;
     prefetch_resolve_spend(iface_index, wallet.clone(), &mut resolver).await;
 
     sync_wallet(iface_index, &mut wallet, &mut resolver);

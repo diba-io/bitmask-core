@@ -98,10 +98,10 @@ pub struct IssueRequest {
     pub name: String,
     /// Description of the asset
     pub description: String,
-    /// Precision of the asset
-    pub precision: u8,
     /// Amount of the asset
     pub supply: u64,
+    /// Precision of the asset
+    pub precision: u8,
     /// Seal of the initial owner
     pub seal: String,
     /// The name of the iface (ex: RGB20)
@@ -113,12 +113,35 @@ pub struct IssueRequest {
 pub struct IssueResponse {
     /// The contract id
     pub contract_id: String,
-    /// The contract state (encoded in bech32m)
-    pub contract: String,
+    /// The contract impl id
+    pub iimpl_id: String,
     /// The contract interface
     pub iface: String,
     /// The Issue Utxo
     pub issue_utxo: String,
+    /// The ticker of the asset
+    pub ticker: String,
+    /// Name of the asset
+    pub name: String,
+    /// Description of the asset
+    pub description: String,
+    /// Amount of the asset
+    pub supply: u64,
+    /// Precision of the asset
+    pub precision: u8,
+    /// The contract state (multiple formats)
+    pub contract: ContractFormats,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ContractFormats {
+    /// The contract state (encoded in bech32m)
+    pub legacy: String,
+    /// The contract state (encoded in strict)
+    pub strict: String,
+    /// The contract state (compiled in armored mode)
+    pub armored: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -141,20 +164,26 @@ pub struct ImportRequest {
 pub struct ImportResponse {
     /// The contract id
     pub contract_id: String,
-    /// Ticker of the asset
+    /// The contract impl id
+    pub iimpl_id: String,
+    /// The contract interface
+    pub iface: String,
+    /// The ticker of the asset
     pub ticker: String,
     /// Name of the asset
     pub name: String,
     /// Description of the asset
     pub description: String,
-    /// Precision of the asset
-    pub precision: String,
     /// Amount of the asset
     pub supply: u64,
-    /// Seal of the initial owner
-    pub seal: String,
-    /// The contract interfaces
-    pub ifaces: Vec<String>,
+    /// Precision of the asset
+    pub precision: String,
+    /// The user contract balance
+    pub balance: u64,
+    /// The contract allocations
+    pub allocations: Vec<AllocationDetail>,
+    /// The contract state (multiple formats)
+    pub contract: ContractFormats,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -237,7 +266,7 @@ pub struct RgbTransferResponse {
     pub consig_id: String,
     /// Consignment encoded (in hexadecimal)
     pub consig: String,
-    /// SBT File Information with tapret (in hexadecimal)
+    /// PSBT File Information with tapret (in hexadecimal)
     pub psbt: String,
     /// Tapret Commitment (used to spend output)
     pub commit: String,
@@ -267,22 +296,7 @@ pub struct AcceptResponse {
 #[serde(rename_all = "camelCase")]
 pub struct ContractsResponse {
     /// List of avaliable contracts
-    pub contracts: Vec<ContractDetail>,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct ContractDetail {
-    /// Contract ID
-    pub contract_id: String,
-    /// Contract Interface
-    pub iface: String,
-    /// Contract Ticker
-    pub ticker: String,
-    /// Contract Name
-    pub name: String,
-    /// Contract Details
-    pub details: String,
+    pub contracts: Vec<ImportResponse>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

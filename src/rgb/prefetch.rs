@@ -33,8 +33,8 @@ pub async fn prefetch_resolve_spend(
 #[cfg(not(target_arch = "wasm32"))]
 pub async fn prefetch_resolve_watcher(
     iface_index: u32,
-    wallet: &mut RgbWallet,
     explorer: &mut ExplorerResolver,
+    wallet: &mut RgbWallet,
 ) {
 }
 
@@ -146,8 +146,8 @@ pub async fn prefetch_resolve_spend(
 #[cfg(target_arch = "wasm32")]
 pub async fn prefetch_resolve_watcher(
     iface_index: u32,
-    wallet: &mut RgbWallet,
     explorer: &mut ExplorerResolver,
+    wallet: &mut RgbWallet,
 ) {
     let esplora_client: EsploraBlockchain = EsploraBlockchain::new(&explorer.explorer_url, 100);
 

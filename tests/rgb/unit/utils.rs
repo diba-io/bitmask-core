@@ -89,7 +89,7 @@ pub fn create_fake_contract(stock: &mut Stock) -> ContractId {
     let seal = "tapret1st:5ca6cd1f54c081c8b3a7b4bcc988e55fe3c420ac87512b53a58c55233e15ba4f:1";
 
     let iface = "RGB20";
-    let resolver = DumbResolve {};
+    let mut resolver = DumbResolve {};
 
     let contract = issue_contract(
         ticker,
@@ -99,7 +99,7 @@ pub fn create_fake_contract(stock: &mut Stock) -> ContractId {
         supply,
         iface,
         seal,
-        resolver,
+        &mut resolver,
         stock,
     )
     .expect("test issue_contract failed");
