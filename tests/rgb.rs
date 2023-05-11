@@ -5,7 +5,7 @@ mod rgb {
         mod issue;
         mod psbt;
         mod stock;
-        mod utils;
+        pub mod utils;
     }
 
     mod integration {

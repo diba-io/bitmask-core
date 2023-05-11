@@ -17,8 +17,9 @@ use bitmask_core::{
 };
 use psbt::Psbt;
 
-use super::utils::ISSUER_MNEMONIC;
-use crate::rgb::integration::utils::{send_some_coins, setup_regtest, OWNER_MNEMONIC};
+use crate::rgb::integration::utils::{
+    send_some_coins, setup_regtest, ISSUER_MNEMONIC, OWNER_MNEMONIC,
+};
 
 #[tokio::test]
 /*

@@ -15,7 +15,7 @@ use std::{collections::BTreeMap, str::FromStr};
 use strict_encoding::StrictDeserialize;
 use wallet::onchain::ResolveTx;
 
-use super::resolvers::ExplorerResolver;
+use crate::rgb::resolvers::ExplorerResolver;
 
 #[cfg(not(target_arch = "wasm32"))]
 pub async fn prefetch_resolve_commit_utxo(contract: &str, explorer: &mut ExplorerResolver) {}
@@ -44,7 +44,8 @@ pub async fn prefetch_resolve_txs(txids: Vec<Txid>, explorer: &mut ExplorerResol
 
 #[cfg(target_arch = "wasm32")]
 pub async fn prefetch_resolve_commit_utxo(contract: &str, explorer: &mut ExplorerResolver) {
-    let esplora_client: EsploraBlockchain = EsploraBlockchain::new(&explorer.explorer_url, 100);
+    let esplora_client: EsploraBlockchain =
+        EsploraBlockchain::new(&explorer.explorer_url, 100).with_concurrency(6);
     let serialized = if contract.starts_with("rgb1") {
         let (_, serialized, _) =
             decode(contract).expect("invalid serialized contract (bech32m format)");
@@ -101,7 +102,8 @@ pub async fn prefetch_resolve_commit_utxo(contract: &str, explorer: &mut Explore
 
 #[cfg(target_arch = "wasm32")]
 pub async fn prefetch_resolve_psbt_tx(asset_utxo: &str, explorer: &mut ExplorerResolver) {
-    let esplora_client: EsploraBlockchain = EsploraBlockchain::new(&explorer.explorer_url, 100);
+    let esplora_client: EsploraBlockchain =
+        EsploraBlockchain::new(&explorer.explorer_url, 100).with_concurrency(6);
 
     let outpoint: OutPoint = asset_utxo.parse().expect("invalid outpoint format");
     let txid = outpoint.txid;
@@ -120,7 +122,8 @@ pub async fn prefetch_resolve_spend(
     wallet: RgbWallet,
     explorer: &mut ExplorerResolver,
 ) {
-    let esplora_client: EsploraBlockchain = EsploraBlockchain::new(&explorer.explorer_url, 100);
+    let esplora_client: EsploraBlockchain =
+        EsploraBlockchain::new(&explorer.explorer_url, 100).with_concurrency(6);
     let utxos: Vec<Utxo> = wallet
         .utxos
         .into_iter()
@@ -153,7 +156,8 @@ pub async fn prefetch_resolve_watcher(
     explorer: &mut ExplorerResolver,
     wallet: &mut RgbWallet,
 ) {
-    let esplora_client: EsploraBlockchain = EsploraBlockchain::new(&explorer.explorer_url, 100);
+    let esplora_client: EsploraBlockchain =
+        EsploraBlockchain::new(&explorer.explorer_url, 100).with_concurrency(6);
 
     let step = 20;
     let mut index = 0;
@@ -226,7 +230,7 @@ pub async fn prefetch_resolve_watcher(
 
 #[cfg(target_arch = "wasm32")]
 pub async fn prefetch_resolve_txs(txids: Vec<Txid>, explorer: &mut ExplorerResolver) {
-    let esplora_client = EsploraBlockchain::new(&explorer.explorer_url, 100);
+    let esplora_client = EsploraBlockchain::new(&explorer.explorer_url, 100).with_concurrency(6);
     for txid in txids {
         if let Some(tx) = esplora_client
             .get_tx(&txid)

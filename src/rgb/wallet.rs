@@ -1,4 +1,3 @@
-use crate::structs::{AllocationDetail, WatcherDetail};
 use amplify::hex::ToHex;
 use bitcoin::{Script, Txid};
 use bitcoin_30::bip32::ExtendedPubKey;
@@ -11,7 +10,8 @@ use rgbstd::persistence::{Inventory, Stash, Stock};
 use std::{collections::HashMap, str::FromStr};
 use strict_encoding::tn;
 
-use super::{resolvers::ResolveSpent, structs::AddressTerminal};
+use crate::rgb::{resolvers::ResolveSpent, structs::AddressTerminal};
+use crate::structs::{AllocationDetail, WatcherDetail};
 
 pub fn create_wallet(
     iface: &str,

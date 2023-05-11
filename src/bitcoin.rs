@@ -18,8 +18,7 @@ mod payment;
 mod psbt;
 mod wallet;
 
-use crate::structs::EncryptedWalletDataV04;
-use crate::structs::{SignPsbtRequest, SignPsbtResponse};
+use crate::structs::{EncryptedWalletDataV04, SignPsbtRequest, SignPsbtResponse};
 pub use crate::{
     bitcoin::{
         assets::dust_tx,

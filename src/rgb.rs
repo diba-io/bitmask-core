@@ -37,6 +37,7 @@ use crate::{
             accept_transfer as accept_rgb_transfer, create_invoice as create_rgb_invoice,
             pay_invoice,
         },
+        wallet::list_allocations,
     },
     structs::{
         AcceptRequest, AcceptResponse, ContractsResponse, ImportRequest, ImportResponse,
@@ -55,7 +56,7 @@ use self::{
         prefetch_resolve_commit_utxo, prefetch_resolve_psbt_tx, prefetch_resolve_spend,
         prefetch_resolve_watcher,
     },
-    wallet::{create_wallet, list_allocations, next_address, next_utxo, sync_wallet},
+    wallet::{create_wallet, next_address, next_utxo, sync_wallet},
 };
 
 /// RGB Operations

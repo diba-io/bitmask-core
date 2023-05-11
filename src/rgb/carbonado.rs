@@ -5,8 +5,7 @@ use serde_json::to_vec;
 use strict_encoding::{StrictDeserialize, StrictSerialize};
 
 use crate::carbonado::{retrieve, store};
-
-use super::structs::RgbAccount;
+use crate::rgb::structs::RgbAccount;
 
 pub async fn store_stock(sk: &str, name: &str, stock: &Stock) -> Result<()> {
     let data = stock.to_strict_serialized::<U32>()?;

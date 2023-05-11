@@ -23,8 +23,7 @@ use wallet::{
     psbt::{ProprietaryKeyDescriptor, ProprietaryKeyError, ProprietaryKeyLocation},
 };
 
-use super::constants::RGB_PSBT_TAPRET;
-use super::structs::AddressAmount;
+use crate::rgb::{constants::RGB_PSBT_TAPRET, structs::AddressAmount};
 
 #[allow(clippy::too_many_arguments)]
 pub fn create_psbt(

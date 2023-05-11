@@ -64,8 +64,8 @@ For running bitmask-core tests in Regtest Mode, please follow the steps below:
 7. Run the test to get main address for bitcoin and rgb: `cargo test --test wallet -- create_wallet --exact`.
 8. Load your wallet in the bitcoin node: `node1 loadwallet default`.
 9. Generate new first 500 blocks: `node1 -generate 500`.
-10. Send some coins to the main wallet address: `node1 sendtoaddress {BTC_ADDRESS} 10`. Change `{BTC_ADDRESS}` with the address generated in the **step 7**.
-11. Send some coins to the rgb wallet address: `node1 sendtoaddress {RGB_ADDRESS} 10`. Change `{RGB_ADDRESS}` with the address generated in the **step 7**.
+10. Send some coins to the main wallet address: `node1 sendtoaddress {MAIN_VAULT_ADDRESS} 10`. Change `{MAIN_VAULT_ADDRESS}` with the address generated in the **step 7**.
+11. Send some coins to the rgb wallet address: `node1 sendtoaddress {RGB_VAULT_ADDRESS} 10`. Change `{RGB_VAULT_ADDRESS}` with the address generated in the **step 7**.
 12. Mine a new block: `node1 -generate 1`
 13. Run the test to check the balance: `cargo test --test wallet -- get_wallet_balance --exact`.
 

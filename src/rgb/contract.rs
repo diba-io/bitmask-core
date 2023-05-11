@@ -10,9 +10,8 @@ use rgbstd::{
 };
 use strict_encoding::{tn, StrictSerialize, TypeName};
 
+use crate::rgb::wallet::list_allocations;
 use crate::structs::{ContractFormats, ImportResponse};
-
-use super::wallet::list_allocations;
 
 // TODO: Create one extractor by contract interface
 pub fn extract_contract_by_id(

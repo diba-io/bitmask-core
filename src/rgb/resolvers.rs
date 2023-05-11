@@ -134,30 +134,33 @@ impl ResolveCommiment for ExplorerResolver {
             &bitcoin::Txid::from_str(&txid.to_hex()).expect("invalid transaction id parse");
         let tx = explorer_client
             .get_tx(transaction_id)
-            .expect("service unavaliable")
-            .unwrap();
-        Ok(Tx {
-            version: TxVer::from_consensus_i32(tx.version),
-            inputs: VarIntArray::try_from_iter(tx.input.into_iter().map(|txin| {
-                TxIn {
-                    prev_output: Outpoint::new(
-                        Txid::from_str(&txin.previous_output.txid.to_hex())
-                            .expect("invalid transaction id parse"),
-                        txin.previous_output.vout,
-                    ),
-                    sig_script: txin.script_sig.to_bytes().into(),
-                    sequence: SeqNo::from_consensus_u32(txin.sequence.to_consensus_u32()),
-                    witness: Witness::from_consensus_stack(txin.witness.to_vec()),
-                }
-            }))
-            .expect("consensus-invalid transaction"),
-            outputs: VarIntArray::try_from_iter(tx.output.into_iter().map(|txout| TxOut {
-                value: txout.value.into(),
-                script_pubkey: txout.script_pubkey.to_bytes().into(),
-            }))
-            .expect("consensus-invalid transaction"),
-            lock_time: LockTime::from_consensus_u32(tx.lock_time.0),
-        })
+            .expect("service unavaliable");
+
+        match tx {
+            Some(tx) => Ok(Tx {
+                version: TxVer::from_consensus_i32(tx.version),
+                inputs: VarIntArray::try_from_iter(tx.input.into_iter().map(|txin| {
+                    TxIn {
+                        prev_output: Outpoint::new(
+                            Txid::from_str(&txin.previous_output.txid.to_hex())
+                                .expect("invalid transaction id parse"),
+                            txin.previous_output.vout,
+                        ),
+                        sig_script: txin.script_sig.to_bytes().into(),
+                        sequence: SeqNo::from_consensus_u32(txin.sequence.to_consensus_u32()),
+                        witness: Witness::from_consensus_stack(txin.witness.to_vec()),
+                    }
+                }))
+                .expect("consensus-invalid transaction"),
+                outputs: VarIntArray::try_from_iter(tx.output.into_iter().map(|txout| TxOut {
+                    value: txout.value.into(),
+                    script_pubkey: txout.script_pubkey.to_bytes().into(),
+                }))
+                .expect("consensus-invalid transaction"),
+                lock_time: LockTime::from_consensus_u32(tx.lock_time.0),
+            }),
+            _ => Err(rgbstd::validation::TxResolverError::Unknown(txid)),
+        }
     }
 
     #[cfg(target_arch = "wasm32")]
