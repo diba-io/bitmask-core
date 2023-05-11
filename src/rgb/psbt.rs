@@ -23,29 +23,30 @@ use wallet::{
     psbt::{ProprietaryKeyDescriptor, ProprietaryKeyError, ProprietaryKeyLocation},
 };
 
-use super::constants::RGB_PSBT_TAPRET;
-use super::structs::AddressAmount;
+use crate::rgb::{constants::RGB_PSBT_TAPRET, structs::AddressAmount};
 
 #[allow(clippy::too_many_arguments)]
 pub fn create_psbt(
     descriptor_pub: String,
     asset_utxo: String,
     asset_utxo_terminal: String,
-    change_index: Option<String>,
+    change_index: Option<u16>,
     bitcoin_changes: Vec<String>,
     fee: u64,
     tap_tweak: Option<String>,
     tx_resolver: &impl ResolveTx,
 ) -> Result<Psbt, ProprietaryKeyError> {
-    let outpoint: OutPoint = asset_utxo.parse().expect("");
-    let mut inputs = vec![InputDescriptor {
+    let outpoint: OutPoint = asset_utxo.parse().expect("invalid outpoint parse");
+    let mut input = InputDescriptor {
         outpoint,
-        terminal: asset_utxo_terminal.parse().expect(""),
+        terminal: asset_utxo_terminal
+            .parse()
+            .expect("invalid terminal path parse"),
         seq_no: SeqNo::default(),
         tweak: None,
         taptweak: None,
         sighash_type: EcdsaSighashType::All,
-    }];
+    };
 
     if let Some(tweak) = tap_tweak {
         let mpc = Commitment::from_str(&tweak).expect("invalid mpc");
@@ -53,7 +54,7 @@ pub fn create_psbt(
         let tapscript = TapScript::commit(&tap);
 
         let tweak = Script::from_hex(&tapscript.to_hex()).expect("invalid bitcoin script");
-        inputs[0].taptweak = Some(tweak);
+        input.taptweak = Some(tweak);
     }
 
     let bitcoin_addresses: Vec<AddressAmount> = bitcoin_changes
@@ -66,14 +67,19 @@ pub fn create_psbt(
         .map(|AddressAmount { address, amount }| (address.script_pubkey().into(), amount))
         .collect();
 
+    // to avoid derivation mismatched
+    let contract_index = input.terminal.first().expect("first derivation index");
+    let terminal_step = format!("/{contract_index}/*");
+
+    let descriptor_pub = descriptor_pub.replace(&terminal_step, "/*/*");
     let descriptor: &Descriptor<DerivationAccount> =
-        &Descriptor::from_str(&descriptor_pub).expect("");
+        &Descriptor::from_str(&descriptor_pub).expect("invalid descriptor parse");
+
     let proprietary_keys = vec![ProprietaryKeyDescriptor {
-        // TODO: Review that after amount protocol
         location: ProprietaryKeyLocation::Output(0_u16),
         ty: ProprietaryKeyType {
             prefix: RGB_PSBT_TAPRET.to_owned(),
-            subtype: outpoint.vout as u8,
+            subtype: 0,
         },
         key: None,
         value: None,
@@ -81,10 +87,13 @@ pub fn create_psbt(
 
     let lock_time = LockTime::anytime();
     let change_index = match change_index {
-        Some(index) => UnhardenedIndex::from_str(index.as_str()).expect(""),
+        Some(index) => {
+            UnhardenedIndex::from_str(&index.to_string()).expect("invalid change_index parse")
+        }
         _ => UnhardenedIndex::default(),
     };
 
+    let inputs = vec![input];
     let mut psbt = Psbt::construct(
         descriptor,
         &inputs,
@@ -145,7 +154,7 @@ pub fn extract_commit(mut psbt: Psbt) -> Result<String, DbcPsbtError> {
             })
         })
         .ok_or(DbcPsbtError::NoHostOutput)
-        .expect("");
+        .expect("none of the outputs is market as a commitment host");
 
     let commit_vec = output.proprietary.get(&ProprietaryKey {
         prefix: PSBT_TAPRET_PREFIX.to_vec(),

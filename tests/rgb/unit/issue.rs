@@ -19,7 +19,7 @@ async fn issue_contract_test() -> Result<()> {
     let seal = "tapret1st:70339a6b27f55105da2d050babc759f046c21c26b7b75e9394bc1d818e50ff52:0";
 
     let mut stock = Stock::default();
-    let resolver = DumbResolve {};
+    let mut resolver = DumbResolve {};
 
     let contract = issue_contract(
         ticker,
@@ -29,11 +29,10 @@ async fn issue_contract_test() -> Result<()> {
         supply,
         iface,
         seal,
-        resolver,
+        &mut resolver,
         &mut stock,
     );
 
     assert!(contract.is_ok());
-
     Ok(())
 }

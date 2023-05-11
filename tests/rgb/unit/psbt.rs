@@ -26,7 +26,7 @@ async fn allow_create_psbt_file() -> anyhow::Result<()> {
         desc.to_string(),
         asset_utxo.to_string(),
         asset_utxo_terminal.to_string(),
-        Some("0".to_string()),
+        Some(0),
         vec![],
         fee,
         None,

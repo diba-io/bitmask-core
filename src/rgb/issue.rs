@@ -13,7 +13,7 @@ use rgbstd::Txid;
 use strict_types::encoding::TypeName;
 use strict_types::{svstr, svstruct, StrictVal};
 
-use super::schemas::{default_fungible_iimpl, default_fungible_schema};
+use crate::rgb::schemas::{default_fungible_iimpl, default_fungible_schema};
 
 #[derive(Clone, Eq, PartialEq, Debug, Display, Error, From)]
 #[display(doc_comments)]
@@ -33,7 +33,7 @@ pub fn issue_contract<T>(
     supply: u64,
     iface: &str,
     seal: &str,
-    mut resolver: T,
+    resolver: &mut T,
     stock: &mut Stock,
 ) -> Result<Contract, IssueError>
 where
@@ -61,13 +61,13 @@ where
         Err(err) => return Err(IssueError::Forge(err)),
     };
 
-    let resp = match resp.clone().validate(&mut resolver) {
+    let resp = match resp.clone().validate(resolver) {
         Ok(resp) => resp,
         Err(_) => return Err(IssueError::ContractInvalid(resp.contract_id().to_string())),
     };
 
     stock
-        .import_contract(resp.clone(), &mut resolver)
+        .import_contract(resp.clone(), resolver)
         .or(Err(IssueError::ImportContract(
             resp.contract_id().to_string(),
         )))?;
@@ -76,7 +76,7 @@ where
 }
 
 /// RGB20 interface
-pub fn issue_fungible_asset(
+fn issue_fungible_asset(
     ticker: &str,
     name: &str,
     description: &str,

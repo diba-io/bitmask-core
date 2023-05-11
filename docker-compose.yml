@@ -10,6 +10,7 @@ networks:
 
 volumes:
   node1_data:
+  bitmaskd_data:
 
 services:
   node1:
@@ -29,3 +30,17 @@ services:
         ipv4_address: 172.20.0.4
         aliases:
           - node1
+
+  bitmaskd:
+    container_name: bitmaskd
+    image: bitmask/server:latest
+    build:
+      context: ./
+      dockerfile: ./docker/bitmask/Dockerfile
+    restart: unless-stopped
+    ports:
+      - 7070:7070
+    networks:
+      bmnet:
+        aliases:
+          - bitmaskd

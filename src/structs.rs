@@ -46,6 +46,7 @@ pub struct PublicWalletData {
     pub xprvkh: String,
     pub xpubkh: String,
     pub xpub: String,
+    pub watcher_xpub: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -98,10 +99,10 @@ pub struct IssueRequest {
     pub name: String,
     /// Description of the asset
     pub description: String,
-    /// Precision of the asset
-    pub precision: u8,
     /// Amount of the asset
     pub supply: u64,
+    /// Precision of the asset
+    pub precision: u8,
     /// Seal of the initial owner
     pub seal: String,
     /// The name of the iface (ex: RGB20)
@@ -113,10 +114,35 @@ pub struct IssueRequest {
 pub struct IssueResponse {
     /// The contract id
     pub contract_id: String,
+    /// The contract impl id
+    pub iimpl_id: String,
     /// The contract interface
     pub iface: String,
-    /// The genesis state (encoded in hex)
-    pub genesis: String,
+    /// The Issue Utxo
+    pub issue_utxo: String,
+    /// The ticker of the asset
+    pub ticker: String,
+    /// Name of the asset
+    pub name: String,
+    /// Description of the asset
+    pub description: String,
+    /// Amount of the asset
+    pub supply: u64,
+    /// Precision of the asset
+    pub precision: u8,
+    /// The contract state (multiple formats)
+    pub contract: ContractFormats,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ContractFormats {
+    /// The contract state (encoded in bech32m)
+    pub legacy: String,
+    /// The contract state (encoded in strict)
+    pub strict: String,
+    /// The contract state (compiled in armored mode)
+    pub armored: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -139,8 +165,26 @@ pub struct ImportRequest {
 pub struct ImportResponse {
     /// The contract id
     pub contract_id: String,
-    /// The contract interfaces
-    pub ifaces: Vec<String>,
+    /// The contract impl id
+    pub iimpl_id: String,
+    /// The contract interface
+    pub iface: String,
+    /// The ticker of the asset
+    pub ticker: String,
+    /// Name of the asset
+    pub name: String,
+    /// Description of the asset
+    pub description: String,
+    /// Amount of the asset
+    pub supply: u64,
+    /// Precision of the asset
+    pub precision: String,
+    /// The user contract balance
+    pub balance: u64,
+    /// The contract allocations
+    pub allocations: Vec<AllocationDetail>,
+    /// The contract state (multiple formats)
+    pub contract: ContractFormats,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -158,7 +202,7 @@ pub struct InvoiceRequest {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct InvoiceResult {
+pub struct InvoiceResponse {
     /// Invoice encoded in Baid58
     pub invoice: String,
 }
@@ -172,9 +216,9 @@ pub struct PsbtRequest {
     pub asset_utxo: String,
     /// Asset UTXO Terminator (ex. /0/0)
     pub asset_utxo_terminal: String,
-    /// Asset Change Index UTXO (default: 0)
-    pub change_index: Option<String>,
-    /// Bitcoin Addresses (format: {address}:{amount})
+    /// Asset Change Index UTXO (default: 1)
+    pub change_index: Option<u16>,
+    /// Bitcoin Change Addresses (format: {address}:{amount})
     pub bitcoin_changes: Vec<String>,
     /// Bitcoin Fee
     pub fee: u64,
@@ -187,6 +231,24 @@ pub struct PsbtRequest {
 pub struct PsbtResponse {
     /// PSBT encoded in Base64
     pub psbt: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct SignPsbtRequest {
+    /// PSBT encoded in Base64
+    pub psbt: String,
+    /// mnemonic
+    pub mnemonic: String,
+    /// password
+    pub seed_password: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct SignPsbtResponse {
+    /// PSBT is signed?
+    pub sign: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -205,7 +267,7 @@ pub struct RgbTransferResponse {
     pub consig_id: String,
     /// Consignment encoded (in hexadecimal)
     pub consig: String,
-    /// SBT File Information with tapret (in hexadecimal)
+    /// PSBT File Information with tapret (in hexadecimal)
     pub psbt: String,
     /// Tapret Commitment (used to spend output)
     pub commit: String,
@@ -216,6 +278,8 @@ pub struct RgbTransferResponse {
 pub struct AcceptRequest {
     /// Consignment encoded in hexadecimal
     pub consignment: String,
+    /// Force Consignment accept
+    pub force: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -233,16 +297,7 @@ pub struct AcceptResponse {
 #[serde(rename_all = "camelCase")]
 pub struct ContractsResponse {
     /// List of avaliable contracts
-    pub contracts: Vec<ContractDetail>,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct ContractDetail {
-    /// Contract ID
-    pub contract_id: String,
-    /// Interface Name
-    pub iface: String,
+    pub contracts: Vec<ImportResponse>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -277,6 +332,64 @@ pub struct SchemaDetail {
     pub schema: String,
     /// Avaliable Interfaces
     pub ifaces: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct WatcherRequest {
+    /// The watcher name
+    pub name: String,
+    /// The xpub will be watch
+    pub xpub: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct WatcherResponse {
+    /// The watcher name
+    pub name: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct WatcherDetailReponse {
+    /// Allocations
+    pub contracts: Vec<WatcherDetail>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct WatcherDetail {
+    /// Contract ID
+    pub contract_id: String,
+    /// Allocations
+    pub allocations: Vec<AllocationDetail>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct AllocationDetail {
+    /// Anchored UTXO
+    pub utxo: String,
+    /// Asset Value
+    pub value: u64,
+    /// Derivation Path
+    pub derivation: String,
+    /// Derivation Path
+    pub is_mine: bool,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct NextAddressReponse {
+    pub address: String,
+    pub network: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct NextUtxoReponse {
+    pub utxo: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

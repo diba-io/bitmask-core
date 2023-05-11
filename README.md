@@ -56,17 +56,18 @@ For running bitmask-core tests in Regtest Mode, please follow the steps below:
 
 ### Initial Setup
 1. Build bitcoin node + electrum: `docker-compose build`.
-2. Up and running Docker containers: `docker-compose up -d node1`.
+2. Up and running Docker containers: `docker-compose up -d node1 bitmaskd`.
 3. Load the command line: `source .commands`
 4. Download and install BDK cli: `cargo install bdk-cli`. We will use BDK to generate the mnemonic.
 5. Generate a new mnemonic: `bdk-cli generate`.
-6. Create an environment variable called **TEST_WALLET_SEED** with mnemonic generated in the **step 5**.
-7. Run the test to get main address: `cargo test --test wallet -- create_wallet --exact`.
+6. Create an environment variable called **TEST_WALLET_SEED** with mnemonic generated in the **step 5** (only wasm32).
+7. Run the test to get main address for bitcoin and rgb: `cargo test --test wallet -- create_wallet --exact`.
 8. Load your wallet in the bitcoin node: `node1 loadwallet default`.
 9. Generate new first 500 blocks: `node1 -generate 500`.
-10. Send some coins to the main wallet address: `node1 sendtoaddress {ADDRESS} 10`. Change `{ADDRESS}` with the address generated in the **step 7**.
-11. Mine a new block: `node1 -generate 1`
-12. Run the test to check the balance: `cargo test --test wallet -- get_wallet_balance --exact`.
+10. Send some coins to the main wallet address: `node1 sendtoaddress {MAIN_VAULT_ADDRESS} 10`. Change `{MAIN_VAULT_ADDRESS}` with the address generated in the **step 7**.
+11. Send some coins to the rgb wallet address: `node1 sendtoaddress {RGB_VAULT_ADDRESS} 10`. Change `{RGB_VAULT_ADDRESS}` with the address generated in the **step 7**.
+12. Mine a new block: `node1 -generate 1`
+13. Run the test to check the balance: `cargo test --test wallet -- get_wallet_balance --exact`.
 
 ### Running the tests
 Running the tests: `cargo test --test-threads 1`

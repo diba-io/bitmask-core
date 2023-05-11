@@ -17,7 +17,7 @@ async fn allow_list_contracts() -> anyhow::Result<()> {
         for (iface_id, _) in schema.clone().iimpls.into_iter() {
             for contract_id in stock.contract_ids().expect("invalid contracts state") {
                 if stock.contract_iface(contract_id, iface_id).is_ok() {
-                    let iface = stock.iface_by_id(iface_id).expect("");
+                    let iface = stock.iface_by_id(iface_id).expect("oh no!");
                     let iface_name = iface.name.to_string();
                     let contract = contract_id.to_string();
                     contracts.push(format!("{iface_name}:{contract}"));
@@ -40,7 +40,7 @@ async fn allow_list_interfaces() -> anyhow::Result<()> {
     for schema_id in stock.schema_ids().expect("invalid schemas state") {
         let schema = stock.schema(schema_id).expect("invalid schemas state");
         for (iface_id, iimpl) in schema.clone().iimpls.into_iter() {
-            let iface = stock.iface_by_id(iface_id).expect("");
+            let iface = stock.iface_by_id(iface_id).expect("oh no!");
             let iface_name = iface.name.to_string();
             let iimpl_id = iimpl.impl_id().to_string();
             interfaces.push(format!("{iface_name}:{iimpl_id}"));
@@ -61,7 +61,7 @@ async fn allow_list_schemas() -> anyhow::Result<()> {
     for schema_id in stock.schema_ids().expect("invalid schemas state") {
         let schema = stock.schema(schema_id).expect("invalid schemas state");
         for (iface_id, _) in schema.clone().iimpls.into_iter() {
-            let iface = stock.iface_by_id(iface_id).expect("");
+            let iface = stock.iface_by_id(iface_id).expect("oh no!");
             let iface_name = iface.name.to_string();
             schemas.push(format!("{schema_id}:{iface_name}"));
         }

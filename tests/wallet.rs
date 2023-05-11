@@ -48,9 +48,12 @@ async fn create_wallet() -> Result<()> {
     )?;
 
     let main_btc_wallet = get_wallet_data(&main_vault.private.btc_descriptor_xprv, None).await?;
+    let main_rgb_wallet =
+        get_wallet_data(&main_vault.private.rgb_assets_descriptor_xprv, None).await?;
 
-    warn!("Descriptor:", main_vault.private.btc_descriptor_xprv);
-    warn!("Address:", main_btc_wallet.address);
+    println!("Descriptor: {}", main_vault.private.btc_descriptor_xprv);
+    println!("Address (Bitcoin): {}", main_btc_wallet.address);
+    println!("Address (RGB): {}", main_rgb_wallet.address);
 
     Ok(())
 }

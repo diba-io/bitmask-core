@@ -29,15 +29,21 @@ pub async fn sign_psbt(
         let txid = tx.txid();
         let tx = blockchain
             .get_tx(&txid)
-            .await?
+            .await
             .expect("tx that was just broadcasted now exists");
 
-        let sent = tx.output.iter().fold(0, |sum, output| output.value + sum);
+        let mut sent = 0;
+        let mut received = 0;
+
+        if let Some(tx) = tx.clone() {
+            sent = tx.output.iter().fold(0, |sum, output| output.value + sum);
+            received = sent - fee_amount;
+        }
 
         let details = TransactionDetails {
-            transaction: Some(tx),
+            transaction: tx,
             txid,
-            received: sent - fee_amount,
+            received,
             sent,
             fee: Some(fee_amount),
             confirmation_time: None,
