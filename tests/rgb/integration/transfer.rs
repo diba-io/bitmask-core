@@ -196,10 +196,9 @@ async fn create_new_psbt(
             .filter(|a| a.is_mine && a.utxo == issuer_resp.issue_utxo)
             .collect();
 
-        for allocation in allocations.into_iter() {
+        if let Some(allocation) = allocations.into_iter().next() {
             asset_utxo = allocation.utxo.to_owned();
             asset_utxo_terminal = allocation.derivation.to_owned();
-            break;
         }
     }
 

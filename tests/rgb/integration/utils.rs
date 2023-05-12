@@ -64,21 +64,18 @@ pub async fn setup_regtest(force: bool, mnemonic: Option<&str>) {
         // Restart Nodes
         start_node().await;
     }
-    match mnemonic {
-        Some(words) => {
-            let seed_password = "";
-            let vault_data = bitmask_core::bitcoin::save_mnemonic(words, seed_password)
-                .await
-                .expect("invalid mnemonic");
+    if let Some(words) = mnemonic {
+        let seed_password = "";
+        let vault_data = bitmask_core::bitcoin::save_mnemonic(words, seed_password)
+            .await
+            .expect("invalid mnemonic");
 
-            // Send Coins to RGB Wallet
-            let fungible_snapshot =
-                get_wallet_data(&vault_data.public.rgb_assets_descriptor_xpub, None)
-                    .await
-                    .expect("invalid wallet snapshot");
-            send_some_coins(&fungible_snapshot.address, "0.1").await;
-        }
-        _ => {}
+        // Send Coins to RGB Wallet
+        let fungible_snapshot =
+            get_wallet_data(&vault_data.public.rgb_assets_descriptor_xpub, None)
+                .await
+                .expect("invalid wallet snapshot");
+        send_some_coins(&fungible_snapshot.address, "0.1").await;
     };
 }
 
