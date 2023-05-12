@@ -130,6 +130,7 @@ pub async fn get_mnemonic(
     let nostr_npub = nostr_keys.public_key().to_bech32()?;
 
     let private = PrivateWalletData {
+        xprvkh,
         btc_descriptor_xprv,
         btc_change_descriptor_xprv,
         rgb_assets_descriptor_xprv,
@@ -139,16 +140,15 @@ pub async fn get_mnemonic(
     };
 
     let public = PublicWalletData {
+        xpub: xpub.to_string(),
+        xpubkh,
+        watcher_xpub,
         btc_descriptor_xpub,
         btc_change_descriptor_xpub,
         rgb_assets_descriptor_xpub,
         rgb_udas_descriptor_xpub,
         nostr_pub,
         nostr_npub,
-        xprvkh,
-        xpubkh,
-        xpub: xpub.to_string(),
-        watcher_xpub,
     };
 
     Ok(EncryptedWalletData {

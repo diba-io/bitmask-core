@@ -26,6 +26,7 @@ pub struct WalletTransaction {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct PrivateWalletData {
+    pub xprvkh: String,
     pub btc_descriptor_xprv: String,
     pub btc_change_descriptor_xprv: String,
     pub rgb_assets_descriptor_xprv: String,
@@ -37,16 +38,15 @@ pub struct PrivateWalletData {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct PublicWalletData {
+    pub xpub: String,
+    pub xpubkh: String,
+    pub watcher_xpub: String,
     pub btc_descriptor_xpub: String,
     pub btc_change_descriptor_xpub: String,
     pub rgb_assets_descriptor_xpub: String,
     pub rgb_udas_descriptor_xpub: String,
     pub nostr_pub: String,
     pub nostr_npub: String,
-    pub xprvkh: String,
-    pub xpubkh: String,
-    pub xpub: String,
-    pub watcher_xpub: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
