@@ -73,7 +73,10 @@ pub async fn retrieve(sk: &str, name: &str) -> Result<Vec<u8>> {
     }
 
     let encoded = response.bytes().await?;
-    let (_header, decoded) = carbonado::file::decode(&sk, &encoded)?;
-
-    Ok(decoded)
+    if encoded.is_empty() {
+        Ok(Vec::new())
+    } else {
+        let (_header, decoded) = carbonado::file::decode(&sk, &encoded)?;
+        Ok(decoded)
+    }
 }
