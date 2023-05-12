@@ -64,15 +64,16 @@ pub fn create_invoice(
 
     // Generate Invoice
     let invoice = RgbInvoice {
-        transport: RgbTransport::UnspecifiedMeans,
+        transports: vec![RgbTransport::UnspecifiedMeans],
         contract: Some(contract_id),
-        iface: iface.name.clone(),
+        iface: Some(iface.name.clone()),
         operation: None,
         assignment: None,
         beneficiary: seal.to_concealed_seal().into(),
         owned_state: TypedState::Amount(amount),
         chain: None,
         unknown_query: none!(),
+        expiry: None,
     };
 
     stock
