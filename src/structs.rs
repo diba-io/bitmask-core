@@ -388,7 +388,7 @@ pub struct NextAddressReponse {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
-pub struct NextUtxoReponse {
+pub struct NextUtxoResponse {
     pub utxo: String,
 }
 

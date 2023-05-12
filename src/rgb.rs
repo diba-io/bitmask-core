@@ -42,7 +42,7 @@ use crate::{
     structs::{
         AcceptRequest, AcceptResponse, ContractsResponse, ImportRequest, ImportResponse,
         InterfaceDetail, InterfacesResponse, InvoiceRequest, InvoiceResponse, IssueRequest,
-        IssueResponse, NextAddressReponse, NextUtxoReponse, PsbtRequest, PsbtResponse,
+        IssueResponse, NextAddressReponse, NextUtxoResponse, PsbtRequest, PsbtResponse,
         RgbTransferRequest, RgbTransferResponse, SchemaDetail, SchemasResponse,
         WatcherDetailReponse, WatcherRequest, WatcherResponse,
     },
@@ -400,7 +400,7 @@ pub async fn watcher_next_address(sk: &str, name: &str) -> Result<NextAddressRep
     Ok(resp)
 }
 
-pub async fn watcher_next_utxo(sk: &str, name: &str) -> Result<NextUtxoReponse> {
+pub async fn watcher_next_utxo(sk: &str, name: &str) -> Result<NextUtxoResponse> {
     let rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await?;
 
     let wallet = match rgb_account.wallets.get(name) {
@@ -427,5 +427,5 @@ pub async fn watcher_next_utxo(sk: &str, name: &str) -> Result<NextUtxoReponse> 
 
     store_wallets(sk, ASSETS_WALLETS, &rgb_account).await?;
 
-    Ok(NextUtxoReponse { utxo })
+    Ok(NextUtxoResponse { utxo })
 }
