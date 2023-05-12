@@ -352,7 +352,7 @@ pub struct WatcherResponse {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
-pub struct WatcherDetailReponse {
+pub struct WatcherDetailResponse {
     /// Allocations
     pub contracts: Vec<WatcherDetail>,
 }
@@ -381,14 +381,14 @@ pub struct AllocationDetail {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
-pub struct NextAddressReponse {
+pub struct NextAddressResponse {
     pub address: String,
     pub network: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
-pub struct NextUtxoReponse {
+pub struct NextUtxoResponse {
     pub utxo: String,
 }
 

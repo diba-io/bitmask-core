@@ -42,9 +42,9 @@ use crate::{
     structs::{
         AcceptRequest, AcceptResponse, ContractsResponse, ImportRequest, ImportResponse,
         InterfaceDetail, InterfacesResponse, InvoiceRequest, InvoiceResponse, IssueRequest,
-        IssueResponse, NextAddressReponse, NextUtxoReponse, PsbtRequest, PsbtResponse,
+        IssueResponse, NextAddressResponse, NextUtxoResponse, PsbtRequest, PsbtResponse,
         RgbTransferRequest, RgbTransferResponse, SchemaDetail, SchemasResponse,
-        WatcherDetailReponse, WatcherRequest, WatcherResponse,
+        WatcherDetailResponse, WatcherRequest, WatcherResponse,
     },
 };
 
@@ -349,7 +349,7 @@ pub async fn create_watcher(sk: &str, request: WatcherRequest) -> Result<Watcher
     Ok(WatcherResponse { name })
 }
 
-pub async fn watcher_details(sk: &str, name: &str) -> Result<WatcherDetailReponse> {
+pub async fn watcher_details(sk: &str, name: &str) -> Result<WatcherDetailResponse> {
     let mut stock = retrieve_stock(sk, ASSETS_STOCK).await?;
     let mut rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await?;
 
@@ -368,7 +368,7 @@ pub async fn watcher_details(sk: &str, name: &str) -> Result<WatcherDetailRepons
 
     let allocations = list_allocations(&mut wallet, &mut stock, &mut resolver)?;
 
-    let resp = WatcherDetailReponse {
+    let resp = WatcherDetailResponse {
         contracts: allocations,
     };
 
@@ -378,7 +378,7 @@ pub async fn watcher_details(sk: &str, name: &str) -> Result<WatcherDetailRepons
     Ok(resp)
 }
 
-pub async fn watcher_next_address(sk: &str, name: &str) -> Result<NextAddressReponse> {
+pub async fn watcher_next_address(sk: &str, name: &str) -> Result<NextAddressResponse> {
     let rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await?;
 
     let network = NETWORK.read().await.to_string();
@@ -393,14 +393,14 @@ pub async fn watcher_next_address(sk: &str, name: &str) -> Result<NextAddressRep
     let wallet = wallet?;
     let next_address = next_address(iface_index, wallet, network)?;
 
-    let resp = NextAddressReponse {
+    let resp = NextAddressResponse {
         address: next_address.address.to_string(),
         network: network.to_string(),
     };
     Ok(resp)
 }
 
-pub async fn watcher_next_utxo(sk: &str, name: &str) -> Result<NextUtxoReponse> {
+pub async fn watcher_next_utxo(sk: &str, name: &str) -> Result<NextUtxoResponse> {
     let rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await?;
 
     let wallet = match rgb_account.wallets.get(name) {
@@ -427,5 +427,5 @@ pub async fn watcher_next_utxo(sk: &str, name: &str) -> Result<NextUtxoReponse> 
 
     store_wallets(sk, ASSETS_WALLETS, &rgb_account).await?;
 
-    Ok(NextUtxoReponse { utxo })
+    Ok(NextUtxoResponse { utxo })
 }
