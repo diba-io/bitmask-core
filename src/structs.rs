@@ -132,6 +132,8 @@ pub struct IssueResponse {
     pub precision: u8,
     /// The contract state (multiple formats)
     pub contract: ContractFormats,
+    /// The gensis state (multiple formats)
+    pub genesis: GenesisFormats,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -143,6 +145,15 @@ pub struct ContractFormats {
     pub strict: String,
     /// The contract state (compiled in armored mode)
     pub armored: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct GenesisFormats {
+    /// The genesis state (encoded in bech32m)
+    pub legacy: String,
+    /// The genesis state (encoded in strict)
+    pub strict: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -185,6 +196,8 @@ pub struct ImportResponse {
     pub allocations: Vec<AllocationDetail>,
     /// The contract state (multiple formats)
     pub contract: ContractFormats,
+    /// The genesis state (multiple formats)
+    pub genesis: GenesisFormats,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -221,7 +234,7 @@ pub struct PsbtRequest {
     /// Bitcoin Change Addresses (format: {address}:{amount})
     pub bitcoin_changes: Vec<String>,
     /// Bitcoin Fee
-    pub fee: u64,
+    pub fee: Option<u64>,
     /// TapTweak used to spend outputs based in tapret commitments
     pub input_tweak: Option<String>,
 }
@@ -249,6 +262,8 @@ pub struct SignPsbtRequest {
 pub struct SignPsbtResponse {
     /// PSBT is signed?
     pub sign: bool,
+    /// Transaction encoded in Base64
+    pub tx: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

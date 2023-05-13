@@ -10,8 +10,8 @@ use rgbstd::{
 };
 use strict_encoding::{tn, StrictSerialize, TypeName};
 
-use crate::rgb::wallet::list_allocations;
 use crate::structs::{ContractFormats, ImportResponse};
+use crate::{rgb::wallet::list_allocations, structs::GenesisFormats};
 
 // TODO: Create one extractor by contract interface
 pub fn extract_contract_by_id(
@@ -106,6 +106,31 @@ pub fn extract_contract_by_id(
             .sum();
     }
 
+    // Genesis
+    let genesis = stock
+        .export_contract(ContractId::from_str(&contract_id)?)
+        .expect("contract have genesis");
+
+    let genesis_strict = genesis
+        .to_strict_serialized::<0xFFFFFF>()
+        .expect("invalid genesis data")
+        .to_hex();
+
+    let genesis_legacy = encode(
+        "rgb",
+        genesis
+            .to_strict_serialized::<0xFFFFFF>()
+            .expect("invalid contract data")
+            .to_base32(),
+        bech32::Variant::Bech32m,
+    )
+    .expect("invalid contract data");
+
+    let genesis_formats = GenesisFormats {
+        legacy: genesis_legacy,
+        strict: genesis_strict,
+    };
+
     let resp = ImportResponse {
         contract_id,
         iimpl_id,
@@ -122,6 +147,7 @@ pub fn extract_contract_by_id(
             strict: contract_strict,
             armored: contract_bindle.to_string(),
         },
+        genesis: genesis_formats,
     };
 
     Ok(resp)

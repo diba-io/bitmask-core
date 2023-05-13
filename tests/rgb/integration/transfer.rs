@@ -209,7 +209,7 @@ async fn create_new_psbt(
         asset_utxo_terminal: asset_utxo_terminal.to_string(),
         change_index: None,
         bitcoin_changes: vec![],
-        fee: 1000,
+        fee: None,
         input_tweak: None,
     };
 
