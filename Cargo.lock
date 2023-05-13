@@ -523,7 +523,7 @@ checksum = "bef38d45163c2f1dde094a7dfd33ccf595c92905c8f8f4fdc18d06fb1037718a"
 
 [[package]]
 name = "bitmask-core"
-version = "0.6.0-beta.4"
+version = "0.6.0-beta.5"
 dependencies = [
  "aluvm",
  "amplify",
@@ -634,8 +634,9 @@ dependencies = [
 
 [[package]]
 name = "bp-core"
-version = "0.10.1"
-source = "git+https://github.com/BP-WG/bp-core?branch=commit_derive#92966c501d6d677aa875fa02e92d3b5604ff9ab8"
+version = "0.10.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1052718595cc1ec21aaf709181e00a6a23465181294c8d9138becd17595c3761"
 dependencies = [
  "amplify",
  "bp-dbc",
@@ -649,8 +650,9 @@ dependencies = [
 
 [[package]]
 name = "bp-dbc"
-version = "0.10.1"
-source = "git+https://github.com/BP-WG/bp-core?branch=commit_derive#92966c501d6d677aa875fa02e92d3b5604ff9ab8"
+version = "0.10.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9a701a742b23d6bda5f92ec042f18a84a9ab0541488babf196c28a1f64d72c2a"
 dependencies = [
  "amplify",
  "baid58",
@@ -663,8 +665,9 @@ dependencies = [
 
 [[package]]
 name = "bp-primitives"
-version = "0.10.1"
-source = "git+https://github.com/BP-WG/bp-core?branch=commit_derive#92966c501d6d677aa875fa02e92d3b5604ff9ab8"
+version = "0.10.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fbfea68e7cf2a2962b609d4de56b8e855ecfe7ca5c2e6deac5ac02289fb5b656"
 dependencies = [
  "amplify",
  "commit_verify",
@@ -675,8 +678,9 @@ dependencies = [
 
 [[package]]
 name = "bp-seals"
-version = "0.10.0"
-source = "git+https://github.com/BP-WG/bp-core?branch=commit_derive#92966c501d6d677aa875fa02e92d3b5604ff9ab8"
+version = "0.10.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b78940b9213cff7e53f705b2ab1320679b02edd4d7d0f26648341a4089c8d979"
 dependencies = [
  "amplify",
  "baid58",
@@ -810,19 +814,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "codespan-reporting"
-version = "0.11.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3538270d33cc669650c4b093848450d380def10c331d38c768e34cac80576e6e"
-dependencies = [
- "termcolor",
- "unicode-width",
-]
-
-[[package]]
 name = "commit_encoding_derive"
 version = "0.10.0-beta.1"
-source = "git+https://github.com/LNP-BP/client_side_validation?branch=commit_encode_derive#291e24db87ca0030e9bf94cc892f4f8cce62c498"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d9c90e218caace623ce81600c4abbf475d939068b3998d362fb6eb44172cfc1a"
 dependencies = [
  "amplify",
  "amplify_syn",
@@ -834,7 +829,8 @@ dependencies = [
 [[package]]
 name = "commit_verify"
 version = "0.10.1"
-source = "git+https://github.com/LNP-BP/client_side_validation?branch=commit_encode_derive#291e24db87ca0030e9bf94cc892f4f8cce62c498"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4909c1969590b4f3bf94e555a750f5d0a06322c358562c14ff9c1c90a6828e9e"
 dependencies = [
  "amplify",
  "commit_encoding_derive",
@@ -955,50 +951,6 @@ dependencies = [
  "rand_core 0.5.1",
  "subtle",
  "zeroize",
-]
-
-[[package]]
-name = "cxx"
-version = "1.0.94"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f61f1b6389c3fe1c316bf8a4dccc90a38208354b330925bce1f74a6c4756eb93"
-dependencies = [
- "cc",
- "cxxbridge-flags",
- "cxxbridge-macro",
- "link-cplusplus",
-]
-
-[[package]]
-name = "cxx-build"
-version = "1.0.94"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "12cee708e8962df2aeb38f594aae5d827c022b6460ac71a7a3e2c3c2aae5a07b"
-dependencies = [
- "cc",
- "codespan-reporting",
- "once_cell",
- "proc-macro2",
- "quote",
- "scratch",
- "syn 2.0.15",
-]
-
-[[package]]
-name = "cxxbridge-flags"
-version = "1.0.94"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7944172ae7e4068c533afbb984114a56c46e9ccddda550499caa222902c7f7bb"
-
-[[package]]
-name = "cxxbridge-macro"
-version = "1.0.94"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2345488264226bf682893e25de0769f3360aac9957980ec49361b083ddaa5bc5"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.15",
 ]
 
 [[package]]
@@ -1428,9 +1380,9 @@ dependencies = [
 
 [[package]]
 name = "h2"
-version = "0.3.18"
+version = "0.3.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "17f8a914c2987b688368b5138aa05321db91f4090cf26118185672ad588bce21"
+checksum = "d357c7ae988e7d2182f7d7871d0b963962420b0678b0997ce7de72001aeab782"
 dependencies = [
  "bytes",
  "fnv",
@@ -1693,12 +1645,11 @@ dependencies = [
 
 [[package]]
 name = "iana-time-zone-haiku"
-version = "0.1.1"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0703ae284fc167426161c2e3f1da3ea71d94b21bedbcc9494e92b28e334e3dca"
+checksum = "f31827a206f56af32e590ba56d5d2d085f558508192593743f16b2306495269f"
 dependencies = [
- "cxx",
- "cxx-build",
+ "cc",
 ]
 
 [[package]]
@@ -1865,33 +1816,25 @@ dependencies = [
 
 [[package]]
 name = "lightning"
-version = "0.0.113"
+version = "0.0.115"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "087add70f81d2fdc6d4409bc0cef69e11ad366ef1d0068550159bd22b3ac8664"
+checksum = "e009e1c0c21f66378b491bb40f548682138c63e09db6f3a05af59f8804bb9f4a"
 dependencies = [
  "bitcoin 0.29.2",
 ]
 
 [[package]]
 name = "lightning-invoice"
-version = "0.21.0"
+version = "0.23.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e9680857590c3529cf8c7d32b04501f215f2bf1e029fdfa22f4112f66c1741e4"
+checksum = "c4e44b0e2822c8811470137d2339fdfe67a699b3248bb1606d1d02eb6a1e9f0a"
 dependencies = [
  "bech32",
+ "bitcoin 0.29.2",
  "bitcoin_hashes 0.11.0",
  "lightning",
  "num-traits",
  "secp256k1 0.24.3",
-]
-
-[[package]]
-name = "link-cplusplus"
-version = "1.0.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ecd207c9c713c34f95a097a5b029ac2ce6010530c7b49d7fea24d977dede04f5"
-dependencies = [
- "cc",
 ]
 
 [[package]]
@@ -2488,8 +2431,9 @@ dependencies = [
 
 [[package]]
 name = "rgb-core"
-version = "0.10.1"
-source = "git+https://github.com/RGB-WG/rgb-core?branch=fix/op-conceal#bc86907a362bc09dbd63aeb7047771f986aee902"
+version = "0.10.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c8b1c35a490db37f992bba0706b63fa42b5e7bc8705b0c55fb4e244034f078d8"
 dependencies = [
  "aluvm",
  "amplify",
@@ -2517,8 +2461,9 @@ dependencies = [
 
 [[package]]
 name = "rgb-std"
-version = "0.10.0"
-source = "git+https://github.com/RGB-WG/rgb-wallet?branch=rgb20#370a307e1a1c6be47590b03b4418182bc2027845"
+version = "0.10.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "78c7d63339bb4c4b26f3033a9dbc01fe1ed5eaafe7684185427396ac78f8ac19"
 dependencies = [
  "amplify",
  "baid58",
@@ -2535,17 +2480,20 @@ dependencies = [
 
 [[package]]
 name = "rgb-wallet"
-version = "0.10.0"
-source = "git+https://github.com/RGB-WG/rgb-wallet?branch=rgb20#370a307e1a1c6be47590b03b4418182bc2027845"
+version = "0.10.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b9a8a5b28141a9751c3a2af0aeecc0a64d622574aec07e8e447b43107ec7903b"
 dependencies = [
  "amplify",
  "baid58",
  "bitcoin 0.30.0",
  "bp-core",
+ "chrono",
  "commit_verify",
  "fluent-uri",
  "getrandom",
  "indexmap",
+ "percent-encoding",
  "rgb-core",
  "rgb-std",
  "strict_encoding",
@@ -2655,12 +2603,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d29ab0c6d3fc0ee92fe66e2d99f700eab17a8d57d1c1d3b748380fb20baa78cd"
 
 [[package]]
-name = "scratch"
-version = "1.0.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1792db035ce95be60c3f8853017b3999209281c24e2ba5bc8e59bf97a0c590c1"
-
-[[package]]
 name = "sct"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2714,30 +2656,31 @@ dependencies = [
 
 [[package]]
 name = "secp256k1-zkp"
-version = "0.7.0"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fd403e9f0569b4131ab3fc9fa24a17775331b39382efd2cde851fdca655e3520"
+checksum = "3c07a95044ad86d2bfde4bb9bc99728aad3b311aa4fabea9db3b670846224186"
 dependencies = [
+ "bitcoin-private",
  "rand",
- "secp256k1 0.24.3",
+ "secp256k1 0.27.0",
  "secp256k1-zkp-sys",
 ]
 
 [[package]]
 name = "secp256k1-zkp-sys"
-version = "0.7.0"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "64e7a2beac087c1da2d21018a3b7f043fe2f138654ad9c1518d409061a4a0034"
+checksum = "4237cd927cb5b153fb764b766ced70a7df76d0dacdbaabb49e75bdab03b49c26"
 dependencies = [
  "cc",
- "secp256k1-sys 0.6.1",
+ "secp256k1-sys 0.8.1",
 ]
 
 [[package]]
 name = "security-framework"
-version = "2.8.2"
+version = "2.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a332be01508d814fed64bf28f798a146d73792121129962fdf335bb3c49a4254"
+checksum = "ca2855b3715770894e67cbfa3df957790aa0c9edc3bf06efa1a84d77fa0839d1"
 dependencies = [
  "bitflags",
  "core-foundation",
@@ -2748,9 +2691,9 @@ dependencies = [
 
 [[package]]
 name = "security-framework-sys"
-version = "2.8.0"
+version = "2.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "31c9bb296072e961fcbd8853511dd39c2d8be2deb1e17c6860b1d30732b323b4"
+checksum = "f51d0c0d83bec45f16480d0ce0058397a69e48fcdc52d1dc8855fb68acbd31a7"
 dependencies = [
  "core-foundation-sys",
  "libc",
@@ -3402,9 +3345,9 @@ dependencies = [
 
 [[package]]
 name = "tower-http"
-version = "0.3.5"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f873044bf02dd1e8239e9c1293ea39dad76dc594ec16185d0a1bf31d8dc8d858"
+checksum = "5d1d42a9b3f3ec46ba828e8d376aec14592ea199f70a06a548587ecd1c4ab658"
 dependencies = [
  "bitflags",
  "bytes",
@@ -3504,12 +3447,6 @@ checksum = "5c5713f0fc4b5db668a2ac63cdb7bb4469d8c9fed047b1d0292cc7b0ce2ba921"
 dependencies = [
  "tinyvec",
 ]
-
-[[package]]
-name = "unicode-width"
-version = "0.1.10"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c0edd1e5b14653f783770bce4a4dabb4a5108a5370a5f5d8cfe8710c361f6c8b"
 
 [[package]]
 name = "universal-hash"
