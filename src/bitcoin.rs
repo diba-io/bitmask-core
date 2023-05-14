@@ -4,7 +4,7 @@ use ::bitcoin::util::address::Address;
 use ::psbt::Psbt;
 use anyhow::{anyhow, Result};
 use bdk::{wallet::AddressIndex, FeeRate, LocalUtxo, TransactionDetails};
-use bitcoin::psbt::PartiallySignedTransaction;
+use bitcoin::{consensus::serialize, psbt::PartiallySignedTransaction};
 use bitcoin_hashes::{sha256, Hash};
 use serde_encrypt::{
     serialize::impls::BincodeSerializer, shared_key::SharedKey, traits::SerdeEncryptSharedKey,
@@ -372,6 +372,17 @@ pub async fn sign_psbt_file(_sk: &str, request: SignPsbtRequest) -> Result<SignP
     let wallet = get_wallet(&encrypt_wallet.private.rgb_assets_descriptor_xprv, None).await?;
     synchronize_wallet(&wallet).await?;
 
-    let sign = sign_psbt(&wallet, final_psbt).await;
-    Ok(SignPsbtResponse { sign: sign.is_ok() })
+    let sign = sign_psbt(&wallet, final_psbt).await?;
+    let resp = match sign.transaction {
+        Some(tx) => SignPsbtResponse {
+            sign: true,
+            tx: base64::encode(&serialize(&tx)),
+        },
+        _ => SignPsbtResponse {
+            sign: false,
+            tx: String::new(),
+        },
+    };
+
+    Ok(resp)
 }
