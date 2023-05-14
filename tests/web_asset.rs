@@ -13,7 +13,10 @@ use bitmask_core::{
         WalletData,
     },
     web::{
-        bitcoin::{get_assets_vault, get_encrypted_wallet, get_wallet_data, save_mnemonic_seed},
+        bitcoin::{
+            get_assets_vault, get_encrypted_wallet, get_wallet_data, hash_password,
+            save_mnemonic_seed,
+        },
         json_parse, resolve,
         rgb::import_contract,
         set_panic_hook,
@@ -33,11 +36,12 @@ const SEED_PASSWORD: &str = "";
 async fn contract_legacy_import() {
     set_panic_hook();
     let mnemonic = env!("TEST_WALLET_SEED", "TEST_WALLET_SEED variable not set");
+    let hash = hash_password(ENCRYPTION_PASSWORD.to_owned());
 
     info!("Import wallet");
     let mnemonic_data_str = resolve(save_mnemonic_seed(
         mnemonic.to_owned(),
-        ENCRYPTION_PASSWORD.to_owned(),
+        hash.clone(),
         SEED_PASSWORD.to_owned(),
     ))
     .await;
@@ -45,7 +49,7 @@ async fn contract_legacy_import() {
 
     info!("Get vault properties");
     let vault_str: JsValue = resolve(get_encrypted_wallet(
-        ENCRYPTION_PASSWORD.to_owned(),
+        hash,
         mnemonic_data.serialized_encrypted_message,
     ))
     .await;
@@ -66,11 +70,12 @@ async fn contract_legacy_import() {
 async fn contract_strict_import() {
     set_panic_hook();
     let mnemonic = env!("TEST_WALLET_SEED", "TEST_WALLET_SEED variable not set");
+    let hash = hash_password(ENCRYPTION_PASSWORD.to_owned());
 
     info!("Import wallet");
     let mnemonic_data_str = resolve(save_mnemonic_seed(
         mnemonic.to_owned(),
-        ENCRYPTION_PASSWORD.to_owned(),
+        hash.clone(),
         SEED_PASSWORD.to_owned(),
     ))
     .await;
@@ -78,7 +83,7 @@ async fn contract_strict_import() {
 
     info!("Get vault properties");
     let vault_str: JsValue = resolve(get_encrypted_wallet(
-        ENCRYPTION_PASSWORD.to_owned(),
+        hash,
         mnemonic_data.serialized_encrypted_message,
     ))
     .await;
@@ -100,11 +105,12 @@ async fn asset_transfer() {
     set_panic_hook();
 
     let mnemonic = env!("TEST_WALLET_SEED", "TEST_WALLET_SEED variable not set");
+    let hash = hash_password(ENCRYPTION_PASSWORD.to_owned());
 
     // Import wallet
     let mnemonic_data_str = resolve(save_mnemonic_seed(
         mnemonic.to_owned(),
-        ENCRYPTION_PASSWORD.to_owned(),
+        hash.clone(),
         SEED_PASSWORD.to_owned(),
     ))
     .await;
@@ -113,7 +119,7 @@ async fn asset_transfer() {
 
     // Get vault properties
     let wallet_data_str: JsValue = resolve(get_encrypted_wallet(
-        ENCRYPTION_PASSWORD.to_owned(),
+        hash,
         mnemonic_data.serialized_encrypted_message,
     ))
     .await;
