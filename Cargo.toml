@@ -29,6 +29,7 @@ server = ["tokio/full", "tower-http/cors"]
 anyhow = "1.0.68"
 aluvm = "0.10.1"
 amplify = "4.0.0"
+argon2 = "0.5.0"
 base64 = { package = "base64-compat", version = "1.0.0" }
 bech32 = "0.9.1"
 bip39 = { version = "2.0.0", features = ["rand"] }

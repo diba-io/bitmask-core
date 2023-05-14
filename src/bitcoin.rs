@@ -3,9 +3,9 @@ use std::str::FromStr;
 use ::bitcoin::util::address::Address;
 use ::psbt::Psbt;
 use anyhow::{anyhow, Result};
+use argon2::Argon2;
 use bdk::{wallet::AddressIndex, FeeRate, LocalUtxo, TransactionDetails};
 use bitcoin::psbt::PartiallySignedTransaction;
-use bitcoin_hashes::{sha256, Hash};
 use serde_encrypt::{
     serialize::impls::BincodeSerializer, shared_key::SharedKey, traits::SerdeEncryptSharedKey,
     AsSharedKey, EncryptedMessage,
@@ -45,9 +45,19 @@ impl SerdeEncryptSharedKey for EncryptedWalletDataV04 {
 
 /// Bitcoin Wallet Operations
 
+const BITMASK_ARGON2_SALT: &[u8] = b"DIBA BitMask Password Hash";
+
 pub fn hash_password(password: &str) -> String {
-    let hash = sha256::Hash::hash(password.as_bytes());
-    hex::encode(hash.into_inner())
+    let mut output_key_material = [0u8; 32];
+    Argon2::default()
+        .hash_password_into(
+            password.as_bytes(),
+            BITMASK_ARGON2_SALT,
+            &mut output_key_material,
+        )
+        .expect("Password hashed with Argon2id");
+
+    hex::encode(output_key_material)
 }
 
 pub fn get_encrypted_wallet(
