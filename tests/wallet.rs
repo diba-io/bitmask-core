@@ -3,7 +3,7 @@ use std::env;
 
 use anyhow::Result;
 use bitmask_core::{
-    bitcoin::{get_encrypted_wallet, get_wallet_data, save_mnemonic_seed},
+    bitcoin::{get_encrypted_wallet, get_wallet_data, hash_password, save_mnemonic_seed},
     constants::get_network,
     util::init_logging,
     warn,
@@ -22,8 +22,8 @@ async fn error_for_bad_mnemonic() -> Result<()> {
 
     info!("Import wallets");
     let mnemonic = "this is a bad mnemonic that is meant to break";
-    let mnemonic_data_result =
-        save_mnemonic_seed(mnemonic, ENCRYPTION_PASSWORD, SEED_PASSWORD).await;
+    let hash = hash_password(ENCRYPTION_PASSWORD);
+    let mnemonic_data_result = save_mnemonic_seed(mnemonic, &hash, SEED_PASSWORD).await;
 
     assert!(mnemonic_data_result.is_err());
 
@@ -39,13 +39,9 @@ async fn create_wallet() -> Result<()> {
 
     info!("Import wallets");
     let main_mnemonic = env::var("TEST_WALLET_SEED")?;
-    let main_mnemonic_data =
-        save_mnemonic_seed(&main_mnemonic, ENCRYPTION_PASSWORD, SEED_PASSWORD).await?;
-
-    let main_vault = get_encrypted_wallet(
-        ENCRYPTION_PASSWORD,
-        &main_mnemonic_data.serialized_encrypted_message,
-    )?;
+    let hash = hash_password(ENCRYPTION_PASSWORD);
+    let main_mnemonic_data = save_mnemonic_seed(&main_mnemonic, &hash, SEED_PASSWORD).await?;
+    let main_vault = get_encrypted_wallet(&hash, &main_mnemonic_data.serialized_encrypted_message)?;
 
     let main_btc_wallet = get_wallet_data(&main_vault.private.btc_descriptor_xprv, None).await?;
     let main_rgb_wallet =
@@ -63,13 +59,9 @@ async fn get_wallet_balance() -> Result<()> {
     init_logging("wallet=warn");
 
     let main_mnemonic = env::var("TEST_WALLET_SEED")?;
-    let main_mnemonic_data =
-        save_mnemonic_seed(&main_mnemonic, ENCRYPTION_PASSWORD, SEED_PASSWORD).await?;
-
-    let main_vault = get_encrypted_wallet(
-        ENCRYPTION_PASSWORD,
-        &main_mnemonic_data.serialized_encrypted_message,
-    )?;
+    let hash = hash_password(ENCRYPTION_PASSWORD);
+    let main_mnemonic_data = save_mnemonic_seed(&main_mnemonic, &hash, SEED_PASSWORD).await?;
+    let main_vault = get_encrypted_wallet(&hash, &main_mnemonic_data.serialized_encrypted_message)?;
 
     let main_btc_wallet = get_wallet_data(&main_vault.private.btc_descriptor_xprv, None).await?;
 

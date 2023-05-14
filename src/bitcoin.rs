@@ -45,13 +45,18 @@ impl SerdeEncryptSharedKey for EncryptedWalletDataV04 {
 
 /// Bitcoin Wallet Operations
 
+pub fn hash_password(password: &str) -> String {
+    let hash = sha256::Hash::hash(password.as_bytes());
+    hex::encode(hash.into_inner())
+}
+
 pub fn get_encrypted_wallet(
-    password: &str,
+    hash: &str,
     encrypted_descriptors: &str,
 ) -> Result<EncryptedWalletData> {
-    // read hash digest and consume hasher
-    let hash = sha256::Hash::hash(password.as_bytes());
-    let shared_key: [u8; 32] = hash.into_inner();
+    let shared_key: [u8; 32] = hex::decode(hash)?
+        .try_into()
+        .expect("hash is of fixed size");
     let encrypted_descriptors: Vec<u8> = hex::decode(encrypted_descriptors)?;
     let encrypted_message = EncryptedMessage::deserialize(encrypted_descriptors)?;
 
@@ -62,13 +67,14 @@ pub fn get_encrypted_wallet(
 }
 
 pub async fn upgrade_wallet(
-    password: &str,
+    hash: &str,
     encrypted_descriptors: &str,
     seed_password: &str,
 ) -> Result<String> {
     // read hash digest and consume hasher
-    let hash = sha256::Hash::hash(password.as_bytes());
-    let shared_key: [u8; 32] = hash.into_inner();
+    let shared_key: [u8; 32] = hex::decode(hash)?
+        .try_into()
+        .expect("hash is of fixed size");
     let encrypted_descriptors: Vec<u8> = hex::decode(encrypted_descriptors)?;
     let encrypted_message = EncryptedMessage::deserialize(encrypted_descriptors)?;
 
@@ -87,8 +93,7 @@ pub async fn upgrade_wallet(
             // println!("Recovered wallet data: {recovered_wallet_data:?}"); // Keep commented out for security
 
             let upgraded_descriptor =
-                save_mnemonic_seed(&recovered_wallet_data.mnemonic, password, seed_password)
-                    .await?;
+                save_mnemonic_seed(&recovered_wallet_data.mnemonic, hash, seed_password).await?;
 
             Some(upgraded_descriptor.serialized_encrypted_message)
         }
@@ -104,13 +109,10 @@ pub async fn upgrade_wallet(
     }
 }
 
-pub async fn new_mnemonic_seed(
-    encryption_password: &str,
-    seed_password: &str,
-) -> Result<MnemonicSeedData> {
-    let hash = sha256::Hash::hash(encryption_password.as_bytes());
-    let shared_key: [u8; 32] = hash.into_inner();
-
+pub async fn new_mnemonic_seed(hash: &str, seed_password: &str) -> Result<MnemonicSeedData> {
+    let shared_key: [u8; 32] = hex::decode(hash)?
+        .try_into()
+        .expect("hash is of fixed size");
     let encrypted_wallet_data = new_mnemonic(seed_password).await?;
     let encrypted_message = encrypted_wallet_data.encrypt(&SharedKey::from_array(shared_key))?;
     let serialized_encrypted_message = hex::encode(encrypted_message.serialize());
@@ -124,12 +126,12 @@ pub async fn new_mnemonic_seed(
 
 pub async fn save_mnemonic_seed(
     mnemonic_phrase: &str,
-    encryption_password: &str,
+    hash: &str,
     seed_password: &str,
 ) -> Result<MnemonicSeedData> {
-    let hash = sha256::Hash::hash(encryption_password.as_bytes());
-    let shared_key: [u8; 32] = hash.into_inner();
-
+    let shared_key: [u8; 32] = hex::decode(hash)?
+        .try_into()
+        .expect("hash is of fixed size");
     let vault_data = save_mnemonic(mnemonic_phrase, seed_password).await?;
     let encrypted_message = vault_data.encrypt(&SharedKey::from_array(shared_key))?;
     let serialized_encrypted_message = hex::encode(encrypted_message.serialize());
