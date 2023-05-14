@@ -80,3 +80,20 @@ pub async fn retrieve(sk: &str, name: &str) -> Result<Vec<u8>> {
         Ok(decoded)
     }
 }
+
+// Utility functions for handling data of different encodings
+
+pub fn encode_hex(bytes: &[u8]) -> String {
+    hex::encode(bytes)
+}
+
+pub fn encode_base64(bytes: &[u8]) -> String {
+    base64::encode(bytes)
+}
+pub fn decode_hex(string: &str) -> Result<Vec<u8>> {
+    Ok(hex::decode(string)?)
+}
+
+pub fn decode_base64(string: &str) -> Result<Vec<u8>> {
+    Ok(base64::decode(string)?)
+}
