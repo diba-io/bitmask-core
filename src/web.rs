@@ -141,7 +141,7 @@ pub mod bitcoin {
     }
 
     #[wasm_bindgen]
-    pub fn get_mnemonic_seed(hash: String, seed_password: String) -> Promise {
+    pub fn new_mnemonic_seed(hash: String, seed_password: String) -> Promise {
         set_panic_hook();
 
         future_to_promise(async move {
@@ -155,15 +155,11 @@ pub mod bitcoin {
     }
 
     #[wasm_bindgen]
-    pub fn save_mnemonic_seed(
-        mnemonic: String,
-        encryption_password: String,
-        hash: String,
-    ) -> Promise {
+    pub fn save_mnemonic_seed(mnemonic: String, hash: String, seed_password: String) -> Promise {
         set_panic_hook();
 
         future_to_promise(async move {
-            match crate::bitcoin::save_mnemonic_seed(&mnemonic, &encryption_password, &hash).await {
+            match crate::bitcoin::save_mnemonic_seed(&mnemonic, &hash, &seed_password).await {
                 Ok(result) => Ok(JsValue::from_string(
                     serde_json::to_string(&result).unwrap(),
                 )),
