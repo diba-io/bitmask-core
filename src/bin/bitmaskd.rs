@@ -55,7 +55,7 @@ async fn invoice(
     Ok((StatusCode::OK, Json(invoice_res)))
 }
 
-async fn psbt(
+async fn _psbt(
     TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
     Json(psbt_req): Json<PsbtRequest>,
 ) -> Result<impl IntoResponse, AppError> {
@@ -271,7 +271,7 @@ async fn main() -> Result<()> {
     let app = Router::new()
         .route("/issue", post(issue))
         .route("/invoice", post(invoice))
-        .route("/psbt", post(psbt))
+        // .route("/psbt", post(psbt))
         // .route("/sign", post(sign_psbt))
         .route("/pay", post(pay))
         .route("/accept", post(accept))

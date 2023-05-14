@@ -56,6 +56,7 @@ use self::{
         prefetch_resolve_commit_utxo, prefetch_resolve_psbt_tx, prefetch_resolve_spend,
         prefetch_resolve_watcher,
     },
+    psbt::estimate_fee_tx,
     wallet::{create_wallet, next_address, next_utxo, sync_wallet},
 };
 
@@ -102,6 +103,7 @@ pub async fn issue_contract(sk: &str, request: IssueRequest) -> Result<IssueResp
         balance: _,
         allocations: _,
         contract,
+        genesis,
     } = extract_contract_by_id(contract.contract_id(), &mut stock, &mut resolver, None)?;
 
     store_stock(sk, ASSETS_STOCK, &stock).await?;
@@ -115,6 +117,7 @@ pub async fn issue_contract(sk: &str, request: IssueRequest) -> Result<IssueResp
         supply,
         precision,
         contract,
+        genesis,
         issue_utxo: seal.replace("tapret1st:", ""),
     })
 }
@@ -156,6 +159,21 @@ pub async fn create_psbt(sk: &str, request: PsbtRequest) -> Result<PsbtResponse>
         ..Default::default()
     };
     prefetch_resolve_psbt_tx(&asset_utxo, &mut resolver).await;
+
+    // Retrieve transaction fee
+    let fee = match fee {
+        Some(fee) => fee,
+        _ => {
+            estimate_fee_tx(
+                &descriptor_pub,
+                &asset_utxo,
+                &asset_utxo_terminal,
+                change_index,
+                bitcoin_changes.clone(),
+            )
+            .await
+        }
+    };
 
     let psbt_file = create_rgb_psbt(
         descriptor_pub,

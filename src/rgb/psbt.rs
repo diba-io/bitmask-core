@@ -1,8 +1,11 @@
 use std::str::FromStr;
 
 use amplify::hex::ToHex;
-use bitcoin::{EcdsaSighashType, OutPoint, Script};
-use bitcoin_blockchain::locks::{LockTime, SeqNo};
+use bdk::wallet::coin_selection::{decide_change, Excess};
+use bdk::FeeRate;
+use bitcoin::secp256k1::SECP256K1;
+use bitcoin::{EcdsaSighashType, OutPoint, Script, XOnlyPublicKey};
+use bitcoin_blockchain::locks::SeqNo;
 use bitcoin_hashes::hex::FromHex;
 use bitcoin_scripts::PubkeyScript;
 use bp::dbc::tapret::TapretCommitment;
@@ -15,6 +18,8 @@ use rgb::psbt::{
     DbcPsbtError, TapretKeyError, PSBT_OUT_TAPRET_COMMITMENT, PSBT_OUT_TAPRET_HOST,
     PSBT_TAPRET_PREFIX,
 };
+use wallet::descriptors::derive::DeriveDescriptor;
+use wallet::hd::DerivationSubpath;
 use wallet::psbt::Psbt;
 use wallet::{
     descriptors::InputDescriptor,
@@ -23,6 +28,7 @@ use wallet::{
     psbt::{ProprietaryKeyDescriptor, ProprietaryKeyError, ProprietaryKeyLocation},
 };
 
+use crate::bitcoin::{get_wallet, synchronize_wallet};
 use crate::rgb::{constants::RGB_PSBT_TAPRET, structs::AddressAmount};
 
 #[allow(clippy::too_many_arguments)]
@@ -85,7 +91,6 @@ pub fn create_psbt(
         value: None,
     }];
 
-    let lock_time = LockTime::anytime();
     let change_index = match change_index {
         Some(index) => {
             UnhardenedIndex::from_str(&index.to_string()).expect("invalid change_index parse")
@@ -103,8 +108,6 @@ pub fn create_psbt(
         tx_resolver,
     )
     .expect("cannot be construct PSBT information");
-
-    psbt.fallback_locktime = Some(lock_time);
 
     for key in proprietary_keys {
         match key.location {
@@ -165,5 +168,92 @@ pub fn extract_commit(mut psbt: Psbt) -> Result<String, DbcPsbtError> {
     match commit_vec {
         Some(commit) => Ok(commit.to_hex()),
         _ => Err(DbcPsbtError::TapretKey(TapretKeyError::InvalidProof)),
+    }
+}
+
+// TODO: [Experimental] Review with Diba Team
+pub async fn estimate_fee_tx(
+    descriptor_pub: &str,
+    asset_utxo: &str,
+    asset_utxo_terminal: &str,
+    change_index: Option<u16>,
+    bitcoin_changes: Vec<String>,
+) -> u64 {
+    let outpoint = OutPoint::from_str(asset_utxo).expect("invalid outpoint");
+    let wallet = get_wallet(descriptor_pub, None)
+        .await
+        .expect("cannot retrieve wallet");
+
+    synchronize_wallet(&wallet)
+        .await
+        .expect("cannot sync wallet");
+
+    let local = wallet.get_utxo(outpoint);
+    let local = local.expect("").unwrap();
+
+    let change_index = match change_index {
+        Some(index) => {
+            UnhardenedIndex::from_str(&index.to_string()).expect("invalid change_index parse")
+        }
+        _ => UnhardenedIndex::default(),
+    };
+
+    // Other Recipient
+    let mut total_spent = 0;
+    for bitcoin_change in bitcoin_changes {
+        let recipient =
+            AddressAmount::from_str(&bitcoin_change).expect("invalid address amount format");
+        total_spent += recipient.amount;
+    }
+
+    // Main Recipient
+    total_spent = local.txout.value - total_spent;
+    let target_script = get_recipient_script(descriptor_pub, asset_utxo_terminal, change_index)
+        .expect("invalid derivation");
+
+    // TODO: Provide way to get fee rate estimate
+    let fee_rate = FeeRate::from_sat_per_vb(5.0);
+    let excess = decide_change(total_spent, fee_rate, &target_script);
+    match excess {
+        Excess::Change { amount: _, fee } => fee,
+        Excess::NoChange {
+            dust_threshold: _,
+            remaining_amount: _,
+            change_fee,
+        } => change_fee,
+    }
+}
+
+fn get_recipient_script(
+    descriptor_pub: &str,
+    asset_utxo_terminal: &str,
+    change_index: UnhardenedIndex,
+) -> Option<Script> {
+    let contract_terminal: DerivationSubpath<UnhardenedIndex> = asset_utxo_terminal
+        .parse()
+        .expect("invalid terminal path parse");
+
+    let contract_index = contract_terminal.first().expect("first derivation index");
+    let terminal_step = format!("/{contract_index}/*");
+    let descriptor_pub = descriptor_pub.replace(&terminal_step, "/*/*");
+    let descriptor: &Descriptor<DerivationAccount> =
+        &Descriptor::from_str(&descriptor_pub).expect("invalid descriptor parse");
+
+    let change_derivation = [*contract_index, change_index];
+    match descriptor {
+        Descriptor::Tr(_) => {
+            let change_descriptor = DeriveDescriptor::<XOnlyPublicKey>::derive_descriptor(
+                descriptor,
+                SECP256K1,
+                change_derivation,
+            )
+            .expect("Derivation mismatch");
+            let change_descriptor = match change_descriptor {
+                Descriptor::Tr(tr) => tr,
+                _ => unreachable!(),
+            };
+            Some(change_descriptor.script_pubkey())
+        }
+        _ => None,
     }
 }
