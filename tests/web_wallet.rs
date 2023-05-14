@@ -4,7 +4,8 @@ use bitmask_core::{
     structs::{EncryptedWalletData, MnemonicSeedData, TransactionDetails, WalletData},
     web::{
         bitcoin::{
-            get_encrypted_wallet, get_mnemonic_seed, get_wallet_data, save_mnemonic_seed, send_sats,
+            get_encrypted_wallet, get_mnemonic_seed, get_wallet_data, hash_password,
+            save_mnemonic_seed, send_sats,
         },
         json_parse, resolve, set_panic_hook, to_string,
     },
@@ -31,11 +32,8 @@ async fn create_wallet() {
     set_panic_hook();
 
     info!("Mnemonic string is 12 words long");
-    let mnemonic: JsValue = resolve(get_mnemonic_seed(
-        ENCRYPTION_PASSWORD.to_owned(),
-        SEED_PASSWORD.to_owned(),
-    ))
-    .await;
+    let hash = hash_password(ENCRYPTION_PASSWORD.to_owned());
+    let mnemonic: JsValue = resolve(get_mnemonic_seed(hash, SEED_PASSWORD.to_owned())).await;
     assert!(!mnemonic.is_undefined());
     assert!(mnemonic.is_string());
     assert_eq!(to_string(&mnemonic).split(' ').count(), 12);
@@ -48,9 +46,10 @@ async fn import_and_open_wallet() {
     set_panic_hook();
 
     info!("Import wallet");
+    let hash = hash_password(ENCRYPTION_PASSWORD.to_owned());
     let mnemonic_data_str = resolve(save_mnemonic_seed(
         MNEMONIC.to_owned(),
-        ENCRYPTION_PASSWORD.to_owned(),
+        hash.clone(),
         SEED_PASSWORD.to_owned(),
     ))
     .await;
@@ -59,7 +58,7 @@ async fn import_and_open_wallet() {
 
     info!("Get encrypted wallet properties");
     let encrypted_wallet_str: JsValue = resolve(get_encrypted_wallet(
-        ENCRYPTION_PASSWORD.to_owned(),
+        hash,
         mnemonic_data.serialized_encrypted_message,
     ))
     .await;
@@ -101,9 +100,10 @@ async fn import_test_wallet() {
     let mnemonic = env!("TEST_WALLET_SEED", "TEST_WALLET_SEED variable not set");
 
     info!("Import wallet");
+    let hash = hash_password(ENCRYPTION_PASSWORD.to_owned());
     let mnemonic_data_str = resolve(save_mnemonic_seed(
         mnemonic.to_owned(),
-        ENCRYPTION_PASSWORD.to_owned(),
+        hash.clone(),
         SEED_PASSWORD.to_owned(),
     ))
     .await;
@@ -111,7 +111,7 @@ async fn import_test_wallet() {
 
     info!("Get vault properties");
     let vault_str: JsValue = resolve(get_encrypted_wallet(
-        ENCRYPTION_PASSWORD.to_owned(),
+        hash,
         mnemonic_data.serialized_encrypted_message,
     ))
     .await;
