@@ -4,7 +4,7 @@ use bitmask_core::{
     structs::{EncryptedWalletData, MnemonicSeedData, TransactionDetails, WalletData},
     web::{
         bitcoin::{
-            get_encrypted_wallet, get_mnemonic_seed, get_wallet_data, hash_password,
+            get_encrypted_wallet, get_wallet_data, hash_password, new_mnemonic_seed,
             save_mnemonic_seed, send_sats,
         },
         json_parse, resolve, set_panic_hook, to_string,
@@ -33,7 +33,7 @@ async fn create_wallet() {
 
     info!("Mnemonic string is 12 words long");
     let hash = hash_password(ENCRYPTION_PASSWORD.to_owned());
-    let mnemonic: JsValue = resolve(get_mnemonic_seed(hash, SEED_PASSWORD.to_owned())).await;
+    let mnemonic: JsValue = resolve(new_mnemonic_seed(hash, SEED_PASSWORD.to_owned())).await;
     assert!(!mnemonic.is_undefined());
     assert!(mnemonic.is_string());
     assert_eq!(to_string(&mnemonic).split(' ').count(), 12);
