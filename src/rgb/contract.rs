@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use amplify::hex::ToHex;
+use amplify::{confinement::Confined, hex::ToHex};
 use bech32::{encode, ToBase32};
 use rgb::{Resolver, RgbWallet};
 use rgbstd::{
@@ -8,7 +8,8 @@ use rgbstd::{
     interface::{IfaceId, IfacePair},
     persistence::{Inventory, Stock},
 };
-use strict_encoding::{tn, StrictSerialize, TypeName};
+use strict_encoding::{tn, FieldName, StrictSerialize, TypeName};
+use strict_types::StrictVal;
 
 use crate::structs::{ContractFormats, ImportResponse};
 use crate::{rgb::wallet::list_allocations, structs::GenesisFormats};
@@ -56,29 +57,53 @@ pub fn extract_contract_by_id(
     let contract_iface = stock
         .contract_iface(contract_bindle.contract_id(), iface_id.to_owned())
         .expect("invalid contracts state");
-    let ty: TypeName = tn!("Ticker");
-    let ticker = match contract_iface.global(ty) {
-        Ok(values) => values.to_vec()[0].to_string(),
-        _ => String::new(),
+
+    let mut ticker = String::new();
+    let mut name = String::new();
+    let mut precision = String::new();
+    let mut description = String::new();
+
+    let ty: TypeName = tn!("Nominal");
+    let nominal = match contract_iface.global(ty) {
+        Ok(values) => values,
+        _ => Confined::default(),
     };
 
-    let ty: TypeName = tn!("Name");
-    let name = match contract_iface.global(ty) {
-        Ok(values) => values.to_vec()[0].to_string(),
-        _ => String::new(),
+    for kv in nominal.iter().cloned() {
+        if let StrictVal::Struct(fields) = kv {
+            if fields.contains_key(&FieldName::from("ticker")) {
+                if let Some(val) = fields.get(&FieldName::from("ticker")) {
+                    let val = val.to_string();
+                    ticker = val[2..val.len() - 2].to_string();
+                };
+            }
+            if fields.contains_key(&FieldName::from("name")) {
+                if let Some(val) = fields.get(&FieldName::from("name")) {
+                    let val = val.to_string();
+                    name = val[2..val.len() - 2].to_string();
+                };
+            }
+            if fields.contains_key(&FieldName::from("precision")) {
+                if let Some(val) = fields.get(&FieldName::from("precision")) {
+                    let val = val.to_string();
+                    precision = val;
+                };
+            }
+        };
+    }
+
+    let ty: TypeName = tn!("ContractText");
+    let contract_text = match contract_iface.global(ty) {
+        Ok(values) => values,
+        _ => Confined::default(),
     };
 
-    let ty: TypeName = tn!("Details");
-    let description = match contract_iface.global(ty) {
-        Ok(values) => values.to_vec()[0].to_string(),
-        _ => String::new(),
-    };
-
-    let ty: TypeName = tn!("Precision");
-    let precision = match contract_iface.global(ty) {
-        Ok(values) => values.to_vec()[0].to_string(),
-        _ => String::new(),
-    };
+    for kv in contract_text.iter().cloned() {
+        if let StrictVal::Tuple(fields) = kv {
+            let val = fields[0].to_string();
+            description = val[1..val.len() - 1].to_string();
+        };
+    }
 
     let mut supply = 0;
     for owned in &contract_iface.iface.assignments {

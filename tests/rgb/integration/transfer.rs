@@ -140,16 +140,26 @@ async fn issuer_issue_contract(force: bool) -> Result<IssueResponse, anyhow::Err
 }
 
 async fn create_new_invoice(issuer_resp: IssueResponse) -> Result<InvoiceResponse, anyhow::Error> {
-    let owner_data = save_mnemonic(OWNER_MNEMONIC, "").await?;
-    let owner_vault = get_wallet(&owner_data.public.rgb_assets_descriptor_xpub, None).await?;
+    let owner_keys = save_mnemonic(OWNER_MNEMONIC, "").await?;
+    let owner_vault = get_wallet(&owner_keys.public.rgb_assets_descriptor_xpub, None).await?;
+
+    // Create Watcher
+    let sk = owner_keys.private.nostr_prv;
+    let create_watch_req = WatcherRequest {
+        name: "default".to_owned(),
+        xpub: owner_keys.public.watcher_xpub,
+    };
+
+    let resp = create_watcher(&sk, create_watch_req).await;
+    assert!(resp.is_ok());
 
     // Import Contract
     let import_req = ImportRequest {
         import: ImportType::Contract,
         data: issuer_resp.contract.legacy,
     };
-    let nostr_sk = owner_data.private.nostr_prv.to_string();
-    let resp = import(&nostr_sk, import_req).await;
+
+    let resp = import(&sk, import_req).await;
     assert!(resp.is_ok());
 
     // Create Invoice
@@ -173,7 +183,7 @@ async fn create_new_invoice(issuer_resp: IssueResponse) -> Result<InvoiceRespons
         seal,
     };
 
-    create_invoice(&nostr_sk, invoice_req).await
+    create_invoice(&sk, invoice_req).await
 }
 
 async fn create_new_psbt(
