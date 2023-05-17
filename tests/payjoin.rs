@@ -26,7 +26,7 @@ async fn payjoin() -> Result<()> {
     let hash = hash_password(ENCRYPTION_PASSWORD);
     let mnemonic_data = save_mnemonic_seed(&mnemonic, &hash, SEED_PASSWORD).await?;
 
-    let vault = get_encrypted_wallet(&hash, &mnemonic_data.serialized_encrypted_message)?;
+    let vault = get_encrypted_wallet(&hash, &mnemonic_data.encrypted_descriptors)?;
 
     let wallet = get_wallet_data(
         &vault.private.btc_descriptor_xprv,

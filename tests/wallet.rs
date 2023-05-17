@@ -41,7 +41,7 @@ async fn create_wallet() -> Result<()> {
     let main_mnemonic = env::var("TEST_WALLET_SEED")?;
     let hash = hash_password(ENCRYPTION_PASSWORD);
     let main_mnemonic_data = save_mnemonic_seed(&main_mnemonic, &hash, SEED_PASSWORD).await?;
-    let main_vault = get_encrypted_wallet(&hash, &main_mnemonic_data.serialized_encrypted_message)?;
+    let main_vault = get_encrypted_wallet(&hash, &main_mnemonic_data.encrypted_descriptors)?;
 
     let main_btc_wallet = get_wallet_data(&main_vault.private.btc_descriptor_xprv, None).await?;
     let main_rgb_wallet =
@@ -61,7 +61,7 @@ async fn get_wallet_balance() -> Result<()> {
     let main_mnemonic = env::var("TEST_WALLET_SEED")?;
     let hash = hash_password(ENCRYPTION_PASSWORD);
     let main_mnemonic_data = save_mnemonic_seed(&main_mnemonic, &hash, SEED_PASSWORD).await?;
-    let main_vault = get_encrypted_wallet(&hash, &main_mnemonic_data.serialized_encrypted_message)?;
+    let main_vault = get_encrypted_wallet(&hash, &main_mnemonic_data.encrypted_descriptors)?;
 
     let main_btc_wallet = get_wallet_data(&main_vault.private.btc_descriptor_xprv, None).await?;
 

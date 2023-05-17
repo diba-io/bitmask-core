@@ -105,7 +105,7 @@ pub async fn upgrade_wallet(
             let upgraded_descriptor =
                 save_mnemonic_seed(&recovered_wallet_data.mnemonic, hash, seed_password).await?;
 
-            Some(upgraded_descriptor.serialized_encrypted_message)
+            Some(upgraded_descriptor.encrypted_descriptors)
         }
     };
 
@@ -123,12 +123,12 @@ pub async fn new_mnemonic_seed(hash: &str, seed_password: &str) -> Result<Mnemon
     let shared_key: [u8; 32] = hex::decode(hash)?
         .try_into()
         .expect("hash is of fixed size");
-    let encrypted_wallet_data = new_mnemonic(seed_password).await?;
-    let encrypted_message = encrypted_wallet_data.encrypt(&SharedKey::from_array(shared_key))?;
-    let serialized_encrypted_message = hex::encode(encrypted_message.serialize());
+    let wallet_data = new_mnemonic(seed_password).await?;
+    let encrypted_message = wallet_data.encrypt(&SharedKey::from_array(shared_key))?;
+    let encrypted_descriptors = hex::encode(encrypted_message.serialize());
     let mnemonic_seed_data = MnemonicSeedData {
-        mnemonic: encrypted_wallet_data.mnemonic,
-        serialized_encrypted_message,
+        mnemonic: wallet_data.mnemonic,
+        encrypted_descriptors,
     };
 
     Ok(mnemonic_seed_data)
@@ -142,12 +142,12 @@ pub async fn save_mnemonic_seed(
     let shared_key: [u8; 32] = hex::decode(hash)?
         .try_into()
         .expect("hash is of fixed size");
-    let vault_data = save_mnemonic(mnemonic_phrase, seed_password).await?;
-    let encrypted_message = vault_data.encrypt(&SharedKey::from_array(shared_key))?;
-    let serialized_encrypted_message = hex::encode(encrypted_message.serialize());
+    let wallet_data = save_mnemonic(mnemonic_phrase, seed_password).await?;
+    let encrypted_message = wallet_data.encrypt(&SharedKey::from_array(shared_key))?;
+    let encrypted_descriptors = hex::encode(encrypted_message.serialize());
     let mnemonic_seed_data = MnemonicSeedData {
-        mnemonic: vault_data.mnemonic,
-        serialized_encrypted_message,
+        mnemonic: wallet_data.mnemonic,
+        encrypted_descriptors,
     };
 
     Ok(mnemonic_seed_data)

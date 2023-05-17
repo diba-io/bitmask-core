@@ -77,7 +77,7 @@ pub struct EncryptedWalletDataV04 {
 #[serde(rename_all = "camelCase")]
 pub struct MnemonicSeedData {
     pub mnemonic: String,
-    pub serialized_encrypted_message: String,
+    pub encrypted_descriptors: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
