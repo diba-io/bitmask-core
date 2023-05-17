@@ -18,24 +18,22 @@ mod payment;
 mod psbt;
 mod wallet;
 
-pub use crate::{
-    bitcoin::{
-        assets::dust_tx,
-        keys::{new_mnemonic, save_mnemonic},
-        payment::{create_payjoin, create_transaction},
-        psbt::sign_psbt,
-        wallet::{get_blockchain, get_wallet, synchronize_wallet},
-    },
-    debug, info,
-    structs::{
-        EncryptedWalletData, FundVaultDetails, MnemonicSeedData, SatsInvoice, WalletData,
-        WalletTransaction,
-    },
-    trace,
+pub use crate::bitcoin::{
+    assets::dust_tx,
+    keys::{new_mnemonic, save_mnemonic},
+    payment::{create_payjoin, create_transaction},
+    psbt::sign_psbt,
+    wallet::{get_blockchain, get_wallet, synchronize_wallet},
 };
+
 use crate::{
     constants::{DIBA_DESCRIPTOR, DIBA_DESCRIPTOR_VERSION, DIBA_MAGIC_NO},
-    structs::{EncryptedWalletDataV04, SignPsbtRequest, SignPsbtResponse},
+    debug, info,
+    structs::{
+        EncryptedWalletData, EncryptedWalletDataV04, FundVaultDetails, MnemonicSeedData,
+        SatsInvoice, SignPsbtRequest, SignPsbtResponse, WalletData, WalletTransaction,
+    },
+    trace,
 };
 
 impl SerdeEncryptSharedKey for EncryptedWalletData {
