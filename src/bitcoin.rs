@@ -18,7 +18,6 @@ mod payment;
 mod psbt;
 mod wallet;
 
-use crate::structs::{EncryptedWalletDataV04, SignPsbtRequest, SignPsbtResponse};
 pub use crate::{
     bitcoin::{
         assets::dust_tx,
@@ -34,6 +33,10 @@ pub use crate::{
     },
     trace,
 };
+use crate::{
+    constants::{DIBA_DESCRIPTOR, DIBA_DESCRIPTOR_VERSION, DIBA_MAGIC_NO},
+    structs::{EncryptedWalletDataV04, SignPsbtRequest, SignPsbtResponse},
+};
 
 impl SerdeEncryptSharedKey for EncryptedWalletData {
     type S = BincodeSerializer<Self>;
@@ -45,11 +48,13 @@ impl SerdeEncryptSharedKey for EncryptedWalletDataV04 {
 
 /// Bitcoin Wallet Operations
 
-const BITMASK_ARGON2_SALT: &[u8] = b"DIBA BitMask Password Hash";
+const BITMASK_ARGON2_SALT: &[u8] = b"DIBA BitMask Password Hash"; // Never change this
 
 pub fn hash_password(password: &str) -> String {
+    use argon2::{Algorithm, Params, Version};
+
     let mut output_key_material = [0u8; 32];
-    Argon2::default()
+    Argon2::new(Algorithm::Argon2id, Version::V0x13, Params::default())
         .hash_password_into(
             password.as_bytes(),
             BITMASK_ARGON2_SALT,
@@ -68,7 +73,22 @@ pub fn get_encrypted_wallet(
         .try_into()
         .expect("hash is of fixed size");
     let encrypted_descriptors: Vec<u8> = hex::decode(encrypted_descriptors)?;
-    let encrypted_message = EncryptedMessage::deserialize(encrypted_descriptors)?;
+    let (version_prefix, encrypted_descriptors) = encrypted_descriptors.split_at(5);
+
+    if !version_prefix.starts_with(&DIBA_MAGIC_NO) {
+        return Err(anyhow!(
+            "Wrong Format: Encrypted descriptor is not prefixed with DIBA magic number. Prefix was: {version_prefix:?}"
+        ));
+    }
+
+    if version_prefix[4] != DIBA_DESCRIPTOR_VERSION {
+        return Err(anyhow!(
+            "Wrong Version: Encrypted descriptor is the wrong version. The version byte was: {}",
+            version_prefix[4]
+        ));
+    }
+
+    let encrypted_message = EncryptedMessage::deserialize(encrypted_descriptors.to_owned())?;
 
     Ok(EncryptedWalletData::decrypt_owned(
         &encrypted_message,
@@ -119,13 +139,22 @@ pub async fn upgrade_wallet(
     }
 }
 
+pub fn versioned_descriptor(encrypted_message: EncryptedMessage) -> String {
+    let mut descriptor_data = DIBA_DESCRIPTOR.to_vec();
+    let mut encrypted_descriptors = encrypted_message.serialize();
+    descriptor_data.append(&mut encrypted_descriptors);
+
+    hex::encode(descriptor_data)
+}
+
 pub async fn new_mnemonic_seed(hash: &str, seed_password: &str) -> Result<MnemonicSeedData> {
     let shared_key: [u8; 32] = hex::decode(hash)?
         .try_into()
         .expect("hash is of fixed size");
     let wallet_data = new_mnemonic(seed_password).await?;
     let encrypted_message = wallet_data.encrypt(&SharedKey::from_array(shared_key))?;
-    let encrypted_descriptors = hex::encode(encrypted_message.serialize());
+    let encrypted_descriptors = versioned_descriptor(encrypted_message);
+
     let mnemonic_seed_data = MnemonicSeedData {
         mnemonic: wallet_data.mnemonic,
         encrypted_descriptors,
@@ -144,7 +173,8 @@ pub async fn save_mnemonic_seed(
         .expect("hash is of fixed size");
     let wallet_data = save_mnemonic(mnemonic_phrase, seed_password).await?;
     let encrypted_message = wallet_data.encrypt(&SharedKey::from_array(shared_key))?;
-    let encrypted_descriptors = hex::encode(encrypted_message.serialize());
+    let encrypted_descriptors = versioned_descriptor(encrypted_message);
+
     let mnemonic_seed_data = MnemonicSeedData {
         mnemonic: wallet_data.mnemonic,
         encrypted_descriptors,
