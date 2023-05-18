@@ -3,8 +3,10 @@ use std::env;
 
 use anyhow::Result;
 use bitmask_core::{
-    bitcoin::{get_encrypted_wallet, get_wallet_data, hash_password, save_mnemonic_seed},
-    constants::get_network,
+    bitcoin::{
+        get_encrypted_wallet, get_wallet_data, hash_password, new_mnemonic_seed, save_mnemonic_seed,
+    },
+    constants::{get_network, switch_network},
     util::init_logging,
     warn,
 };
@@ -32,6 +34,33 @@ async fn error_for_bad_mnemonic() -> Result<()> {
 
 #[tokio::test]
 async fn create_wallet() -> Result<()> {
+    init_logging("wallet=warn");
+
+    switch_network("bitcoin").await?;
+    let network = get_network().await;
+    info!("Asset test on {network}");
+
+    info!("Create wallet");
+    let hash = hash_password(ENCRYPTION_PASSWORD);
+    let main_mnemonic = new_mnemonic_seed(&hash, SEED_PASSWORD).await?;
+    info!("Generated mnemonic: {}", main_mnemonic.mnemonic);
+    let main_mnemonic_data =
+        save_mnemonic_seed(&main_mnemonic.mnemonic, &hash, SEED_PASSWORD).await?;
+    let main_vault = get_encrypted_wallet(&hash, &main_mnemonic_data.encrypted_descriptors)?;
+
+    let main_btc_wallet = get_wallet_data(&main_vault.private.btc_descriptor_xprv, None).await?;
+    let main_rgb_wallet =
+        get_wallet_data(&main_vault.private.rgb_assets_descriptor_xprv, None).await?;
+
+    println!("Descriptor: {}", main_vault.private.btc_descriptor_xprv);
+    println!("Address (Bitcoin): {}", main_btc_wallet.address);
+    println!("Address (RGB): {}", main_rgb_wallet.address);
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn import_wallet() -> Result<()> {
     init_logging("wallet=warn");
 
     let network = get_network().await;
