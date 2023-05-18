@@ -221,8 +221,8 @@ async fn co_store(
 ) -> Result<impl IntoResponse, AppError> {
     info!("POST /carbonado/{pk}/{name}, {} bytes", body.len());
 
-    let path = format!("/tmp/bitmaskd/carbonado/{pk}");
-    let filename = format!("{path}/{name}");
+    let path = option_env!("CARBONADO_DIR").unwrap_or("/tmp/bitmaskd/carbonado");
+    let filename = format!("{path}/{pk}/{name}");
 
     fs::create_dir_all(path).await?;
     info!("write {} bytes to {}", body.len(), filename);
