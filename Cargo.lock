@@ -2533,7 +2533,7 @@ dependencies = [
 [[package]]
 name = "rgb-schemata"
 version = "0.10.0-beta.1"
-source = "git+https://github.com/crisdut/rgbsc?branch=master#92d37777d19d8b61a959db8c92febb29d10a0c9c"
+source = "git+https://github.com/crisdut/rgbsc?branch=master#47d43ee198d2fec54d57d7cda44df035ace04e9c"
 dependencies = [
  "aluvm",
  "amplify",

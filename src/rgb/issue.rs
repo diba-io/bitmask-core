@@ -125,7 +125,7 @@ fn issue_fungible_asset(
         .expect("invalid created")
         .add_global_state("terms", terms)
         .expect("invalid contract text")
-        .add_fungible_state("assetOwner", seal, supply)
+        .add_fungible_state("beneficiary", seal, supply)
         .expect("invalid asset amount")
         .issue_contract()
         .expect("contract doesn't fit schema requirements");
@@ -197,7 +197,7 @@ fn issue_uda_asset(
         .expect("invalid created")
         .add_global_state("terms", terms)
         .expect("invalid contract text")
-        .add_data_state("assetOwner", seal, allocation)
+        .add_data_state("beneficiary", seal, allocation)
         .expect("invalid asset blob")
         .issue_contract()
         .expect("contract doesn't fit schema requirements");
