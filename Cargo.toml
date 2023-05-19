@@ -80,8 +80,8 @@ rgb-schemata = { version = "0.10.0-beta.1" }
 serde = "1.0.152"
 serde_json = "1.0.91"
 serde-encrypt = "0.7.0"
-strict_types = "1.1.0"
-strict_encoding = "2.1.1"
+strict_types = "1.2.0"
+strict_encoding = "2.2.0"
 tokio = { version = "1.28.0", features = ["macros", "sync"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]

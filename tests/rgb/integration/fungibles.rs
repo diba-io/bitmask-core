@@ -14,7 +14,7 @@ use std::str::FromStr;
 
 #[tokio::test]
 async fn allow_beneficiary_create_invoice() -> anyhow::Result<()> {
-    let issuer_resp = issuer_issue_contract("RGB20", 5, false).await;
+    let issuer_resp = issuer_issue_contract("RGB20", 5, false, None).await;
     let invoice_resp = create_new_invoice(issuer_resp?).await;
     assert!(invoice_resp.is_ok());
     Ok(())
@@ -22,7 +22,7 @@ async fn allow_beneficiary_create_invoice() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn allow_issuer_create_psbt() -> anyhow::Result<()> {
-    let issuer_resp = issuer_issue_contract("RGB20", 5, false).await?;
+    let issuer_resp = issuer_issue_contract("RGB20", 5, false, None).await?;
     let issuer_keys = save_mnemonic(ISSUER_MNEMONIC, "").await?;
     let resp = create_new_psbt(issuer_keys, issuer_resp).await;
     assert!(resp.is_ok());
@@ -33,7 +33,7 @@ async fn allow_issuer_create_psbt() -> anyhow::Result<()> {
 #[tokio::test]
 async fn allow_issuer_transfer_asset() -> anyhow::Result<()> {
     let issuer_keys = save_mnemonic(ISSUER_MNEMONIC, "").await?;
-    let issuer_resp = issuer_issue_contract("RGB20", 5, false).await?;
+    let issuer_resp = issuer_issue_contract("RGB20", 5, false, None).await?;
     let owner_resp = create_new_invoice(issuer_resp.clone()).await?;
     let psbt_resp = create_new_psbt(issuer_keys.clone(), issuer_resp).await?;
     let resp = create_new_transfer(issuer_keys, owner_resp, psbt_resp).await;
@@ -44,7 +44,7 @@ async fn allow_issuer_transfer_asset() -> anyhow::Result<()> {
 #[tokio::test]
 async fn allow_issuer_sign_psbt() -> anyhow::Result<()> {
     let issuer_keys = save_mnemonic(ISSUER_MNEMONIC, "").await?;
-    let issuer_resp = issuer_issue_contract("RGB20", 5, false).await?;
+    let issuer_resp = issuer_issue_contract("RGB20", 5, false, None).await?;
     let psbt_resp = create_new_psbt(issuer_keys.clone(), issuer_resp).await?;
 
     let original_psbt = Psbt::from_str(&psbt_resp.psbt)?;
@@ -61,7 +61,7 @@ async fn allow_issuer_sign_psbt() -> anyhow::Result<()> {
 #[tokio::test]
 async fn allow_beneficiary_accept_transfer() -> anyhow::Result<()> {
     let issuer_keys = save_mnemonic(ISSUER_MNEMONIC, "").await?;
-    let issuer_resp = issuer_issue_contract("RGB20", 5, false).await?;
+    let issuer_resp = issuer_issue_contract("RGB20", 5, false, None).await?;
     let owner_resp = create_new_invoice(issuer_resp.clone()).await?;
     let psbt_resp = create_new_psbt(issuer_keys.clone(), issuer_resp.clone()).await?;
     let transfer_resp = create_new_transfer(issuer_keys.clone(), owner_resp, psbt_resp).await?;

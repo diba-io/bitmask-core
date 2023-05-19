@@ -1,10 +1,11 @@
+use amplify::confinement::SmallBlob;
 use amplify::Wrapper;
 use bp::{Chain, Txid};
 use rgb_schemata::{nia_rgb20, nia_schema, uda_rgb21, uda_schema};
 use rgbstd::contract::GenesisSeal;
-use rgbstd::interface::rgb21::{Allocation, OwnedFraction, TokenData, TokenIndex};
+use rgbstd::interface::rgb21::{Allocation, EmbeddedMedia, OwnedFraction, TokenData, TokenIndex};
 use rgbstd::resolvers::ResolveHeight;
-use rgbstd::stl::{DivisibleAssetSpec, Precision, RicardianContract, Timestamp};
+use rgbstd::stl::{DivisibleAssetSpec, MediaType, Precision, RicardianContract, Timestamp};
 use rgbstd::validation::ResolveTx;
 use std::str::FromStr;
 
@@ -12,6 +13,7 @@ use rgbstd::containers::Contract;
 use rgbstd::interface::{rgb20, rgb21, BuilderError, ContractBuilder};
 use rgbstd::persistence::{Inventory, Stash, Stock};
 
+use crate::structs::MediaInfo;
 use seals::txout::ExplicitSeal;
 use strict_types::encoding::TypeName;
 
@@ -34,6 +36,7 @@ pub fn issue_contract<T>(
     iface: &str,
     seal: &str,
     network: &str,
+    medias: Option<Vec<MediaInfo>>,
     resolver: &mut T,
     stock: &mut Stock,
 ) -> Result<Contract, IssueError>
@@ -56,7 +59,16 @@ where
         "RGB20" => {
             issue_fungible_asset(ticker, name, description, precision, supply, seal, network)
         }
-        "RGB21" => issue_uda_asset(ticker, name, description, precision, supply, seal, network),
+        "RGB21" => issue_uda_asset(
+            ticker,
+            name,
+            description,
+            precision,
+            supply,
+            seal,
+            network,
+            medias,
+        ),
         _ => return Err(IssueError::ContractNotfound(iface.name.to_string())),
     };
 
@@ -83,7 +95,7 @@ where
 fn issue_fungible_asset(
     ticker: &str,
     name: &str,
-    _description: &str,
+    description: &str,
     precision: u8,
     supply: u64,
     seal: &str,
@@ -95,9 +107,10 @@ fn issue_fungible_asset(
 
     let ticker: &'static str = Box::leak(ticker.to_string().into_boxed_str());
     let name: &'static str = Box::leak(name.to_string().into_boxed_str());
+    let description: &'static str = Box::leak(description.to_string().into_boxed_str());
     let precision = Precision::try_from(precision).expect("invalid precision");
     let spec = DivisibleAssetSpec::new(ticker, name, precision);
-    let terms = RicardianContract::default();
+    let terms = RicardianContract::new(description);
     let created = Timestamp::default();
     // Issuer State
     let seal = ExplicitSeal::<Txid>::from_str(seal).expect("invalid seal definition");
@@ -107,9 +120,9 @@ fn issue_fungible_asset(
         .expect("schema fails to implement RGB20 interface")
         .set_chain(Chain::from_str(network).expect("invalid network"))
         .add_global_state("spec", spec)
-        .expect("invalid nominal")
+        .expect("invalid spec")
         .add_global_state("created", created)
-        .expect("invalid nominal")
+        .expect("invalid created")
         .add_global_state("terms", terms)
         .expect("invalid contract text")
         .add_fungible_state("assetOwner", seal, supply)
@@ -120,14 +133,16 @@ fn issue_fungible_asset(
 }
 
 /// RGB21 interface
+#[allow(clippy::too_many_arguments)]
 fn issue_uda_asset(
     ticker: &str,
     name: &str,
-    _description: &str,
+    description: &str,
     precision: u8,
     supply: u64,
     seal: &str,
     network: &str,
+    medias: Option<Vec<MediaInfo>>,
 ) -> Result<Contract, BuilderError> {
     let iface = rgb21();
     let schema = uda_schema();
@@ -135,16 +150,34 @@ fn issue_uda_asset(
 
     let ticker: &'static str = Box::leak(ticker.to_string().into_boxed_str());
     let name: &'static str = Box::leak(name.to_string().into_boxed_str());
+    let description: &'static str = Box::leak(description.to_string().into_boxed_str());
     let precision = Precision::try_from(precision).expect("invalid precision");
     let spec = DivisibleAssetSpec::new(ticker, name, precision);
-    let terms = RicardianContract::default();
+    let terms = RicardianContract::new(description);
     let created = Timestamp::default();
 
     let fraction = OwnedFraction::from_inner(supply);
     let index = TokenIndex::from_inner(1);
 
+    // Toke Data
+    let mut preview = None;
+    if let Some(mut medias) = medias {
+        if !medias.is_empty() {
+            let media_info = medias.remove(0);
+            let media_ty: &'static str = Box::leak(media_info.ty.to_string().into_boxed_str());
+            preview = Some(EmbeddedMedia {
+                ty: MediaType::with(media_ty),
+                data: SmallBlob::try_from_iter(media_info.source.as_bytes().to_vec())
+                    .expect("invalid data"),
+            });
+        }
+    }
+
     let token_data = TokenData {
         index,
+        name: Some(spec.clone().naming.name),
+        ticker: Some(spec.clone().naming.ticker),
+        preview,
         ..Default::default()
     };
 
@@ -156,14 +189,14 @@ fn issue_uda_asset(
     let contract = ContractBuilder::with(iface, schema, iimpl)
         .expect("schema fails to implement RGB21 interface")
         .set_chain(Chain::from_str(network).expect("invalid network"))
+        .add_global_state("tokens", token_data)
+        .expect("invalid tokens")
         .add_global_state("spec", spec)
-        .expect("invalid nominal")
+        .expect("invalid spec")
         .add_global_state("created", created)
-        .expect("invalid nominal")
+        .expect("invalid created")
         .add_global_state("terms", terms)
         .expect("invalid contract text")
-        .add_global_state("tokens", token_data)
-        .expect("invalid nominal")
         .add_data_state("assetOwner", seal, allocation)
         .expect("invalid asset blob")
         .issue_contract()

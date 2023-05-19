@@ -31,6 +31,7 @@ async fn issue_contract_test() -> Result<()> {
         iface,
         seal,
         network,
+        None,
         &mut resolver,
         &mut stock,
     );

@@ -100,6 +100,7 @@ pub fn create_fake_contract(stock: &mut Stock) -> ContractId {
         iface,
         seal,
         network,
+        None,
         &mut resolver,
         stock,
     )

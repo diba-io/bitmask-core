@@ -72,6 +72,7 @@ pub async fn issue_contract(sk: &str, request: IssueRequest) -> Result<IssueResp
         precision,
         iface,
         seal,
+        medias,
     } = request;
     let mut stock = retrieve_stock(sk, ASSETS_STOCK).await?;
 
@@ -92,6 +93,7 @@ pub async fn issue_contract(sk: &str, request: IssueRequest) -> Result<IssueResp
         &iface,
         &seal,
         &network,
+        medias,
         &mut resolver,
         &mut stock,
     )?;

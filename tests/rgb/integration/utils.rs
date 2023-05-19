@@ -10,8 +10,8 @@ use bitmask_core::{
     },
     structs::{
         AllocationDetail, ContractType, EncryptedWalletData, ImportRequest, ImportResponse,
-        InvoiceRequest, InvoiceResponse, IssueRequest, IssueResponse, PsbtRequest, PsbtResponse,
-        RgbTransferRequest, RgbTransferResponse, WatcherRequest,
+        InvoiceRequest, InvoiceResponse, IssueRequest, IssueResponse, MediaInfo, PsbtRequest,
+        PsbtResponse, RgbTransferRequest, RgbTransferResponse, WatcherRequest,
     },
 };
 use tokio::process::Command;
@@ -104,6 +104,7 @@ pub async fn issuer_issue_contract(
     iface: &str,
     supply: u64,
     force: bool,
+    infos: Option<Vec<MediaInfo>>,
 ) -> Result<IssueResponse, anyhow::Error> {
     setup_regtest(force, None).await;
     let issuer_keys = save_mnemonic(ISSUER_MNEMONIC, "").await?;
@@ -133,6 +134,7 @@ pub async fn issuer_issue_contract(
         supply,
         seal: issue_seal.to_owned(),
         iface: iface.to_string(),
+        medias: infos,
     };
 
     issue_contract(&sk, request).await

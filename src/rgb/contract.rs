@@ -71,23 +71,25 @@ pub fn extract_contract_by_id(
 
     for kv in nominal.iter().cloned() {
         if let StrictVal::Struct(fields) = kv {
-            if fields.contains_key(&FieldName::from("ticker")) {
-                if let Some(val) = fields.get(&FieldName::from("ticker")) {
-                    let val = val.to_string();
-                    ticker = val[2..val.len() - 2].to_string();
-                };
-            }
-            if fields.contains_key(&FieldName::from("name")) {
-                if let Some(val) = fields.get(&FieldName::from("name")) {
-                    let val = val.to_string();
-                    name = val[2..val.len() - 2].to_string();
-                };
-            }
-            if fields.contains_key(&FieldName::from("precision")) {
-                if let Some(val) = fields.get(&FieldName::from("precision")) {
-                    let val = val.to_string();
-                    precision = val;
-                };
+            if let Some(StrictVal::Struct(naming)) = fields.get(&FieldName::from("naming")) {
+                if naming.contains_key(&FieldName::from("ticker")) {
+                    if let Some(val) = naming.get(&FieldName::from("ticker")) {
+                        let val = val.to_string();
+                        ticker = val[2..val.len() - 2].to_string();
+                    };
+                }
+                if naming.contains_key(&FieldName::from("name")) {
+                    if let Some(val) = naming.get(&FieldName::from("name")) {
+                        let val = val.to_string();
+                        name = val[2..val.len() - 2].to_string();
+                    };
+                }
+                if naming.contains_key(&FieldName::from("precision")) {
+                    if let Some(val) = naming.get(&FieldName::from("precision")) {
+                        let val = val.to_string();
+                        precision = val;
+                    };
+                }
             }
         };
     }

@@ -107,6 +107,17 @@ pub struct IssueRequest {
     pub seal: String,
     /// The name of the iface (ex: RGB20)
     pub iface: String,
+    /// attachments and media (only RGB21/UDA)
+    pub medias: Option<Vec<MediaInfo>>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct MediaInfo {
+    /// Mime Type of the media
+    pub ty: String,
+    /// Source (aka. hyperlink) of the media
+    pub source: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

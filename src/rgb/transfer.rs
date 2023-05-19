@@ -15,7 +15,7 @@ use rgbstd::{
 };
 use rgbwallet::{InventoryWallet, RgbInvoice, RgbTransport};
 use seals::txout::CloseMethod;
-use strict_encoding::{StrictDeserialize, TypeName};
+use strict_encoding::{fname, StrictDeserialize, TypeName};
 
 #[derive(Clone, Eq, PartialEq, Debug, Display, Error, From)]
 #[display(doc_comments)]
@@ -68,7 +68,7 @@ pub fn create_invoice(
         contract: Some(contract_id),
         iface: Some(iface.name.clone()),
         operation: None,
-        assignment: None,
+        assignment: Some(fname!("assetOwner")),
         beneficiary: seal.to_concealed_seal().into(),
         owned_state: TypedState::Amount(amount),
         chain: None,
