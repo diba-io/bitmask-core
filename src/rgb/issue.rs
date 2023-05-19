@@ -33,6 +33,7 @@ pub fn issue_contract<T>(
     supply: u64,
     iface: &str,
     seal: &str,
+    network: &str,
     resolver: &mut T,
     stock: &mut Stock,
 ) -> Result<Contract, IssueError>
@@ -52,8 +53,10 @@ where
     };
 
     let contract_issued = match iface.name.as_str() {
-        "RGB20" => issue_fungible_asset(ticker, name, description, precision, supply, seal),
-        "RGB21" => issue_uda_asset(ticker, name, description, precision, supply, seal),
+        "RGB20" => {
+            issue_fungible_asset(ticker, name, description, precision, supply, seal, network)
+        }
+        "RGB21" => issue_uda_asset(ticker, name, description, precision, supply, seal, network),
         _ => return Err(IssueError::ContractNotfound(iface.name.to_string())),
     };
 
@@ -84,6 +87,7 @@ fn issue_fungible_asset(
     precision: u8,
     supply: u64,
     seal: &str,
+    network: &str,
 ) -> Result<Contract, BuilderError> {
     let iface = rgb20();
     let schema = nia_schema();
@@ -101,7 +105,7 @@ fn issue_fungible_asset(
 
     let contract = ContractBuilder::with(iface, schema, iimpl)
         .expect("schema fails to implement RGB20 interface")
-        .set_chain(Chain::Testnet3)
+        .set_chain(Chain::from_str(network).expect("invalid network"))
         .add_global_state("spec", spec)
         .expect("invalid nominal")
         .add_global_state("created", created)
@@ -123,6 +127,7 @@ fn issue_uda_asset(
     precision: u8,
     supply: u64,
     seal: &str,
+    network: &str,
 ) -> Result<Contract, BuilderError> {
     let iface = rgb21();
     let schema = uda_schema();
@@ -150,7 +155,7 @@ fn issue_uda_asset(
 
     let contract = ContractBuilder::with(iface, schema, iimpl)
         .expect("schema fails to implement RGB21 interface")
-        .set_chain(Chain::Testnet3)
+        .set_chain(Chain::from_str(network).expect("invalid network"))
         .add_global_state("spec", spec)
         .expect("invalid nominal")
         .add_global_state("created", created)

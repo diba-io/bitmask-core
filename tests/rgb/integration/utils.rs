@@ -161,7 +161,7 @@ pub async fn import_new_contract(
     // Import Contract
     let import_req = ImportRequest {
         import: contract_type,
-        data: issuer_resp.contract.strict,
+        data: issuer_resp.contract.legacy,
     };
 
     let resp = import(&sk, import_req).await;

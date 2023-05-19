@@ -17,6 +17,7 @@ async fn issue_contract_test() -> Result<()> {
     let supply = 10;
     let iface = "RGB20";
     let seal = "tapret1st:70339a6b27f55105da2d050babc759f046c21c26b7b75e9394bc1d818e50ff52:0";
+    let network = "regtest";
 
     let mut stock = Stock::default();
     let mut resolver = DumbResolve {};
@@ -29,6 +30,7 @@ async fn issue_contract_test() -> Result<()> {
         supply,
         iface,
         seal,
+        network,
         &mut resolver,
         &mut stock,
     );

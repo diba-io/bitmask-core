@@ -87,7 +87,7 @@ pub fn create_fake_contract(stock: &mut Stock) -> ContractId {
     let precision = 8;
     let supply = 10;
     let seal = "tapret1st:5ca6cd1f54c081c8b3a7b4bcc988e55fe3c420ac87512b53a58c55233e15ba4f:1";
-
+    let network = "regtest";
     let iface = "RGB20";
     let mut resolver = DumbResolve {};
 
@@ -99,6 +99,7 @@ pub fn create_fake_contract(stock: &mut Stock) -> ContractId {
         supply,
         iface,
         seal,
+        network,
         &mut resolver,
         stock,
     )

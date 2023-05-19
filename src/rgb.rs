@@ -25,6 +25,7 @@ pub mod wallet;
 
 use crate::{
     constants::{
+        get_network,
         storage_keys::{ASSETS_STOCK, ASSETS_WALLETS},
         BITCOIN_EXPLORER_API, NETWORK,
     },
@@ -79,6 +80,9 @@ pub async fn issue_contract(sk: &str, request: IssueRequest) -> Result<IssueResp
         explorer_url: BITCOIN_EXPLORER_API.read().await.to_string(),
         ..Default::default()
     };
+
+    let network = get_network().await;
+
     let contract = create_contract(
         &ticker,
         &name,
@@ -87,6 +91,7 @@ pub async fn issue_contract(sk: &str, request: IssueRequest) -> Result<IssueResp
         supply,
         &iface,
         &seal,
+        &network,
         &mut resolver,
         &mut stock,
     )?;
