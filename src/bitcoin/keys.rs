@@ -119,9 +119,9 @@ pub async fn get_mnemonic(
     let btc_descriptor_xpub = xpub_desc(&xprv, &btc_path, 0)?;
     let btc_change_descriptor_xpub = xpub_desc(&xprv, &btc_path, 1)?;
     let rgb_assets_descriptor_xprv = xprv_desc(&xprv, &btc_path, 20)?;
-    let rgb_udas_descriptor_xprv = xprv_desc(&xprv, &btc_path, 30)?;
+    let rgb_udas_descriptor_xprv = xprv_desc(&xprv, &btc_path, 21)?;
     let rgb_assets_descriptor_xpub = xpub_desc(&xprv, &btc_path, 20)?;
-    let rgb_udas_descriptor_xpub = xpub_desc(&xprv, &btc_path, 30)?;
+    let rgb_udas_descriptor_xpub = xpub_desc(&xprv, &btc_path, 21)?;
     let watcher_xpub = watcher_xpub(&xprv, &btc_path, 0)?;
 
     let (nostr_prv, nostr_pub) = nostr_keypair(&xprv, NOSTR_PATH, 0)?;

@@ -257,6 +257,8 @@ pub struct SignPsbtRequest {
     pub mnemonic: String,
     /// password
     pub seed_password: String,
+    /// iface
+    pub iface: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

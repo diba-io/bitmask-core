@@ -1,7 +1,6 @@
 use amplify::hex::ToHex;
 use bitcoin::{Script, Txid};
 use bitcoin_30::bip32::ExtendedPubKey;
-use bitcoin_hashes::hex::FromHex;
 use bitcoin_scripts::address::{AddressCompat, AddressNetwork};
 use bp::dbc::tapret::TapretCommitment;
 use commit_verify::mpc::Commitment;
@@ -54,7 +53,7 @@ pub fn list_addresses(
     Ok(scripts
         .into_iter()
         .map(|(d, sb)| {
-            let sc = Script::from_hex(&sb.to_hex()).expect("invalid script data");
+            let sc = Script::from_str(&sb.to_hex()).expect("invalid script data");
             let address =
                 AddressCompat::from_script(&sc.into(), network).expect("invalid address data");
             let terminal = d.terminal;
@@ -121,7 +120,7 @@ pub fn next_utxo(
     let mut next_utxo: Option<Utxo> = None;
     for utxo in utxos {
         let txid =
-            Txid::from_hex(&utxo.outpoint.txid.to_hex()).expect("invalid transaction id parse");
+            Txid::from_str(&utxo.outpoint.txid.to_hex()).expect("invalid transaction id parse");
         let is_spent = resolver
             .resolve_spent_status(txid, utxo.outpoint.vout.into_u32().into())
             .expect("unavaliable service");

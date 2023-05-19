@@ -3,7 +3,7 @@ use crate::rgb::integration::utils::{import_new_contract, issuer_issue_contract}
 
 #[tokio::test]
 async fn allow_import_fungible_contract() -> anyhow::Result<()> {
-    let issuer_resp = issuer_issue_contract("RGB20", false).await;
+    let issuer_resp = issuer_issue_contract("RGB20", 5, false).await;
     assert!(issuer_resp.is_ok());
 
     let import_resp = import_new_contract(issuer_resp?).await;
@@ -13,7 +13,7 @@ async fn allow_import_fungible_contract() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn allow_import_uda_contract() -> anyhow::Result<()> {
-    let issuer_resp = issuer_issue_contract("RGB21", false).await;
+    let issuer_resp = issuer_issue_contract("RGB21", 1, false).await;
     assert!(issuer_resp.is_ok());
 
     let import_resp = import_new_contract(issuer_resp?).await;

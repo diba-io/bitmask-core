@@ -102,6 +102,7 @@ pub async fn shutdown_regtest(force: bool) -> anyhow::Result<()> {
 
 pub async fn issuer_issue_contract(
     iface: &str,
+    supply: u64,
     force: bool,
 ) -> Result<IssueResponse, anyhow::Error> {
     setup_regtest(force, None).await;
@@ -129,7 +130,7 @@ pub async fn issuer_issue_contract(
         name: "DIBA".to_string(),
         description: "DIBA".to_string(),
         precision: 2,
-        supply: 5,
+        supply,
         seal: issue_seal.to_owned(),
         iface: iface.to_string(),
     };
@@ -250,9 +251,15 @@ pub async fn create_new_psbt(
         }
     }
 
+    let descriptor_pub = match issuer_resp.iface.as_str() {
+        "RGB20" => issuer_keys.public.rgb_assets_descriptor_xpub,
+        "RGB21" => issuer_keys.public.rgb_udas_descriptor_xpub,
+        _ => issuer_keys.public.rgb_assets_descriptor_xpub,
+    };
+
     assert_eq!(asset_utxo, issuer_resp.issue_utxo);
     let req = PsbtRequest {
-        descriptor_pub: issuer_keys.public.rgb_assets_descriptor_xpub,
+        descriptor_pub,
         asset_utxo: asset_utxo.to_string(),
         asset_utxo_terminal: asset_utxo_terminal.to_string(),
         change_index: None,

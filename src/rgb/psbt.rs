@@ -6,7 +6,6 @@ use bdk::FeeRate;
 use bitcoin::secp256k1::SECP256K1;
 use bitcoin::{EcdsaSighashType, OutPoint, Script, XOnlyPublicKey};
 use bitcoin_blockchain::locks::SeqNo;
-use bitcoin_hashes::hex::FromHex;
 use bitcoin_scripts::PubkeyScript;
 use bp::dbc::tapret::TapretCommitment;
 use bp::TapScript;
@@ -59,7 +58,7 @@ pub fn create_psbt(
         let tap = TapretCommitment::with(mpc, 0);
         let tapscript = TapScript::commit(&tap);
 
-        let tweak = Script::from_hex(&tapscript.to_hex()).expect("invalid bitcoin script");
+        let tweak = Script::from_str(&tapscript.to_hex()).expect("invalid bitcoin script");
         input.taptweak = Some(tweak);
     }
 
@@ -189,7 +188,7 @@ pub async fn estimate_fee_tx(
         .expect("cannot sync wallet");
 
     let local = wallet.get_utxo(outpoint);
-    let local = local.expect("").unwrap();
+    let local = local.expect("utxo not found").unwrap();
 
     let change_index = match change_index {
         Some(index) => {

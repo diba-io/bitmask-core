@@ -134,7 +134,7 @@ pub async fn prefetch_resolve_spend(
 
     if !utxos.is_empty() {
         for utxo in utxos {
-            let txid = bitcoin_hashes::hex::FromHex::from_hex(&utxo.outpoint.txid.to_hex())
+            let txid = bitcoin::Txid::from_str(&utxo.outpoint.txid.to_hex())
                 .expect("invalid outpoint format");
             if let Some(status) = esplora_client
                 .get_output_status(&txid, utxo.outpoint.vout.into_u32().into())

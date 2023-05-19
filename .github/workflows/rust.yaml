@@ -40,7 +40,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - name: Lint
-        run: cargo clippy --lib --all-features --message-format=json -- -D warnings | cargo-action-fmt
+        run: cargo clippy --all-features --lib --message-format=json -- -D warnings | cargo-action-fmt
 
   lint-wasm:
     runs-on: ubuntu-latest
@@ -88,6 +88,8 @@ jobs:
           sleep 5
           docker-compose exec -T node1 cli loadwallet default
           docker-compose exec -T node1 cli -generate 500
+          docker-compose exec -T node1 cli sendtoaddress $MAIN_VAULT_ADDRESS 10
+          docker-compose exec -T node1 cli sendtoaddress $MAIN_VAULT_ADDRESS 10
           docker-compose exec -T node1 cli sendtoaddress $MAIN_VAULT_ADDRESS 10
           docker-compose exec -T node1 cli -generate 1
         env:
