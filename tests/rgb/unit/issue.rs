@@ -9,8 +9,8 @@ use crate::rgb::unit::utils::DumbResolve;
 async fn issue_contract_test() -> Result<()> {
     init_logging("rgb_issue=warn");
 
-    let ticker = "DIBA1";
-    let name = "DIBA1";
+    let ticker = "DIBA";
+    let name = "DIBA";
     let description =
         "1 2 3 testing... 1 2 3 testing... 1 2 3 testing... 1 2 3 testing.... 1 2 3 testing";
     let precision = 8;

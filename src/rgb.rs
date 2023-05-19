@@ -40,10 +40,10 @@ use crate::{
         wallet::list_allocations,
     },
     structs::{
-        AcceptRequest, AcceptResponse, ContractsResponse, ImportRequest, ImportResponse,
-        InterfaceDetail, InterfacesResponse, InvoiceRequest, InvoiceResponse, IssueRequest,
-        IssueResponse, NextAddressResponse, NextUtxoResponse, PsbtRequest, PsbtResponse,
-        RgbTransferRequest, RgbTransferResponse, SchemaDetail, SchemasResponse,
+        AcceptRequest, AcceptResponse, ContractType, ContractsResponse, ImportRequest,
+        ImportResponse, InterfaceDetail, InterfacesResponse, InvoiceRequest, InvoiceResponse,
+        IssueRequest, IssueResponse, NextAddressResponse, NextUtxoResponse, PsbtRequest,
+        PsbtResponse, RgbTransferRequest, RgbTransferResponse, SchemaDetail, SchemasResponse,
         WatcherDetailResponse, WatcherRequest, WatcherResponse,
     },
 };
@@ -321,7 +321,7 @@ pub async fn list_schemas(sk: &str) -> Result<SchemasResponse> {
 }
 
 pub async fn import(sk: &str, request: ImportRequest) -> Result<ImportResponse> {
-    let ImportRequest { data, import: _ } = request;
+    let ImportRequest { data, import } = request;
     let mut stock = retrieve_stock(sk, ASSETS_STOCK).await?;
     let rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await?;
 
@@ -337,7 +337,7 @@ pub async fn import(sk: &str, request: ImportRequest) -> Result<ImportResponse> 
         Some(wallet) => {
             let mut fetch_wallet = wallet.to_owned();
 
-            prefetch_resolve_watcher(20, &mut resolver, &mut fetch_wallet).await;
+            prefetch_resolve_watcher(import as u32, &mut resolver, &mut fetch_wallet).await;
             Some(fetch_wallet)
         }
         _ => None,
@@ -382,9 +382,14 @@ pub async fn watcher_details(sk: &str, name: &str) -> Result<WatcherDetailRespon
         explorer_url: BITCOIN_EXPLORER_API.read().await.to_string(),
         ..Default::default()
     };
-    prefetch_resolve_watcher(20, &mut resolver, &mut wallet).await;
 
-    let allocations = list_allocations(&mut wallet, &mut stock, &mut resolver)?;
+    let mut allocations = vec![];
+    for contract_type in [ContractType::RGB20, ContractType::RGB21] {
+        let iface_index = contract_type as u32;
+        prefetch_resolve_watcher(iface_index, &mut resolver, &mut wallet).await;
+        let result = list_allocations(&mut wallet, &mut stock, iface_index, &mut resolver)?;
+        allocations.extend(result);
+    }
 
     let resp = WatcherDetailResponse {
         contracts: allocations,
@@ -396,7 +401,11 @@ pub async fn watcher_details(sk: &str, name: &str) -> Result<WatcherDetailRespon
     Ok(resp)
 }
 
-pub async fn watcher_next_address(sk: &str, name: &str) -> Result<NextAddressResponse> {
+pub async fn watcher_next_address(
+    sk: &str,
+    name: &str,
+    iface: &str,
+) -> Result<NextAddressResponse> {
     let rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await?;
 
     let network = NETWORK.read().await.to_string();
@@ -407,7 +416,12 @@ pub async fn watcher_next_address(sk: &str, name: &str) -> Result<NextAddressRes
         _ => Err(anyhow!("Wallet watcher not found")),
     };
 
-    let iface_index = 20;
+    let iface_index = match iface {
+        "RGB20" => 20,
+        "RGB21" => 21,
+        _ => 9,
+    };
+
     let wallet = wallet?;
     let next_address = next_address(iface_index, wallet, network)?;
 
@@ -418,7 +432,7 @@ pub async fn watcher_next_address(sk: &str, name: &str) -> Result<NextAddressRes
     Ok(resp)
 }
 
-pub async fn watcher_next_utxo(sk: &str, name: &str) -> Result<NextUtxoResponse> {
+pub async fn watcher_next_utxo(sk: &str, name: &str, iface: &str) -> Result<NextUtxoResponse> {
     let rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await?;
 
     let wallet = match rgb_account.wallets.get(name) {
@@ -426,7 +440,12 @@ pub async fn watcher_next_utxo(sk: &str, name: &str) -> Result<NextUtxoResponse>
         _ => Err(anyhow!("Wallet watcher not found")),
     };
 
-    let iface_index = 20;
+    let iface_index = match iface {
+        "RGB20" => 20,
+        "RGB21" => 21,
+        _ => 9,
+    };
+
     let mut wallet = wallet?;
 
     // Resolvers Workaround

@@ -9,7 +9,9 @@ mod rgb {
     }
 
     mod integration {
+        mod import;
+        mod issue;
         mod transfer;
-        mod utils;
+        pub mod utils;
     }
 }

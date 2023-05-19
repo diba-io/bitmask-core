@@ -74,8 +74,9 @@ reqwest = { version = "0.11.16", features = ["json"] }
 rgb-contracts = { version = "0.10.0", default-features = false, features = [
     "log",
 ] }
-rgb-std = { version = "0.10.1" }
-rgb-wallet = { version = "0.10.1" }
+rgb-std = { version = "0.10.2" }
+rgb-wallet = { version = "0.10.2" }
+rgb-schemata = { version = "0.10.0-beta.1" }
 serde = "1.0.152"
 serde_json = "1.0.91"
 serde-encrypt = "0.7.0"
@@ -118,15 +119,6 @@ tokio = { version = "1.28.0", features = ["full"] }
 wasm-bindgen-test = "0.3.34"
 
 [patch.crates-io]
-# TODO: Remove this after release an official LNPBP versions
-# commit_verify = { git = "https://github.com/LNP-BP/client_side_validation", branch = "commit_encode_derive" }
-# bp-core = { git = "https://github.com/BP-WG/bp-core", branch = "commit_derive" }
-# bp-primitives = { git = "https://github.com/BP-WG/bp-core", branch = "commit_derive" }
-# bp-dbc = { git = "https://github.com/BP-WG/bp-core", branch = "commit_derive" }
-# bp-seals = { git = "https://github.com/BP-WG/bp-core", branch = "commit_derive" }
-# rgb-core = { git = "https://github.com/RGB-WG/rgb-core", branch = "fix/op-conceal" }
-# rgb-wallet = { git = "https://github.com/RGB-WG/rgb-wallet", branch = "rgb20" }
-# rgb-std = { git = "https://github.com/RGB-WG/rgb-wallet", branch = "rgb20" }
 # TODO: Remove this after merge and release fixies
 rgb-contracts = { git = "https://github.com/crisdut/rgb", branch = "exp/fixies" }
 bitcoin_scripts = { git = "https://github.com/crisdut/bp-foundation", branch = "release/0.10.0-alpha.2" }
@@ -134,3 +126,7 @@ bitcoin_blockchain = { git = "https://github.com/crisdut/bp-foundation", branch 
 # TODO: Remove this after propose a universal tweak in descriptor-wallet
 descriptor-wallet = { git = "https://github.com/crisdut/descriptor-wallet", branch = "exp/tapret-transfers" }
 psbt = { git = "https://github.com/crisdut/descriptor-wallet", branch = "exp/tapret-transfers" }
+# TODO: Remove this after merge and release fixies
+rgb-schemata = { git = "https://github.com/crisdut/rgbsc", branch = "master" }
+rgb-wallet = { git = "https://github.com/crisdut/rgb-wallet", branch = "feat/full-uda" }
+rgb-std = { git = "https://github.com/crisdut/rgb-wallet", branch = "feat/full-uda" }

@@ -189,50 +189,77 @@ pub fn sync_wallet(iface_index: u32, wallet: &mut RgbWallet, resolver: &mut impl
 pub fn list_allocations(
     wallet: &mut RgbWallet,
     stock: &mut Stock,
+    iface_index: u32,
     resolver: &mut impl Resolver,
 ) -> Result<Vec<WatcherDetail>, anyhow::Error> {
-    let iface_name = "RGB20";
-    let iface_index = 20;
+    // TODO: Workaround
+    let iface_name = match iface_index {
+        20 => "RGB20",
+        21 => "RGB21",
+        _ => "Contract",
+    };
 
     let mut details = vec![];
 
     sync_wallet(iface_index, wallet, resolver);
     for contract_id in stock.contract_ids()? {
         let iface = stock.iface_by_name(&tn!(iface_name))?;
-        let contract = stock
-            .contract_iface(contract_id, iface.iface_id())
-            .expect("contract iface not found");
+        if let Ok(contract) = stock.contract_iface(contract_id, iface.iface_id()) {
+            let mut owners = vec![];
+            for owned in &contract.iface.assignments {
+                if let Ok(allocations) = contract.fungible(owned.name.clone()) {
+                    for allocation in allocations {
+                        if let Some(utxo) = wallet.utxo(allocation.owner) {
+                            owners.push(AllocationDetail {
+                                utxo: utxo.outpoint.to_string(),
+                                value: allocation.value,
+                                derivation: format!(
+                                    "/{}/{}",
+                                    utxo.derivation.terminal.app, utxo.derivation.terminal.index
+                                ),
+                                is_mine: true,
+                            });
+                        } else {
+                            owners.push(AllocationDetail {
+                                utxo: allocation.owner.to_string(),
+                                value: allocation.value,
+                                derivation: default!(),
+                                is_mine: false,
+                            });
+                        }
+                    }
+                }
 
-        let mut owners = vec![];
-        for owned in &contract.iface.assignments {
-            if let Ok(allocations) = contract.fungible(owned.name.clone()) {
-                for allocation in allocations {
-                    if let Some(utxo) = wallet.utxo(allocation.owner) {
-                        owners.push(AllocationDetail {
-                            utxo: utxo.outpoint.to_string(),
-                            value: allocation.value,
-                            derivation: format!(
-                                "/{}/{}",
-                                utxo.derivation.terminal.app, utxo.derivation.terminal.index
-                            ),
-                            is_mine: true,
-                        });
-                    } else {
-                        owners.push(AllocationDetail {
-                            utxo: allocation.owner.to_string(),
-                            value: allocation.value,
-                            derivation: default!(),
-                            is_mine: false,
-                        });
+                if let Ok(allocations) = contract.data(owned.name.clone()) {
+                    for allocation in allocations {
+                        if let Some(utxo) = wallet.utxo(allocation.owner) {
+                            owners.push(AllocationDetail {
+                                utxo: utxo.outpoint.to_string(),
+                                // TODO: Use appropriate type
+                                value: 1,
+                                derivation: format!(
+                                    "/{}/{}",
+                                    utxo.derivation.terminal.app, utxo.derivation.terminal.index
+                                ),
+                                is_mine: true,
+                            });
+                        } else {
+                            owners.push(AllocationDetail {
+                                utxo: allocation.owner.to_string(),
+                                // TODO: Use appropriate type
+                                value: 1,
+                                derivation: default!(),
+                                is_mine: false,
+                            });
+                        }
                     }
                 }
             }
+            details.push(WatcherDetail {
+                contract_id: contract_id.to_string(),
+                allocations: owners,
+            });
         }
-
-        details.push(WatcherDetail {
-            contract_id: contract_id.to_string(),
-            allocations: owners,
-        });
     }
 
     Ok(details)

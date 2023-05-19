@@ -446,11 +446,11 @@ pub mod rgb {
     }
 
     #[wasm_bindgen]
-    pub fn watcher_next_address(nostr_hex_sk: String, name: String) -> Promise {
+    pub fn watcher_next_address(nostr_hex_sk: String, name: String, iface: String) -> Promise {
         set_panic_hook();
 
         future_to_promise(async move {
-            match crate::rgb::watcher_next_address(&nostr_hex_sk, &name).await {
+            match crate::rgb::watcher_next_address(&nostr_hex_sk, &name, &iface).await {
                 Ok(result) => Ok(JsValue::from_string(
                     serde_json::to_string(&result).unwrap(),
                 )),
@@ -460,11 +460,11 @@ pub mod rgb {
     }
 
     #[wasm_bindgen]
-    pub fn watcher_next_utxo(nostr_hex_sk: String, name: String) -> Promise {
+    pub fn watcher_next_utxo(nostr_hex_sk: String, name: String, iface: String) -> Promise {
         set_panic_hook();
 
         future_to_promise(async move {
-            match crate::rgb::watcher_next_utxo(&nostr_hex_sk, &name).await {
+            match crate::rgb::watcher_next_utxo(&nostr_hex_sk, &name, &iface).await {
                 Ok(result) => Ok(JsValue::from_string(
                     serde_json::to_string(&result).unwrap(),
                 )),

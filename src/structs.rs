@@ -158,15 +158,17 @@ pub struct GenesisFormats {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-pub enum ImportType {
-    Contract,
+pub enum ContractType {
+    Contract = 9,
+    RGB20 = 20,
+    RGB21 = 21,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ImportRequest {
     /// The type data
-    pub import: ImportType,
+    pub import: ContractType,
     /// The payload data (in hexadecimal)
     pub data: String,
 }

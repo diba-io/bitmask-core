@@ -8,7 +8,7 @@ use rgbstd::{
     interface::{IfaceId, IfacePair},
     persistence::{Inventory, Stock},
 };
-use strict_encoding::{tn, FieldName, StrictSerialize, TypeName};
+use strict_encoding::{FieldName, StrictSerialize};
 use strict_types::StrictVal;
 
 use crate::structs::{ContractFormats, ImportResponse};
@@ -62,8 +62,8 @@ pub fn extract_contract_by_id(
     let mut name = String::new();
     let mut precision = String::new();
     let mut description = String::new();
-
-    let ty: TypeName = tn!("Nominal");
+    let mut supply = 0;
+    let ty: FieldName = FieldName::from("spec");
     let nominal = match contract_iface.global(ty) {
         Ok(values) => values,
         _ => Confined::default(),
@@ -92,7 +92,7 @@ pub fn extract_contract_by_id(
         };
     }
 
-    let ty: TypeName = tn!("ContractText");
+    let ty: FieldName = FieldName::from("terms");
     let contract_text = match contract_iface.global(ty) {
         Ok(values) => values,
         _ => Confined::default(),
@@ -105,19 +105,32 @@ pub fn extract_contract_by_id(
         };
     }
 
-    let mut supply = 0;
     for owned in &contract_iface.iface.assignments {
         if let Ok(allocations) = contract_iface.fungible(owned.name.clone()) {
             for allocation in allocations {
                 supply = allocation.value;
             }
         }
+
+        if let Ok(allocations) = contract_iface.data(owned.name.clone()) {
+            for _ in allocations {
+                supply += 1;
+            }
+        }
     }
     let mut balance = 0;
     let mut allocations = vec![];
+
+    // TODO: workaround
+    let iface_index = match iface.name.as_str() {
+        "RGB20" => 20,
+        "RGB21" => 21,
+        _ => 9,
+    };
+
     if let Some(wallet) = wallet {
         let mut fetch_wallet = wallet;
-        let watcher = list_allocations(&mut fetch_wallet, stock, resolver)
+        let watcher = list_allocations(&mut fetch_wallet, stock, iface_index, resolver)
             .expect("invalid allocation states");
         if let Some(watcher_detail) = watcher.into_iter().find(|w| w.contract_id == contract_id) {
             allocations.extend(watcher_detail.allocations);

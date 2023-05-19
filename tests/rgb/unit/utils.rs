@@ -80,8 +80,8 @@ pub fn create_fake_psbt() -> Psbt {
 
 #[allow(dead_code)]
 pub fn create_fake_contract(stock: &mut Stock) -> ContractId {
-    let ticker = "DIBA1";
-    let name = "DIBA1";
+    let ticker = "DIBA";
+    let name = "DIBA";
     let description =
         "1 2 3 testing... 1 2 3 testing... 1 2 3 testing... 1 2 3 testing.... 1 2 3 testing";
     let precision = 8;
