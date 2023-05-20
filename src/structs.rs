@@ -310,6 +310,13 @@ pub struct AcceptResponse {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
+pub struct ContractResponse {
+    /// Contract
+    pub contract: ImportResponse,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct ContractsResponse {
     /// List of avaliable contracts
     pub contracts: Vec<ImportResponse>,

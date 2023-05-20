@@ -1,4 +1,7 @@
-use amplify::{confinement::Confined, hex::FromHex};
+use amplify::{
+    confinement::{Confined, U16},
+    hex::FromHex,
+};
 use bech32::{decode, FromBase32};
 use rgbstd::{
     containers::Contract,
@@ -32,7 +35,7 @@ where
 
     let confined = Confined::try_from_iter(serialized.iter().copied())
         .expect("invalid strict serialized data");
-    let contract = Contract::from_strict_serialized::<{ usize::MAX }>(confined)
+    let contract = Contract::from_strict_serialized::<{ U16 }>(confined)
         .expect("invalid strict contract data");
     let contract = contract.validate(resolver).expect("invalid contract state");
 

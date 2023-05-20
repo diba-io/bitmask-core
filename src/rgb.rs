@@ -6,7 +6,7 @@ use anyhow::{anyhow, Result};
 use bitcoin_30::bip32::ExtendedPubKey;
 use bitcoin_scripts::address::AddressNetwork;
 use miniscript_crate::DescriptorPublicKey;
-use rgbstd::{containers::BindleContent, persistence::Stash};
+use rgbstd::{containers::BindleContent, contract::ContractId, persistence::Stash};
 use strict_encoding::StrictSerialize;
 
 pub mod accept;
@@ -40,10 +40,10 @@ use crate::{
         wallet::list_allocations,
     },
     structs::{
-        AcceptRequest, AcceptResponse, ContractsResponse, ImportRequest, ImportResponse,
-        InterfaceDetail, InterfacesResponse, InvoiceRequest, InvoiceResponse, IssueRequest,
-        IssueResponse, NextAddressResponse, NextUtxoResponse, PsbtRequest, PsbtResponse,
-        RgbTransferRequest, RgbTransferResponse, SchemaDetail, SchemasResponse,
+        AcceptRequest, AcceptResponse, ContractResponse, ContractsResponse, ImportRequest,
+        ImportResponse, InterfaceDetail, InterfacesResponse, InvoiceRequest, InvoiceResponse,
+        IssueRequest, IssueResponse, NextAddressResponse, NextUtxoResponse, PsbtRequest,
+        PsbtResponse, RgbTransferRequest, RgbTransferResponse, SchemaDetail, SchemasResponse,
         WatcherDetailResponse, WatcherRequest, WatcherResponse,
     },
 };
@@ -347,6 +347,33 @@ pub async fn import(sk: &str, request: ImportRequest) -> Result<ImportResponse> 
     let resp = extract_contract_by_id(contract.contract_id(), &mut stock, &mut resolver, wallet)?;
     store_stock(sk, ASSETS_STOCK, &stock).await?;
     Ok(resp)
+}
+
+pub async fn get_contract(sk: &str, contract_id: &str) -> Result<ContractResponse> {
+    let mut stock = retrieve_stock(sk, ASSETS_STOCK).await?;
+    let rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await?;
+
+    // Resolvers Workaround
+    let mut resolver = ExplorerResolver {
+        explorer_url: BITCOIN_EXPLORER_API.read().await.to_string(),
+        ..Default::default()
+    };
+
+    let wallet = rgb_account.wallets.get("default");
+    let wallet = match wallet {
+        Some(wallet) => {
+            let mut fetch_wallet = wallet.to_owned();
+
+            prefetch_resolve_watcher(20, &mut resolver, &mut fetch_wallet).await;
+            Some(fetch_wallet)
+        }
+        _ => None,
+    };
+
+    let contract_id = ContractId::from_str(contract_id)?;
+    let contract = extract_contract_by_id(contract_id, &mut stock, &mut resolver, wallet.clone())?;
+
+    Ok(ContractResponse { contract })
 }
 
 pub async fn create_watcher(sk: &str, request: WatcherRequest) -> Result<WatcherResponse> {

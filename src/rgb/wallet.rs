@@ -204,28 +204,24 @@ pub fn list_allocations(
             .expect("contract iface not found");
 
         let mut owners = vec![];
-        for owned in &contract.iface.assignments {
-            if let Ok(allocations) = contract.fungible(owned.name.clone()) {
-                for allocation in allocations {
-                    if let Some(utxo) = wallet.utxo(allocation.owner) {
-                        owners.push(AllocationDetail {
-                            utxo: utxo.outpoint.to_string(),
-                            value: allocation.value,
-                            derivation: format!(
-                                "/{}/{}",
-                                utxo.derivation.terminal.app, utxo.derivation.terminal.index
-                            ),
-                            is_mine: true,
-                        });
-                    } else {
-                        owners.push(AllocationDetail {
-                            utxo: allocation.owner.to_string(),
-                            value: allocation.value,
-                            derivation: default!(),
-                            is_mine: false,
-                        });
-                    }
-                }
+        for allocation in contract.state.history.fungibles() {
+            if let Some(utxo) = wallet.utxo(allocation.seal) {
+                owners.push(AllocationDetail {
+                    utxo: utxo.outpoint.to_string(),
+                    value: allocation.state.value.into(),
+                    derivation: format!(
+                        "/{}/{}",
+                        utxo.derivation.terminal.app, utxo.derivation.terminal.index
+                    ),
+                    is_mine: true,
+                });
+            } else {
+                owners.push(AllocationDetail {
+                    utxo: allocation.seal.to_string(),
+                    value: allocation.state.value.into(),
+                    derivation: default!(),
+                    is_mine: false,
+                });
             }
         }
 
