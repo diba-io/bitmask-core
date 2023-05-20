@@ -95,7 +95,7 @@ jobs:
           RUST_BACKTRACE: 1
 
       - name: Integration Tests
-        run: cargo test -- --test-threads 1 --nocapture
+        run: cargo test --locked -- --test-threads 1 --nocapture
         env:
           TEST_WALLET_SEED: ${{ secrets.TEST_WALLET_SEED }}
           RUST_BACKTRACE: 1
