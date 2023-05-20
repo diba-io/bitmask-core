@@ -59,6 +59,17 @@ pub static BTC_PATH: Lazy<RwLock<String>> = Lazy::new(|| {
 // For NIP-06 Nostr signing and Carbonado encryption key derivation
 pub const NOSTR_PATH: &str = "m/44h/1237h/0h";
 
+// Magic number for versioning descriptors
+pub const DIBA_DESCRIPTOR_VERSION: u8 = 0;
+pub const DIBA_MAGIC_NO: [u8; 4] = [b'D', b'I', b'B', b'A'];
+pub const DIBA_DESCRIPTOR: [u8; 5] = [
+    DIBA_MAGIC_NO[0],
+    DIBA_MAGIC_NO[1],
+    DIBA_MAGIC_NO[2],
+    DIBA_MAGIC_NO[3],
+    DIBA_DESCRIPTOR_VERSION,
+];
+
 pub static NETWORK: Lazy<RwLock<Network>> = Lazy::new(|| {
     RwLock::new(Network::from_str(&dot_env("BITCOIN_NETWORK")).expect("Parse Bitcoin network"))
 });
