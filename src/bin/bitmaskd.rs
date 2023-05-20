@@ -215,18 +215,33 @@ async fn next_utxo(
     Ok((StatusCode::OK, Json(resp)))
 }
 
+async fn handle_file(pk: &str, name: &str, bytes: usize) -> Result<std::path::PathBuf> {
+    let directory = std::path::Path::new(
+        &std::env::var("CARBONADO_DIR").unwrap_or("/tmp/bitmaskd/carbonado".to_owned()),
+    )
+    .join(pk);
+    let filepath = directory.join(name);
+
+    fs::create_dir_all(directory).await?;
+
+    if bytes == 0 {
+        info!("read {}", filepath.to_string_lossy());
+    } else {
+        info!("write {bytes} bytes to {}", filepath.to_string_lossy());
+    }
+
+    Ok(filepath)
+}
+
 async fn co_store(
     Path((pk, name)): Path<(String, String)>,
     body: Bytes,
 ) -> Result<impl IntoResponse, AppError> {
     info!("POST /carbonado/{pk}/{name}, {} bytes", body.len());
 
-    let path = option_env!("CARBONADO_DIR").unwrap_or("/tmp/bitmaskd/carbonado");
-    let filename = format!("{path}/{pk}/{name}");
+    let filepath = handle_file(&pk, &name, body.len()).await?;
 
-    fs::create_dir_all(path).await?;
-    info!("write {} bytes to {}", body.len(), filename);
-    fs::write(filename, body).await?;
+    fs::write(filepath, body).await?;
 
     Ok(StatusCode::OK)
 }
@@ -236,11 +251,9 @@ async fn co_retrieve(
 ) -> Result<impl IntoResponse, AppError> {
     info!("GET /carbonado/{pk}/{name}");
 
-    let path = option_env!("CARBONADO_DIR").unwrap_or("/tmp/bitmaskd/carbonado");
-    let filename = format!("{path}/{pk}/{name}");
+    let filepath = handle_file(&pk, &name, 0).await?;
 
-    info!("read {}", filename);
-    let bytes = fs::read(filename).await;
+    let bytes = fs::read(filepath).await;
 
     match bytes {
         Ok(bytes) => Ok((StatusCode::OK, bytes)),
