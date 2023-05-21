@@ -11,7 +11,7 @@ use rgbstd::{
 use strict_encoding::{FieldName, StrictSerialize};
 use strict_types::StrictVal;
 
-use crate::structs::{ContractFormats, ImportResponse};
+use crate::structs::{ContractFormats, ContractResponse};
 use crate::{rgb::wallet::list_allocations, structs::GenesisFormats};
 
 // TODO: Create one extractor by contract interface
@@ -20,7 +20,7 @@ pub fn extract_contract_by_id(
     stock: &mut Stock,
     resolver: &mut impl Resolver,
     wallet: Option<RgbWallet>,
-) -> Result<ImportResponse, anyhow::Error> {
+) -> Result<ContractResponse, anyhow::Error> {
     let contract_bindle = stock
         .export_contract(contract_id)
         .expect("contract not found");
@@ -171,7 +171,7 @@ pub fn extract_contract_by_id(
         strict: genesis_strict,
     };
 
-    let resp = ImportResponse {
+    let resp = ContractResponse {
         contract_id,
         iimpl_id,
         iface: iface.name.to_string(),

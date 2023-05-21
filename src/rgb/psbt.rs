@@ -8,15 +8,14 @@ use bitcoin::{EcdsaSighashType, OutPoint, Script, XOnlyPublicKey};
 use bitcoin_blockchain::locks::SeqNo;
 use bitcoin_scripts::PubkeyScript;
 use bp::dbc::tapret::TapretCommitment;
-use bp::TapScript;
 use commit_verify::mpc::Commitment;
-use commit_verify::CommitVerify;
 use miniscript_crate::Descriptor;
 use psbt::{ProprietaryKey, ProprietaryKeyType};
 use rgb::psbt::{
     DbcPsbtError, TapretKeyError, PSBT_OUT_TAPRET_COMMITMENT, PSBT_OUT_TAPRET_HOST,
     PSBT_TAPRET_PREFIX,
 };
+use rgb::{RgbDescr, RgbWallet, TerminalPath};
 use wallet::descriptors::derive::DeriveDescriptor;
 use wallet::hd::DerivationSubpath;
 use wallet::psbt::Psbt;
@@ -38,29 +37,19 @@ pub fn create_psbt(
     change_index: Option<u16>,
     bitcoin_changes: Vec<String>,
     fee: u64,
-    tap_tweak: Option<String>,
+    _tap_tweak: Option<String>,
     tx_resolver: &impl ResolveTx,
 ) -> Result<Psbt, ProprietaryKeyError> {
     let outpoint: OutPoint = asset_utxo.parse().expect("invalid outpoint parse");
-    let mut input = InputDescriptor {
+    let input = InputDescriptor {
         outpoint,
         terminal: asset_utxo_terminal
             .parse()
             .expect("invalid terminal path parse"),
         seq_no: SeqNo::default(),
         tweak: None,
-        taptweak: None,
         sighash_type: EcdsaSighashType::All,
     };
-
-    if let Some(tweak) = tap_tweak {
-        let mpc = Commitment::from_str(&tweak).expect("invalid mpc");
-        let tap = TapretCommitment::with(mpc, 0);
-        let tapscript = TapScript::commit(&tap);
-
-        let tweak = Script::from_str(&tapscript.to_hex()).expect("invalid bitcoin script");
-        input.taptweak = Some(tweak);
-    }
 
     let bitcoin_addresses: Vec<AddressAmount> = bitcoin_changes
         .into_iter()
@@ -90,12 +79,14 @@ pub fn create_psbt(
         value: None,
     }];
 
+    // let mut change_derivation = vec![input.terminal[0]];
     let change_index = match change_index {
         Some(index) => {
             UnhardenedIndex::from_str(&index.to_string()).expect("invalid change_index parse")
         }
         _ => UnhardenedIndex::default(),
     };
+    // change_derivation.insert(1, change_index);
 
     let inputs = vec![input];
     let mut psbt = Psbt::construct(
@@ -143,7 +134,7 @@ pub fn create_psbt(
     Ok(psbt)
 }
 
-pub fn extract_commit(mut psbt: Psbt) -> Result<String, DbcPsbtError> {
+pub fn extract_commit(mut psbt: Psbt) -> Result<Vec<u8>, DbcPsbtError> {
     let (_, output) = psbt
         .outputs
         .iter_mut()
@@ -165,9 +156,27 @@ pub fn extract_commit(mut psbt: Psbt) -> Result<String, DbcPsbtError> {
     });
 
     match commit_vec {
-        Some(commit) => Ok(commit.to_hex()),
+        Some(commit) => Ok(commit.to_owned()),
         _ => Err(DbcPsbtError::TapretKey(TapretKeyError::InvalidProof)),
     }
+}
+
+pub fn save_commit(terminal: &str, commit: Vec<u8>, wallet: &mut RgbWallet) {
+    let descr = wallet.descr.clone();
+    let RgbDescr::Tapret(mut tapret) = descr;
+    let derive: Vec<&str> = terminal.split('/').filter(|s| !s.is_empty()).collect();
+    let app = derive[0];
+    let index = derive[1];
+
+    let terminal = TerminalPath {
+        app: app.parse().expect("invalid derive app"),
+        index: index.parse().expect("invalid derive index"),
+    };
+
+    let mpc = Commitment::from_str(&commit.to_hex()).expect("invalid tapret");
+    let tap_commit = TapretCommitment::with(mpc, 0);
+    tapret.taprets.insert(terminal, bset! {tap_commit});
+    wallet.descr = RgbDescr::Tapret(tapret);
 }
 
 // TODO: [Experimental] Review with Diba Team

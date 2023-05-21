@@ -228,6 +228,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "atomic-polyfill"
+version = "0.1.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e3ff7eb3f316534d83a8a2c3d1674ace8a5a71198eba31e2e2b597833f699b28"
+dependencies = [
+ "critical-section",
+]
+
+[[package]]
 name = "atty"
 version = "0.2.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -497,7 +506,7 @@ dependencies = [
 [[package]]
 name = "bitcoin_hd"
 version = "0.10.0-alpha.2"
-source = "git+https://github.com/crisdut/descriptor-wallet?branch=exp/tapret-transfers#889ca14c1fd225ae0c72fb9c639b0d41afc59bb7"
+source = "git+https://github.com/crisdut/descriptor-wallet?branch=exp/tapret-transfers#cda69602b86601a717fb8c6cd4cd7573d2ba704d"
 dependencies = [
  "amplify",
  "bitcoin 0.29.2",
@@ -510,7 +519,7 @@ dependencies = [
 [[package]]
 name = "bitcoin_onchain"
 version = "0.10.0-alpha.2"
-source = "git+https://github.com/crisdut/descriptor-wallet?branch=exp/tapret-transfers#889ca14c1fd225ae0c72fb9c639b0d41afc59bb7"
+source = "git+https://github.com/crisdut/descriptor-wallet?branch=exp/tapret-transfers#cda69602b86601a717fb8c6cd4cd7573d2ba704d"
 dependencies = [
  "amplify",
  "bitcoin 0.29.2",
@@ -580,6 +589,7 @@ dependencies = [
  "once_cell",
  "payjoin",
  "percent-encoding",
+ "postcard 1.0.4",
  "pretty_env_logger 0.5.0",
  "psbt",
  "regex",
@@ -846,6 +856,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "cobs"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "67ba02a97a2bd10f4b59b25c7973101c79642302776489e030cd13cdab09ed15"
+
+[[package]]
 name = "commit_encoding_derive"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -921,6 +937,12 @@ checksum = "b540bd8bc810d3885c6ea91e2018302f68baba2129ab3e88f32389ee9370880d"
 dependencies = [
  "cfg-if",
 ]
+
+[[package]]
+name = "critical-section"
+version = "1.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6548a0ad5d2549e111e1f6a11a6c2e2d00ce6a3dafe22948d67c2b443f775e52"
 
 [[package]]
 name = "crunchy"
@@ -1039,7 +1061,7 @@ dependencies = [
 [[package]]
 name = "descriptor-wallet"
 version = "0.10.0-alpha.2"
-source = "git+https://github.com/crisdut/descriptor-wallet?branch=exp/tapret-transfers#889ca14c1fd225ae0c72fb9c639b0d41afc59bb7"
+source = "git+https://github.com/crisdut/descriptor-wallet?branch=exp/tapret-transfers#cda69602b86601a717fb8c6cd4cd7573d2ba704d"
 dependencies = [
  "amplify",
  "bitcoin 0.29.2",
@@ -1056,7 +1078,7 @@ dependencies = [
 [[package]]
 name = "descriptors"
 version = "0.10.0-alpha.2"
-source = "git+https://github.com/crisdut/descriptor-wallet?branch=exp/tapret-transfers#889ca14c1fd225ae0c72fb9c639b0d41afc59bb7"
+source = "git+https://github.com/crisdut/descriptor-wallet?branch=exp/tapret-transfers#cda69602b86601a717fb8c6cd4cd7573d2ba704d"
 dependencies = [
  "amplify",
  "bitcoin 0.29.2",
@@ -1463,6 +1485,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "hash32"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b0c35f58762feb77d74ebe43bdbc3210f09be9fe6742234d573bacc26ed92b67"
+dependencies = [
+ "byteorder",
+]
+
+[[package]]
 name = "hashbrown"
 version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1491,6 +1522,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e7f66481bfee273957b1f20485a4ff3362987f85b2c236580d81b4eb7a326429"
 dependencies = [
  "http",
+]
+
+[[package]]
+name = "heapless"
+version = "0.7.16"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "db04bc24a18b9ea980628ecf00e6c0264f3c1426dac36c00cb49b6fbad8b0743"
+dependencies = [
+ "atomic-polyfill",
+ "hash32",
+ "rustc_version",
+ "serde",
+ "spin 0.9.8",
+ "stable_deref_trait",
 ]
 
 [[package]]
@@ -2293,6 +2338,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "postcard"
+version = "1.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cfa512cd0d087cc9f99ad30a1bf64795b67871edbead083ffc3a4dfafa59aa00"
+dependencies = [
+ "cobs",
+ "heapless",
+ "serde",
+]
+
+[[package]]
 name = "postcard-cobs"
 version = "0.1.5-pre"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2336,7 +2392,7 @@ dependencies = [
 [[package]]
 name = "psbt"
 version = "0.10.0-alpha.2"
-source = "git+https://github.com/crisdut/descriptor-wallet?branch=exp/tapret-transfers#889ca14c1fd225ae0c72fb9c639b0d41afc59bb7"
+source = "git+https://github.com/crisdut/descriptor-wallet?branch=exp/tapret-transfers#cda69602b86601a717fb8c6cd4cd7573d2ba704d"
 dependencies = [
  "amplify",
  "bitcoin 0.29.2",
@@ -2548,7 +2604,7 @@ dependencies = [
 [[package]]
 name = "rgb-std"
 version = "0.10.2"
-source = "git+https://github.com/crisdut/rgb-wallet?branch=feat/full-uda#f24bfdb0bda9de73693e9387d04836a253ee27fb"
+source = "git+https://github.com/crisdut/rgb-wallet?branch=feat/full-uda#0f414f46e6bfc805114ca4425d9ebbb6bfa18399"
 dependencies = [
  "amplify",
  "baid58",
@@ -2566,7 +2622,7 @@ dependencies = [
 [[package]]
 name = "rgb-wallet"
 version = "0.10.2"
-source = "git+https://github.com/crisdut/rgb-wallet?branch=feat/full-uda#f24bfdb0bda9de73693e9387d04836a253ee27fb"
+source = "git+https://github.com/crisdut/rgb-wallet?branch=feat/full-uda#0f414f46e6bfc805114ca4425d9ebbb6bfa18399"
 dependencies = [
  "amplify",
  "baid58",
@@ -2836,7 +2892,7 @@ dependencies = [
  "bincode",
  "cfg-if",
  "once_cell",
- "postcard",
+ "postcard 0.7.3",
  "rand_chacha",
  "rand_core 0.6.4",
  "serde",
@@ -3046,7 +3102,7 @@ dependencies = [
 [[package]]
 name = "slip132"
 version = "0.10.0-alpha.2"
-source = "git+https://github.com/crisdut/descriptor-wallet?branch=exp/tapret-transfers#889ca14c1fd225ae0c72fb9c639b0d41afc59bb7"
+source = "git+https://github.com/crisdut/descriptor-wallet?branch=exp/tapret-transfers#cda69602b86601a717fb8c6cd4cd7573d2ba704d"
 dependencies = [
  "amplify",
  "bitcoin 0.29.2",
@@ -3098,6 +3154,9 @@ name = "spin"
 version = "0.9.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6980e8d7511241f8acf4aebddbb1ff938df5eebe98691418c4468d0b72a96a67"
+dependencies = [
+ "lock_api",
+]
 
 [[package]]
 name = "stability"
@@ -3108,6 +3167,12 @@ dependencies = [
  "quote",
  "syn 1.0.109",
 ]
+
+[[package]]
+name = "stable_deref_trait"
+version = "1.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
 
 [[package]]
 name = "strict_encoding"
@@ -3137,8 +3202,7 @@ dependencies = [
 [[package]]
 name = "strict_types"
 version = "1.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7af86f31fce50e8e4635509b6114c71aaa3a37cb3df1b8ea0ab5d5cf58afd688"
+source = "git+https://github.com/crisdut/strict-types/?branch=fix/typelib-id#74106e3554a2af646bf9220dd19396fc0cb1e90c"
 dependencies = [
  "amplify",
  "baid58",

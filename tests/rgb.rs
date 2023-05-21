@@ -15,4 +15,8 @@ mod rgb {
         mod udas;
         pub mod utils;
     }
+
+    mod wasm {
+        mod std;
+    }
 }

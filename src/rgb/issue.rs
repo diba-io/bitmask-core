@@ -1,5 +1,6 @@
 use amplify::confinement::SmallBlob;
 use amplify::Wrapper;
+use bp::seals::txout::ExplicitSeal;
 use bp::{Chain, Txid};
 use rgb_schemata::{nia_rgb20, nia_schema, uda_rgb21, uda_schema};
 use rgbstd::contract::GenesisSeal;
@@ -14,7 +15,7 @@ use rgbstd::interface::{rgb20, rgb21, BuilderError, ContractBuilder};
 use rgbstd::persistence::{Inventory, Stash, Stock};
 
 use crate::structs::MediaInfo;
-use seals::txout::ExplicitSeal;
+// use seals::txout::ExplicitSeal;
 use strict_types::encoding::TypeName;
 
 #[derive(Clone, Eq, PartialEq, Debug, Display, Error, From)]

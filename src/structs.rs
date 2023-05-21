@@ -186,7 +186,7 @@ pub struct ImportRequest {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct ImportResponse {
+pub struct ContractResponse {
     /// The contract id
     pub contract_id: String,
     /// The contract impl id
@@ -240,7 +240,7 @@ pub struct PsbtRequest {
     pub descriptor_pub: String,
     /// Asset UTXO
     pub asset_utxo: String,
-    /// Asset UTXO Terminator (ex. /0/0)
+    /// Asset UTXO Terminal (ex. /0/0)
     pub asset_utxo_terminal: String,
     /// Asset Change Index UTXO (default: 1)
     pub change_index: Option<u16>,
@@ -257,6 +257,8 @@ pub struct PsbtRequest {
 pub struct PsbtResponse {
     /// PSBT encoded in Base64
     pub psbt: String,
+    /// Asset UTXO Terminal (ex. /0/0)
+    pub terminal: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -288,6 +290,8 @@ pub struct RgbTransferRequest {
     pub rgb_invoice: String,
     /// PSBT File Information
     pub psbt: String,
+    /// Asset UTXO Terminal (ex. /0/0)
+    pub terminal: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -327,7 +331,7 @@ pub struct AcceptResponse {
 #[serde(rename_all = "camelCase")]
 pub struct ContractsResponse {
     /// List of avaliable contracts
-    pub contracts: Vec<ImportResponse>,
+    pub contracts: Vec<ContractResponse>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

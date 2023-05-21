@@ -158,21 +158,9 @@ pub fn sync_wallet(iface_index: u32, wallet: &mut RgbWallet, resolver: &mut impl
     let step = 20;
     let mut index = 0;
 
-    let iface_indexes: Vec<u32> = wallet
-        .utxos
-        .clone()
-        .into_iter()
-        .filter(|utxo| utxo.derivation.terminal.app == iface_index)
-        .map(|utxo| utxo.derivation.terminal.index)
-        .collect();
-
     loop {
         let scripts = wallet.descr.derive(iface_index, index..step);
-        let new_scripts = scripts
-            .into_iter()
-            .filter(|(d, _)| !iface_indexes.contains(&d.terminal.index))
-            .map(|(d, sc)| (d, sc))
-            .collect();
+        let new_scripts = scripts.into_iter().map(|(d, sc)| (d, sc)).collect();
 
         let mut new_utxos = resolver
             .resolve_utxo(new_scripts)
@@ -191,6 +179,7 @@ pub fn list_allocations(
     iface_index: u32,
     resolver: &mut impl Resolver,
 ) -> Result<Vec<WatcherDetail>, anyhow::Error> {
+    wallet.utxos.clear();
     // TODO: Workaround
     let iface_name = match iface_index {
         20 => "RGB20",
@@ -198,9 +187,11 @@ pub fn list_allocations(
         _ => "Contract",
     };
 
-    let mut details = vec![];
-
+    // TODO: Remove this workaround after solve psbt rgb change
+    sync_wallet(1, wallet, resolver);
     sync_wallet(iface_index, wallet, resolver);
+
+    let mut details = vec![];
     for contract_id in stock.contract_ids()? {
         let iface = stock.iface_by_name(&tn!(iface_name))?;
         if let Ok(contract) = stock.contract_iface(contract_id, iface.iface_id()) {

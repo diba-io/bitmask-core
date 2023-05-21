@@ -9,7 +9,7 @@ use bitmask_core::{
         watcher_details, watcher_next_address, watcher_next_utxo,
     },
     structs::{
-        AllocationDetail, ContractType, EncryptedWalletData, ImportRequest, ImportResponse,
+        AllocationDetail, ContractResponse, ContractType, EncryptedWalletData, ImportRequest,
         InvoiceRequest, InvoiceResponse, IssueRequest, IssueResponse, MediaInfo, PsbtRequest,
         PsbtResponse, RgbTransferRequest, RgbTransferResponse, WatcherRequest,
     },
@@ -142,7 +142,7 @@ pub async fn issuer_issue_contract(
 
 pub async fn import_new_contract(
     issuer_resp: IssueResponse,
-) -> Result<ImportResponse, anyhow::Error> {
+) -> Result<ContractResponse, anyhow::Error> {
     let owner_keys = save_mnemonic(OWNER_MNEMONIC, "").await?;
 
     // Create Watcher
@@ -282,6 +282,7 @@ pub async fn create_new_transfer(
     let transfer_req = RgbTransferRequest {
         psbt: psbt_resp.psbt,
         rgb_invoice: owner_resp.invoice,
+        terminal: psbt_resp.terminal,
     };
 
     let sk = issuer_keys.private.nostr_prv;
