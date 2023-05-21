@@ -112,7 +112,7 @@ async fn import_test_wallet() {
     info!("Get vault properties");
     let vault_str: JsValue = resolve(get_encrypted_wallet(
         hash0.clone(),
-        mnemonic_data.serialized_encrypted_message,
+        mnemonic_data.encrypted_descriptors,
     ))
     .await;
     let _encrypted_wallet_data: EncryptedWalletData = json_parse(&vault_str);
