@@ -50,7 +50,7 @@ async fn contract_legacy_import() {
     info!("Get vault properties");
     let vault_str: JsValue = resolve(get_encrypted_wallet(
         hash,
-        mnemonic_data.serialized_encrypted_message,
+        mnemonic_data.encrypted_descriptors,
     ))
     .await;
     let wallet_data: EncryptedWalletData = json_parse(&vault_str);
@@ -84,7 +84,7 @@ async fn contract_strict_import() {
     info!("Get vault properties");
     let vault_str: JsValue = resolve(get_encrypted_wallet(
         hash,
-        mnemonic_data.serialized_encrypted_message,
+        mnemonic_data.encrypted_descriptors,
     ))
     .await;
     let wallet_data: EncryptedWalletData = json_parse(&vault_str);
@@ -120,7 +120,7 @@ async fn asset_transfer() {
     // Get vault properties
     let wallet_data_str: JsValue = resolve(get_encrypted_wallet(
         hash,
-        mnemonic_data.serialized_encrypted_message,
+        mnemonic_data.encrypted_descriptors,
     ))
     .await;
     let wallet_data: EncryptedWalletData = json_parse(&wallet_data_str);
