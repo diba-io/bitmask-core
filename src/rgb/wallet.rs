@@ -187,10 +187,7 @@ pub fn list_allocations(
         _ => "Contract",
     };
 
-    // TODO: Remove this workaround after solve psbt rgb change
-    sync_wallet(1, wallet, resolver);
     sync_wallet(iface_index, wallet, resolver);
-
     let mut details = vec![];
     for contract_id in stock.contract_ids()? {
         let iface = stock.iface_by_name(&tn!(iface_name))?;

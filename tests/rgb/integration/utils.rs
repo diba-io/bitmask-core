@@ -88,6 +88,12 @@ pub async fn setup_regtest(force: bool, mnemonic: Option<&str>) {
                 .await
                 .expect("invalid wallet snapshot");
         send_some_coins(&fungible_snapshot.address, "0.1").await;
+
+        // Send Coins to RGB Wallet
+        let uda_snapshot = get_wallet_data(&vault_data.public.rgb_udas_descriptor_xpub, None)
+            .await
+            .expect("invalid wallet snapshot");
+        send_some_coins(&uda_snapshot.address, "0.1").await;
     };
 }
 
@@ -176,7 +182,12 @@ pub async fn create_new_invoice(
     issuer_resp: IssueResponse,
 ) -> Result<InvoiceResponse, anyhow::Error> {
     let owner_keys = save_mnemonic(OWNER_MNEMONIC, "").await?;
-    let owner_vault = get_wallet(&owner_keys.public.rgb_assets_descriptor_xpub, None).await?;
+    let descriptor_pub = match issuer_resp.iface.as_str() {
+        "RGB20" => owner_keys.public.rgb_assets_descriptor_xpub,
+        "RGB21" => owner_keys.public.rgb_udas_descriptor_xpub,
+        _ => owner_keys.public.rgb_assets_descriptor_xpub,
+    };
+    let owner_vault = get_wallet(&descriptor_pub, None).await?;
 
     // Create Watcher
     let sk = owner_keys.private.nostr_prv;

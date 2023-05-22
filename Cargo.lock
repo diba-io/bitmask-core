@@ -506,7 +506,7 @@ dependencies = [
 [[package]]
 name = "bitcoin_hd"
 version = "0.10.0-alpha.2"
-source = "git+https://github.com/crisdut/descriptor-wallet?branch=exp/tapret-transfers#cda69602b86601a717fb8c6cd4cd7573d2ba704d"
+source = "git+https://github.com/crisdut/descriptor-wallet?branch=exp/tapret-transfers#dbdb29be000f7df6ff6108511310e18ac34cd40e"
 dependencies = [
  "amplify",
  "bitcoin 0.29.2",
@@ -519,7 +519,7 @@ dependencies = [
 [[package]]
 name = "bitcoin_onchain"
 version = "0.10.0-alpha.2"
-source = "git+https://github.com/crisdut/descriptor-wallet?branch=exp/tapret-transfers#cda69602b86601a717fb8c6cd4cd7573d2ba704d"
+source = "git+https://github.com/crisdut/descriptor-wallet?branch=exp/tapret-transfers#dbdb29be000f7df6ff6108511310e18ac34cd40e"
 dependencies = [
  "amplify",
  "bitcoin 0.29.2",
@@ -1061,7 +1061,7 @@ dependencies = [
 [[package]]
 name = "descriptor-wallet"
 version = "0.10.0-alpha.2"
-source = "git+https://github.com/crisdut/descriptor-wallet?branch=exp/tapret-transfers#cda69602b86601a717fb8c6cd4cd7573d2ba704d"
+source = "git+https://github.com/crisdut/descriptor-wallet?branch=exp/tapret-transfers#dbdb29be000f7df6ff6108511310e18ac34cd40e"
 dependencies = [
  "amplify",
  "bitcoin 0.29.2",
@@ -1078,7 +1078,7 @@ dependencies = [
 [[package]]
 name = "descriptors"
 version = "0.10.0-alpha.2"
-source = "git+https://github.com/crisdut/descriptor-wallet?branch=exp/tapret-transfers#cda69602b86601a717fb8c6cd4cd7573d2ba704d"
+source = "git+https://github.com/crisdut/descriptor-wallet?branch=exp/tapret-transfers#dbdb29be000f7df6ff6108511310e18ac34cd40e"
 dependencies = [
  "amplify",
  "bitcoin 0.29.2",
@@ -2392,7 +2392,7 @@ dependencies = [
 [[package]]
 name = "psbt"
 version = "0.10.0-alpha.2"
-source = "git+https://github.com/crisdut/descriptor-wallet?branch=exp/tapret-transfers#cda69602b86601a717fb8c6cd4cd7573d2ba704d"
+source = "git+https://github.com/crisdut/descriptor-wallet?branch=exp/tapret-transfers#dbdb29be000f7df6ff6108511310e18ac34cd40e"
 dependencies = [
  "amplify",
  "bitcoin 0.29.2",
@@ -2604,7 +2604,7 @@ dependencies = [
 [[package]]
 name = "rgb-std"
 version = "0.10.2"
-source = "git+https://github.com/crisdut/rgb-wallet?branch=feat/full-uda#0f414f46e6bfc805114ca4425d9ebbb6bfa18399"
+source = "git+https://github.com/crisdut/rgb-wallet?branch=feat/full-uda#ab76a908d585db16cd6a5b959c23df53adc753f0"
 dependencies = [
  "amplify",
  "baid58",
@@ -2622,7 +2622,7 @@ dependencies = [
 [[package]]
 name = "rgb-wallet"
 version = "0.10.2"
-source = "git+https://github.com/crisdut/rgb-wallet?branch=feat/full-uda#0f414f46e6bfc805114ca4425d9ebbb6bfa18399"
+source = "git+https://github.com/crisdut/rgb-wallet?branch=feat/full-uda#ab76a908d585db16cd6a5b959c23df53adc753f0"
 dependencies = [
  "amplify",
  "baid58",
@@ -3102,7 +3102,7 @@ dependencies = [
 [[package]]
 name = "slip132"
 version = "0.10.0-alpha.2"
-source = "git+https://github.com/crisdut/descriptor-wallet?branch=exp/tapret-transfers#cda69602b86601a717fb8c6cd4cd7573d2ba704d"
+source = "git+https://github.com/crisdut/descriptor-wallet?branch=exp/tapret-transfers#dbdb29be000f7df6ff6108511310e18ac34cd40e"
 dependencies = [
  "amplify",
  "bitcoin 0.29.2",

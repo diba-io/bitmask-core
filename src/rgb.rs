@@ -182,7 +182,7 @@ pub async fn create_psbt(sk: &str, request: PsbtRequest) -> Result<PsbtResponse>
         }
     };
 
-    let psbt_file = create_rgb_psbt(
+    let (psbt_file, change_terminal) = create_rgb_psbt(
         descriptor_pub,
         asset_utxo,
         asset_utxo_terminal.clone(),
@@ -195,7 +195,7 @@ pub async fn create_psbt(sk: &str, request: PsbtRequest) -> Result<PsbtResponse>
 
     let psbt = PsbtResponse {
         psbt: Serialize::serialize(&psbt_file).to_hex(),
-        terminal: "/1/0".to_string(),
+        terminal: change_terminal,
     };
 
     store_stock(sk, ASSETS_STOCK, &stock).await?;
@@ -288,8 +288,6 @@ pub async fn get_contract(sk: &str, contract_id: &str) -> Result<ContractRespons
     let wallet = match wallet {
         Some(wallet) => {
             let mut fetch_wallet = wallet.to_owned();
-            // TODO: Remove this workaround after solve psbt rgb change
-            prefetch_resolve_watcher(1, &mut resolver, &mut fetch_wallet).await;
             for contract_type in [ContractType::RGB20, ContractType::RGB21] {
                 prefetch_resolve_watcher(contract_type as u32, &mut resolver, &mut fetch_wallet)
                     .await;
@@ -319,8 +317,6 @@ pub async fn list_contracts(sk: &str) -> Result<ContractsResponse> {
     let wallet = match wallet {
         Some(wallet) => {
             let mut fetch_wallet = wallet.to_owned();
-            // TODO: Remove this workaround after solve psbt rgb change
-            prefetch_resolve_watcher(1, &mut resolver, &mut fetch_wallet).await;
             prefetch_resolve_watcher(20, &mut resolver, &mut fetch_wallet).await;
             Some(fetch_wallet)
         }
@@ -394,8 +390,6 @@ pub async fn import(sk: &str, request: ImportRequest) -> Result<ContractResponse
     let wallet = match wallet {
         Some(wallet) => {
             let mut fetch_wallet = wallet.to_owned();
-            // TODO: Remove this workaround after solve psbt rgb change
-            prefetch_resolve_watcher(1, &mut resolver, &mut fetch_wallet).await;
             prefetch_resolve_watcher(import as u32, &mut resolver, &mut fetch_wallet).await;
             Some(fetch_wallet)
         }
@@ -446,8 +440,6 @@ pub async fn watcher_details(sk: &str, name: &str) -> Result<WatcherDetailRespon
     let mut allocations = vec![];
     for contract_type in [ContractType::RGB20, ContractType::RGB21] {
         let iface_index = contract_type as u32;
-        // TODO: Remove this workaround after solve psbt rgb change
-        prefetch_resolve_watcher(1, &mut resolver, &mut wallet).await;
         prefetch_resolve_watcher(iface_index, &mut resolver, &mut wallet).await;
         let result = list_allocations(&mut wallet, &mut stock, iface_index, &mut resolver)?;
         allocations.extend(result);

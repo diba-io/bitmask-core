@@ -39,7 +39,7 @@ pub fn create_psbt(
     fee: u64,
     _tap_tweak: Option<String>,
     tx_resolver: &impl ResolveTx,
-) -> Result<Psbt, ProprietaryKeyError> {
+) -> Result<(Psbt, String), ProprietaryKeyError> {
     let outpoint: OutPoint = asset_utxo.parse().expect("invalid outpoint parse");
     let input = InputDescriptor {
         outpoint,
@@ -79,21 +79,23 @@ pub fn create_psbt(
         value: None,
     }];
 
-    // let mut change_derivation = vec![input.terminal[0]];
+    let mut change_derivation = vec![input.terminal[0]];
     let change_index = match change_index {
         Some(index) => {
             UnhardenedIndex::from_str(&index.to_string()).expect("invalid change_index parse")
         }
         _ => UnhardenedIndex::default(),
     };
-    // change_derivation.insert(1, change_index);
+    change_derivation.insert(1, change_index);
+
+    let change_terminal = format!("/{contract_index}/{change_index}");
 
     let inputs = vec![input];
     let mut psbt = Psbt::construct(
         descriptor,
         &inputs,
         &outputs,
-        change_index,
+        change_derivation,
         fee,
         tx_resolver,
     )
@@ -131,7 +133,7 @@ pub fn create_psbt(
         }
     }
 
-    Ok(psbt)
+    Ok((psbt, change_terminal))
 }
 
 pub fn extract_commit(mut psbt: Psbt) -> Result<Vec<u8>, DbcPsbtError> {
