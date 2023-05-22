@@ -9,7 +9,14 @@ mod rgb {
     }
 
     mod integration {
-        mod transfer;
-        mod utils;
+        mod fungibles;
+        mod import;
+        mod issue;
+        mod udas;
+        pub mod utils;
+    }
+
+    mod wasm {
+        mod std;
     }
 }

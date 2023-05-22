@@ -194,11 +194,13 @@ async fn watcher_details(
 async fn next_address(
     TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
     Path(name): Path<String>,
+    Path(iface): Path<String>,
 ) -> Result<impl IntoResponse, AppError> {
     info!("GET /watcher/{name:?}/address");
+    info!("GET /watcher/{name:?}/{iface:?}/address");
 
     let nostr_hex_sk = auth.token();
-    let resp = watcher_next_address(nostr_hex_sk, &name).await?;
+    let resp = watcher_next_address(nostr_hex_sk, &name, &iface).await?;
 
     Ok((StatusCode::OK, Json(resp)))
 }
@@ -206,11 +208,12 @@ async fn next_address(
 async fn next_utxo(
     TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
     Path(name): Path<String>,
+    Path(iface): Path<String>,
 ) -> Result<impl IntoResponse, AppError> {
-    info!("GET /watcher/{name:?}/utxo");
+    info!("GET /watcher/{name:?}/{iface:?}/utxo");
 
     let nostr_hex_sk = auth.token();
-    let resp = watcher_next_utxo(nostr_hex_sk, &name).await?;
+    let resp = watcher_next_utxo(nostr_hex_sk, &name, &iface).await?;
 
     Ok((StatusCode::OK, Json(resp)))
 }
@@ -295,8 +298,8 @@ async fn main() -> Result<()> {
         .route("/import", post(import))
         .route("/watcher", post(watcher))
         .route("/watcher/:name", get(watcher_details))
-        .route("/watcher/:name/address", get(next_address))
-        .route("/watcher/:name/utxo", get(next_utxo))
+        .route("/watcher/:name/:iface/address", get(next_address))
+        .route("/watcher/:name/:iface/utxo", get(next_utxo))
         .route("/key/:pk", get(key))
         .route("/carbonado/:pk/:name", post(co_store))
         .route("/carbonado/:pk/:name", get(co_retrieve))

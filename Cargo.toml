@@ -26,8 +26,8 @@ web = []
 server = ["tokio/full", "tower-http/cors"]
 
 [dependencies]
-anyhow = "1.0.68"
-aluvm = "0.10.1"
+anyhow = "1.0.71"
+aluvm = "0.10.2"
 amplify = "4.0.0"
 argon2 = "0.5.0"
 base64 = { package = "base64-compat", version = "1.0.0" }
@@ -35,12 +35,12 @@ bech32 = "0.9.1"
 bip39 = { version = "2.0.0", features = ["rand"] }
 bitcoin_30 = { package = "bitcoin", version = "0.30", features = ["base64"] }
 bitcoin = { version = "0.29.2", features = ["base64"] }
-bitcoin_hashes = "0.11.0"
+bitcoin_hashes = "0.12.0"
 bitcoin_scripts = "0.10.0-alpha.2"
 bitcoin_blockchain = "0.10.0-alpha.2"
-bp-core = "0.10.2"
-commit_verify = "0.10.1"
-bp-seals = "0.10.0"
+bp-core = "0.10.3"
+commit_verify = "0.10.2"
+bp-seals = "0.10.3"
 carbonado = "0.3.0-rc.8"
 console_error_panic_hook = "0.1.7"
 # directories = "4.0.1"
@@ -58,11 +58,11 @@ futures = { version = "0.3.28", features = [
 hex = "0.4.3"
 lightning-invoice = "0.23.0"
 log = "0.4.17"
-nostr-sdk = "0.21"
-once_cell = "1.17.0"
+nostr-sdk = "0.22.0"
+once_cell = "1.17.1"
 payjoin = { version = "0.7.0", features = ["sender"] }
 percent-encoding = "2.2.0"
-pretty_env_logger = "0.4.0"
+pretty_env_logger = "0.5.0"
 psbt = { version = "0.10.0-alpha.2", features = [
     "sign",
     "miniscript",
@@ -74,13 +74,15 @@ reqwest = { version = "0.11.16", features = ["json"] }
 rgb-contracts = { version = "0.10.0", default-features = false, features = [
     "log",
 ] }
-rgb-std = { version = "0.10.1" }
-rgb-wallet = { version = "0.10.1" }
+rgb-std = { version = "0.10.2" }
+rgb-wallet = { version = "0.10.2" }
+rgb-schemata = { version = "0.10.0-beta.1" }
 serde = "1.0.152"
 serde_json = "1.0.91"
+postcard = { version = "1.0.4", features = ["alloc"] }
 serde-encrypt = "0.7.0"
-strict_types = "1.1.0"
-strict_encoding = "2.1.1"
+strict_types = "1.2.0"
+strict_encoding = "2.2.0"
 tokio = { version = "1.28.0", features = ["macros", "sync"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
@@ -90,14 +92,14 @@ bdk = { version = "0.28.0", features = [
 ], default-features = false }
 gloo-console = "0.2.3"
 gloo-net = "0.2.6"
-js-sys = "0.3.61"
+js-sys = "0.3.63"
 serde-wasm-bindgen = "0.5.0"
-wasm-bindgen = { version = "0.2.84", features = ["serde-serialize"] }
-wasm-bindgen-futures = "0.4.34"
-web-sys = "0.3.61"
+wasm-bindgen = { version = "0.2.86", features = ["serde-serialize"] }
+wasm-bindgen-futures = "0.4.36"
+web-sys = "0.3.63"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-esplora_block = { version = "0.4.0", package = "esplora-client", default-features = false, features = [
+esplora_block = { version = "0.5.0", package = "esplora-client", default-features = false, features = [
     "blocking",
 ] }
 bdk = { version = "0.28.0", features = [
@@ -112,25 +114,21 @@ inflate = "0.4.5"
 tower-http = { version = "0.4.0", features = ["cors"], optional = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
-tokio = { version = "1.28.0", features = ["full"] }
+tokio = { version = "1.28.1", features = ["full"] }
 
 [dev-dependencies]
-wasm-bindgen-test = "0.3.34"
+wasm-bindgen-test = "0.3.36"
 
 [patch.crates-io]
-# TODO: Remove this after release an official LNPBP versions
-# commit_verify = { git = "https://github.com/LNP-BP/client_side_validation", branch = "commit_encode_derive" }
-# bp-core = { git = "https://github.com/BP-WG/bp-core", branch = "commit_derive" }
-# bp-primitives = { git = "https://github.com/BP-WG/bp-core", branch = "commit_derive" }
-# bp-dbc = { git = "https://github.com/BP-WG/bp-core", branch = "commit_derive" }
-# bp-seals = { git = "https://github.com/BP-WG/bp-core", branch = "commit_derive" }
-# rgb-core = { git = "https://github.com/RGB-WG/rgb-core", branch = "fix/op-conceal" }
-# rgb-wallet = { git = "https://github.com/RGB-WG/rgb-wallet", branch = "rgb20" }
-# rgb-std = { git = "https://github.com/RGB-WG/rgb-wallet", branch = "rgb20" }
 # TODO: Remove this after merge and release fixies
 rgb-contracts = { git = "https://github.com/crisdut/rgb", branch = "exp/fixies" }
 bitcoin_scripts = { git = "https://github.com/crisdut/bp-foundation", branch = "release/0.10.0-alpha.2" }
 bitcoin_blockchain = { git = "https://github.com/crisdut/bp-foundation", branch = "release/0.10.0-alpha.2" }
+strict_types = { git = "https://github.com/crisdut/strict-types/", branch = "fix/typelib-id" }
 # TODO: Remove this after propose a universal tweak in descriptor-wallet
 descriptor-wallet = { git = "https://github.com/crisdut/descriptor-wallet", branch = "exp/tapret-transfers" }
 psbt = { git = "https://github.com/crisdut/descriptor-wallet", branch = "exp/tapret-transfers" }
+# TODO: Remove this after merge and release fixies
+rgb-schemata = { git = "https://github.com/crisdut/rgbsc", branch = "master" }
+rgb-wallet = { git = "https://github.com/crisdut/rgb-wallet", branch = "feat/full-uda" }
+rgb-std = { git = "https://github.com/crisdut/rgb-wallet", branch = "feat/full-uda" }

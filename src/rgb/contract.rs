@@ -8,10 +8,10 @@ use rgbstd::{
     interface::{IfaceId, IfacePair},
     persistence::{Inventory, Stock},
 };
-use strict_encoding::{tn, FieldName, StrictSerialize, TypeName};
+use strict_encoding::{FieldName, StrictSerialize};
 use strict_types::StrictVal;
 
-use crate::structs::{ContractFormats, ImportResponse};
+use crate::structs::{ContractFormats, ContractResponse};
 use crate::{rgb::wallet::list_allocations, structs::GenesisFormats};
 
 // TODO: Create one extractor by contract interface
@@ -20,7 +20,7 @@ pub fn extract_contract_by_id(
     stock: &mut Stock,
     resolver: &mut impl Resolver,
     wallet: Option<RgbWallet>,
-) -> Result<ImportResponse, anyhow::Error> {
+) -> Result<ContractResponse, anyhow::Error> {
     let contract_bindle = stock
         .export_contract(contract_id)
         .expect("contract not found");
@@ -62,8 +62,8 @@ pub fn extract_contract_by_id(
     let mut name = String::new();
     let mut precision = String::new();
     let mut description = String::new();
-
-    let ty: TypeName = tn!("Nominal");
+    let mut supply = 0;
+    let ty: FieldName = FieldName::from("spec");
     let nominal = match contract_iface.global(ty) {
         Ok(values) => values,
         _ => Confined::default(),
@@ -71,28 +71,30 @@ pub fn extract_contract_by_id(
 
     for kv in nominal.iter().cloned() {
         if let StrictVal::Struct(fields) = kv {
-            if fields.contains_key(&FieldName::from("ticker")) {
-                if let Some(val) = fields.get(&FieldName::from("ticker")) {
-                    let val = val.to_string();
-                    ticker = val[2..val.len() - 2].to_string();
-                };
-            }
-            if fields.contains_key(&FieldName::from("name")) {
-                if let Some(val) = fields.get(&FieldName::from("name")) {
-                    let val = val.to_string();
-                    name = val[2..val.len() - 2].to_string();
-                };
-            }
-            if fields.contains_key(&FieldName::from("precision")) {
-                if let Some(val) = fields.get(&FieldName::from("precision")) {
-                    let val = val.to_string();
-                    precision = val;
-                };
+            if let Some(StrictVal::Struct(naming)) = fields.get(&FieldName::from("naming")) {
+                if naming.contains_key(&FieldName::from("ticker")) {
+                    if let Some(val) = naming.get(&FieldName::from("ticker")) {
+                        let val = val.to_string();
+                        ticker = val[2..val.len() - 2].to_string();
+                    };
+                }
+                if naming.contains_key(&FieldName::from("name")) {
+                    if let Some(val) = naming.get(&FieldName::from("name")) {
+                        let val = val.to_string();
+                        name = val[2..val.len() - 2].to_string();
+                    };
+                }
+                if naming.contains_key(&FieldName::from("precision")) {
+                    if let Some(val) = naming.get(&FieldName::from("precision")) {
+                        let val = val.to_string();
+                        precision = val;
+                    };
+                }
             }
         };
     }
 
-    let ty: TypeName = tn!("ContractText");
+    let ty: FieldName = FieldName::from("terms");
     let contract_text = match contract_iface.global(ty) {
         Ok(values) => values,
         _ => Confined::default(),
@@ -105,19 +107,32 @@ pub fn extract_contract_by_id(
         };
     }
 
-    let mut supply = 0;
     for owned in &contract_iface.iface.assignments {
         if let Ok(allocations) = contract_iface.fungible(owned.name.clone()) {
             for allocation in allocations {
                 supply = allocation.value;
             }
         }
+
+        if let Ok(allocations) = contract_iface.data(owned.name.clone()) {
+            for _ in allocations {
+                supply += 1;
+            }
+        }
     }
     let mut balance = 0;
     let mut allocations = vec![];
+
+    // TODO: workaround
+    let iface_index = match iface.name.as_str() {
+        "RGB20" => 20,
+        "RGB21" => 21,
+        _ => 9,
+    };
+
     if let Some(wallet) = wallet {
         let mut fetch_wallet = wallet;
-        let watcher = list_allocations(&mut fetch_wallet, stock, resolver)
+        let watcher = list_allocations(&mut fetch_wallet, stock, iface_index, resolver)
             .expect("invalid allocation states");
         if let Some(watcher_detail) = watcher.into_iter().find(|w| w.contract_id == contract_id) {
             allocations.extend(watcher_detail.allocations);
@@ -154,9 +169,10 @@ pub fn extract_contract_by_id(
     let genesis_formats = GenesisFormats {
         legacy: genesis_legacy,
         strict: genesis_strict,
+        armored: genesis.to_string(),
     };
 
-    let resp = ImportResponse {
+    let resp = ContractResponse {
         contract_id,
         iimpl_id,
         iface: iface.name.to_string(),

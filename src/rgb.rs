@@ -1,12 +1,12 @@
 use std::str::FromStr;
 
 use ::psbt::serialize::Serialize;
-use amplify::hex::ToHex;
+use amplify::{confinement::U16, hex::ToHex};
 use anyhow::{anyhow, Result};
 use bitcoin_30::bip32::ExtendedPubKey;
 use bitcoin_scripts::address::AddressNetwork;
 use miniscript_crate::DescriptorPublicKey;
-use rgbstd::{containers::BindleContent, persistence::Stash};
+use rgbstd::{containers::BindleContent, contract::ContractId, persistence::Stash};
 use strict_encoding::StrictSerialize;
 
 pub mod accept;
@@ -25,6 +25,7 @@ pub mod wallet;
 
 use crate::{
     constants::{
+        get_network,
         storage_keys::{ASSETS_STOCK, ASSETS_WALLETS},
         BITCOIN_EXPLORER_API, NETWORK,
     },
@@ -40,10 +41,10 @@ use crate::{
         wallet::list_allocations,
     },
     structs::{
-        AcceptRequest, AcceptResponse, ContractsResponse, ImportRequest, ImportResponse,
-        InterfaceDetail, InterfacesResponse, InvoiceRequest, InvoiceResponse, IssueRequest,
-        IssueResponse, NextAddressResponse, NextUtxoResponse, PsbtRequest, PsbtResponse,
-        RgbTransferRequest, RgbTransferResponse, SchemaDetail, SchemasResponse,
+        AcceptRequest, AcceptResponse, ContractResponse, ContractType, ContractsResponse,
+        ImportRequest, InterfaceDetail, InterfacesResponse, InvoiceRequest, InvoiceResponse,
+        IssueRequest, IssueResponse, NextAddressResponse, NextUtxoResponse, PsbtRequest,
+        PsbtResponse, RgbTransferRequest, RgbTransferResponse, SchemaDetail, SchemasResponse,
         WatcherDetailResponse, WatcherRequest, WatcherResponse,
     },
 };
@@ -56,7 +57,7 @@ use self::{
         prefetch_resolve_commit_utxo, prefetch_resolve_psbt_tx, prefetch_resolve_spend,
         prefetch_resolve_watcher,
     },
-    psbt::estimate_fee_tx,
+    psbt::{estimate_fee_tx, save_commit},
     wallet::{create_wallet, next_address, next_utxo, sync_wallet},
 };
 
@@ -71,6 +72,7 @@ pub async fn issue_contract(sk: &str, request: IssueRequest) -> Result<IssueResp
         precision,
         iface,
         seal,
+        medias,
     } = request;
     let mut stock = retrieve_stock(sk, ASSETS_STOCK).await?;
 
@@ -79,6 +81,9 @@ pub async fn issue_contract(sk: &str, request: IssueRequest) -> Result<IssueResp
         explorer_url: BITCOIN_EXPLORER_API.read().await.to_string(),
         ..Default::default()
     };
+
+    let network = get_network().await;
+
     let contract = create_contract(
         &ticker,
         &name,
@@ -87,11 +92,13 @@ pub async fn issue_contract(sk: &str, request: IssueRequest) -> Result<IssueResp
         supply,
         &iface,
         &seal,
+        &network,
+        medias,
         &mut resolver,
         &mut stock,
     )?;
 
-    let ImportResponse {
+    let ContractResponse {
         contract_id,
         iimpl_id,
         iface,
@@ -175,10 +182,10 @@ pub async fn create_psbt(sk: &str, request: PsbtRequest) -> Result<PsbtResponse>
         }
     };
 
-    let psbt_file = create_rgb_psbt(
+    let (psbt_file, change_terminal) = create_rgb_psbt(
         descriptor_pub,
         asset_utxo,
-        asset_utxo_terminal,
+        asset_utxo_terminal.clone(),
         change_index,
         bitcoin_changes,
         fee,
@@ -188,6 +195,7 @@ pub async fn create_psbt(sk: &str, request: PsbtRequest) -> Result<PsbtResponse>
 
     let psbt = PsbtResponse {
         psbt: Serialize::serialize(&psbt_file).to_hex(),
+        terminal: change_terminal,
     };
 
     store_stock(sk, ASSETS_STOCK, &stock).await?;
@@ -196,21 +204,40 @@ pub async fn create_psbt(sk: &str, request: PsbtRequest) -> Result<PsbtResponse>
 }
 
 pub async fn transfer_asset(sk: &str, request: RgbTransferRequest) -> Result<RgbTransferResponse> {
-    let RgbTransferRequest { rgb_invoice, psbt } = request;
-
     let mut stock = retrieve_stock(sk, ASSETS_STOCK).await?;
+    let mut rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await?;
+
+    let RgbTransferRequest {
+        rgb_invoice,
+        psbt,
+        terminal,
+    } = request;
     let (psbt, transfer) = pay_invoice(rgb_invoice, psbt, &mut stock)?;
 
+    // Save Commit
     let commit = extract_commit(psbt.clone())?;
-    let psbt = psbt.to_string();
+    let wallet = rgb_account.wallets.get("default");
+    if let Some(wallet) = wallet {
+        let mut wallet = wallet.to_owned();
+        save_commit(&terminal, commit.clone(), &mut wallet);
+
+        rgb_account
+            .wallets
+            .insert("default".to_string(), wallet.clone());
+
+        store_wallets(sk, ASSETS_WALLETS, &rgb_account).await?;
+    };
+
+    let commit_hex = commit.to_hex();
+    let psbt_hex = psbt.to_string();
     let consig = RgbTransferResponse {
         consig_id: transfer.bindle_id().to_string(),
         consig: transfer
-            .to_strict_serialized::<0xFFFFFF>()
+            .to_strict_serialized::<U16>()
             .expect("invalid transfer serialization")
             .to_hex(),
-        psbt,
-        commit,
+        psbt: psbt_hex,
+        commit: commit_hex,
     };
 
     store_stock(sk, ASSETS_STOCK, &stock).await?;
@@ -248,6 +275,34 @@ pub async fn accept_transfer(sk: &str, request: AcceptRequest) -> Result<AcceptR
     Ok(resp)
 }
 
+pub async fn get_contract(sk: &str, contract_id: &str) -> Result<ContractResponse> {
+    let mut stock = retrieve_stock(sk, ASSETS_STOCK).await?;
+    let rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await?;
+
+    let mut resolver = ExplorerResolver {
+        explorer_url: BITCOIN_EXPLORER_API.read().await.to_string(),
+        ..Default::default()
+    };
+
+    let wallet = rgb_account.wallets.get("default");
+    let wallet = match wallet {
+        Some(wallet) => {
+            let mut fetch_wallet = wallet.to_owned();
+            for contract_type in [ContractType::RGB20, ContractType::RGB21] {
+                prefetch_resolve_watcher(contract_type as u32, &mut resolver, &mut fetch_wallet)
+                    .await;
+            }
+
+            Some(fetch_wallet)
+        }
+        _ => None,
+    };
+
+    let contract_id = ContractId::from_str(contract_id)?;
+    let contract = extract_contract_by_id(contract_id, &mut stock, &mut resolver, wallet)?;
+    Ok(contract)
+}
+
 pub async fn list_contracts(sk: &str) -> Result<ContractsResponse> {
     let mut stock = retrieve_stock(sk, ASSETS_STOCK).await?;
     let rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await?;
@@ -262,7 +317,6 @@ pub async fn list_contracts(sk: &str) -> Result<ContractsResponse> {
     let wallet = match wallet {
         Some(wallet) => {
             let mut fetch_wallet = wallet.to_owned();
-
             prefetch_resolve_watcher(20, &mut resolver, &mut fetch_wallet).await;
             Some(fetch_wallet)
         }
@@ -320,8 +374,8 @@ pub async fn list_schemas(sk: &str) -> Result<SchemasResponse> {
     Ok(SchemasResponse { schemas })
 }
 
-pub async fn import(sk: &str, request: ImportRequest) -> Result<ImportResponse> {
-    let ImportRequest { data, import: _ } = request;
+pub async fn import(sk: &str, request: ImportRequest) -> Result<ContractResponse> {
+    let ImportRequest { data, import } = request;
     let mut stock = retrieve_stock(sk, ASSETS_STOCK).await?;
     let rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await?;
 
@@ -336,8 +390,7 @@ pub async fn import(sk: &str, request: ImportRequest) -> Result<ImportResponse> 
     let wallet = match wallet {
         Some(wallet) => {
             let mut fetch_wallet = wallet.to_owned();
-
-            prefetch_resolve_watcher(20, &mut resolver, &mut fetch_wallet).await;
+            prefetch_resolve_watcher(import as u32, &mut resolver, &mut fetch_wallet).await;
             Some(fetch_wallet)
         }
         _ => None,
@@ -346,6 +399,7 @@ pub async fn import(sk: &str, request: ImportRequest) -> Result<ImportResponse> 
     let contract = import_contract(&data, &mut stock, &mut resolver)?;
     let resp = extract_contract_by_id(contract.contract_id(), &mut stock, &mut resolver, wallet)?;
     store_stock(sk, ASSETS_STOCK, &stock).await?;
+    store_wallets(sk, ASSETS_WALLETS, &rgb_account).await?;
     Ok(resp)
 }
 
@@ -382,9 +436,14 @@ pub async fn watcher_details(sk: &str, name: &str) -> Result<WatcherDetailRespon
         explorer_url: BITCOIN_EXPLORER_API.read().await.to_string(),
         ..Default::default()
     };
-    prefetch_resolve_watcher(20, &mut resolver, &mut wallet).await;
 
-    let allocations = list_allocations(&mut wallet, &mut stock, &mut resolver)?;
+    let mut allocations = vec![];
+    for contract_type in [ContractType::RGB20, ContractType::RGB21] {
+        let iface_index = contract_type as u32;
+        prefetch_resolve_watcher(iface_index, &mut resolver, &mut wallet).await;
+        let result = list_allocations(&mut wallet, &mut stock, iface_index, &mut resolver)?;
+        allocations.extend(result);
+    }
 
     let resp = WatcherDetailResponse {
         contracts: allocations,
@@ -396,7 +455,11 @@ pub async fn watcher_details(sk: &str, name: &str) -> Result<WatcherDetailRespon
     Ok(resp)
 }
 
-pub async fn watcher_next_address(sk: &str, name: &str) -> Result<NextAddressResponse> {
+pub async fn watcher_next_address(
+    sk: &str,
+    name: &str,
+    iface: &str,
+) -> Result<NextAddressResponse> {
     let rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await?;
 
     let network = NETWORK.read().await.to_string();
@@ -407,7 +470,12 @@ pub async fn watcher_next_address(sk: &str, name: &str) -> Result<NextAddressRes
         _ => Err(anyhow!("Wallet watcher not found")),
     };
 
-    let iface_index = 20;
+    let iface_index = match iface {
+        "RGB20" => 20,
+        "RGB21" => 21,
+        _ => 9,
+    };
+
     let wallet = wallet?;
     let next_address = next_address(iface_index, wallet, network)?;
 
@@ -418,7 +486,7 @@ pub async fn watcher_next_address(sk: &str, name: &str) -> Result<NextAddressRes
     Ok(resp)
 }
 
-pub async fn watcher_next_utxo(sk: &str, name: &str) -> Result<NextUtxoResponse> {
+pub async fn watcher_next_utxo(sk: &str, name: &str, iface: &str) -> Result<NextUtxoResponse> {
     let rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await?;
 
     let wallet = match rgb_account.wallets.get(name) {
@@ -426,7 +494,12 @@ pub async fn watcher_next_utxo(sk: &str, name: &str) -> Result<NextUtxoResponse>
         _ => Err(anyhow!("Wallet watcher not found")),
     };
 
-    let iface_index = 20;
+    let iface_index = match iface {
+        "RGB20" => 20,
+        "RGB21" => 21,
+        _ => 9,
+    };
+
     let mut wallet = wallet?;
 
     // Resolvers Workaround

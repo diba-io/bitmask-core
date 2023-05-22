@@ -58,6 +58,7 @@ pub async fn prefetch_resolve_commit_utxo(contract: &str, explorer: &mut Explore
         .expect("invalid strict serialized data");
     let contract = Contract::from_strict_serialized::<{ usize::MAX }>(confined)
         .expect("invalid strict contract data");
+    let contract = contract.validate(explorer).expect("invalid contract state");
 
     for anchor_bundle in contract.bundles {
         let transaction_id = &bitcoin::Txid::from_str(&anchor_bundle.anchor.txid.to_hex())
@@ -134,7 +135,7 @@ pub async fn prefetch_resolve_spend(
 
     if !utxos.is_empty() {
         for utxo in utxos {
-            let txid = bitcoin_hashes::hex::FromHex::from_hex(&utxo.outpoint.txid.to_hex())
+            let txid = bitcoin::Txid::from_str(&utxo.outpoint.txid.to_hex())
                 .expect("invalid outpoint format");
             if let Some(status) = esplora_client
                 .get_output_status(&txid, utxo.outpoint.vout.into_u32().into())

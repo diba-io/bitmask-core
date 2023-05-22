@@ -3,7 +3,7 @@ use std::str::FromStr;
 use amplify::{confinement::Confined, hex::ToHex};
 use bitcoin_30::psbt::Psbt as PSBT;
 use bitcoin_hashes::hex::FromHex;
-use bp::{Txid, Vout};
+use bp::{seals::txout::CloseMethod, Txid, Vout};
 use psbt::{serialize::Serialize, Psbt};
 use rgbstd::{
     containers::{Bindle, Transfer},
@@ -14,7 +14,7 @@ use rgbstd::{
     validation::{ResolveTx, Status},
 };
 use rgbwallet::{InventoryWallet, RgbInvoice, RgbTransport};
-use seals::txout::CloseMethod;
+// use seals::txout::CloseMethod;
 use strict_encoding::{StrictDeserialize, TypeName};
 
 #[derive(Clone, Eq, PartialEq, Debug, Display, Error, From)]

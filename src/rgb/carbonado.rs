@@ -1,7 +1,7 @@
 use amplify::confinement::{Confined, U32};
 use anyhow::Result;
+use postcard::{from_bytes, to_allocvec};
 use rgbstd::persistence::Stock;
-use serde_json::to_vec;
 use strict_encoding::{StrictDeserialize, StrictSerialize};
 
 use crate::carbonado::{retrieve, store};
@@ -26,7 +26,7 @@ pub async fn retrieve_stock(sk: &str, name: &str) -> Result<Stock> {
 }
 
 pub async fn store_wallets(sk: &str, name: &str, rgb_wallets: &RgbAccount) -> Result<()> {
-    let data = to_vec(rgb_wallets)?;
+    let data = to_allocvec(rgb_wallets)?;
     store(sk, name, &data).await
 }
 
@@ -35,7 +35,7 @@ pub async fn retrieve_wallets(sk: &str, name: &str) -> Result<RgbAccount> {
     if data.is_empty() {
         Ok(RgbAccount::default())
     } else {
-        let rgb_wallets = serde_json::from_slice(&data)?;
+        let rgb_wallets = from_bytes(&data)?;
         Ok(rgb_wallets)
     }
 }

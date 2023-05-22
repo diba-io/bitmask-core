@@ -403,13 +403,21 @@ pub async fn sign_psbt_file(_sk: &str, request: SignPsbtRequest) -> Result<SignP
         psbt,
         mnemonic,
         seed_password,
+        iface,
     } = request;
 
     let original_psbt = Psbt::from_str(&psbt)?;
     let final_psbt = PartiallySignedTransaction::from(original_psbt);
 
+    // TODO: Refactor this!
     let encrypt_wallet = save_mnemonic(&mnemonic, &seed_password).await?;
-    let wallet = get_wallet(&encrypt_wallet.private.rgb_assets_descriptor_xprv, None).await?;
+    let sk = match iface.as_str() {
+        "RGB20" => encrypt_wallet.private.rgb_assets_descriptor_xprv,
+        "RGB21" => encrypt_wallet.private.rgb_udas_descriptor_xprv,
+        _ => encrypt_wallet.private.rgb_assets_descriptor_xprv,
+    };
+
+    let wallet = get_wallet(&sk, None).await?;
     synchronize_wallet(&wallet).await?;
 
     let sign = sign_psbt(&wallet, final_psbt).await?;

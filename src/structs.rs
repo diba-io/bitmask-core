@@ -107,6 +107,17 @@ pub struct IssueRequest {
     pub seal: String,
     /// The name of the iface (ex: RGB20)
     pub iface: String,
+    /// attachments and media (only RGB21/UDA)
+    pub medias: Option<Vec<MediaInfo>>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct MediaInfo {
+    /// Mime Type of the media
+    pub ty: String,
+    /// Source (aka. hyperlink) of the media
+    pub source: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -154,26 +165,30 @@ pub struct GenesisFormats {
     pub legacy: String,
     /// The genesis state (encoded in strict)
     pub strict: String,
+    /// The contract state (compiled in armored mode)
+    pub armored: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-pub enum ImportType {
-    Contract,
+pub enum ContractType {
+    Contract = 9,
+    RGB20 = 20,
+    RGB21 = 21,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ImportRequest {
     /// The type data
-    pub import: ImportType,
+    pub import: ContractType,
     /// The payload data (in hexadecimal)
     pub data: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct ImportResponse {
+pub struct ContractResponse {
     /// The contract id
     pub contract_id: String,
     /// The contract impl id
@@ -227,7 +242,7 @@ pub struct PsbtRequest {
     pub descriptor_pub: String,
     /// Asset UTXO
     pub asset_utxo: String,
-    /// Asset UTXO Terminator (ex. /0/0)
+    /// Asset UTXO Terminal (ex. /0/0)
     pub asset_utxo_terminal: String,
     /// Asset Change Index UTXO (default: 1)
     pub change_index: Option<u16>,
@@ -244,6 +259,8 @@ pub struct PsbtRequest {
 pub struct PsbtResponse {
     /// PSBT encoded in Base64
     pub psbt: String,
+    /// Asset UTXO Terminal (ex. /0/0)
+    pub terminal: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -255,6 +272,8 @@ pub struct SignPsbtRequest {
     pub mnemonic: String,
     /// password
     pub seed_password: String,
+    /// iface
+    pub iface: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -273,6 +292,8 @@ pub struct RgbTransferRequest {
     pub rgb_invoice: String,
     /// PSBT File Information
     pub psbt: String,
+    /// Asset UTXO Terminal (ex. /0/0)
+    pub terminal: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -312,7 +333,7 @@ pub struct AcceptResponse {
 #[serde(rename_all = "camelCase")]
 pub struct ContractsResponse {
     /// List of avaliable contracts
-    pub contracts: Vec<ImportResponse>,
+    pub contracts: Vec<ContractResponse>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
