@@ -12,17 +12,11 @@ async fn allow_issuer_issue_fungible_contract() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn allow_issuer_issue_uda_contract() -> anyhow::Result<()> {
-    let _media_info = Some(vec![
-        MediaInfo {
-            ty: "image/png".to_string(),
-            source: "https://carbonado.io/diba.png".to_string(),
-        },
-        MediaInfo {
-            ty: "audio/mp3".to_string(),
-            source: "https://carbonado.io/diba.mp3".to_string(),
-        },
-    ]);
-    let issuer_resp = issuer_issue_contract("RGB21", 1, false, None).await;
+    let media_info = Some(vec![MediaInfo {
+        ty: "image/png".to_string(),
+        source: "https://carbonado.io/diba.png".to_string(),
+    }]);
+    let issuer_resp = issuer_issue_contract("RGB21", 1, false, media_info).await;
     assert!(issuer_resp.is_ok());
     Ok(())
 }

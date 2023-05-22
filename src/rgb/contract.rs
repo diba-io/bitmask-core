@@ -169,6 +169,7 @@ pub fn extract_contract_by_id(
     let genesis_formats = GenesisFormats {
         legacy: genesis_legacy,
         strict: genesis_strict,
+        armored: genesis.to_string(),
     };
 
     let resp = ContractResponse {

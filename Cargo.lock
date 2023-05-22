@@ -2604,7 +2604,7 @@ dependencies = [
 [[package]]
 name = "rgb-std"
 version = "0.10.2"
-source = "git+https://github.com/crisdut/rgb-wallet?branch=feat/full-uda#ab76a908d585db16cd6a5b959c23df53adc753f0"
+source = "git+https://github.com/crisdut/rgb-wallet?branch=feat/full-uda#14c34f43937255ae63279ae0d86dbbe19aff12b1"
 dependencies = [
  "amplify",
  "baid58",
@@ -2622,7 +2622,7 @@ dependencies = [
 [[package]]
 name = "rgb-wallet"
 version = "0.10.2"
-source = "git+https://github.com/crisdut/rgb-wallet?branch=feat/full-uda#ab76a908d585db16cd6a5b959c23df53adc753f0"
+source = "git+https://github.com/crisdut/rgb-wallet?branch=feat/full-uda#14c34f43937255ae63279ae0d86dbbe19aff12b1"
 dependencies = [
  "amplify",
  "baid58",

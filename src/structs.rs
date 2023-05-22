@@ -165,6 +165,8 @@ pub struct GenesisFormats {
     pub legacy: String,
     /// The genesis state (encoded in strict)
     pub strict: String,
+    /// The contract state (compiled in armored mode)
+    pub armored: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
