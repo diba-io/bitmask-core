@@ -68,9 +68,17 @@ async fn import_wallet() -> Result<()> {
 
     info!("Import wallets");
     let main_mnemonic = env::var("TEST_WALLET_SEED")?;
-    let hash = hash_password(ENCRYPTION_PASSWORD);
-    let main_mnemonic_data = save_mnemonic_seed(&main_mnemonic, &hash, SEED_PASSWORD).await?;
-    let main_vault = get_encrypted_wallet(&hash, &main_mnemonic_data.encrypted_descriptors)?;
+    let hash0 = hash_password(ENCRYPTION_PASSWORD);
+    let main_mnemonic_data = save_mnemonic_seed(&main_mnemonic, &hash0, SEED_PASSWORD).await?;
+    let _main_vault = get_encrypted_wallet(&hash0, &main_mnemonic_data.encrypted_descriptors)?;
+
+    info!("Try once more");
+    let hash1 = hash_password(ENCRYPTION_PASSWORD);
+    assert_eq!(hash0, hash1, "hashes match");
+
+    let main_mnemonic_data: bitmask_core::structs::MnemonicSeedData =
+        save_mnemonic_seed(&main_mnemonic, &hash1, SEED_PASSWORD).await?;
+    let main_vault = get_encrypted_wallet(&hash1, &main_mnemonic_data.encrypted_descriptors)?;
 
     let main_btc_wallet = get_wallet_data(&main_vault.private.btc_descriptor_xprv, None).await?;
     let main_rgb_wallet =

@@ -100,10 +100,10 @@ async fn import_test_wallet() {
     let mnemonic = env!("TEST_WALLET_SEED", "TEST_WALLET_SEED variable not set");
 
     info!("Import wallet");
-    let hash = hash_password(ENCRYPTION_PASSWORD.to_owned());
+    let hash0 = hash_password(ENCRYPTION_PASSWORD.to_owned());
     let mnemonic_data_str = resolve(save_mnemonic_seed(
         mnemonic.to_owned(),
-        hash.clone(),
+        hash0.clone(),
         SEED_PASSWORD.to_owned(),
     ))
     .await;
@@ -111,7 +111,27 @@ async fn import_test_wallet() {
 
     info!("Get vault properties");
     let vault_str: JsValue = resolve(get_encrypted_wallet(
-        hash,
+        hash0.clone(),
+        mnemonic_data.encrypted_descriptors,
+    ))
+    .await;
+    let _encrypted_wallet_data: EncryptedWalletData = json_parse(&vault_str);
+
+    info!("Import wallet once more");
+    let hash1 = hash_password(ENCRYPTION_PASSWORD.to_owned());
+    assert_eq!(&hash0, &hash1, "hashes match");
+
+    let mnemonic_data_str = resolve(save_mnemonic_seed(
+        mnemonic.to_owned(),
+        hash1.clone(),
+        SEED_PASSWORD.to_owned(),
+    ))
+    .await;
+    let mnemonic_data: MnemonicSeedData = json_parse(&mnemonic_data_str);
+
+    info!("Get vault properties");
+    let vault_str: JsValue = resolve(get_encrypted_wallet(
+        hash1,
         mnemonic_data.encrypted_descriptors,
     ))
     .await;
