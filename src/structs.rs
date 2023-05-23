@@ -262,8 +262,8 @@ pub struct SignPsbtRequest {
 pub struct SignPsbtResponse {
     /// PSBT is signed?
     pub sign: bool,
-    /// Transaction encoded in Base64
-    pub tx: String,
+    /// Transaction id
+    pub txid: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
