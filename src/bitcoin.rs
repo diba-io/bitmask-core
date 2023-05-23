@@ -5,7 +5,7 @@ use ::psbt::Psbt;
 use anyhow::{anyhow, Result};
 use argon2::Argon2;
 use bdk::{wallet::AddressIndex, FeeRate, LocalUtxo, TransactionDetails};
-use bitcoin::{consensus::serialize, psbt::PartiallySignedTransaction};
+use bitcoin::psbt::PartiallySignedTransaction;
 use serde_encrypt::{
     serialize::impls::BincodeSerializer, shared_key::SharedKey, traits::SerdeEncryptSharedKey,
     AsSharedKey, EncryptedMessage,
@@ -424,11 +424,11 @@ pub async fn sign_psbt_file(_sk: &str, request: SignPsbtRequest) -> Result<SignP
     let resp = match sign.transaction {
         Some(tx) => SignPsbtResponse {
             sign: true,
-            tx: base64::encode(&serialize(&tx)),
+            txid: tx.txid().to_string(),
         },
         _ => SignPsbtResponse {
             sign: false,
-            tx: String::new(),
+            txid: String::new(),
         },
     };
 
