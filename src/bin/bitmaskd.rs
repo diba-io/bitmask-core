@@ -15,8 +15,8 @@ use axum::{
 };
 use bitcoin_30::secp256k1::{ecdh::SharedSecret, PublicKey, SecretKey};
 use bitmask_core::{
-    bitcoin::{save_mnemonic, sign_psbt_file},
-    constants::get_marketplace_seed,
+    bitcoin::{get_encrypted_wallet, get_wallet_data, save_mnemonic, sign_psbt_file},
+    constants::{get_marketplace_seed, get_udas_utxo},
     rgb::{
         accept_transfer, create_invoice, create_psbt, create_watcher, import as rgb_import,
         issue_contract, list_contracts, list_interfaces, list_schemas, transfer_asset,
@@ -58,24 +58,12 @@ pub struct SelfIssueRequest {
 
 async fn self_issue(Json(issue): Json<SelfIssueRequest>) -> Result<impl IntoResponse, AppError> {
     info!("POST /self_issue {issue:?}");
-
     let issuer_keys = save_mnemonic(&get_marketplace_seed().await, "").await?;
-    let watcher_name = "default";
 
-    let create_watch_req = WatcherRequest {
-        name: watcher_name.to_string(),
-        xpub: issuer_keys.public.watcher_xpub,
-    };
-    info!("create_watch_req:{:#?}", create_watch_req);
-    // Create Watcher
     let sk = issuer_keys.private.nostr_prv;
+
     info!("sk:{:#?}", sk);
-    let _resp = create_watcher(&sk, create_watch_req).await;
-    info!("resp:{:#?}", _resp);
-    let next_utxo = watcher_next_utxo(&sk, watcher_name, "RGB21").await?;
-    info!("next_utxo:{:#?}", next_utxo);
-    let issue_utxo = next_utxo.utxo;
-    let issue_seal = format!("tapret1st:{issue_utxo}");
+    let issue_seal = format!("tapret1st:{}", get_udas_utxo().await);
     info!("issue_seal:{issue_seal}");
     let request = IssueRequest {
         ticker: issue.ticker,
