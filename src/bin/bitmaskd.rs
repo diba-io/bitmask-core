@@ -15,7 +15,8 @@ use axum::{
 };
 use bitcoin_30::secp256k1::{ecdh::SharedSecret, PublicKey, SecretKey};
 use bitmask_core::{
-    bitcoin::sign_psbt_file,
+    bitcoin::{save_mnemonic, sign_psbt_file},
+    constants::get_marketplace_seed,
     rgb::{
         accept_transfer, create_invoice, create_psbt, create_watcher, import as rgb_import,
         issue_contract, list_contracts, list_interfaces, list_schemas, transfer_asset,
@@ -27,18 +28,69 @@ use bitmask_core::{
     },
 };
 use log::info;
+use rgbstd::interface::Iface;
+use serde::{Deserialize, Serialize};
 use tokio::fs;
 use tower_http::cors::CorsLayer;
 
-async fn issue(
-    TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
-    Json(issue): Json<IssueRequest>,
-) -> Result<impl IntoResponse, AppError> {
+async fn issue(Json(issue): Json<IssueRequest>) -> Result<impl IntoResponse, AppError> {
     info!("POST /issue {issue:?}");
 
-    let nostr_hex_sk = auth.token();
+    let issuer_keys = save_mnemonic(&get_marketplace_seed().await, "").await?;
 
-    let issue_res = issue_contract(nostr_hex_sk, issue).await?;
+    let sk = issuer_keys.private.nostr_prv;
+
+    let issue_res = issue_contract(&sk, issue).await?;
+
+    Ok((StatusCode::OK, Json(issue_res)))
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct SelfIssueRequest {
+    /// The ticker of the asset
+    pub ticker: String,
+    /// Name of the asset
+    pub name: String,
+    /// Description of the asset
+    pub description: String,
+}
+
+async fn self_issue(Json(issue): Json<SelfIssueRequest>) -> Result<impl IntoResponse, AppError> {
+    info!("POST /self_issue {issue:?}");
+
+    let issuer_keys = save_mnemonic(&get_marketplace_seed().await, "").await?;
+    let watcher_name = "default";
+
+    let create_watch_req = WatcherRequest {
+        name: watcher_name.to_string(),
+        xpub: issuer_keys.public.watcher_xpub,
+    };
+    info!("create_watch_req:{:#?}", create_watch_req);
+    // Create Watcher
+    let sk = issuer_keys.private.nostr_prv;
+    info!("sk:{:#?}", sk);
+    let _resp = create_watcher(&sk, create_watch_req).await;
+    info!("resp:{:#?}", _resp);
+    let next_utxo = watcher_next_utxo(&sk, watcher_name, "RGB21").await?;
+    info!("next_utxo:{:#?}", next_utxo);
+    let issue_utxo = next_utxo.utxo;
+    let issue_seal = format!("tapret1st:{issue_utxo}");
+    info!("issue_seal:{issue_seal}");
+    let request = IssueRequest {
+        ticker: issue.ticker,
+        name: issue.name,
+        description: issue.description,
+        precision: 1,
+        supply: 1,
+        seal: issue_seal.to_owned(),
+        iface: "RGB21".to_string(),
+        medias: None,
+    };
+    info!("request:{:#?}", request);
+
+    let issue_res = issue_contract(&sk, request).await?;
+    info!("issue_res:{:#?}", issue_res);
 
     Ok((StatusCode::OK, Json(issue_res)))
 }
@@ -286,6 +338,7 @@ async fn main() -> Result<()> {
 
     let app = Router::new()
         .route("/issue", post(issue))
+        .route("/selfissue", post(self_issue))
         .route("/invoice", post(invoice))
         // .route("/psbt", post(psbt))
         // .route("/sign", post(sign_psbt))

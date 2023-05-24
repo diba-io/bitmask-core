@@ -46,6 +46,13 @@ static BITCOIN_ELECTRUM_API_REGTEST: Lazy<RwLock<String>> =
 pub static BITCOIN_ELECTRUM_API: Lazy<RwLock<String>> =
     Lazy::new(|| RwLock::new(dot_env("BITCOIN_ELECTRUM_API_REGTEST")));
 
+pub static MARKETPLACE_SEED: Lazy<RwLock<String>> =
+    Lazy::new(|| RwLock::new(dot_env("MARKETPLACE_SEED")));
+
+pub async fn get_marketplace_seed() -> String {
+    MARKETPLACE_SEED.read().await.to_string()
+}
+
 // Descriptor strings
 pub const BTC_MAINNET_PATH: &str = "m/86h/0h/0h";
 pub const BTC_TESTNET_PATH: &str = "m/86h/1h/0h";
