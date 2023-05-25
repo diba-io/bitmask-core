@@ -16,6 +16,7 @@ use axum::{
 use bitcoin_30::secp256k1::{ecdh::SharedSecret, PublicKey, SecretKey};
 use bitmask_core::{
     bitcoin::{get_encrypted_wallet, get_wallet_data, save_mnemonic, sign_psbt_file},
+    carbonado::handle_file,
     constants::{get_marketplace_seed, get_udas_utxo},
     rgb::{
         accept_transfer, create_invoice, create_psbt, create_watcher, import as rgb_import,
@@ -245,24 +246,6 @@ async fn next_utxo(
     let resp = watcher_next_utxo(nostr_hex_sk, &name, &iface).await?;
 
     Ok((StatusCode::OK, Json(resp)))
-}
-
-async fn handle_file(pk: &str, name: &str, bytes: usize) -> Result<std::path::PathBuf> {
-    let directory = std::path::Path::new(
-        &std::env::var("CARBONADO_DIR").unwrap_or("/tmp/bitmaskd/carbonado".to_owned()),
-    )
-    .join(pk);
-    let filepath = directory.join(name);
-
-    fs::create_dir_all(directory).await?;
-
-    if bytes == 0 {
-        info!("read {}", filepath.to_string_lossy());
-    } else {
-        info!("write {bytes} bytes to {}", filepath.to_string_lossy());
-    }
-
-    Ok(filepath)
 }
 
 async fn co_store(
