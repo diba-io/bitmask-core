@@ -23,7 +23,7 @@ use bitmask_core::{
         watcher_details as rgb_watcher_details, watcher_next_address, watcher_next_utxo,
     },
     structs::{
-        AcceptRequest, ImportRequest, InvoiceRequest, IssueRequest, PsbtRequest,
+        AcceptRequest, ImportRequest, InvoiceRequest, IssueRequest, MediaInfo, PsbtRequest,
         RgbTransferRequest, SignPsbtRequest, WatcherRequest,
     },
 };
@@ -54,6 +54,8 @@ pub struct SelfIssueRequest {
     pub name: String,
     /// Description of the asset
     pub description: String,
+    /// attachments and media (only RGB21/UDA)
+    pub medias: Option<Vec<MediaInfo>>,
 }
 
 async fn self_issue(Json(issue): Json<SelfIssueRequest>) -> Result<impl IntoResponse, AppError> {
@@ -73,7 +75,7 @@ async fn self_issue(Json(issue): Json<SelfIssueRequest>) -> Result<impl IntoResp
         supply: 1,
         seal: issue_seal.to_owned(),
         iface: "RGB21".to_string(),
-        medias: None,
+        medias: issue.medias,
     };
     info!("request:{:#?}", request);
 
