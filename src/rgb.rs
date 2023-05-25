@@ -111,6 +111,7 @@ pub async fn issue_contract(sk: &str, request: IssueRequest) -> Result<IssueResp
         allocations: _,
         contract,
         genesis,
+        medias,
     } = extract_contract_by_id(contract.contract_id(), &mut stock, &mut resolver, None)?;
 
     store_stock(sk, ASSETS_STOCK, &stock).await?;
@@ -126,6 +127,7 @@ pub async fn issue_contract(sk: &str, request: IssueRequest) -> Result<IssueResp
         contract,
         genesis,
         issue_utxo: seal.replace("tapret1st:", ""),
+        medias,
     })
 }
 
