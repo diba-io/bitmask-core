@@ -119,7 +119,7 @@ pub fn extract_contract_by_id(
             .schema
             .global_types
             .get(&type_id)
-            .expect("");
+            .expect("invalid type schema");
 
         let state = unsafe { contract_iface.state.global_unchecked(type_id) };
 
@@ -135,7 +135,7 @@ pub fn extract_contract_by_id(
 
         if let Some(preview) = token_data.preview.to_owned() {
             let media_info = MediaInfo {
-                ty: String::new(),
+                ty: preview.ty.to_string(),
                 source: String::from_utf8(preview.data.to_inner()).expect("invalid data"),
             };
 
