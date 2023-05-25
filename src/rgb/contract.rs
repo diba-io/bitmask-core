@@ -5,13 +5,13 @@ use bech32::{encode, ToBase32};
 use rgb::{Resolver, RgbWallet};
 use rgbstd::{
     contract::ContractId,
-    interface::{IfaceId, IfacePair},
+    interface::{rgb21::TokenData, IfaceId, IfacePair},
     persistence::{Inventory, Stock},
 };
-use strict_encoding::{FieldName, StrictSerialize};
+use strict_encoding::{FieldName, StrictDeserialize, StrictSerialize};
 use strict_types::StrictVal;
 
-use crate::structs::{ContractFormats, ContractResponse};
+use crate::structs::{ContractFormats, ContractResponse, MediaInfo};
 use crate::{rgb::wallet::list_allocations, structs::GenesisFormats};
 
 // TODO: Create one extractor by contract interface
@@ -63,6 +63,7 @@ pub fn extract_contract_by_id(
     let mut precision = String::new();
     let mut description = String::new();
     let mut supply = 0;
+
     let ty: FieldName = FieldName::from("spec");
     let nominal = match contract_iface.global(ty) {
         Ok(values) => values,
@@ -105,6 +106,41 @@ pub fn extract_contract_by_id(
             let val = fields[0].to_string();
             description = val[1..val.len() - 1].to_string();
         };
+    }
+
+    // Only RGB21/UDA
+    let mut medias = none!();
+    let ty: FieldName = FieldName::from("tokens");
+    if let Ok(_) = contract_iface.global(ty.clone()) {
+        let type_id = contract_iface.iface.global_type(&ty).expect("");
+
+        let type_schema = contract_iface
+            .state
+            .schema
+            .global_types
+            .get(&type_id)
+            .expect("");
+
+        let state = unsafe { contract_iface.state.global_unchecked(type_id) };
+
+        let state = state
+            .into_iter()
+            .map(|revealed| {
+                let ast_data = revealed.as_ref().to_owned();
+                TokenData::from_strict_serialized(ast_data)
+            })
+            .take(type_schema.max_items as usize)
+            .collect::<Result<Vec<_>, _>>()?;
+        let token_data = &state[0];
+
+        if let Some(preview) = token_data.preview.to_owned() {
+            let media_info = MediaInfo {
+                ty: String::new(),
+                source: String::from_utf8(preview.data.to_inner()).expect("invalid data"),
+            };
+
+            medias = Some(vec![media_info]);
+        }
     }
 
     for owned in &contract_iface.iface.assignments {
@@ -189,6 +225,7 @@ pub fn extract_contract_by_id(
             armored: contract_bindle.to_string(),
         },
         genesis: genesis_formats,
+        medias,
     };
 
     Ok(resp)
