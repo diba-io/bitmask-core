@@ -24,7 +24,7 @@ use bitmask_core::{
     },
     structs::{
         AcceptRequest, ImportRequest, InvoiceRequest, IssueRequest, MediaInfo, PsbtRequest,
-        RgbTransferRequest, SignPsbtRequest, WatcherRequest,
+        RgbTransferRequest, SelfIssueRequest, SignPsbtRequest, WatcherRequest,
     },
 };
 use log::info;
@@ -43,19 +43,6 @@ async fn issue(Json(issue): Json<IssueRequest>) -> Result<impl IntoResponse, App
     let issue_res = issue_contract(&sk, issue).await?;
 
     Ok((StatusCode::OK, Json(issue_res)))
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct SelfIssueRequest {
-    /// The ticker of the asset
-    pub ticker: String,
-    /// Name of the asset
-    pub name: String,
-    /// Description of the asset
-    pub description: String,
-    /// attachments and media (only RGB21/UDA)
-    pub medias: Option<Vec<MediaInfo>>,
 }
 
 async fn self_issue(Json(issue): Json<SelfIssueRequest>) -> Result<impl IntoResponse, AppError> {

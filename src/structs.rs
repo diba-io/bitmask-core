@@ -113,6 +113,19 @@ pub struct IssueRequest {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
+pub struct SelfIssueRequest {
+    /// The ticker of the asset
+    pub ticker: String,
+    /// Name of the asset
+    pub name: String,
+    /// Description of the asset
+    pub description: String,
+    /// attachments and media (only RGB21/UDA)
+    pub medias: Option<Vec<MediaInfo>>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct MediaInfo {
     /// Mime Type of the media
     pub ty: String,
