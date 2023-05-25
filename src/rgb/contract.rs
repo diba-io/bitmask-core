@@ -111,7 +111,7 @@ pub fn extract_contract_by_id(
     // Only RGB21/UDA
     let mut medias = none!();
     let ty: FieldName = FieldName::from("tokens");
-    if let Ok(_) = contract_iface.global(ty.clone()) {
+    if contract_iface.global(ty.clone()).is_ok() {
         let type_id = contract_iface.iface.global_type(&ty).expect("");
 
         let type_schema = contract_iface
