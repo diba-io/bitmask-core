@@ -158,6 +158,8 @@ pub struct IssueResponse {
     pub contract: ContractFormats,
     /// The gensis state (multiple formats)
     pub genesis: GenesisFormats,
+    /// attachments and media (only RGB21/UDA)
+    pub medias: Option<Vec<MediaInfo>>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -226,6 +228,8 @@ pub struct ContractResponse {
     pub contract: ContractFormats,
     /// The genesis state (multiple formats)
     pub genesis: GenesisFormats,
+    /// attachments and media (only RGB21/UDA)
+    pub medias: Option<Vec<MediaInfo>>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
