@@ -24,8 +24,8 @@ use bitmask_core::{
         watcher_details as rgb_watcher_details, watcher_next_address, watcher_next_utxo,
     },
     structs::{
-        AcceptRequest, ImportRequest, InvoiceRequest, IssueRequest, MediaInfo, PsbtRequest,
-        RgbTransferRequest, SelfIssueRequest, SignPsbtRequest, WatcherRequest,
+        AcceptRequest, ImportRequest, InvoiceRequest, IssueAssetRequest, IssueRequest, MediaInfo,
+        PsbtRequest, RgbTransferRequest, SelfIssueRequest, SignPsbtRequest, WatcherRequest,
     },
 };
 use log::info;
@@ -34,14 +34,10 @@ use serde::{Deserialize, Serialize};
 use tokio::fs;
 use tower_http::cors::CorsLayer;
 
-async fn issue(Json(issue): Json<IssueRequest>) -> Result<impl IntoResponse, AppError> {
+async fn issue(Json(issue): Json<IssueAssetRequest>) -> Result<impl IntoResponse, AppError> {
     info!("POST /issue {issue:?}");
 
-    let issuer_keys = save_mnemonic(&get_marketplace_seed().await, "").await?;
-
-    let sk = issuer_keys.private.nostr_prv;
-
-    let issue_res = issue_contract(&sk, issue).await?;
+    let issue_res = issue_contract(&issue.sk, issue.request).await?;
 
     Ok((StatusCode::OK, Json(issue_res)))
 }

@@ -92,6 +92,13 @@ pub struct FundVaultDetails {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
+pub struct IssueAssetRequest {
+    pub sk: String,
+    pub request: IssueRequest,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct IssueRequest {
     /// The ticker of the asset
     pub ticker: String,
