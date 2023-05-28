@@ -59,7 +59,7 @@ async fn self_issue(Json(issue): Json<SelfIssueRequest>) -> Result<impl IntoResp
         supply: 1,
         seal: issue_seal.to_owned(),
         iface: "RGB21".to_string(),
-        medias: issue.medias,
+        meta: issue.meta,
     };
     info!("request:{:#?}", request);
 

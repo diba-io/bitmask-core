@@ -114,8 +114,8 @@ pub struct IssueRequest {
     pub seal: String,
     /// The name of the iface (ex: RGB20)
     pub iface: String,
-    /// attachments and media (only RGB21/UDA)
-    pub medias: Option<Vec<MediaInfo>>,
+    /// contract metadata (only RGB21/UDA)
+    pub meta: Option<IssueMetaRequest>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -127,11 +127,44 @@ pub struct SelfIssueRequest {
     pub name: String,
     /// Description of the asset
     pub description: String,
-    /// attachments and media (only RGB21/UDA)
-    pub medias: Option<Vec<MediaInfo>>,
+    /// contract metadata (only RGB21/UDA)
+    pub meta: Option<IssueMetaRequest>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct IssueMetaRequest(pub Vec<IssueMetadata>);
+
+impl IssueMetaRequest {
+    pub fn with(metadata: Vec<IssueMetadata>) -> Self {
+        IssueMetaRequest(metadata)
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub enum IssueMetadata {
+    #[serde(rename = "uda")]
+    UDA(MediaInfo),
+
+    #[serde(rename = "collectible")]
+    Collectible(Vec<NewCollectible>),
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct NewCollectible {
+    /// The ticker of the asset
+    pub ticker: String,
+    /// Name of the asset
+    pub name: String,
+    /// Description of the asset
+    pub description: String,
+    /// attachments and media
+    pub preview: MediaInfo,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct MediaInfo {
     /// Mime Type of the media

@@ -2589,7 +2589,7 @@ dependencies = [
 [[package]]
 name = "rgb-schemata"
 version = "0.10.0-beta.1"
-source = "git+https://github.com/crisdut/rgbsc?branch=master#47d43ee198d2fec54d57d7cda44df035ace04e9c"
+source = "git+https://github.com/crisdut/rgbsc?branch=exp/full-uda#e5c4f151949bf4c5acb9e4849a585c3c4ad471f3"
 dependencies = [
  "aluvm",
  "amplify",
@@ -2604,7 +2604,7 @@ dependencies = [
 [[package]]
 name = "rgb-std"
 version = "0.10.2"
-source = "git+https://github.com/crisdut/rgb-wallet?branch=feat/full-uda#3456c1583d62bbb012203559bc0220b5136d4cb1"
+source = "git+https://github.com/crisdut/rgb-wallet?branch=exp/full-uda#3456c1583d62bbb012203559bc0220b5136d4cb1"
 dependencies = [
  "amplify",
  "baid58",
@@ -2622,7 +2622,7 @@ dependencies = [
 [[package]]
 name = "rgb-wallet"
 version = "0.10.2"
-source = "git+https://github.com/crisdut/rgb-wallet?branch=feat/full-uda#3456c1583d62bbb012203559bc0220b5136d4cb1"
+source = "git+https://github.com/crisdut/rgb-wallet?branch=exp/full-uda#3456c1583d62bbb012203559bc0220b5136d4cb1"
 dependencies = [
  "amplify",
  "baid58",

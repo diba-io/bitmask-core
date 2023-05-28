@@ -129,6 +129,6 @@ strict_types = { git = "https://github.com/crisdut/strict-types/", branch = "fix
 descriptor-wallet = { git = "https://github.com/crisdut/descriptor-wallet", branch = "exp/tapret-transfers" }
 psbt = { git = "https://github.com/crisdut/descriptor-wallet", branch = "exp/tapret-transfers" }
 # TODO: Remove this after merge and release fixies
-rgb-schemata = { git = "https://github.com/crisdut/rgbsc", branch = "master" }
-rgb-wallet = { git = "https://github.com/crisdut/rgb-wallet", branch = "feat/full-uda" }
-rgb-std = { git = "https://github.com/crisdut/rgb-wallet", branch = "feat/full-uda" }
+rgb-schemata = { git = "https://github.com/crisdut/rgbsc", branch = "exp/full-uda" }
+rgb-wallet = { git = "https://github.com/crisdut/rgb-wallet", branch = "exp/full-uda" }
+rgb-std = { git = "https://github.com/crisdut/rgb-wallet", branch = "exp/full-uda" }
