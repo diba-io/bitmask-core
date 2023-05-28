@@ -5,8 +5,10 @@ use anyhow::Ok;
 use bitcoin::psbt::PartiallySignedTransaction;
 use bitmask_core::{
     bitcoin::{get_wallet, save_mnemonic, sign_psbt, synchronize_wallet},
-    rgb::{clear_stock, clear_watcher, list_contracts},
-    structs::IssueResponse,
+    rgb::{
+        clear_stock, clear_watcher, constants::RGB_DEFAULT_NAME, create_watcher, list_contracts,
+    },
+    structs::{IssueResponse, WatcherRequest},
 };
 use psbt::Psbt;
 
@@ -184,6 +186,55 @@ async fn allow_issue_x_fungibles_witn_spend_utxos() -> anyhow::Result<()> {
 
 #[allow(unused_variables)]
 #[tokio::test]
+async fn allow_import_fungible_before_create_watcher() -> anyhow::Result<()> {
+    let stress: bool = std::env::var("STRESS_TEST")
+        .unwrap_or("false".to_string())
+        .parse()?;
+    let network = std::env::var("BITCOIN_NETWORK").unwrap_or("bitcoin".to_string());
+    if !stress && network != "regtest" {
+        return Ok(());
+    }
+
+    let supply = 5;
+    let issuer_keys = save_mnemonic(ISSUER_MNEMONIC, "").await?;
+    let issuer_sk = issuer_keys.private.nostr_prv;
+    clear_stock(&issuer_sk).await;
+    clear_watcher(&issuer_sk, "default").await?;
+
+    let iface = "RGB20";
+    let watcher_pub = issuer_keys.public.watcher_xpub;
+    send_coins(iface, &watcher_pub).await?;
+
+    let issuer_resp = issuer_issue_contract(iface, supply, false, false, None).await;
+    let issuer = issuer_resp?;
+
+    // Clean Watcher
+    clear_watcher(&issuer_sk, "default").await?;
+    let contract_resp = list_contracts(&issuer_sk).await?;
+
+    for contract in contract_resp.contracts {
+        assert_eq!(0, contract.balance);
+    }
+
+    // Re-create Watcher
+    let create_watch_req = WatcherRequest {
+        name: RGB_DEFAULT_NAME.to_string(),
+        xpub: watcher_pub,
+    };
+
+    let resp = create_watcher(&issuer_sk, create_watch_req).await;
+    assert!(resp.is_ok());
+
+    let contract_resp = list_contracts(&issuer_sk).await?;
+    for contract in contract_resp.contracts {
+        assert_eq!(supply, contract.balance);
+    }
+
+    Ok(())
+}
+
+#[allow(unused_variables)]
+#[tokio::test]
 async fn allow_issue_x_uda_in_one_utxo() -> anyhow::Result<()> {
     let stress: bool = std::env::var("STRESS_TEST")
         .unwrap_or("false".to_string())
@@ -347,5 +398,54 @@ async fn allow_issue_x_uda_witn_spend_utxos() -> anyhow::Result<()> {
             &contract.balance
         );
     }
+    Ok(())
+}
+
+#[allow(unused_variables)]
+#[tokio::test]
+async fn allow_import_uda_before_create_watcher() -> anyhow::Result<()> {
+    let stress: bool = std::env::var("STRESS_TEST")
+        .unwrap_or("false".to_string())
+        .parse()?;
+    let network = std::env::var("BITCOIN_NETWORK").unwrap_or("bitcoin".to_string());
+    if !stress && network != "regtest" {
+        return Ok(());
+    }
+
+    let supply = 1;
+    let issuer_keys = save_mnemonic(ISSUER_MNEMONIC, "").await?;
+    let issuer_sk = issuer_keys.private.nostr_prv;
+    clear_stock(&issuer_sk).await;
+    clear_watcher(&issuer_sk, "default").await?;
+
+    let iface = "RGB21";
+    let watcher_pub = issuer_keys.public.watcher_xpub;
+    send_coins(iface, &watcher_pub).await?;
+
+    let issuer_resp = issuer_issue_contract(iface, supply, false, false, None).await;
+    let issuer = issuer_resp?;
+
+    // Clean Watcher
+    clear_watcher(&issuer_sk, "default").await?;
+    let contract_resp = list_contracts(&issuer_sk).await?;
+
+    for contract in contract_resp.contracts {
+        assert_eq!(0, contract.balance);
+    }
+
+    // Re-create Watcher
+    let create_watch_req = WatcherRequest {
+        name: RGB_DEFAULT_NAME.to_string(),
+        xpub: watcher_pub,
+    };
+
+    let resp = create_watcher(&issuer_sk, create_watch_req).await;
+    assert!(resp.is_ok());
+
+    let contract_resp = list_contracts(&issuer_sk).await?;
+    for contract in contract_resp.contracts {
+        assert_eq!(supply, contract.balance);
+    }
+
     Ok(())
 }
