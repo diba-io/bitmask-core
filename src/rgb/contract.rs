@@ -19,7 +19,7 @@ pub fn extract_contract_by_id(
     contract_id: ContractId,
     stock: &mut Stock,
     resolver: &mut impl Resolver,
-    wallet: Option<RgbWallet>,
+    wallet: &mut Option<RgbWallet>,
 ) -> Result<ContractResponse, anyhow::Error> {
     let contract_bindle = stock
         .export_contract(contract_id)
@@ -167,11 +167,11 @@ pub fn extract_contract_by_id(
     };
 
     if let Some(wallet) = wallet {
-        let mut fetch_wallet = wallet;
-        let watcher = list_allocations(&mut fetch_wallet, stock, iface_index, resolver)
+        let watcher = list_allocations(wallet, stock, iface_index, resolver)
             .expect("invalid allocation states");
-        if let Some(watcher_detail) = watcher.into_iter().find(|w| w.contract_id == contract_id) {
-            allocations.extend(watcher_detail.allocations);
+        if let Some(mut watcher_detail) = watcher.into_iter().find(|w| w.contract_id == contract_id)
+        {
+            allocations.append(&mut watcher_detail.allocations);
         }
 
         balance = allocations

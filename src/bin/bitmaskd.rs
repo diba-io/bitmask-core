@@ -10,7 +10,7 @@ use axum::{
     headers::{authorization::Bearer, Authorization},
     http::StatusCode,
     response::{IntoResponse, Response},
-    routing::{get, post},
+    routing::{delete, get, post},
     Json, Router, TypedHeader,
 };
 use bitcoin_30::secp256k1::{ecdh::SharedSecret, PublicKey, SecretKey};
@@ -19,9 +19,10 @@ use bitmask_core::{
     carbonado::handle_file,
     constants::{get_marketplace_seed, get_udas_utxo},
     rgb::{
-        accept_transfer, create_invoice, create_psbt, create_watcher, import as rgb_import,
-        issue_contract, list_contracts, list_interfaces, list_schemas, transfer_asset,
-        watcher_details as rgb_watcher_details, watcher_next_address, watcher_next_utxo,
+        accept_transfer, clear_watcher as rgb_clear_watcher, create_invoice, create_psbt,
+        create_watcher, import as rgb_import, issue_contract, list_contracts, list_interfaces,
+        list_schemas, transfer_asset, watcher_details as rgb_watcher_details, watcher_next_address,
+        watcher_next_utxo,
     },
     structs::{
         AcceptRequest, ImportRequest, InvoiceRequest, IssueAssetRequest, IssueRequest, MediaInfo,
@@ -217,6 +218,18 @@ async fn watcher_details(
     Ok((StatusCode::OK, Json(resp)))
 }
 
+async fn clear_watcher(
+    TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
+    Path(name): Path<String>,
+) -> Result<impl IntoResponse, AppError> {
+    info!("DELETE /watcher/{name:?}");
+
+    let nostr_hex_sk = auth.token();
+    let resp = rgb_clear_watcher(nostr_hex_sk, &name).await?;
+
+    Ok((StatusCode::OK, Json(resp)))
+}
+
 async fn next_address(
     TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
     Path(name): Path<String>,
@@ -309,6 +322,7 @@ async fn main() -> Result<()> {
         .route("/watcher/:name", get(watcher_details))
         .route("/watcher/:name/:iface/address", get(next_address))
         .route("/watcher/:name/:iface/utxo", get(next_utxo))
+        .route("/watcher/:name", delete(clear_watcher))
         .route("/key/:pk", get(key))
         .route("/carbonado/:pk/:name", post(co_store))
         .route("/carbonado/:pk/:name", get(co_retrieve))

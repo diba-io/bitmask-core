@@ -105,7 +105,7 @@ pub fn next_utxo(
     wallet: RgbWallet,
     resolver: &mut impl ResolveSpent,
 ) -> Result<Option<Utxo>, anyhow::Error> {
-    let utxos: Vec<Utxo> = wallet
+    let mut utxos: Vec<Utxo> = wallet
         .utxos
         .into_iter()
         .filter(|utxo| {
@@ -117,6 +117,13 @@ pub fn next_utxo(
         return Ok(none!());
     }
 
+    // TODO: This is really necessary?
+    utxos.sort_by(|a, b| {
+        a.derivation
+            .terminal
+            .index
+            .cmp(&b.derivation.terminal.index)
+    });
     let mut next_utxo: Option<Utxo> = None;
     for utxo in utxos {
         let txid =
@@ -179,7 +186,6 @@ pub fn list_allocations(
     iface_index: u32,
     resolver: &mut impl Resolver,
 ) -> Result<Vec<WatcherDetail>, anyhow::Error> {
-    wallet.utxos.clear();
     // TODO: Workaround
     let iface_name = match iface_index {
         20 => "RGB20",

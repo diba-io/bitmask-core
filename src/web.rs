@@ -446,6 +446,20 @@ pub mod rgb {
     }
 
     #[wasm_bindgen]
+    pub fn clear_watcher(nostr_hex_sk: String, name: String) -> Promise {
+        set_panic_hook();
+
+        future_to_promise(async move {
+            match crate::rgb::clear_watcher(&nostr_hex_sk, &name).await {
+                Ok(result) => Ok(JsValue::from_string(
+                    serde_json::to_string(&result).unwrap(),
+                )),
+                Err(err) => Err(JsValue::from_string(err.to_string())),
+            }
+        })
+    }
+
+    #[wasm_bindgen]
     pub fn watcher_next_address(nostr_hex_sk: String, name: String, iface: String) -> Promise {
         set_panic_hook();
 

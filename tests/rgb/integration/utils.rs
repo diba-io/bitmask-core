@@ -106,10 +106,31 @@ pub async fn shutdown_regtest(force: bool) -> anyhow::Result<()> {
     Ok(())
 }
 
+#[allow(dead_code)]
+pub async fn send_coins(iface: &str, watcher_pub: &str) -> anyhow::Result<()> {
+    let issuer_keys = save_mnemonic(ISSUER_MNEMONIC, "").await?;
+    let watcher_name = "default";
+    let create_watch_req = WatcherRequest {
+        name: watcher_name.to_string(),
+        xpub: watcher_pub.to_string(),
+    };
+
+    // Create Watcher
+    let sk = issuer_keys.private.nostr_prv;
+    let resp = create_watcher(&sk, create_watch_req).await;
+    assert!(resp.is_ok());
+
+    // Send Coins
+    let next_address = watcher_next_address(&sk, watcher_name, iface).await?;
+    send_some_coins(&next_address.address, "0.01").await;
+    Ok(())
+}
+
 pub async fn issuer_issue_contract(
     iface: &str,
     supply: u64,
     force: bool,
+    send_coins: bool,
     infos: Option<Vec<MediaInfo>>,
 ) -> Result<IssueResponse, anyhow::Error> {
     setup_regtest(force, None).await;
@@ -125,8 +146,10 @@ pub async fn issuer_issue_contract(
     let resp = create_watcher(&sk, create_watch_req).await;
     assert!(resp.is_ok());
 
-    let next_address = watcher_next_address(&sk, watcher_name, iface).await?;
-    send_some_coins(&next_address.address, "0.1").await;
+    if send_coins {
+        let next_address = watcher_next_address(&sk, watcher_name, iface).await?;
+        send_some_coins(&next_address.address, "0.01").await;
+    }
 
     let next_utxo = watcher_next_utxo(&sk, watcher_name, iface).await?;
 
