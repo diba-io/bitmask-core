@@ -13,7 +13,7 @@ use bitmask_core::{
 use psbt::Psbt;
 
 use crate::rgb::integration::utils::{
-    create_new_psbt, issuer_issue_contract, send_coins, ISSUER_MNEMONIC,
+    create_new_psbt, import_new_contract, issuer_issue_contract, send_coins, ISSUER_MNEMONIC,
 };
 
 #[allow(unused_variables)]
@@ -212,6 +212,20 @@ async fn allow_import_fungible_before_create_watcher() -> anyhow::Result<()> {
     clear_watcher(&issuer_sk, "default").await?;
     let contract_resp = list_contracts(&issuer_sk).await?;
 
+    for contract in contract_resp.contracts {
+        assert_eq!(0, contract.balance);
+    }
+
+    // Clean Stock
+    clear_stock(&issuer_sk).await;
+
+    // Import Contract
+    let import_resp = import_new_contract(issuer).await;
+    assert!(import_resp.is_ok());
+
+    // Clean Watcher
+    clear_watcher(&issuer_sk, "default").await?;
+    let contract_resp = list_contracts(&issuer_sk).await?;
     for contract in contract_resp.contracts {
         assert_eq!(0, contract.balance);
     }
@@ -429,6 +443,20 @@ async fn allow_import_uda_before_create_watcher() -> anyhow::Result<()> {
     clear_watcher(&issuer_sk, "default").await?;
     let contract_resp = list_contracts(&issuer_sk).await?;
 
+    for contract in contract_resp.contracts {
+        assert_eq!(0, contract.balance);
+    }
+
+    // Clean Stock
+    clear_stock(&issuer_sk).await;
+
+    // Import Contract
+    let import_resp = import_new_contract(issuer).await;
+    assert!(import_resp.is_ok());
+
+    // Clean Watcher
+    clear_watcher(&issuer_sk, "default").await?;
+    let contract_resp = list_contracts(&issuer_sk).await?;
     for contract in contract_resp.contracts {
         assert_eq!(0, contract.balance);
     }
