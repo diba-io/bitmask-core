@@ -15,7 +15,7 @@ use std::{collections::HashMap, str::FromStr};
 #[tokio::test]
 async fn allow_beneficiary_create_invoice_with_token_index() -> anyhow::Result<()> {
     let collectible = Some(get_collectible_data());
-    let issuer_resp = issuer_issue_contract("RGB21", 1, false, collectible).await;
+    let issuer_resp = issuer_issue_contract("RGB21", 1, false, true, collectible).await;
 
     let mut params = HashMap::new();
     params.insert("token_index".to_string(), "1".to_string());
@@ -28,7 +28,7 @@ async fn allow_beneficiary_create_invoice_with_token_index() -> anyhow::Result<(
 #[tokio::test]
 async fn allow_issuer_create_psbt() -> anyhow::Result<()> {
     let collectible = Some(get_collectible_data());
-    let issuer_resp = issuer_issue_contract("RGB21", 1, false, collectible).await?;
+    let issuer_resp = issuer_issue_contract("RGB21", 1, false, true, collectible).await?;
     let issuer_keys = save_mnemonic(ISSUER_MNEMONIC, "").await?;
     let resp = create_new_psbt(issuer_keys, issuer_resp).await;
     assert!(resp.is_ok());
@@ -40,7 +40,7 @@ async fn allow_issuer_create_psbt() -> anyhow::Result<()> {
 async fn allow_issuer_transfer_asset() -> anyhow::Result<()> {
     let collectible = Some(get_collectible_data());
     let issuer_keys = save_mnemonic(ISSUER_MNEMONIC, "").await?;
-    let issuer_resp = issuer_issue_contract("RGB21", 1, false, collectible).await?;
+    let issuer_resp = issuer_issue_contract("RGB21", 1, false, true, collectible).await?;
 
     let mut params = HashMap::new();
     params.insert("token_index".to_string(), "1".to_string());
@@ -56,7 +56,7 @@ async fn allow_issuer_transfer_asset() -> anyhow::Result<()> {
 async fn allow_issuer_sign_psbt() -> anyhow::Result<()> {
     let collectible = Some(get_collectible_data());
     let issuer_keys = save_mnemonic(ISSUER_MNEMONIC, "").await?;
-    let issuer_resp = issuer_issue_contract("RGB21", 1, false, collectible).await?;
+    let issuer_resp = issuer_issue_contract("RGB21", 1, false, true, collectible).await?;
     let psbt_resp = create_new_psbt(issuer_keys.clone(), issuer_resp.clone()).await?;
 
     let original_psbt = Psbt::from_str(&psbt_resp.psbt)?;
@@ -80,7 +80,7 @@ async fn allow_issuer_sign_psbt() -> anyhow::Result<()> {
 async fn allow_beneficiary_accept_transfer() -> anyhow::Result<()> {
     let collectible = Some(get_collectible_data());
     let issuer_keys = save_mnemonic(ISSUER_MNEMONIC, "").await?;
-    let issuer_resp = issuer_issue_contract("RGB21", 1, false, collectible).await?;
+    let issuer_resp = issuer_issue_contract("RGB21", 1, false, true, collectible).await?;
     let owner_resp = create_new_invoice(issuer_resp.clone(), None).await?;
     let psbt_resp = create_new_psbt(issuer_keys.clone(), issuer_resp.clone()).await?;
     let transfer_resp = create_new_transfer(issuer_keys.clone(), owner_resp, psbt_resp).await?;

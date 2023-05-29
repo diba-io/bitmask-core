@@ -90,7 +90,7 @@ pub async fn issue_contract(sk: &str, request: IssueRequest) -> Result<IssueResp
 
     let network = get_network().await;
     let wallet = rgb_account.wallets.get("default");
-    let wallet = match wallet {
+    let mut wallet = match wallet {
         Some(wallet) => {
             let mut fetch_wallet = wallet.to_owned();
             for contract_type in [ContractType::RGB20, ContractType::RGB21] {
@@ -131,7 +131,12 @@ pub async fn issue_contract(sk: &str, request: IssueRequest) -> Result<IssueResp
         contract,
         genesis,
         meta,
-    } = extract_contract_by_id(contract.contract_id(), &mut stock, &mut resolver, &mut None)?;
+    } = extract_contract_by_id(
+        contract.contract_id(),
+        &mut stock,
+        &mut resolver,
+        &mut wallet,
+    )?;
 
     store_stock(sk, ASSETS_STOCK, &stock).await?;
     if let Some(wallet) = wallet {
@@ -472,10 +477,10 @@ pub async fn create_watcher(sk: &str, request: WatcherRequest) -> Result<Watcher
             let xpub = xpub.xkey;
             let xpub = ExtendedPubKey::from_str(&xpub.to_string())?;
             create_wallet(&name, xpub, &mut rgb_account.wallets)?;
+            store_wallets(sk, ASSETS_WALLETS, &rgb_account).await?;
         }
     }
 
-    store_wallets(sk, ASSETS_WALLETS, &rgb_account).await?;
     Ok(WatcherResponse { name })
 }
 

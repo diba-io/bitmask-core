@@ -204,7 +204,7 @@ pub fn extract_contract_by_id(
             .collect::<Result<Vec<_>, _>>()?;
         let tokens_data = state;
 
-        if tokens_data.len() > 1 {
+        if tokens_data.len() <= 1 {
             let token_data = tokens_data[0].clone();
             let mut media = MediaInfo::default();
             if let Some(preview) = token_data.preview {
