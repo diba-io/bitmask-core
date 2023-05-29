@@ -6,7 +6,9 @@ use rgb_schemata::{nia_rgb20, nia_schema, uda_rgb21, uda_schema};
 use rgbstd::contract::GenesisSeal;
 use rgbstd::interface::rgb21::{Allocation, EmbeddedMedia, OwnedFraction, TokenData, TokenIndex};
 use rgbstd::resolvers::ResolveHeight;
-use rgbstd::stl::{DivisibleAssetSpec, MediaType, Precision, RicardianContract, Timestamp};
+use rgbstd::stl::{
+    DivisibleAssetSpec, MediaType, Name, Precision, RicardianContract, Ticker, Timestamp,
+};
 use rgbstd::validation::ResolveTx;
 use std::str::FromStr;
 
@@ -14,7 +16,7 @@ use rgbstd::containers::Contract;
 use rgbstd::interface::{rgb20, rgb21, BuilderError, ContractBuilder};
 use rgbstd::persistence::{Inventory, Stash, Stock};
 
-use crate::structs::MediaInfo;
+use crate::structs::{IssueMetaRequest, IssueMetadata};
 // use seals::txout::ExplicitSeal;
 use strict_types::encoding::TypeName;
 
@@ -37,7 +39,7 @@ pub fn issue_contract<T>(
     iface: &str,
     seal: &str,
     network: &str,
-    medias: Option<Vec<MediaInfo>>,
+    meta: IssueMetaRequest,
     resolver: &mut T,
     stock: &mut Stock,
 ) -> Result<Contract, IssueError>
@@ -68,7 +70,7 @@ where
             supply,
             seal,
             network,
-            medias,
+            meta,
         ),
         _ => return Err(IssueError::ContractNotfound(iface.name.to_string())),
     };
@@ -80,7 +82,7 @@ where
 
     let resp = match resp.clone().validate(resolver) {
         Ok(resp) => resp,
-        Err(_) => return Err(IssueError::ContractInvalid(resp.contract_id().to_string())),
+        Err(_err) => return Err(IssueError::ContractInvalid(resp.contract_id().to_string())),
     };
 
     stock
@@ -143,7 +145,7 @@ fn issue_uda_asset(
     supply: u64,
     seal: &str,
     network: &str,
-    medias: Option<Vec<MediaInfo>>,
+    meta: IssueMetaRequest,
 ) -> Result<Contract, BuilderError> {
     let iface = rgb21();
     let schema = uda_schema();
@@ -156,50 +158,89 @@ fn issue_uda_asset(
     let spec = DivisibleAssetSpec::new(ticker, name, precision);
     let terms = RicardianContract::new(description);
     let created = Timestamp::default();
-
     let fraction = OwnedFraction::from_inner(supply);
-    let index = TokenIndex::from_inner(1);
+
+    let mut tokens_data = vec![];
+    let mut allocations = vec![];
 
     // Toke Data
-    let mut preview = None;
-    if let Some(mut medias) = medias {
-        if !medias.is_empty() {
-            let media_info = medias.remove(0);
-            let media_ty: &'static str = Box::leak(media_info.ty.to_string().into_boxed_str());
-            preview = Some(EmbeddedMedia {
-                ty: MediaType::with(media_ty),
-                data: SmallBlob::try_from_iter(media_info.source.as_bytes().to_vec())
-                    .expect("invalid data"),
-            });
+    let mut token_index = 1;
+    let IssueMetaRequest(issue_meta) = meta;
+    for meta in issue_meta {
+        match meta {
+            IssueMetadata::UDA(uda) => {
+                let index = TokenIndex::from_inner(1);
+                let media_ty: &'static str = Box::leak(uda.ty.to_string().into_boxed_str());
+                let preview = Some(EmbeddedMedia {
+                    ty: MediaType::with(media_ty),
+                    data: SmallBlob::try_from_iter(uda.source.as_bytes().to_vec())
+                        .expect("invalid data"),
+                });
+                let token_data = TokenData {
+                    index,
+                    name: Some(spec.clone().naming.name),
+                    ticker: Some(spec.clone().naming.ticker),
+                    preview,
+                    ..Default::default()
+                };
+
+                let allocation = Allocation::with(index, fraction);
+                tokens_data.push(token_data);
+                allocations.push(allocation);
+            }
+            IssueMetadata::Collectible(items) => {
+                for item in items {
+                    let index = TokenIndex::from_inner(token_index);
+                    let media_ty: &'static str =
+                        Box::leak(item.preview.ty.to_string().into_boxed_str());
+                    let preview = Some(EmbeddedMedia {
+                        ty: MediaType::with(media_ty),
+                        data: SmallBlob::try_from_iter(item.preview.source.as_bytes().to_vec())
+                            .expect("invalid data"),
+                    });
+                    let token_data = TokenData {
+                        index,
+                        name: Some(Name::from_str(&item.name).expect("invalid name")),
+                        ticker: Some(Ticker::from_str(&item.name).expect("invalid ticker")),
+                        preview,
+                        ..Default::default()
+                    };
+
+                    let allocation = Allocation::with(index, fraction);
+                    tokens_data.push(token_data);
+                    allocations.push(allocation);
+                    token_index += 1;
+                }
+            }
         }
     }
 
-    let token_data = TokenData {
-        index,
-        name: Some(spec.clone().naming.name),
-        ticker: Some(spec.clone().naming.ticker),
-        preview,
-        ..Default::default()
-    };
-
-    // Issuer State
     let seal = ExplicitSeal::<Txid>::from_str(seal).expect("invalid seal definition");
     let seal = GenesisSeal::from(seal);
-    let allocation = Allocation::with(index, fraction);
 
-    let contract = ContractBuilder::with(iface, schema, iimpl)
+    let mut contract = ContractBuilder::with(iface, schema, iimpl)
         .expect("schema fails to implement RGB21 interface")
         .set_chain(Chain::from_str(network).expect("invalid network"))
-        .add_global_state("tokens", token_data)
-        .expect("invalid tokens")
         .add_global_state("spec", spec)
         .expect("invalid spec")
         .add_global_state("created", created)
         .expect("invalid created")
         .add_global_state("terms", terms)
-        .expect("invalid contract text")
-        .add_data_state("beneficiary", seal, allocation)
-        .expect("invalid asset blob")
+        .expect("invalid contract text");
+
+    for token_data in tokens_data {
+        contract = contract
+            .add_global_state("tokens", token_data)
+            .expect("invalid tokens");
+    }
+
+    for allocation in allocations {
+        contract = contract
+            .add_data_state("beneficiary", seal, allocation)
+            .expect("invalid asset blob");
+    }
+
+    let contract = contract
         .issue_contract()
         .expect("contract doesn't fit schema requirements");
     Ok(contract)

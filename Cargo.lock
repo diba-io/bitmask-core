@@ -551,7 +551,7 @@ checksum = "bef38d45163c2f1dde094a7dfd33ccf595c92905c8f8f4fdc18d06fb1037718a"
 
 [[package]]
 name = "bitmask-core"
-version = "0.6.0-beta.11"
+version = "0.6.0-beta.12"
 dependencies = [
  "aluvm",
  "amplify",
@@ -580,6 +580,7 @@ dependencies = [
  "gloo-console",
  "gloo-net",
  "hex",
+ "indexmap",
  "inflate",
  "js-sys",
  "lightning-invoice",
@@ -2589,7 +2590,7 @@ dependencies = [
 [[package]]
 name = "rgb-schemata"
 version = "0.10.0-beta.1"
-source = "git+https://github.com/crisdut/rgbsc?branch=master#47d43ee198d2fec54d57d7cda44df035ace04e9c"
+source = "git+https://github.com/crisdut/rgbsc?branch=exp/full-uda#61f8f5a566fc2a6c6938026909d39e1e34f1643a"
 dependencies = [
  "aluvm",
  "amplify",
@@ -2604,7 +2605,7 @@ dependencies = [
 [[package]]
 name = "rgb-std"
 version = "0.10.2"
-source = "git+https://github.com/crisdut/rgb-wallet?branch=feat/full-uda#3456c1583d62bbb012203559bc0220b5136d4cb1"
+source = "git+https://github.com/crisdut/rgb-wallet?branch=exp/full-uda#e19b039e8922abd922372ead35506da718cff6de"
 dependencies = [
  "amplify",
  "baid58",
@@ -2622,7 +2623,7 @@ dependencies = [
 [[package]]
 name = "rgb-wallet"
 version = "0.10.2"
-source = "git+https://github.com/crisdut/rgb-wallet?branch=feat/full-uda#3456c1583d62bbb012203559bc0220b5136d4cb1"
+source = "git+https://github.com/crisdut/rgb-wallet?branch=exp/full-uda#e19b039e8922abd922372ead35506da718cff6de"
 dependencies = [
  "amplify",
  "baid58",

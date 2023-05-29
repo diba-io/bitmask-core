@@ -1,6 +1,6 @@
 [package]
 name = "bitmask-core"
-version = "0.6.0-beta.11"
+version = "0.6.0-beta.12"
 authors = [
     "Jose Diego Robles <jose@diba.io>",
     "Hunter Trujillo <hunter@diba.io>",
@@ -41,6 +41,7 @@ bitcoin_blockchain = "0.10.0-alpha.2"
 bp-core = "0.10.3"
 commit_verify = "0.10.2"
 bp-seals = "0.10.3"
+indexmap = "1.9.3"
 carbonado = "0.3.0-rc.8"
 console_error_panic_hook = "0.1.7"
 # directories = "4.0.1"
@@ -129,6 +130,6 @@ strict_types = { git = "https://github.com/crisdut/strict-types/", branch = "fix
 descriptor-wallet = { git = "https://github.com/crisdut/descriptor-wallet", branch = "exp/tapret-transfers" }
 psbt = { git = "https://github.com/crisdut/descriptor-wallet", branch = "exp/tapret-transfers" }
 # TODO: Remove this after merge and release fixies
-rgb-schemata = { git = "https://github.com/crisdut/rgbsc", branch = "master" }
-rgb-wallet = { git = "https://github.com/crisdut/rgb-wallet", branch = "feat/full-uda" }
-rgb-std = { git = "https://github.com/crisdut/rgb-wallet", branch = "feat/full-uda" }
+rgb-schemata = { git = "https://github.com/crisdut/rgbsc", branch = "exp/full-uda" }
+rgb-wallet = { git = "https://github.com/crisdut/rgb-wallet", branch = "exp/full-uda" }
+rgb-std = { git = "https://github.com/crisdut/rgb-wallet", branch = "exp/full-uda" }

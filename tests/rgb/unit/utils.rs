@@ -1,8 +1,10 @@
-use std::{convert::Infallible, str::FromStr};
+use std::{collections::HashMap, convert::Infallible, str::FromStr};
 
 use amplify::hex::{FromHex, ToHex};
 use bitcoin::Transaction;
-use bitmask_core::{rgb::issue::issue_contract, rgb::transfer::create_invoice};
+use bitmask_core::{
+    rgb::issue::issue_contract, rgb::transfer::create_invoice, structs::IssueMetaRequest,
+};
 use bp::{
     LockTime, Outpoint, Sats, ScriptPubkey, SeqNo, Tx, TxIn, TxOut, TxVer, Txid, VarIntArray,
     Witness,
@@ -100,7 +102,7 @@ pub fn create_fake_contract(stock: &mut Stock) -> ContractId {
         iface,
         seal,
         network,
-        None,
+        IssueMetaRequest::default(),
         &mut resolver,
         stock,
     )
@@ -122,6 +124,7 @@ pub fn create_fake_contract(stock: &mut Stock) -> ContractId {
 pub fn create_fake_invoice(contract_id: ContractId, seal: &str, stock: &mut Stock) -> RgbInvoice {
     let amount = 1;
     let iface = "RGB20";
-    create_invoice(&contract_id.to_string(), iface, amount, seal, stock)
+    let params = HashMap::new();
+    create_invoice(&contract_id.to_string(), iface, amount, seal, params, stock)
         .expect("create_invoice failed")
 }
