@@ -234,6 +234,7 @@ async fn allow_import_fungible_before_create_watcher() -> anyhow::Result<()> {
     let create_watch_req = WatcherRequest {
         name: RGB_DEFAULT_NAME.to_string(),
         xpub: watcher_pub,
+        force: false,
     };
 
     let resp = create_watcher(&issuer_sk, create_watch_req).await;
@@ -465,6 +466,7 @@ async fn allow_import_uda_before_create_watcher() -> anyhow::Result<()> {
     let create_watch_req = WatcherRequest {
         name: RGB_DEFAULT_NAME.to_string(),
         xpub: watcher_pub,
+        force: false,
     };
 
     let resp = create_watcher(&issuer_sk, create_watch_req).await;

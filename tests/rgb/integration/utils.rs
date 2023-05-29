@@ -114,6 +114,7 @@ pub async fn send_coins(iface: &str, watcher_pub: &str) -> anyhow::Result<()> {
     let create_watch_req = WatcherRequest {
         name: watcher_name.to_string(),
         xpub: watcher_pub.to_string(),
+        force: true,
     };
 
     // Create Watcher
@@ -193,6 +194,7 @@ pub async fn import_new_contract(
     let create_watch_req = WatcherRequest {
         name: "default".to_owned(),
         xpub: owner_keys.public.watcher_xpub,
+        force: true,
     };
 
     let resp = create_watcher(&sk, create_watch_req).await;
@@ -232,6 +234,7 @@ pub async fn create_new_invoice(
     let create_watch_req = WatcherRequest {
         name: "default".to_owned(),
         xpub: owner_keys.public.watcher_xpub,
+        force: true,
     };
 
     let resp = create_watcher(&sk, create_watch_req).await;
