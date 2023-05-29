@@ -5,8 +5,8 @@ use bdk::wallet::AddressIndex;
 use bitmask_core::{
     bitcoin::{get_wallet, get_wallet_data, save_mnemonic, synchronize_wallet},
     rgb::{
-        create_invoice, create_psbt, create_watcher, import, issue_contract, transfer_asset,
-        watcher_details, watcher_next_address, watcher_next_utxo,
+        clear_watcher, create_invoice, create_psbt, create_watcher, import, issue_contract,
+        transfer_asset, watcher_details, watcher_next_address, watcher_next_utxo,
     },
     structs::{
         AllocationDetail, ContractResponse, ContractType, EncryptedWalletData, ImportRequest,
@@ -137,14 +137,16 @@ pub async fn issuer_issue_contract(
     setup_regtest(force, None).await;
     let issuer_keys = save_mnemonic(ISSUER_MNEMONIC, "").await?;
     let watcher_name = "default";
-    let create_watch_req = WatcherRequest {
-        name: watcher_name.to_string(),
-        xpub: issuer_keys.public.watcher_xpub,
-    };
 
     // Create Watcher
     let sk = issuer_keys.private.nostr_prv;
-    let resp = create_watcher(&sk, create_watch_req).await;
+    let create_watch_req = WatcherRequest {
+        name: watcher_name.to_string(),
+        xpub: issuer_keys.public.watcher_xpub,
+        force: send_coins,
+    };
+
+    let resp = create_watcher(&sk, create_watch_req.clone()).await;
     assert!(resp.is_ok());
 
     if send_coins {
@@ -152,7 +154,13 @@ pub async fn issuer_issue_contract(
         send_some_coins(&next_address.address, "0.01").await;
     }
 
-    let next_utxo = watcher_next_utxo(&sk, watcher_name, iface).await?;
+    let mut next_utxo = watcher_next_utxo(&sk, watcher_name, iface).await?;
+    if next_utxo.utxo.is_empty() {
+        let next_address = watcher_next_address(&sk, watcher_name, iface).await?;
+        send_some_coins(&next_address.address, "0.01").await;
+
+        next_utxo = watcher_next_utxo(&sk, watcher_name, iface).await?;
+    }
 
     let meta = match meta {
         Some(meta) => meta,
@@ -283,7 +291,11 @@ pub async fn create_new_psbt(
     let mut asset_utxo = String::new();
     let mut asset_utxo_terminal = String::new();
     let watcher_details = resp?;
-    for contract_allocations in watcher_details.contracts {
+    for contract_allocations in watcher_details
+        .contracts
+        .into_iter()
+        .filter(|x| x.contract_id == issuer_resp.contract_id)
+    {
         let allocations: Vec<AllocationDetail> = contract_allocations
             .allocations
             .into_iter()
@@ -293,6 +305,7 @@ pub async fn create_new_psbt(
         if let Some(allocation) = allocations.into_iter().next() {
             asset_utxo = allocation.utxo.to_owned();
             asset_utxo_terminal = allocation.derivation.to_owned();
+            break;
         }
     }
 
@@ -334,31 +347,31 @@ pub async fn create_new_transfer(
 }
 
 pub fn get_uda_data() -> IssueMetaRequest {
-    IssueMetaRequest::with(vec![IssueMetadata::UDA(MediaInfo {
+    IssueMetaRequest::with(IssueMetadata::UDA(vec![MediaInfo {
         ty: "image/png".to_string(),
         source: "https://carbonado.io/diba.png".to_string(),
-    })])
+    }]))
 }
 
 pub fn get_collectible_data() -> IssueMetaRequest {
-    IssueMetaRequest::with(vec![IssueMetadata::Collectible(vec![
+    IssueMetaRequest::with(IssueMetadata::Collectible(vec![
         NewCollectible {
             ticker: "DIBAA".to_string(),
             name: "DIBAA".to_string(),
-            preview: MediaInfo {
+            media: vec![MediaInfo {
                 ty: "image/png".to_string(),
                 source: "https://carbonado.io/diba1.png".to_string(),
-            },
+            }],
             ..Default::default()
         },
         NewCollectible {
             ticker: "DIBAB".to_string(),
             name: "DIBAB".to_string(),
-            preview: MediaInfo {
+            media: vec![MediaInfo {
                 ty: "image/png".to_string(),
                 source: "https://carbonado.io/diba2.png".to_string(),
-            },
+            }],
             ..Default::default()
         },
-    ])])
+    ]))
 }

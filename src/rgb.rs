@@ -468,8 +468,12 @@ pub async fn import(sk: &str, request: ImportRequest) -> Result<ContractResponse
 }
 
 pub async fn create_watcher(sk: &str, request: WatcherRequest) -> Result<WatcherResponse> {
-    let WatcherRequest { name, xpub } = request;
+    let WatcherRequest { name, xpub, force } = request;
     let mut rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await?;
+
+    if rgb_account.wallets.contains_key(&name) && force {
+        rgb_account.wallets.remove(&name);
+    }
 
     if !rgb_account.wallets.contains_key(&name) {
         let xdesc = DescriptorPublicKey::from_str(&xpub)?;
@@ -477,17 +481,17 @@ pub async fn create_watcher(sk: &str, request: WatcherRequest) -> Result<Watcher
             let xpub = xpub.xkey;
             let xpub = ExtendedPubKey::from_str(&xpub.to_string())?;
             create_wallet(&name, xpub, &mut rgb_account.wallets)?;
-            store_wallets(sk, ASSETS_WALLETS, &rgb_account).await?;
         }
     }
 
+    store_wallets(sk, ASSETS_WALLETS, &rgb_account).await?;
     Ok(WatcherResponse { name })
 }
 
 pub async fn clear_watcher(sk: &str, name: &str) -> Result<WatcherResponse> {
     let mut rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await?;
 
-    if !rgb_account.wallets.contains_key(name) {
+    if rgb_account.wallets.contains_key(name) {
         rgb_account.wallets.remove(name);
     }
 

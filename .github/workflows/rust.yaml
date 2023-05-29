@@ -81,7 +81,7 @@ jobs:
 
       - name: Up Bitcoin Node
         run: |
-          docker compose up -d node1 bitmaskd
+          docker compose up -d node1
 
       - name: Setup Bitcoin Node
         run: |

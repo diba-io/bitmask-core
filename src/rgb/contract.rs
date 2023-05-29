@@ -224,7 +224,7 @@ pub fn extract_contract_by_id(
                 name: name.clone(),
                 description: description.clone(),
                 balance,
-                media,
+                media: vec![media],
                 allocations: allocations.clone(),
             });
 
@@ -282,7 +282,7 @@ pub fn extract_contract_by_id(
                         name: token_name,
                         description: token_description,
                         balance,
-                        media,
+                        media: vec![media],
                         allocations: token_alloc,
                     }
                 })

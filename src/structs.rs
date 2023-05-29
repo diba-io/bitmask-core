@@ -136,10 +136,10 @@ pub struct SelfIssueRequest {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
-pub struct IssueMetaRequest(pub Vec<IssueMetadata>);
+pub struct IssueMetaRequest(pub IssueMetadata);
 
 impl IssueMetaRequest {
-    pub fn with(metadata: Vec<IssueMetadata>) -> Self {
+    pub fn with(metadata: IssueMetadata) -> Self {
         IssueMetaRequest(metadata)
     }
 }
@@ -148,10 +148,16 @@ impl IssueMetaRequest {
 #[serde(rename_all = "camelCase")]
 pub enum IssueMetadata {
     #[serde(rename = "uda")]
-    UDA(MediaInfo),
+    UDA(Vec<MediaInfo>),
 
     #[serde(rename = "collectible")]
     Collectible(Vec<NewCollectible>),
+}
+
+impl Default for IssueMetadata {
+    fn default() -> Self {
+        IssueMetadata::UDA(vec![])
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
@@ -164,7 +170,7 @@ pub struct NewCollectible {
     /// Description of the asset
     pub description: String,
     /// attachments and media
-    pub preview: MediaInfo,
+    pub media: Vec<MediaInfo>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
@@ -312,10 +318,10 @@ pub struct UDADetail {
     pub name: String,
     /// Description of the uda
     pub description: String,
-    /// Media of the uda
-    pub media: MediaInfo,
     /// The user contract balance
     pub balance: u64,
+    /// Media of the uda
+    pub media: Vec<MediaInfo>,
     /// The contract allocations
     pub allocations: Vec<AllocationDetail>,
 }
@@ -484,6 +490,8 @@ pub struct WatcherRequest {
     pub name: String,
     /// The xpub will be watch
     pub xpub: String,
+    /// Force recreate
+    pub force: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

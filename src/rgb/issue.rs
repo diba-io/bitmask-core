@@ -166,20 +166,43 @@ fn issue_uda_asset(
     // Toke Data
     let mut token_index = 1;
     let IssueMetaRequest(issue_meta) = meta;
-    for meta in issue_meta {
-        match meta {
-            IssueMetadata::UDA(uda) => {
-                let index = TokenIndex::from_inner(1);
-                let media_ty: &'static str = Box::leak(uda.ty.to_string().into_boxed_str());
+    match issue_meta {
+        IssueMetadata::UDA(uda) => {
+            let index = TokenIndex::from_inner(1);
+            let media_ty: &'static str = Box::leak(uda[0].ty.to_string().into_boxed_str());
+            let preview = Some(EmbeddedMedia {
+                ty: MediaType::with(media_ty),
+                data: SmallBlob::try_from_iter(uda[0].source.as_bytes().to_vec())
+                    .expect("invalid data"),
+            });
+            let token_data = TokenData {
+                index,
+                name: Some(spec.clone().naming.name),
+                ticker: Some(spec.clone().naming.ticker),
+                preview,
+                ..Default::default()
+            };
+
+            let allocation = Allocation::with(index, fraction);
+            tokens_data.push(token_data);
+            allocations.push(allocation);
+        }
+        IssueMetadata::Collectible(items) => {
+            for item in items {
+                let index = TokenIndex::from_inner(token_index);
+
+                let media_ty: &'static str =
+                    Box::leak(item.media[0].ty.to_string().into_boxed_str());
                 let preview = Some(EmbeddedMedia {
                     ty: MediaType::with(media_ty),
-                    data: SmallBlob::try_from_iter(uda.source.as_bytes().to_vec())
+                    data: SmallBlob::try_from_iter(item.media[0].source.as_bytes().to_vec())
                         .expect("invalid data"),
                 });
+
                 let token_data = TokenData {
                     index,
-                    name: Some(spec.clone().naming.name),
-                    ticker: Some(spec.clone().naming.ticker),
+                    name: Some(Name::from_str(&item.name).expect("invalid name")),
+                    ticker: Some(Ticker::from_str(&item.name).expect("invalid ticker")),
                     preview,
                     ..Default::default()
                 };
@@ -187,30 +210,7 @@ fn issue_uda_asset(
                 let allocation = Allocation::with(index, fraction);
                 tokens_data.push(token_data);
                 allocations.push(allocation);
-            }
-            IssueMetadata::Collectible(items) => {
-                for item in items {
-                    let index = TokenIndex::from_inner(token_index);
-                    let media_ty: &'static str =
-                        Box::leak(item.preview.ty.to_string().into_boxed_str());
-                    let preview = Some(EmbeddedMedia {
-                        ty: MediaType::with(media_ty),
-                        data: SmallBlob::try_from_iter(item.preview.source.as_bytes().to_vec())
-                            .expect("invalid data"),
-                    });
-                    let token_data = TokenData {
-                        index,
-                        name: Some(Name::from_str(&item.name).expect("invalid name")),
-                        ticker: Some(Ticker::from_str(&item.name).expect("invalid ticker")),
-                        preview,
-                        ..Default::default()
-                    };
-
-                    let allocation = Allocation::with(index, fraction);
-                    tokens_data.push(token_data);
-                    allocations.push(allocation);
-                    token_index += 1;
-                }
+                token_index += 1;
             }
         }
     }
