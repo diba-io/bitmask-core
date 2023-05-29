@@ -97,7 +97,7 @@ pub struct IssueAssetRequest {
     pub request: IssueRequest,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct IssueRequest {
     /// The ticker of the asset
@@ -140,7 +140,7 @@ pub struct MediaInfo {
     pub source: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct IssueResponse {
     /// The contract id
@@ -169,7 +169,7 @@ pub struct IssueResponse {
     pub medias: Option<Vec<MediaInfo>>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ContractFormats {
     /// The contract state (encoded in bech32m)
@@ -180,7 +180,7 @@ pub struct ContractFormats {
     pub armored: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct GenesisFormats {
     /// The genesis state (encoded in bech32m)

@@ -12,6 +12,7 @@ mod rgb {
         mod fungibles;
         mod import;
         mod issue;
+        mod stress;
         mod udas;
         pub mod utils;
     }

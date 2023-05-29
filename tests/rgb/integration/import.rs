@@ -12,7 +12,7 @@ use crate::rgb::integration::utils::{
 
 #[tokio::test]
 async fn allow_import_fungible_contract() -> anyhow::Result<()> {
-    let issuer_resp = issuer_issue_contract("RGB20", 5, false, None).await;
+    let issuer_resp = issuer_issue_contract("RGB20", 5, false, true, None).await;
     assert!(issuer_resp.is_ok());
 
     let import_resp = import_new_contract(issuer_resp?).await;
@@ -22,7 +22,7 @@ async fn allow_import_fungible_contract() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn allow_import_uda_contract() -> anyhow::Result<()> {
-    let issuer_resp = issuer_issue_contract("RGB21", 1, false, None).await;
+    let issuer_resp = issuer_issue_contract("RGB21", 1, false, true, None).await;
     assert!(issuer_resp.is_ok());
 
     let import_resp = import_new_contract(issuer_resp?).await;
@@ -35,7 +35,7 @@ async fn allow_get_fungible_contract_state_by_accept_cosign() -> anyhow::Result<
     // 1. Issue and Generate Trasnfer (Issuer side)
     let issuer_keys: EncryptedWalletData = save_mnemonic(ISSUER_MNEMONIC, "").await?;
     let owner_keys = save_mnemonic(OWNER_MNEMONIC, "").await?;
-    let issuer_resp = issuer_issue_contract("RGB20", 5, false, None).await?;
+    let issuer_resp = issuer_issue_contract("RGB20", 5, false, true, None).await?;
     let owner_resp = create_new_invoice(issuer_resp.clone()).await?;
     let psbt_resp = create_new_psbt(issuer_keys.clone(), issuer_resp.clone()).await?;
     let transfer_resp = create_new_transfer(issuer_keys.clone(), owner_resp, psbt_resp).await?;
@@ -90,7 +90,7 @@ async fn allow_get_uda_contract_state_by_accept_cosign() -> anyhow::Result<()> {
     // 1. Issue and Generate Trasnfer (Issuer side)
     let issuer_keys: EncryptedWalletData = save_mnemonic(ISSUER_MNEMONIC, "").await?;
     let owner_keys = save_mnemonic(OWNER_MNEMONIC, "").await?;
-    let issuer_resp = issuer_issue_contract("RGB21", 1, false, None).await?;
+    let issuer_resp = issuer_issue_contract("RGB21", 1, false, true, None).await?;
     let owner_resp = create_new_invoice(issuer_resp.clone()).await?;
     let psbt_resp = create_new_psbt(issuer_keys.clone(), issuer_resp.clone()).await?;
     let transfer_resp = create_new_transfer(issuer_keys.clone(), owner_resp, psbt_resp).await?;

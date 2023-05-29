@@ -6,7 +6,11 @@ use anyhow::{anyhow, Result};
 use bitcoin_30::bip32::ExtendedPubKey;
 use bitcoin_scripts::address::AddressNetwork;
 use miniscript_crate::DescriptorPublicKey;
-use rgbstd::{containers::BindleContent, contract::ContractId, persistence::Stash};
+use rgbstd::{
+    containers::BindleContent,
+    contract::ContractId,
+    persistence::{Stash, Stock},
+};
 use strict_encoding::StrictSerialize;
 
 pub mod accept;
@@ -51,6 +55,7 @@ use crate::{
 
 use self::{
     carbonado::{retrieve_wallets, store_wallets},
+    constants::RGB_DEFAULT_NAME,
     contract::extract_contract_by_id,
     import::import_contract,
     prefetch::{
@@ -75,6 +80,7 @@ pub async fn issue_contract(sk: &str, request: IssueRequest) -> Result<IssueResp
         medias,
     } = request;
     let mut stock = retrieve_stock(sk, ASSETS_STOCK).await?;
+    let mut rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await?;
 
     // Resolvers Workaround
     let mut resolver = ExplorerResolver {
@@ -83,6 +89,19 @@ pub async fn issue_contract(sk: &str, request: IssueRequest) -> Result<IssueResp
     };
 
     let network = get_network().await;
+    let wallet = rgb_account.wallets.get("default");
+    let mut wallet = match wallet {
+        Some(wallet) => {
+            let mut fetch_wallet = wallet.to_owned();
+            for contract_type in [ContractType::RGB20, ContractType::RGB21] {
+                prefetch_resolve_watcher(contract_type as u32, &mut resolver, &mut fetch_wallet)
+                    .await;
+            }
+
+            Some(fetch_wallet)
+        }
+        _ => None,
+    };
 
     let contract = create_contract(
         &ticker,
@@ -112,9 +131,21 @@ pub async fn issue_contract(sk: &str, request: IssueRequest) -> Result<IssueResp
         contract,
         genesis,
         medias,
-    } = extract_contract_by_id(contract.contract_id(), &mut stock, &mut resolver, None)?;
+    } = extract_contract_by_id(
+        contract.contract_id(),
+        &mut stock,
+        &mut resolver,
+        &mut wallet,
+    )?;
 
     store_stock(sk, ASSETS_STOCK, &stock).await?;
+    if let Some(wallet) = wallet {
+        rgb_account
+            .wallets
+            .insert(RGB_DEFAULT_NAME.to_string(), wallet);
+        store_wallets(sk, ASSETS_WALLETS, &rgb_account).await?;
+    };
+
     Ok(IssueResponse {
         contract_id,
         iface,
@@ -279,7 +310,7 @@ pub async fn accept_transfer(sk: &str, request: AcceptRequest) -> Result<AcceptR
 
 pub async fn get_contract(sk: &str, contract_id: &str) -> Result<ContractResponse> {
     let mut stock = retrieve_stock(sk, ASSETS_STOCK).await?;
-    let rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await?;
+    let mut rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await?;
 
     let mut resolver = ExplorerResolver {
         explorer_url: BITCOIN_EXPLORER_API.read().await.to_string(),
@@ -287,7 +318,7 @@ pub async fn get_contract(sk: &str, contract_id: &str) -> Result<ContractRespons
     };
 
     let wallet = rgb_account.wallets.get("default");
-    let wallet = match wallet {
+    let mut wallet = match wallet {
         Some(wallet) => {
             let mut fetch_wallet = wallet.to_owned();
             for contract_type in [ContractType::RGB20, ContractType::RGB21] {
@@ -301,13 +332,21 @@ pub async fn get_contract(sk: &str, contract_id: &str) -> Result<ContractRespons
     };
 
     let contract_id = ContractId::from_str(contract_id)?;
-    let contract = extract_contract_by_id(contract_id, &mut stock, &mut resolver, wallet)?;
+    let contract = extract_contract_by_id(contract_id, &mut stock, &mut resolver, &mut wallet)?;
+
+    if let Some(wallet) = wallet {
+        rgb_account
+            .wallets
+            .insert(RGB_DEFAULT_NAME.to_string(), wallet);
+        store_wallets(sk, ASSETS_WALLETS, &rgb_account).await?;
+    };
+
     Ok(contract)
 }
 
 pub async fn list_contracts(sk: &str) -> Result<ContractsResponse> {
     let mut stock = retrieve_stock(sk, ASSETS_STOCK).await?;
-    let rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await?;
+    let mut rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await?;
 
     // Resolvers Workaround
     let mut resolver = ExplorerResolver {
@@ -316,10 +355,13 @@ pub async fn list_contracts(sk: &str) -> Result<ContractsResponse> {
     };
 
     let wallet = rgb_account.wallets.get("default");
-    let wallet = match wallet {
+    let mut wallet = match wallet {
         Some(wallet) => {
             let mut fetch_wallet = wallet.to_owned();
-            prefetch_resolve_watcher(20, &mut resolver, &mut fetch_wallet).await;
+            for contract_type in [ContractType::RGB20, ContractType::RGB21] {
+                prefetch_resolve_watcher(contract_type as u32, &mut resolver, &mut fetch_wallet)
+                    .await;
+            }
             Some(fetch_wallet)
         }
         _ => None,
@@ -328,9 +370,16 @@ pub async fn list_contracts(sk: &str) -> Result<ContractsResponse> {
     let mut contracts = vec![];
 
     for contract_id in stock.contract_ids().expect("invalid contracts state") {
-        let resp = extract_contract_by_id(contract_id, &mut stock, &mut resolver, wallet.clone())?;
+        let resp = extract_contract_by_id(contract_id, &mut stock, &mut resolver, &mut wallet)?;
         contracts.push(resp);
     }
+
+    if let Some(wallet) = wallet {
+        rgb_account
+            .wallets
+            .insert(RGB_DEFAULT_NAME.to_string(), wallet);
+        store_wallets(sk, ASSETS_WALLETS, &rgb_account).await?;
+    };
 
     Ok(ContractsResponse { contracts })
 }
@@ -379,7 +428,7 @@ pub async fn list_schemas(sk: &str) -> Result<SchemasResponse> {
 pub async fn import(sk: &str, request: ImportRequest) -> Result<ContractResponse> {
     let ImportRequest { data, import } = request;
     let mut stock = retrieve_stock(sk, ASSETS_STOCK).await?;
-    let rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await?;
+    let mut rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await?;
 
     // Resolvers Workaround
     let mut resolver = ExplorerResolver {
@@ -389,7 +438,7 @@ pub async fn import(sk: &str, request: ImportRequest) -> Result<ContractResponse
     prefetch_resolve_commit_utxo(&data, &mut resolver).await;
 
     let wallet = rgb_account.wallets.get("default");
-    let wallet = match wallet {
+    let mut wallet = match wallet {
         Some(wallet) => {
             let mut fetch_wallet = wallet.to_owned();
             prefetch_resolve_watcher(import as u32, &mut resolver, &mut fetch_wallet).await;
@@ -399,9 +448,21 @@ pub async fn import(sk: &str, request: ImportRequest) -> Result<ContractResponse
     };
 
     let contract = import_contract(&data, &mut stock, &mut resolver)?;
-    let resp = extract_contract_by_id(contract.contract_id(), &mut stock, &mut resolver, wallet)?;
+    let resp = extract_contract_by_id(
+        contract.contract_id(),
+        &mut stock,
+        &mut resolver,
+        &mut wallet,
+    )?;
+
     store_stock(sk, ASSETS_STOCK, &stock).await?;
-    store_wallets(sk, ASSETS_WALLETS, &rgb_account).await?;
+    if let Some(wallet) = wallet {
+        rgb_account
+            .wallets
+            .insert(RGB_DEFAULT_NAME.to_string(), wallet);
+        store_wallets(sk, ASSETS_WALLETS, &rgb_account).await?;
+    };
+
     Ok(resp)
 }
 
@@ -409,18 +470,30 @@ pub async fn create_watcher(sk: &str, request: WatcherRequest) -> Result<Watcher
     let WatcherRequest { name, xpub } = request;
     let mut rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await?;
 
-    if rgb_account.wallets.contains_key(&name) {
-        rgb_account.wallets.remove(&name);
-    }
-    let xdesc = DescriptorPublicKey::from_str(&xpub)?;
-    if let DescriptorPublicKey::XPub(xpub) = xdesc {
-        let xpub = xpub.xkey;
-        let xpub = ExtendedPubKey::from_str(&xpub.to_string())?;
-        create_wallet(&name, xpub, &mut rgb_account.wallets)?;
+    if !rgb_account.wallets.contains_key(&name) {
+        let xdesc = DescriptorPublicKey::from_str(&xpub)?;
+        if let DescriptorPublicKey::XPub(xpub) = xdesc {
+            let xpub = xpub.xkey;
+            let xpub = ExtendedPubKey::from_str(&xpub.to_string())?;
+            create_wallet(&name, xpub, &mut rgb_account.wallets)?;
+        }
     }
 
     store_wallets(sk, ASSETS_WALLETS, &rgb_account).await?;
     Ok(WatcherResponse { name })
+}
+
+pub async fn clear_watcher(sk: &str, name: &str) -> Result<WatcherResponse> {
+    let mut rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await?;
+
+    if !rgb_account.wallets.contains_key(name) {
+        rgb_account.wallets.remove(name);
+    }
+
+    store_wallets(sk, ASSETS_WALLETS, &rgb_account).await?;
+    Ok(WatcherResponse {
+        name: name.to_string(),
+    })
 }
 
 pub async fn watcher_details(sk: &str, name: &str) -> Result<WatcherDetailResponse> {
@@ -451,9 +524,12 @@ pub async fn watcher_details(sk: &str, name: &str) -> Result<WatcherDetailRespon
         contracts: allocations,
     };
 
-    rgb_account.wallets.insert(name.to_string(), wallet);
-    store_wallets(sk, ASSETS_WALLETS, &rgb_account).await?;
+    store_stock(sk, ASSETS_STOCK, &stock).await?;
 
+    rgb_account
+        .wallets
+        .insert(RGB_DEFAULT_NAME.to_string(), wallet);
+    store_wallets(sk, ASSETS_WALLETS, &rgb_account).await?;
     Ok(resp)
 }
 
@@ -489,8 +565,7 @@ pub async fn watcher_next_address(
 }
 
 pub async fn watcher_next_utxo(sk: &str, name: &str, iface: &str) -> Result<NextUtxoResponse> {
-    let rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await?;
-
+    let mut rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await?;
     let wallet = match rgb_account.wallets.get(name) {
         Some(wallet) => Ok(wallet.to_owned()),
         _ => Err(anyhow!("Wallet watcher not found")),
@@ -509,16 +584,26 @@ pub async fn watcher_next_utxo(sk: &str, name: &str, iface: &str) -> Result<Next
         explorer_url: BITCOIN_EXPLORER_API.read().await.to_string(),
         ..Default::default()
     };
+
     prefetch_resolve_watcher(iface_index, &mut resolver, &mut wallet).await;
     prefetch_resolve_spend(iface_index, wallet.clone(), &mut resolver).await;
 
     sync_wallet(iface_index, &mut wallet, &mut resolver);
-    let utxo = match next_utxo(iface_index, wallet, &mut resolver)? {
+    let utxo = match next_utxo(iface_index, wallet.clone(), &mut resolver)? {
         Some(next_utxo) => next_utxo.outpoint.to_string(),
         _ => String::new(),
     };
 
+    rgb_account
+        .wallets
+        .insert(RGB_DEFAULT_NAME.to_string(), wallet);
     store_wallets(sk, ASSETS_WALLETS, &rgb_account).await?;
 
     Ok(NextUtxoResponse { utxo })
+}
+
+pub async fn clear_stock(sk: &str) {
+    store_stock(sk, ASSETS_STOCK, &Stock::default())
+        .await
+        .expect("unable store stock");
 }
