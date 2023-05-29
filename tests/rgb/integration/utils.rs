@@ -5,8 +5,8 @@ use bdk::wallet::AddressIndex;
 use bitmask_core::{
     bitcoin::{get_wallet, get_wallet_data, save_mnemonic, synchronize_wallet},
     rgb::{
-        clear_watcher, create_invoice, create_psbt, create_watcher, import, issue_contract,
-        transfer_asset, watcher_details, watcher_next_address, watcher_next_utxo,
+        create_invoice, create_psbt, create_watcher, import, issue_contract, transfer_asset,
+        watcher_details, watcher_next_address, watcher_next_utxo,
     },
     structs::{
         AllocationDetail, ContractResponse, ContractType, EncryptedWalletData, ImportRequest,
