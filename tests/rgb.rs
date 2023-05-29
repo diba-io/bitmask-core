@@ -9,6 +9,7 @@ mod rgb {
     }
 
     mod integration {
+        mod collectibles;
         mod fungibles;
         mod import;
         mod issue;

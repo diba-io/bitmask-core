@@ -1,7 +1,10 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 pub use bdk::{Balance, BlockTime, TransactionDetails};
 pub use bitcoin::{util::address::Address, Txid};
+
+use rgbstd::interface::rgb21::Allocation as AllocationUDA;
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -115,7 +118,7 @@ pub struct IssueRequest {
     /// The name of the iface (ex: RGB20)
     pub iface: String,
     /// contract metadata (only RGB21/UDA)
-    pub meta: Option<IssueMetaRequest>,
+    pub meta: IssueMetaRequest,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -128,7 +131,7 @@ pub struct SelfIssueRequest {
     /// Description of the asset
     pub description: String,
     /// contract metadata (only RGB21/UDA)
-    pub meta: Option<IssueMetaRequest>,
+    pub meta: IssueMetaRequest,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
@@ -198,8 +201,8 @@ pub struct IssueResponse {
     pub contract: ContractFormats,
     /// The gensis state (multiple formats)
     pub genesis: GenesisFormats,
-    /// attachments and media (only RGB21/UDA)
-    pub medias: Option<Vec<MediaInfo>>,
+    /// contract metadata (only RGB21/UDA)
+    pub meta: ContractMeta,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -268,8 +271,51 @@ pub struct ContractResponse {
     pub contract: ContractFormats,
     /// The genesis state (multiple formats)
     pub genesis: GenesisFormats,
-    /// attachments and media (only RGB21/UDA)
-    pub medias: Option<Vec<MediaInfo>>,
+    /// contract metadata (only RGB21/UDA)
+    pub meta: ContractMeta,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ContractMeta(ContractMetadata);
+
+impl ContractMeta {
+    pub fn with(metadata: ContractMetadata) -> Self {
+        ContractMeta(metadata)
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub enum ContractMetadata {
+    #[serde(rename = "uda")]
+    UDA(UDADetail),
+
+    #[serde(rename = "collectible")]
+    Collectible(Vec<UDADetail>),
+}
+
+impl Default for ContractMetadata {
+    fn default() -> Self {
+        ContractMetadata::UDA(UDADetail::default())
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct UDADetail {
+    /// The ticker of the uda
+    pub ticker: String,
+    /// Name of the uda
+    pub name: String,
+    /// Description of the uda
+    pub description: String,
+    /// Media of the uda
+    pub media: MediaInfo,
+    /// The user contract balance
+    pub balance: u64,
+    /// The contract allocations
+    pub allocations: Vec<AllocationDetail>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -283,6 +329,8 @@ pub struct InvoiceRequest {
     pub amount: u64,
     /// UTXO or Blinded UTXO
     pub seal: String,
+    /// Query parameters
+    pub params: HashMap<String, String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -465,11 +513,44 @@ pub struct AllocationDetail {
     /// Anchored UTXO
     pub utxo: String,
     /// Asset Value
-    pub value: u64,
+    pub value: AllocationValue,
     /// Derivation Path
     pub derivation: String,
     /// Derivation Path
     pub is_mine: bool,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Display)]
+#[serde(rename_all = "camelCase")]
+pub enum AllocationValue {
+    #[display(inner)]
+    Value(u64),
+    UDA(UDAPosition),
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default, Display)]
+#[serde(rename_all = "camelCase")]
+#[display("{token_index}:{fraction}")]
+pub struct UDAPosition {
+    pub token_index: u32,
+    pub fraction: u64,
+}
+
+impl UDAPosition {
+    pub fn with(uda: AllocationUDA) -> Self {
+        UDAPosition {
+            token_index: uda
+                .token_id()
+                .to_string()
+                .parse()
+                .expect("invalid token_index"),
+            fraction: uda
+                .fraction()
+                .to_string()
+                .parse()
+                .expect("invalid fraction"),
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]

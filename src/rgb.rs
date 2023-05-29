@@ -111,7 +111,7 @@ pub async fn issue_contract(sk: &str, request: IssueRequest) -> Result<IssueResp
         allocations: _,
         contract,
         genesis,
-        medias,
+        meta,
     } = extract_contract_by_id(contract.contract_id(), &mut stock, &mut resolver, None)?;
 
     store_stock(sk, ASSETS_STOCK, &stock).await?;
@@ -127,7 +127,7 @@ pub async fn issue_contract(sk: &str, request: IssueRequest) -> Result<IssueResp
         contract,
         genesis,
         issue_utxo: seal.replace("tapret1st:", ""),
-        medias,
+        meta,
     })
 }
 
@@ -137,10 +137,11 @@ pub async fn create_invoice(sk: &str, request: InvoiceRequest) -> Result<Invoice
         iface,
         seal,
         amount,
+        params,
     } = request;
     let mut stock = retrieve_stock(sk, ASSETS_STOCK).await?;
 
-    let invoice = create_rgb_invoice(&contract_id, &iface, amount, &seal, &mut stock)?;
+    let invoice = create_rgb_invoice(&contract_id, &iface, amount, &seal, params, &mut stock)?;
 
     store_stock(sk, ASSETS_STOCK, &stock).await?;
 

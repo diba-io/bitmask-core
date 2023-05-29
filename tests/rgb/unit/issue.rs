@@ -1,6 +1,6 @@
 #![cfg(not(target_arch = "wasm32"))]
 use anyhow::Result;
-use bitmask_core::{rgb::issue::issue_contract, util::init_logging};
+use bitmask_core::{rgb::issue::issue_contract, structs::IssueMetaRequest, util::init_logging};
 use rgbstd::persistence::Stock;
 
 use crate::rgb::unit::utils::DumbResolve;
@@ -31,7 +31,7 @@ async fn issue_contract_test() -> Result<()> {
         iface,
         seal,
         network,
-        None,
+        IssueMetaRequest::default(),
         &mut resolver,
         &mut stock,
     );

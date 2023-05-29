@@ -1,9 +1,10 @@
-use std::str::FromStr;
+use std::{collections::HashMap, str::FromStr};
 
 use amplify::{confinement::Confined, hex::ToHex};
 use bitcoin_30::psbt::Psbt as PSBT;
 use bitcoin_hashes::hex::FromHex;
 use bp::{seals::txout::CloseMethod, Txid, Vout};
+use indexmap::IndexMap;
 use psbt::{serialize::Serialize, Psbt};
 use rgbstd::{
     containers::{Bindle, Transfer},
@@ -37,6 +38,7 @@ pub fn create_invoice(
     iface: &str,
     amount: u64,
     seal: &str,
+    params: HashMap<String, String>,
     stock: &mut Stock,
 ) -> Result<RgbInvoice, InvoiceError> {
     let iface = match stock.iface_by_name(&TypeName::from_str(iface).expect("iface not found")) {
@@ -62,6 +64,12 @@ pub fn create_invoice(
         _ => return Err(InvoiceError::InvalidBlindSeal),
     };
 
+    // Query Params
+    let mut query = IndexMap::default();
+    for (k, v) in params {
+        query.insert(k, v);
+    }
+
     // Generate Invoice
     let invoice = RgbInvoice {
         transports: vec![RgbTransport::UnspecifiedMeans],
@@ -72,7 +80,7 @@ pub fn create_invoice(
         beneficiary: seal.to_concealed_seal().into(),
         owned_state: TypedState::Amount(amount),
         chain: None,
-        unknown_query: none!(),
+        unknown_query: query,
         expiry: None,
     };
 

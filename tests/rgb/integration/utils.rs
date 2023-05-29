@@ -1,5 +1,5 @@
 #![cfg(not(target_arch = "wasm32"))]
-use std::{env, process::Stdio};
+use std::{collections::HashMap, env, process::Stdio};
 
 use bdk::wallet::AddressIndex;
 use bitmask_core::{
@@ -10,8 +10,9 @@ use bitmask_core::{
     },
     structs::{
         AllocationDetail, ContractResponse, ContractType, EncryptedWalletData, ImportRequest,
-        InvoiceRequest, InvoiceResponse, IssueMetaRequest, IssueRequest, IssueResponse,
-        PsbtRequest, PsbtResponse, RgbTransferRequest, RgbTransferResponse, WatcherRequest,
+        InvoiceRequest, InvoiceResponse, IssueMetaRequest, IssueMetadata, IssueRequest,
+        IssueResponse, MediaInfo, NewCollectible, PsbtRequest, PsbtResponse, RgbTransferRequest,
+        RgbTransferResponse, WatcherRequest,
     },
 };
 use tokio::process::Command;
@@ -130,6 +131,11 @@ pub async fn issuer_issue_contract(
 
     let next_utxo = watcher_next_utxo(&sk, watcher_name, iface).await?;
 
+    let meta = match meta {
+        Some(meta) => meta,
+        _ => IssueMetaRequest::default(),
+    };
+
     let issue_utxo = next_utxo.utxo;
     let issue_seal = format!("tapret1st:{issue_utxo}");
     let request = IssueRequest {
@@ -140,7 +146,7 @@ pub async fn issuer_issue_contract(
         supply,
         seal: issue_seal.to_owned(),
         iface: iface.to_string(),
-        meta: meta,
+        meta,
     };
 
     issue_contract(&sk, request).await
@@ -180,6 +186,7 @@ pub async fn import_new_contract(
 
 pub async fn create_new_invoice(
     issuer_resp: IssueResponse,
+    params: Option<HashMap<String, String>>,
 ) -> Result<InvoiceResponse, anyhow::Error> {
     let owner_keys = save_mnemonic(OWNER_MNEMONIC, "").await?;
     let descriptor_pub = match issuer_resp.iface.as_str() {
@@ -228,11 +235,13 @@ pub async fn create_new_invoice(
     let seal = beneficiary_utxo.outpoint.to_string();
     let seal = format!("tapret1st:{seal}");
 
+    let params = params.unwrap_or_default();
     let invoice_req = InvoiceRequest {
         contract_id: issuer_resp.contract_id,
         iface: issuer_resp.iface,
         amount: 1,
         seal,
+        params,
     };
 
     create_invoice(&sk, invoice_req).await
@@ -299,4 +308,34 @@ pub async fn create_new_transfer(
     let sk = issuer_keys.private.nostr_prv;
 
     transfer_asset(&sk, transfer_req).await
+}
+
+pub fn get_uda_data() -> IssueMetaRequest {
+    IssueMetaRequest::with(vec![IssueMetadata::UDA(MediaInfo {
+        ty: "image/png".to_string(),
+        source: "https://carbonado.io/diba.png".to_string(),
+    })])
+}
+
+pub fn get_collectible_data() -> IssueMetaRequest {
+    IssueMetaRequest::with(vec![IssueMetadata::Collectible(vec![
+        NewCollectible {
+            ticker: "DIBAA".to_string(),
+            name: "DIBAA".to_string(),
+            preview: MediaInfo {
+                ty: "image/png".to_string(),
+                source: "https://carbonado.io/diba1.png".to_string(),
+            },
+            ..Default::default()
+        },
+        NewCollectible {
+            ticker: "DIBAB".to_string(),
+            name: "DIBAB".to_string(),
+            preview: MediaInfo {
+                ty: "image/png".to_string(),
+                source: "https://carbonado.io/diba2.png".to_string(),
+            },
+            ..Default::default()
+        },
+    ])])
 }
