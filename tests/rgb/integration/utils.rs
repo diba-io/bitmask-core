@@ -108,21 +108,12 @@ pub async fn shutdown_regtest(force: bool) -> anyhow::Result<()> {
 }
 
 #[allow(dead_code)]
-pub async fn send_coins(iface: &str, watcher_pub: &str) -> anyhow::Result<()> {
-    let issuer_keys = save_mnemonic(ISSUER_MNEMONIC, "").await?;
+pub async fn send_coins(iface: &str, _watcher_pub: &str) -> anyhow::Result<()> {
     let watcher_name = "default";
-    let create_watch_req = WatcherRequest {
-        name: watcher_name.to_string(),
-        xpub: watcher_pub.to_string(),
-        force: true,
-    };
-
-    // Create Watcher
-    let sk = issuer_keys.private.nostr_prv;
-    let resp = create_watcher(&sk, create_watch_req).await;
-    assert!(resp.is_ok());
+    let issuer_keys = save_mnemonic(ISSUER_MNEMONIC, "").await?;
 
     // Send Coins
+    let sk = issuer_keys.private.nostr_prv;
     let next_address = watcher_next_address(&sk, watcher_name, iface).await?;
     send_some_coins(&next_address.address, "0.01").await;
     Ok(())
@@ -147,8 +138,7 @@ pub async fn issuer_issue_contract(
         force: send_coins,
     };
 
-    let resp = create_watcher(&sk, create_watch_req.clone()).await;
-    assert!(resp.is_ok());
+    create_watcher(&sk, create_watch_req.clone()).await?;
 
     if send_coins {
         let next_address = watcher_next_address(&sk, watcher_name, iface).await?;
@@ -231,15 +221,6 @@ pub async fn create_new_invoice(
 
     // Create Watcher
     let sk = owner_keys.private.nostr_prv;
-    let create_watch_req = WatcherRequest {
-        name: "default".to_owned(),
-        xpub: owner_keys.public.watcher_xpub,
-        force: true,
-    };
-
-    let resp = create_watcher(&sk, create_watch_req).await;
-    assert!(resp.is_ok());
-
     let contract_type = match issuer_resp.iface.as_str() {
         "RGB20" => ContractType::RGB20,
         "RGB21" => ContractType::RGB21,
