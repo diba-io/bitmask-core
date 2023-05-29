@@ -215,6 +215,11 @@ pub fn extract_contract_by_id(
             }
 
             let single = ContractMetadata::UDA(UDADetail {
+                token_index: token_data
+                    .index
+                    .to_string()
+                    .parse()
+                    .expect("invalid token_index"),
                 ticker: ticker.clone(),
                 name: name.clone(),
                 description: description.clone(),
@@ -268,6 +273,11 @@ pub fn extract_contract_by_id(
                     }
 
                     UDADetail {
+                        token_index: token_data
+                            .index
+                            .to_string()
+                            .parse()
+                            .expect("invalid token_index"),
                         ticker: token_ticker,
                         name: token_name,
                         description: token_description,

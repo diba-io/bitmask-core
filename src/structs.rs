@@ -304,6 +304,8 @@ impl Default for ContractMetadata {
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct UDADetail {
+    /// the token index of the uda
+    pub token_index: u32,
     /// The ticker of the uda
     pub ticker: String,
     /// Name of the uda
