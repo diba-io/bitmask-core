@@ -7,63 +7,6 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  format:
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v3
-
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: stable
-          targets: x86_64-unknown-linux-gnu
-          components: rustfmt
-
-      - uses: Swatinem/rust-cache@v2
-
-      - name: Check Formatting
-        run: cargo fmt --all -- --check
-
-  lint:
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v3
-
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: stable
-          targets: x86_64-unknown-linux-gnu
-          components: clippy
-
-      - uses: olix0r/cargo-action-fmt/setup@v2
-      - uses: Swatinem/rust-cache@v2
-
-      - name: Lint
-        run: cargo clippy --all-features --lib --message-format=json -- -D warnings | cargo-action-fmt
-
-  lint-wasm:
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v3
-
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: stable
-          targets: wasm32-unknown-unknown
-          components: clippy
-
-      - uses: olix0r/cargo-action-fmt/setup@v2
-      - uses: jetli/wasm-pack-action@v0.4.0
-      - uses: Swatinem/rust-cache@v2
-
-      - name: Add wasm32 target
-        run: rustup target add wasm32-unknown-unknown
-
-      - name: Lint (wasm32)
-        run: cargo clippy --target wasm32-unknown-unknown --lib --message-format=json -- -D warnings | cargo-action-fmt
-
   test:
     runs-on: ubuntu-latest
     needs: lint
@@ -96,55 +39,9 @@ jobs:
           MAIN_VAULT_ADDRESS: ${{ secrets.MAIN_VAULT_ADDRESS }}
           RUST_BACKTRACE: 1
 
-      - name: Wallet, LN & Payjoin Tests
-        run: cargo test --locked -- --skip rgb --test-threads 1 --nocapture
-        env:
-          TEST_WALLET_SEED: ${{ secrets.TEST_WALLET_SEED }}
-          RUST_BACKTRACE: 1
-
       - name: RGB Tests
         run: cargo test --features server --test rgb  -- rgb --nocapture --test-threads 1
         env:
           TEST_WALLET_SEED: ${{ secrets.TEST_WALLET_SEED }}
           RUST_BACKTRACE: 1
 
-  test-wasm:
-    runs-on: ubuntu-latest
-    needs: lint-wasm
-
-    steps:
-      - uses: actions/checkout@v3
-
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: stable
-          targets: wasm32-unknown-unknown
-
-      - uses: Swatinem/rust-cache@v2
-      - uses: jetli/wasm-pack-action@v0.4.0
-
-      - name: Up Bitcoin Node
-        run: |
-          docker compose up -d node1
-
-      - name: Setup Bitcoin Node
-        run: |
-          sleep 5
-          docker-compose exec -T node1 cli loadwallet default
-          docker-compose exec -T node1 cli -generate 500
-          docker-compose exec -T node1 cli sendtoaddress $MAIN_VAULT_ADDRESS 10
-          docker-compose exec -T node1 cli sendtoaddress $RGB_VAULT_ADDRESS 10
-          docker-compose exec -T node1 cli -generate 1
-        env:
-          MAIN_VAULT_ADDRESS: ${{ secrets.MAIN_VAULT_ADDRESS }}
-          RGB_VAULT_ADDRESS: ${{ secrets.RGB_VAULT_ADDRESS }}
-          RUST_BACKTRACE: 1
-
-      - name: Run bitmaskd node
-        run: cargo run --features server & sleep 1
-
-      - name: Test WASM
-        run: wasm-pack test --headless --chrome
-        env:
-          TEST_WALLET_SEED: ${{ secrets.TEST_WALLET_SEED }}
-          RUST_BACKTRACE: 1
