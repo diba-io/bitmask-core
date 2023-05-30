@@ -262,7 +262,7 @@ async fn co_store(
     body: Bytes,
 ) -> Result<impl IntoResponse, AppError> {
     let incoming_header = carbonado::file::Header::try_from(&body)?;
-    let body_len = incoming_header.encoded_len;
+    let body_len = incoming_header.encoded_len - incoming_header.padding_len;
     info!("POST /carbonado/{pk}/{name}, {body_len} bytes");
 
     let filepath = handle_file(&pk, &name, body_len.try_into()?).await?;
@@ -275,7 +275,7 @@ async fn co_store(
     {
         Ok(file) => {
             let present_header = carbonado::file::Header::try_from(&file)?;
-            let present_len = present_header.encoded_len;
+            let present_len = present_header.encoded_len - present_header.padding_len;
             debug!("body len: {body_len} present_len: {present_len}");
             if body_len > present_len {
                 debug!("body is bigger, overwriting.");
