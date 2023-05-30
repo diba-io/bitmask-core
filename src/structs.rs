@@ -118,7 +118,7 @@ pub struct IssueRequest {
     /// The name of the iface (ex: RGB20)
     pub iface: String,
     /// contract metadata (only RGB21/UDA)
-    pub meta: IssueMetaRequest,
+    pub meta: Option<IssueMetaRequest>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -131,7 +131,7 @@ pub struct SelfIssueRequest {
     /// Description of the asset
     pub description: String,
     /// contract metadata (only RGB21/UDA)
-    pub meta: IssueMetaRequest,
+    pub meta: Option<IssueMetaRequest>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
@@ -177,6 +177,7 @@ pub struct NewCollectible {
 #[serde(rename_all = "camelCase")]
 pub struct MediaInfo {
     /// Mime Type of the media
+    #[serde(rename = "type")]
     pub ty: String,
     /// Source (aka. hyperlink) of the media
     pub source: String,
@@ -208,7 +209,7 @@ pub struct IssueResponse {
     /// The gensis state (multiple formats)
     pub genesis: GenesisFormats,
     /// contract metadata (only RGB21/UDA)
-    pub meta: ContractMeta,
+    pub meta: Option<ContractMeta>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
@@ -268,7 +269,7 @@ pub struct ContractResponse {
     /// Amount of the asset
     pub supply: u64,
     /// Precision of the asset
-    pub precision: String,
+    pub precision: u64,
     /// The user contract balance
     pub balance: u64,
     /// The contract allocations
@@ -278,7 +279,7 @@ pub struct ContractResponse {
     /// The genesis state (multiple formats)
     pub genesis: GenesisFormats,
     /// contract metadata (only RGB21/UDA)
-    pub meta: ContractMeta,
+    pub meta: Option<ContractMeta>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]

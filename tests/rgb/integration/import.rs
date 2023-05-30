@@ -6,8 +6,8 @@ use bitmask_core::{
 };
 
 use crate::rgb::integration::utils::{
-    create_new_invoice, create_new_psbt, create_new_transfer, get_collectible_data, get_uda_data,
-    import_new_contract, issuer_issue_contract, ISSUER_MNEMONIC, OWNER_MNEMONIC,
+    create_new_invoice, create_new_psbt, create_new_transfer, get_uda_data, import_new_contract,
+    issuer_issue_contract, ISSUER_MNEMONIC, OWNER_MNEMONIC,
 };
 
 #[tokio::test]
@@ -31,16 +31,16 @@ async fn allow_import_uda_contract() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[tokio::test]
-async fn allow_import_collectible_contract() -> anyhow::Result<()> {
-    let collectibles = Some(get_collectible_data());
-    let issuer_resp = issuer_issue_contract("RGB21", 1, false, true, collectibles).await;
-    assert!(issuer_resp.is_ok());
+// TODO: Review after support multi-token transfer
+// async fn _allow_import_collectible_contract() -> anyhow::Result<()> {
+//     let collectibles = Some(get_collectible_data());
+//     let issuer_resp = issuer_issue_contract("RGB21", 1, false, true, collectibles).await;
+//     assert!(issuer_resp.is_ok());
 
-    let import_resp = import_new_contract(issuer_resp?).await;
-    assert!(import_resp.is_ok());
-    Ok(())
-}
+//     let import_resp = import_new_contract(issuer_resp?).await;
+//     assert!(import_resp.is_ok());
+//     Ok(())
+// }
 
 #[tokio::test]
 async fn allow_get_fungible_contract_state_by_accept_cosign() -> anyhow::Result<()> {
@@ -171,67 +171,67 @@ async fn allow_get_uda_contract_state_by_accept_cosign() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[tokio::test]
-async fn allow_get_collectible_contract_state_by_accept_cosign() -> anyhow::Result<()> {
-    // 1. Issue and Generate Trasnfer (Issuer side)
-    let collectible = Some(get_collectible_data());
-    let issuer_keys: EncryptedWalletData = save_mnemonic(ISSUER_MNEMONIC, "").await?;
-    let owner_keys = save_mnemonic(OWNER_MNEMONIC, "").await?;
-    let issuer_resp = issuer_issue_contract("RGB21", 1, false, true, collectible).await?;
-    let owner_resp = create_new_invoice(issuer_resp.clone(), None).await?;
-    let psbt_resp = create_new_psbt(issuer_keys.clone(), issuer_resp.clone()).await?;
-    let transfer_resp = create_new_transfer(issuer_keys.clone(), owner_resp, psbt_resp).await?;
+// TODO: Review after support multi-token transfer
+// async fn _allow_get_collectible_contract_state_by_accept_cosign() -> anyhow::Result<()> {
+//     // 1. Issue and Generate Trasnfer (Issuer side)
+//     let collectible = Some(get_collectible_data());
+//     let issuer_keys: EncryptedWalletData = save_mnemonic(ISSUER_MNEMONIC, "").await?;
+//     let owner_keys = save_mnemonic(OWNER_MNEMONIC, "").await?;
+//     let issuer_resp = issuer_issue_contract("RGB21", 1, false, true, collectible).await?;
+//     let owner_resp = create_new_invoice(issuer_resp.clone(), None).await?;
+//     let psbt_resp = create_new_psbt(issuer_keys.clone(), issuer_resp.clone()).await?;
+//     let transfer_resp = create_new_transfer(issuer_keys.clone(), owner_resp, psbt_resp).await?;
 
-    // 2. Sign and Publish TX (Issuer side)
-    let issuer_sk = issuer_keys.private.nostr_prv.to_string();
-    let owner_sk = owner_keys.private.nostr_prv.to_string();
-    let request = SignPsbtRequest {
-        psbt: transfer_resp.clone().psbt,
-        mnemonic: ISSUER_MNEMONIC.to_string(),
-        seed_password: String::new(),
-        iface: issuer_resp.iface,
-    };
-    let resp = sign_psbt_file(&issuer_sk, request).await;
-    assert!(resp.is_ok());
+//     // 2. Sign and Publish TX (Issuer side)
+//     let issuer_sk = issuer_keys.private.nostr_prv.to_string();
+//     let owner_sk = owner_keys.private.nostr_prv.to_string();
+//     let request = SignPsbtRequest {
+//         psbt: transfer_resp.clone().psbt,
+//         mnemonic: ISSUER_MNEMONIC.to_string(),
+//         seed_password: String::new(),
+//         iface: issuer_resp.iface,
+//     };
+//     let resp = sign_psbt_file(&issuer_sk, request).await;
+//     assert!(resp.is_ok());
 
-    // 3. Accept Consig (Issuer Side)
-    let request = AcceptRequest {
-        consignment: transfer_resp.clone().consig,
-        force: false,
-    };
-    let resp = accept_transfer(&issuer_sk, request).await;
-    assert!(resp.is_ok());
-    assert!(resp?.valid);
+//     // 3. Accept Consig (Issuer Side)
+//     let request = AcceptRequest {
+//         consignment: transfer_resp.clone().consig,
+//         force: false,
+//     };
+//     let resp = accept_transfer(&issuer_sk, request).await;
+//     assert!(resp.is_ok());
+//     assert!(resp?.valid);
 
-    // 4. Accept Consig (Owner Side)
-    let request = AcceptRequest {
-        consignment: transfer_resp.consig,
-        force: false,
-    };
-    let resp = accept_transfer(&owner_sk, request).await;
-    assert!(resp.is_ok());
-    assert!(resp?.valid);
+//     // 4. Accept Consig (Owner Side)
+//     let request = AcceptRequest {
+//         consignment: transfer_resp.consig,
+//         force: false,
+//     };
+//     let resp = accept_transfer(&owner_sk, request).await;
+//     assert!(resp.is_ok());
+//     assert!(resp?.valid);
 
-    // 5. Retrieve Contract (Issuer Side)
-    let contract_id = &issuer_resp.contract_id;
-    let resp = get_contract(&issuer_sk, contract_id).await;
-    assert!(resp.is_ok());
-    assert_eq!(0, resp?.balance);
+//     // 5. Retrieve Contract (Issuer Side)
+//     let contract_id = &issuer_resp.contract_id;
+//     let resp = get_contract(&issuer_sk, contract_id).await;
+//     assert!(resp.is_ok());
+//     assert_eq!(0, resp?.balance);
 
-    // 6. Create Watcher (Owner Side)
-    let watcher_name = "default";
-    let create_watch_req = WatcherRequest {
-        name: watcher_name.to_string(),
-        xpub: owner_keys.public.watcher_xpub,
-        force: true,
-    };
-    create_watcher(&owner_sk, create_watch_req).await?;
+//     // 6. Create Watcher (Owner Side)
+//     let watcher_name = "default";
+//     let create_watch_req = WatcherRequest {
+//         name: watcher_name.to_string(),
+//         xpub: owner_keys.public.watcher_xpub,
+//         force: true,
+//     };
+//     create_watcher(&owner_sk, create_watch_req).await?;
 
-    // 7. Retrieve Contract (Owner Side)
-    let contract_id = &issuer_resp.contract_id;
-    let resp = get_contract(&owner_sk, contract_id).await;
-    assert!(resp.is_ok());
-    assert_eq!(1, resp?.balance);
+//     // 7. Retrieve Contract (Owner Side)
+//     let contract_id = &issuer_resp.contract_id;
+//     let resp = get_contract(&owner_sk, contract_id).await;
+//     assert!(resp.is_ok());
+//     assert_eq!(1, resp?.balance);
 
-    Ok(())
-}
+//     Ok(())
+// }

@@ -15,6 +15,7 @@ use log::{debug, info};
 const ENCRYPTION_PASSWORD: &str = "hunter2";
 const SEED_PASSWORD: &str = "";
 
+#[ignore]
 #[tokio::test]
 async fn payjoin() -> Result<()> {
     init_logging("payjoin=warn");

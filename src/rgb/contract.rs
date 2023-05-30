@@ -63,7 +63,7 @@ pub fn extract_contract_by_id(
 
     let mut ticker = String::new();
     let mut name = String::new();
-    let mut precision = String::new();
+    let mut precision = 0;
     let mut description = String::new();
     let mut supply = 0;
 
@@ -91,7 +91,7 @@ pub fn extract_contract_by_id(
                 if naming.contains_key(&FieldName::from("precision")) {
                     if let Some(val) = naming.get(&FieldName::from("precision")) {
                         let val = val.to_string();
-                        precision = val;
+                        precision = val.parse()?;
                     };
                 }
             }
@@ -228,7 +228,7 @@ pub fn extract_contract_by_id(
                 allocations: allocations.clone(),
             });
 
-            meta = ContractMeta::with(single);
+            meta = Some(ContractMeta::with(single));
         } else {
             let collectibles = tokens_data
                 .into_iter()
@@ -288,7 +288,9 @@ pub fn extract_contract_by_id(
                 })
                 .collect();
 
-            meta = ContractMeta::with(ContractMetadata::Collectible(collectibles));
+            meta = Some(ContractMeta::with(ContractMetadata::Collectible(
+                collectibles,
+            )));
         }
     }
 
