@@ -9,8 +9,8 @@ use bitmask_core::{
     debug, info,
     rgb::{prefetch::prefetch_resolve_txs, resolvers::ExplorerResolver},
     structs::{
-        ContractType, EncryptedWalletData, FundVaultDetails, ImportRequest, MnemonicSeedData,
-        WalletData,
+        ContractResponse, ContractType, ContractsResponse, EncryptedWalletData, FundVaultDetails,
+        ImportRequest, MnemonicSeedData, WalletData,
     },
     web::{
         bitcoin::{
@@ -18,7 +18,7 @@ use bitmask_core::{
             save_mnemonic_seed,
         },
         json_parse, resolve,
-        rgb::import_contract,
+        rgb::{import_contract, list_contracts},
         set_panic_hook,
     },
 };
@@ -63,7 +63,14 @@ async fn contract_legacy_import() {
     };
 
     let req = serde_wasm_bindgen::to_value(&contract_import).expect("oh no!");
-    let _ = resolve(import_contract(sk, req)).await;
+    let resp = resolve(import_contract(sk.clone(), req)).await;
+    let resp: ContractResponse = json_parse(&resp);
+
+    // TODO: This not working =(
+    // let resp: JsValue = resolve(list_contracts(sk)).await;
+    // let resp: ContractsResponse = json_parse(&resp);
+
+    // assert_eq!(1, resp.contracts.len());
 }
 
 #[wasm_bindgen_test]
@@ -97,7 +104,14 @@ async fn contract_strict_import() {
     };
 
     let req = serde_wasm_bindgen::to_value(&contract_import).expect("oh no!");
-    let _ = resolve(import_contract(sk, req)).await;
+    let resp: JsValue = resolve(import_contract(sk.clone(), req)).await;
+    let resp: ContractResponse = json_parse(&resp);
+
+    // TODO: This not working =(
+    // let resp: JsValue = resolve(list_contracts(sk)).await;
+    // let resp: ContractsResponse = json_parse(&resp);
+
+    // assert_eq!(1, resp.contracts.len());
 }
 
 #[wasm_bindgen_test]

@@ -237,8 +237,11 @@ pub struct GenesisFormats {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub enum ContractType {
+    #[serde(rename = "contract")]
     Contract = 9,
+    #[serde(rename = "rgb20")]
     RGB20 = 20,
+    #[serde(rename = "rgb21")]
     RGB21 = 21,
 }
 

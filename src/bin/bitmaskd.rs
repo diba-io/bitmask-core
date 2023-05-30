@@ -270,7 +270,10 @@ async fn co_store(
         .open(&filepath)
     {
         Ok(file) => {
-            let present_header = carbonado::file::Header::try_from(&file)?;
+            let present_header = match carbonado::file::Header::try_from(&file) {
+                Ok(header) => header,
+                _ => carbonado::file::Header::try_from(&body)?,
+            };
             let present_len = present_header.encoded_len - present_header.padding_len;
             debug!("body len: {body_len} present_len: {present_len}");
             if body_len > present_len {
