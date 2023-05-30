@@ -1,7 +1,7 @@
 #![allow(unused_imports)]
 #![cfg(feature = "server")]
 #![cfg(not(target_arch = "wasm32"))]
-use std::{env, net::SocketAddr, str::FromStr};
+use std::{env, io::ErrorKind, net::SocketAddr, str::FromStr};
 
 use anyhow::Result;
 use axum::{
@@ -265,7 +265,19 @@ async fn co_store(
 
     let filepath = handle_file(&pk, &name, body.len()).await?;
 
-    fs::write(filepath, body).await?;
+    match fs::metadata(&filepath).await {
+        Ok(metadata) => {
+            if body.len() > metadata.len().try_into()? {
+                fs::write(&filepath, &body).await?;
+            }
+        }
+        Err(err) => match err.kind() {
+            ErrorKind::NotFound => {
+                // Do nothing
+            }
+            _ => return Err(err.into()),
+        },
+    }
 
     Ok(StatusCode::OK)
 }
