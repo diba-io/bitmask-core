@@ -273,7 +273,7 @@ async fn co_store(
         }
         Err(err) => match err.kind() {
             ErrorKind::NotFound => {
-                // Do nothing
+                fs::write(&filepath, &body).await?;
             }
             _ => return Err(err.into()),
         },
