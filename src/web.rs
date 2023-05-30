@@ -611,11 +611,15 @@ pub mod carbonado {
     pub fn retrieve(secret_key: String, name: String) -> Promise {
         set_panic_hook();
 
+        use js_sys::Uint8Array;
+
         future_to_promise(async move {
             match crate::carbonado::retrieve(&secret_key, &name).await {
-                Ok(result) => Ok(JsValue::from_string(
-                    serde_json::to_string(&result).unwrap(),
-                )),
+                Ok(result) => {
+                    let array = Uint8Array::new_with_length(result.len() as u32);
+                    array.copy_from(&result);
+                    Ok(JsValue::from(array))
+                }
                 Err(err) => Err(JsValue::from_string(err.to_string())),
             }
         })

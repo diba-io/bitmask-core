@@ -47,7 +47,7 @@ async fn self_issue(Json(issue): Json<SelfIssueRequest>) -> Result<impl IntoResp
     info!("POST /self_issue {issue:?}");
     let issuer_keys = save_mnemonic(&get_marketplace_seed().await, "").await?;
 
-    let sk = issuer_keys.public.nostr_npub;
+    let sk = issuer_keys.private.nostr_prv;
 
     let issue_seal = format!("tapret1st:{}", get_udas_utxo().await);
     let request = IssueRequest {
