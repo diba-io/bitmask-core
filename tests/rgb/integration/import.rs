@@ -1,8 +1,8 @@
 #![cfg(not(target_arch = "wasm32"))]
 use bitmask_core::{
     bitcoin::{save_mnemonic, sign_psbt_file},
-    rgb::{accept_transfer, get_contract},
-    structs::{AcceptRequest, EncryptedWalletData, SignPsbtRequest},
+    rgb::{accept_transfer, create_watcher, get_contract},
+    structs::{AcceptRequest, EncryptedWalletData, SignPsbtRequest, WatcherRequest},
 };
 
 use crate::rgb::integration::utils::{
@@ -64,31 +64,40 @@ async fn allow_get_fungible_contract_state_by_accept_cosign() -> anyhow::Result<
     let resp = sign_psbt_file(&issuer_sk, request).await;
     assert!(resp.is_ok());
 
-    // 4. Accept Consig (Issuer Side)
+    // 3. Accept Consig (Issuer Side)
     let request = AcceptRequest {
         consignment: transfer_resp.clone().consig,
-        force: true,
+        force: false,
     };
     let resp = accept_transfer(&issuer_sk, request).await;
     assert!(resp.is_ok());
     assert!(resp?.valid);
 
-    // 3. Accept Consig (Owner Side)
+    // 4. Accept Consig (Owner Side)
     let request = AcceptRequest {
         consignment: transfer_resp.consig,
-        force: true,
+        force: false,
     };
     let resp = accept_transfer(&owner_sk, request).await;
     assert!(resp.is_ok());
     assert!(resp?.valid);
 
-    // 4. Retrieve Contract (Issuer Side)
+    // 5. Retrieve Contract (Issuer Side)
     let contract_id = &issuer_resp.contract_id;
     let resp = get_contract(&issuer_sk, contract_id).await;
     assert!(resp.is_ok());
     assert_eq!(4, resp?.balance);
 
-    // 5. Retrieve Contract (Owner Side)
+    // 6. Create Watcher (Owner Side)
+    let watcher_name = "default";
+    let create_watch_req = WatcherRequest {
+        name: watcher_name.to_string(),
+        xpub: owner_keys.public.watcher_xpub,
+        force: true,
+    };
+    create_watcher(&owner_sk, create_watch_req).await?;
+
+    // 7. Retrieve Contract (Owner Side)
     let contract_id = &issuer_resp.contract_id;
     let resp = get_contract(&owner_sk, contract_id).await;
     assert!(resp.is_ok());
@@ -120,31 +129,40 @@ async fn allow_get_uda_contract_state_by_accept_cosign() -> anyhow::Result<()> {
     let resp = sign_psbt_file(&issuer_sk, request).await;
     assert!(resp.is_ok());
 
-    // 4. Accept Consig (Issuer Side)
+    // 3. Accept Consig (Issuer Side)
     let request = AcceptRequest {
         consignment: transfer_resp.clone().consig,
-        force: true,
+        force: false,
     };
     let resp = accept_transfer(&issuer_sk, request).await;
     assert!(resp.is_ok());
     assert!(resp?.valid);
 
-    // 3. Accept Consig (Owner Side)
+    // 4. Accept Consig (Owner Side)
     let request = AcceptRequest {
         consignment: transfer_resp.consig,
-        force: true,
+        force: false,
     };
     let resp = accept_transfer(&owner_sk, request).await;
     assert!(resp.is_ok());
     assert!(resp?.valid);
 
-    // 4. Retrieve Contract (Issuer Side)
+    // 5. Retrieve Contract (Issuer Side)
     let contract_id = &issuer_resp.contract_id;
     let resp = get_contract(&issuer_sk, contract_id).await;
     assert!(resp.is_ok());
     assert_eq!(0, resp?.balance);
 
-    // 5. Retrieve Contract (Owner Side)
+    // 6. Create Watcher (Owner Side)
+    let watcher_name = "default";
+    let create_watch_req = WatcherRequest {
+        name: watcher_name.to_string(),
+        xpub: owner_keys.public.watcher_xpub,
+        force: true,
+    };
+    create_watcher(&owner_sk, create_watch_req).await?;
+
+    // 7. Retrieve Contract (Owner Side)
     let contract_id = &issuer_resp.contract_id;
     let resp = get_contract(&owner_sk, contract_id).await;
     assert!(resp.is_ok());
@@ -176,31 +194,40 @@ async fn allow_get_collectible_contract_state_by_accept_cosign() -> anyhow::Resu
     let resp = sign_psbt_file(&issuer_sk, request).await;
     assert!(resp.is_ok());
 
-    // 4. Accept Consig (Issuer Side)
+    // 3. Accept Consig (Issuer Side)
     let request = AcceptRequest {
         consignment: transfer_resp.clone().consig,
-        force: true,
+        force: false,
     };
     let resp = accept_transfer(&issuer_sk, request).await;
     assert!(resp.is_ok());
     assert!(resp?.valid);
 
-    // 3. Accept Consig (Owner Side)
+    // 4. Accept Consig (Owner Side)
     let request = AcceptRequest {
         consignment: transfer_resp.consig,
-        force: true,
+        force: false,
     };
     let resp = accept_transfer(&owner_sk, request).await;
     assert!(resp.is_ok());
     assert!(resp?.valid);
 
-    // 4. Retrieve Contract (Issuer Side)
+    // 5. Retrieve Contract (Issuer Side)
     let contract_id = &issuer_resp.contract_id;
     let resp = get_contract(&issuer_sk, contract_id).await;
     assert!(resp.is_ok());
     assert_eq!(0, resp?.balance);
 
-    // 5. Retrieve Contract (Owner Side)
+    // 6. Create Watcher (Owner Side)
+    let watcher_name = "default";
+    let create_watch_req = WatcherRequest {
+        name: watcher_name.to_string(),
+        xpub: owner_keys.public.watcher_xpub,
+        force: true,
+    };
+    create_watcher(&owner_sk, create_watch_req).await?;
+
+    // 7. Retrieve Contract (Owner Side)
     let contract_id = &issuer_resp.contract_id;
     let resp = get_contract(&owner_sk, contract_id).await;
     assert!(resp.is_ok());
