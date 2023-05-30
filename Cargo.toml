@@ -42,7 +42,7 @@ bp-core = "0.10.3"
 commit_verify = "0.10.2"
 bp-seals = "0.10.3"
 indexmap = "1.9.3"
-carbonado = "0.3.0-rc.13"
+carbonado = "=0.3.0-rc.8"
 console_error_panic_hook = "0.1.7"
 # directories = "4.0.1"
 miniscript_crate = { package = "miniscript", version = "9.0.1", features = [

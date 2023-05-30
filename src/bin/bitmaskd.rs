@@ -261,7 +261,7 @@ async fn co_store(
     Path((pk, name)): Path<(String, String)>,
     body: Bytes,
 ) -> Result<impl IntoResponse, AppError> {
-    let incoming_header = carbonado::file::Header::try_from(&body)?;
+    let incoming_header = carbonado::file::Header::try_from(&*body)?;
     let body_len = incoming_header.encoded_len;
     info!("POST /carbonado/{pk}/{name}, {body_len} bytes");
 
