@@ -1,13 +1,13 @@
 #![allow(unused_imports)]
 #![cfg(feature = "server")]
 #![cfg(not(target_arch = "wasm32"))]
-use std::{env, net::SocketAddr, str::FromStr};
+use std::{env, fs::OpenOptions, io::ErrorKind, net::SocketAddr, str::FromStr};
 
 use anyhow::Result;
 use axum::{
     body::Bytes,
     extract::Path,
-    headers::{authorization::Bearer, Authorization},
+    headers::{authorization::Bearer, Authorization, CacheControl},
     http::StatusCode,
     response::{IntoResponse, Response},
     routing::{delete, get, post},
@@ -29,7 +29,7 @@ use bitmask_core::{
         PsbtRequest, RgbTransferRequest, SelfIssueRequest, SignPsbtRequest, WatcherRequest,
     },
 };
-use log::info;
+use log::{debug, error, info};
 use rgbstd::interface::Iface;
 use serde::{Deserialize, Serialize};
 use tokio::fs;
@@ -261,13 +261,44 @@ async fn co_store(
     Path((pk, name)): Path<(String, String)>,
     body: Bytes,
 ) -> Result<impl IntoResponse, AppError> {
-    info!("POST /carbonado/{pk}/{name}, {} bytes", body.len());
+    let incoming_header = carbonado::file::Header::try_from(&body)?;
+    let body_len = incoming_header.encoded_len - incoming_header.padding_len;
+    info!("POST /carbonado/{pk}/{name}, {body_len} bytes");
 
-    let filepath = handle_file(&pk, &name, body.len()).await?;
+    let filepath = handle_file(&pk, &name, body_len.try_into()?).await?;
 
-    fs::write(filepath, body).await?;
+    match OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .open(&filepath)
+    {
+        Ok(file) => {
+            let present_header = carbonado::file::Header::try_from(&file)?;
+            let present_len = present_header.encoded_len - present_header.padding_len;
+            debug!("body len: {body_len} present_len: {present_len}");
+            if body_len > present_len {
+                debug!("body is bigger, overwriting.");
+                fs::write(&filepath, &body).await?;
+            } else {
+                debug!("no file written.");
+            }
+        }
+        Err(err) => match err.kind() {
+            ErrorKind::NotFound => {
+                debug!("no file found, writing {body_len} bytes.");
+                fs::write(&filepath, &body).await?;
+            }
+            _ => {
+                error!("error in POST /carbonado/{pk}/{name}: {err}");
+                return Err(err.into());
+            }
+        },
+    }
 
-    Ok(StatusCode::OK)
+    let cc = CacheControl::new().with_no_cache();
+
+    Ok((StatusCode::OK, TypedHeader(cc)))
 }
 
 async fn co_retrieve(
@@ -279,9 +310,11 @@ async fn co_retrieve(
 
     let bytes = fs::read(filepath).await;
 
+    let cc = CacheControl::new().with_no_cache();
+
     match bytes {
-        Ok(bytes) => Ok((StatusCode::OK, bytes)),
-        Err(_e) => Ok((StatusCode::OK, Vec::<u8>::new())),
+        Ok(bytes) => Ok((StatusCode::OK, TypedHeader(cc), bytes)),
+        Err(_e) => Ok((StatusCode::OK, TypedHeader(cc), Vec::<u8>::new())),
     }
 }
 
@@ -300,7 +333,7 @@ async fn key(Path(pk): Path<String>) -> Result<impl IntoResponse, AppError> {
 #[tokio::main]
 async fn main() -> Result<()> {
     if env::var("RUST_LOG").is_err() {
-        env::set_var("RUST_LOG", "debug");
+        env::set_var("RUST_LOG", "bitmask_core=debug,bitmaskd=debug");
     }
 
     pretty_env_logger::init();

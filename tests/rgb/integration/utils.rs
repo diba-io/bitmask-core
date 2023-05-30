@@ -283,7 +283,7 @@ pub async fn create_new_psbt(
 
         if let Some(allocation) = allocations.into_iter().next() {
             asset_utxo = allocation.utxo.to_owned();
-            asset_utxo_terminal = allocation.derivation.to_owned();
+            asset_utxo_terminal = allocation.derivation;
             break;
         }
     }

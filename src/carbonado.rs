@@ -14,7 +14,10 @@ use percent_encoding::utf8_percent_encode;
 pub mod constants;
 
 #[cfg(not(feature = "server"))]
-use crate::{carbonado::constants::FORM, constants::CARBONADO_ENDPOINT};
+use crate::{
+    carbonado::constants::FORM,
+    constants::{CARBONADO_ENDPOINT, NETWORK},
+};
 
 #[cfg(not(feature = "server"))]
 pub async fn store(sk: &str, name: &str, input: &[u8]) -> Result<()> {
@@ -27,12 +30,14 @@ pub async fn store(sk: &str, name: &str, input: &[u8]) -> Result<()> {
     let (body, _encode_info) = carbonado::file::encode(&sk, Some(&pk), input, level)?;
     let endpoint = CARBONADO_ENDPOINT.read().await.to_string();
     let name = utf8_percent_encode(name, FORM);
-    let url = format!("{endpoint}/{pk_hex}/{name}");
+    let network = NETWORK.read().await.to_string();
+    let url = format!("{endpoint}/{pk_hex}/{network}-{name}");
     let client = reqwest::Client::new();
     let response = client
         .post(&url)
         .body(body)
         .header("Content-Type", "application/octet-stream")
+        .header("Cache-Control", "no-cache")
         .send()
         .await
         .context(format!("Error sending JSON POST request to {url}"))?;
@@ -76,11 +81,13 @@ pub async fn retrieve(sk: &str, name: &str) -> Result<Vec<u8>> {
 
     let endpoint = CARBONADO_ENDPOINT.read().await.to_string();
     let name = utf8_percent_encode(name, FORM);
-    let url = format!("{endpoint}/{pk}/{name}");
+    let network = NETWORK.read().await.to_string();
+    let url = format!("{endpoint}/{pk}/{network}-{name}");
     let client = reqwest::Client::new();
     let response = client
         .get(&url)
         .header("Accept", "application/octet-stream")
+        .header("Cache-Control", "no-cache")
         .send()
         .await
         .context(format!("Error sending JSON POST request to {url}"))?;
