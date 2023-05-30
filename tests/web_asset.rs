@@ -67,10 +67,10 @@ async fn contract_legacy_import() {
     let resp: ContractResponse = json_parse(&resp);
 
     // TODO: This not working =(
-    // let resp: JsValue = resolve(list_contracts(sk)).await;
-    // let resp: ContractsResponse = json_parse(&resp);
+    let resp: JsValue = resolve(list_contracts(sk)).await;
+    let resp: ContractsResponse = json_parse(&resp);
 
-    // assert_eq!(1, resp.contracts.len());
+    assert_eq!(1, resp.contracts.len());
 }
 
 #[wasm_bindgen_test]
@@ -108,10 +108,10 @@ async fn contract_strict_import() {
     let resp: ContractResponse = json_parse(&resp);
 
     // TODO: This not working =(
-    // let resp: JsValue = resolve(list_contracts(sk)).await;
-    // let resp: ContractsResponse = json_parse(&resp);
+    let resp: JsValue = resolve(list_contracts(sk)).await;
+    let resp: ContractsResponse = json_parse(&resp);
 
-    // assert_eq!(1, resp.contracts.len());
+    assert_eq!(1, resp.contracts.len());
 }
 
 #[wasm_bindgen_test]
