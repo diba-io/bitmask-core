@@ -47,11 +47,9 @@ async fn self_issue(Json(issue): Json<SelfIssueRequest>) -> Result<impl IntoResp
     info!("POST /self_issue {issue:?}");
     let issuer_keys = save_mnemonic(&get_marketplace_seed().await, "").await?;
 
-    let sk = issuer_keys.private.nostr_prv;
+    let sk = issuer_keys.public.nostr_npub;
 
-    info!("sk:{:#?}", sk);
     let issue_seal = format!("tapret1st:{}", get_udas_utxo().await);
-    info!("issue_seal:{issue_seal}");
     let request = IssueRequest {
         ticker: issue.ticker,
         name: issue.name,
@@ -62,10 +60,8 @@ async fn self_issue(Json(issue): Json<SelfIssueRequest>) -> Result<impl IntoResp
         iface: "RGB21".to_string(),
         meta: issue.meta,
     };
-    info!("request:{:#?}", request);
 
     let issue_res = issue_contract(&sk, request).await?;
-    info!("issue_res:{:#?}", issue_res);
 
     Ok((StatusCode::OK, Json(issue_res)))
 }
