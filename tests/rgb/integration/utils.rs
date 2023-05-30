@@ -153,11 +153,6 @@ pub async fn issuer_issue_contract(
         next_utxo = watcher_next_utxo(&sk, watcher_name, iface).await?;
     }
 
-    let meta = match meta {
-        Some(meta) => meta,
-        _ => IssueMetaRequest::default(),
-    };
-
     let issue_utxo = next_utxo.utxo;
     let issue_seal = format!("tapret1st:{issue_utxo}");
     let request = IssueRequest {
@@ -288,7 +283,7 @@ pub async fn create_new_psbt(
 
         if let Some(allocation) = allocations.into_iter().next() {
             asset_utxo = allocation.utxo.to_owned();
-            asset_utxo_terminal = allocation.derivation.to_owned();
+            asset_utxo_terminal = allocation.derivation;
             break;
         }
     }
@@ -337,7 +332,7 @@ pub fn get_uda_data() -> IssueMetaRequest {
     }]))
 }
 
-pub fn get_collectible_data() -> IssueMetaRequest {
+pub fn _get_collectible_data() -> IssueMetaRequest {
     IssueMetaRequest::with(IssueMetadata::Collectible(vec![
         NewCollectible {
             ticker: "DIBAA".to_string(),

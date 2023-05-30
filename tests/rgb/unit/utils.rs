@@ -2,9 +2,7 @@ use std::{collections::HashMap, convert::Infallible, str::FromStr};
 
 use amplify::hex::{FromHex, ToHex};
 use bitcoin::Transaction;
-use bitmask_core::{
-    rgb::issue::issue_contract, rgb::transfer::create_invoice, structs::IssueMetaRequest,
-};
+use bitmask_core::{rgb::issue::issue_contract, rgb::transfer::create_invoice};
 use bp::{
     LockTime, Outpoint, Sats, ScriptPubkey, SeqNo, Tx, TxIn, TxOut, TxVer, Txid, VarIntArray,
     Witness,
@@ -102,7 +100,7 @@ pub fn create_fake_contract(stock: &mut Stock) -> ContractId {
         iface,
         seal,
         network,
-        IssueMetaRequest::default(),
+        None,
         &mut resolver,
         stock,
     )

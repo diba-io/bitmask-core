@@ -1,6 +1,6 @@
 [package]
 name = "bitmask-core"
-version = "0.6.0-beta.14"
+version = "0.6.0-beta.16"
 authors = [
     "Jose Diego Robles <jose@diba.io>",
     "Hunter Trujillo <hunter@diba.io>",
@@ -42,7 +42,7 @@ bp-core = "0.10.3"
 commit_verify = "0.10.2"
 bp-seals = "0.10.3"
 indexmap = "1.9.3"
-carbonado = "0.3.0-rc.8"
+carbonado = "0.3.0-rc.13"
 console_error_panic_hook = "0.1.7"
 # directories = "4.0.1"
 miniscript_crate = { package = "miniscript", version = "9.0.1", features = [
@@ -84,7 +84,7 @@ postcard = { version = "1.0.4", features = ["alloc"] }
 serde-encrypt = "0.7.0"
 strict_types = "1.2.0"
 strict_encoding = "2.2.0"
-tokio = { version = "1.28.0", features = ["macros", "sync"] }
+tokio = { version = "1.28.2", features = ["macros", "sync"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 bdk = { version = "0.28.0", features = [
@@ -115,7 +115,7 @@ inflate = "0.4.5"
 tower-http = { version = "0.4.0", features = ["cors"], optional = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
-tokio = { version = "1.28.1", features = ["full"] }
+tokio = { version = "1.28.2", features = ["full"] }
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3.36"

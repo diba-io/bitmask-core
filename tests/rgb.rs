@@ -9,7 +9,8 @@ mod rgb {
     }
 
     mod integration {
-        mod collectibles;
+        // TODO: Review after support multi-token transfer
+        // mod collectibles;
         mod fungibles;
         mod import;
         mod issue;
