@@ -16,7 +16,6 @@ use axum::{
 use bitcoin_30::secp256k1::{ecdh::SharedSecret, PublicKey, SecretKey};
 use bitmask_core::{
     bitcoin::{get_encrypted_wallet, get_wallet_data, save_mnemonic, sign_psbt_file},
-    carbonado::handle_file,
     constants::{get_marketplace_seed, get_udas_utxo},
     rgb::{
         accept_transfer, clear_watcher as rgb_clear_watcher, create_invoice, create_psbt,
@@ -253,15 +252,33 @@ async fn next_utxo(
     Ok((StatusCode::OK, Json(resp)))
 }
 
+pub async fn handle_file(pk: &str, name: &str, bytes: usize) -> Result<std::path::PathBuf> {
+    let directory = std::path::Path::new(
+        &std::env::var("CARBONADO_DIR").unwrap_or("/tmp/bitmaskd/carbonado".to_owned()),
+    )
+    .join(pk);
+    let filepath = directory.join(name);
+
+    fs::create_dir_all(directory).await?;
+
+    if bytes == 0 {
+        info!("read {}", filepath.to_string_lossy());
+    } else {
+        info!("write {bytes} bytes to {}", filepath.to_string_lossy());
+    }
+
+    Ok(filepath)
+}
+
 async fn co_store(
     Path((pk, name)): Path<(String, String)>,
     body: Bytes,
 ) -> Result<impl IntoResponse, AppError> {
     let incoming_header = carbonado::file::Header::try_from(&body)?;
-    let body_len = incoming_header.encoded_len - incoming_header.padding_len;
-    info!("POST /carbonado/{pk}/{name}, {body_len} bytes");
+    let incoming_len = incoming_header.encoded_len - incoming_header.padding_len;
+    info!("POST /carbonado/{pk}/{name}, {incoming_len} bytes");
 
-    let filepath = handle_file(&pk, &name, body_len.try_into()?).await?;
+    let filepath = handle_file(&pk, &name, incoming_len.try_into()?).await?;
 
     match OpenOptions::new()
         .read(true)
@@ -272,8 +289,8 @@ async fn co_store(
         Ok(file) => {
             let present_header = carbonado::file::Header::try_from(&file)?;
             let present_len = present_header.encoded_len - present_header.padding_len;
-            debug!("body len: {body_len} present_len: {present_len}");
-            if body_len > present_len {
+            debug!("body len: {incoming_len} present_len: {present_len}");
+            if incoming_len > present_len {
                 debug!("body is bigger, overwriting.");
                 fs::write(&filepath, &body).await?;
             } else {
@@ -282,7 +299,7 @@ async fn co_store(
         }
         Err(err) => match err.kind() {
             ErrorKind::NotFound => {
-                debug!("no file found, writing {body_len} bytes.");
+                debug!("no file found, writing {incoming_len} bytes.");
                 fs::write(&filepath, &body).await?;
             }
             _ => {
