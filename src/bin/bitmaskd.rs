@@ -1,7 +1,7 @@
 #![allow(unused_imports)]
 #![cfg(feature = "server")]
 #![cfg(not(target_arch = "wasm32"))]
-use std::{env, io::ErrorKind, net::SocketAddr, str::FromStr};
+use std::{env, fs::OpenOptions, io::ErrorKind, net::SocketAddr, str::FromStr};
 
 use anyhow::Result;
 use axum::{
@@ -261,15 +261,23 @@ async fn co_store(
     Path((pk, name)): Path<(String, String)>,
     body: Bytes,
 ) -> Result<impl IntoResponse, AppError> {
-    let body_len = body.len();
+    let incoming_header = carbonado::file::Header::try_from(&body)?;
+    let body_len = incoming_header.encoded_len;
     info!("POST /carbonado/{pk}/{name}, {body_len} bytes");
 
-    let filepath = handle_file(&pk, &name, body_len).await?;
+    let filepath = handle_file(&pk, &name, body_len.try_into()?).await?;
 
-    match fs::metadata(&filepath).await {
-        Ok(metadata) => {
-            debug!("body len: {body_len} metadata len: {}", metadata.len());
-            if body_len > metadata.len().try_into()? {
+    match OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .open(&filepath)
+    {
+        Ok(file) => {
+            let present_header = carbonado::file::Header::try_from(&file)?;
+            let present_len = present_header.encoded_len;
+            debug!("body len: {body_len} present_len: {present_len}");
+            if body_len > present_len {
                 debug!("body is bigger, overwriting.");
                 fs::write(&filepath, &body).await?;
             } else {
@@ -325,7 +333,7 @@ async fn key(Path(pk): Path<String>) -> Result<impl IntoResponse, AppError> {
 #[tokio::main]
 async fn main() -> Result<()> {
     if env::var("RUST_LOG").is_err() {
-        env::set_var("RUST_LOG", "debug");
+        env::set_var("RUST_LOG", "bitmask_core=debug,bitmaskd=debug");
     }
 
     pretty_env_logger::init();

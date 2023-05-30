@@ -756,14 +756,15 @@ checksum = "89b2fd2a0dcf38d7971e2194b6b6eebab45ae01067456a7fd93d5547a61b70be"
 
 [[package]]
 name = "carbonado"
-version = "0.3.0-rc.8"
+version = "0.3.0-rc.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "83df2d8d7f54171b22b0fa2d1dd3ca0527b21615ff188a3e4edb920afc450e79"
+checksum = "2510ef3454410abef0be2d8da5b38227530a7ea55c69f666f0179410c61f8858"
 dependencies = [
  "anyhow",
  "bao",
  "bech32",
  "bitmask-enum",
+ "bytes",
  "ecies",
  "hex",
  "log",
@@ -3366,9 +3367,9 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "tokio"
-version = "1.28.1"
+version = "1.28.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0aa32867d44e6f2ce3385e89dceb990188b8bb0fb25b0cf576647a6f98ac5105"
+checksum = "94d7b1cfd2aa4011f2de74c2c4c63665e27a71006b0a192dcd2710272e73dfa2"
 dependencies = [
  "autocfg",
  "bytes",
