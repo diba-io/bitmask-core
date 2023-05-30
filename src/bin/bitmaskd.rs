@@ -29,7 +29,7 @@ use bitmask_core::{
         PsbtRequest, RgbTransferRequest, SelfIssueRequest, SignPsbtRequest, WatcherRequest,
     },
 };
-use log::info;
+use log::{debug, error, info};
 use rgbstd::interface::Iface;
 use serde::{Deserialize, Serialize};
 use tokio::fs;
@@ -261,21 +261,30 @@ async fn co_store(
     Path((pk, name)): Path<(String, String)>,
     body: Bytes,
 ) -> Result<impl IntoResponse, AppError> {
-    info!("POST /carbonado/{pk}/{name}, {} bytes", body.len());
+    let body_len = body.len();
+    info!("POST /carbonado/{pk}/{name}, {body_len} bytes");
 
-    let filepath = handle_file(&pk, &name, body.len()).await?;
+    let filepath = handle_file(&pk, &name, body_len).await?;
 
     match fs::metadata(&filepath).await {
         Ok(metadata) => {
-            if body.len() > metadata.len().try_into()? {
+            debug!("body len: {body_len} metadata len: {}", metadata.len());
+            if body_len > metadata.len().try_into()? {
+                debug!("body is bigger, overwriting.");
                 fs::write(&filepath, &body).await?;
+            } else {
+                debug!("no file written.");
             }
         }
         Err(err) => match err.kind() {
             ErrorKind::NotFound => {
+                debug!("no file found, writing {body_len} bytes.");
                 fs::write(&filepath, &body).await?;
             }
-            _ => return Err(err.into()),
+            _ => {
+                error!("error in POST /carbonado/{pk}/{name}: {err}");
+                return Err(err.into());
+            }
         },
     }
 
