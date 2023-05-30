@@ -7,7 +7,7 @@ use anyhow::Result;
 use axum::{
     body::Bytes,
     extract::Path,
-    headers::{authorization::Bearer, Authorization},
+    headers::{authorization::Bearer, Authorization, CacheControl},
     http::StatusCode,
     response::{IntoResponse, Response},
     routing::{delete, get, post},
@@ -279,7 +279,9 @@ async fn co_store(
         },
     }
 
-    Ok(StatusCode::OK)
+    let cc = CacheControl::new().with_no_cache();
+
+    Ok((StatusCode::OK, TypedHeader(cc)))
 }
 
 async fn co_retrieve(
@@ -291,9 +293,11 @@ async fn co_retrieve(
 
     let bytes = fs::read(filepath).await;
 
+    let cc = CacheControl::new().with_no_cache();
+
     match bytes {
-        Ok(bytes) => Ok((StatusCode::OK, bytes)),
-        Err(_e) => Ok((StatusCode::OK, Vec::<u8>::new())),
+        Ok(bytes) => Ok((StatusCode::OK, TypedHeader(cc), bytes)),
+        Err(_e) => Ok((StatusCode::OK, TypedHeader(cc), Vec::<u8>::new())),
     }
 }
 

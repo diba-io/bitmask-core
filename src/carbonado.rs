@@ -37,6 +37,7 @@ pub async fn store(sk: &str, name: &str, input: &[u8]) -> Result<()> {
         .post(&url)
         .body(body)
         .header("Content-Type", "application/octet-stream")
+        .header("Cache-Control", "no-cache")
         .send()
         .await
         .context(format!("Error sending JSON POST request to {url}"))?;
@@ -86,6 +87,7 @@ pub async fn retrieve(sk: &str, name: &str) -> Result<Vec<u8>> {
     let response = client
         .get(&url)
         .header("Accept", "application/octet-stream")
+        .header("Cache-Control", "no-cache")
         .send()
         .await
         .context(format!("Error sending JSON POST request to {url}"))?;
