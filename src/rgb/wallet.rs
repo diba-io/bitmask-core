@@ -10,7 +10,7 @@ use std::{collections::HashMap, str::FromStr};
 use strict_encoding::tn;
 
 use crate::rgb::{resolvers::ResolveSpent, structs::AddressTerminal};
-use crate::structs::{AllocationDetail, WatcherDetail};
+use crate::structs::{AllocationDetail, AllocationValue, UDAPosition, WatcherDetail};
 
 pub fn create_wallet(
     iface: &str,
@@ -205,7 +205,7 @@ pub fn list_allocations(
                         if let Some(utxo) = wallet.utxo(allocation.owner) {
                             owners.push(AllocationDetail {
                                 utxo: utxo.outpoint.to_string(),
-                                value: allocation.value,
+                                value: AllocationValue::Value(allocation.value),
                                 derivation: format!(
                                     "/{}/{}",
                                     utxo.derivation.terminal.app, utxo.derivation.terminal.index
@@ -215,7 +215,7 @@ pub fn list_allocations(
                         } else {
                             owners.push(AllocationDetail {
                                 utxo: allocation.owner.to_string(),
-                                value: allocation.value,
+                                value: AllocationValue::Value(allocation.value),
                                 derivation: default!(),
                                 is_mine: false,
                             });
@@ -228,8 +228,7 @@ pub fn list_allocations(
                         if let Some(utxo) = wallet.utxo(allocation.owner) {
                             owners.push(AllocationDetail {
                                 utxo: utxo.outpoint.to_string(),
-                                // TODO: Use appropriate type
-                                value: 1,
+                                value: AllocationValue::UDA(UDAPosition::with(allocation.value)),
                                 derivation: format!(
                                     "/{}/{}",
                                     utxo.derivation.terminal.app, utxo.derivation.terminal.index
@@ -239,8 +238,7 @@ pub fn list_allocations(
                         } else {
                             owners.push(AllocationDetail {
                                 utxo: allocation.owner.to_string(),
-                                // TODO: Use appropriate type
-                                value: 1,
+                                value: AllocationValue::UDA(UDAPosition::with(allocation.value)),
                                 derivation: default!(),
                                 is_mine: false,
                             });

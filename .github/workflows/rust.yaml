@@ -81,7 +81,7 @@ jobs:
 
       - name: Up Bitcoin Node
         run: |
-          docker compose up -d node1 bitmaskd
+          docker compose up -d node1
 
       - name: Setup Bitcoin Node
         run: |
@@ -96,11 +96,18 @@ jobs:
           MAIN_VAULT_ADDRESS: ${{ secrets.MAIN_VAULT_ADDRESS }}
           RUST_BACKTRACE: 1
 
-      - name: Integration Tests
-        run: cargo test --locked -- --test-threads 1 --nocapture
+      - name: RGB Tests
+        run: cargo test --features server --test rgb  -- rgb --nocapture --test-threads 1
         env:
           TEST_WALLET_SEED: ${{ secrets.TEST_WALLET_SEED }}
           RUST_BACKTRACE: 1
+
+      - name: Wallet, LN & Payjoin Tests
+        run: cargo test --locked -- --skip rgb --test-threads 1 --nocapture
+        env:
+          TEST_WALLET_SEED: ${{ secrets.TEST_WALLET_SEED }}
+          RUST_BACKTRACE: 1
+
 
   test-wasm:
     runs-on: ubuntu-latest

@@ -77,12 +77,12 @@ pub async fn issue_contract(sk: &str, request: IssueRequest) -> Result<IssueResp
         precision,
         iface,
         seal,
-        medias,
+        meta,
     } = request;
     let mut stock = retrieve_stock(sk, ASSETS_STOCK).await?;
     let mut rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await?;
 
-    // Resolvers Workaround
+    // Prefetch
     let mut resolver = ExplorerResolver {
         explorer_url: BITCOIN_EXPLORER_API.read().await.to_string(),
         ..Default::default()
@@ -112,7 +112,7 @@ pub async fn issue_contract(sk: &str, request: IssueRequest) -> Result<IssueResp
         &iface,
         &seal,
         &network,
-        medias,
+        meta,
         &mut resolver,
         &mut stock,
     )?;
@@ -130,7 +130,7 @@ pub async fn issue_contract(sk: &str, request: IssueRequest) -> Result<IssueResp
         allocations: _,
         contract,
         genesis,
-        medias,
+        meta,
     } = extract_contract_by_id(
         contract.contract_id(),
         &mut stock,
@@ -158,7 +158,7 @@ pub async fn issue_contract(sk: &str, request: IssueRequest) -> Result<IssueResp
         contract,
         genesis,
         issue_utxo: seal.replace("tapret1st:", ""),
-        medias,
+        meta,
     })
 }
 
@@ -168,10 +168,11 @@ pub async fn create_invoice(sk: &str, request: InvoiceRequest) -> Result<Invoice
         iface,
         seal,
         amount,
+        params,
     } = request;
     let mut stock = retrieve_stock(sk, ASSETS_STOCK).await?;
 
-    let invoice = create_rgb_invoice(&contract_id, &iface, amount, &seal, &mut stock)?;
+    let invoice = create_rgb_invoice(&contract_id, &iface, amount, &seal, params, &mut stock)?;
 
     store_stock(sk, ASSETS_STOCK, &stock).await?;
 
@@ -193,7 +194,7 @@ pub async fn create_psbt(sk: &str, request: PsbtRequest) -> Result<PsbtResponse>
 
     let stock: rgbstd::persistence::Stock = retrieve_stock(sk, ASSETS_STOCK).await?;
 
-    // Resolvers Workaround
+    // Prefetch
     let mut resolver = ExplorerResolver {
         explorer_url: BITCOIN_EXPLORER_API.read().await.to_string(),
         ..Default::default()
@@ -283,7 +284,7 @@ pub async fn accept_transfer(sk: &str, request: AcceptRequest) -> Result<AcceptR
 
     let mut stock = retrieve_stock(sk, ASSETS_STOCK).await?;
 
-    // Resolvers Workaround
+    // Prefetch
     let mut resolver = ExplorerResolver {
         explorer_url: BITCOIN_EXPLORER_API.read().await.to_string(),
         ..Default::default()
@@ -348,7 +349,7 @@ pub async fn list_contracts(sk: &str) -> Result<ContractsResponse> {
     let mut stock = retrieve_stock(sk, ASSETS_STOCK).await?;
     let mut rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await?;
 
-    // Resolvers Workaround
+    // Prefetch
     let mut resolver = ExplorerResolver {
         explorer_url: BITCOIN_EXPLORER_API.read().await.to_string(),
         ..Default::default()
@@ -430,7 +431,7 @@ pub async fn import(sk: &str, request: ImportRequest) -> Result<ContractResponse
     let mut stock = retrieve_stock(sk, ASSETS_STOCK).await?;
     let mut rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await?;
 
-    // Resolvers Workaround
+    // Prefetch
     let mut resolver = ExplorerResolver {
         explorer_url: BITCOIN_EXPLORER_API.read().await.to_string(),
         ..Default::default()
@@ -467,8 +468,12 @@ pub async fn import(sk: &str, request: ImportRequest) -> Result<ContractResponse
 }
 
 pub async fn create_watcher(sk: &str, request: WatcherRequest) -> Result<WatcherResponse> {
-    let WatcherRequest { name, xpub } = request;
+    let WatcherRequest { name, xpub, force } = request;
     let mut rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await?;
+
+    if rgb_account.wallets.contains_key(&name) && force {
+        rgb_account.wallets.remove(&name);
+    }
 
     if !rgb_account.wallets.contains_key(&name) {
         let xdesc = DescriptorPublicKey::from_str(&xpub)?;
@@ -486,7 +491,7 @@ pub async fn create_watcher(sk: &str, request: WatcherRequest) -> Result<Watcher
 pub async fn clear_watcher(sk: &str, name: &str) -> Result<WatcherResponse> {
     let mut rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await?;
 
-    if !rgb_account.wallets.contains_key(name) {
+    if rgb_account.wallets.contains_key(name) {
         rgb_account.wallets.remove(name);
     }
 
@@ -506,7 +511,7 @@ pub async fn watcher_details(sk: &str, name: &str) -> Result<WatcherDetailRespon
     };
     let mut wallet = wallet?;
 
-    // Resolvers Workaround
+    // Prefetch
     let mut resolver = ExplorerResolver {
         explorer_url: BITCOIN_EXPLORER_API.read().await.to_string(),
         ..Default::default()
@@ -579,7 +584,7 @@ pub async fn watcher_next_utxo(sk: &str, name: &str, iface: &str) -> Result<Next
 
     let mut wallet = wallet?;
 
-    // Resolvers Workaround
+    // Prefetch
     let mut resolver = ExplorerResolver {
         explorer_url: BITCOIN_EXPLORER_API.read().await.to_string(),
         ..Default::default()

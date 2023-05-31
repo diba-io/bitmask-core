@@ -1,13 +1,13 @@
 #![allow(unused_imports)]
 #![cfg(feature = "server")]
 #![cfg(not(target_arch = "wasm32"))]
-use std::{env, net::SocketAddr, str::FromStr};
+use std::{env, fs::OpenOptions, io::ErrorKind, net::SocketAddr, str::FromStr};
 
 use anyhow::Result;
 use axum::{
     body::Bytes,
     extract::Path,
-    headers::{authorization::Bearer, Authorization},
+    headers::{authorization::Bearer, Authorization, CacheControl},
     http::StatusCode,
     response::{IntoResponse, Response},
     routing::{delete, get, post},
@@ -29,7 +29,8 @@ use bitmask_core::{
         PsbtRequest, RgbTransferRequest, SelfIssueRequest, SignPsbtRequest, WatcherRequest,
     },
 };
-use log::info;
+use carbonado::file;
+use log::{debug, error, info};
 use rgbstd::interface::Iface;
 use serde::{Deserialize, Serialize};
 use tokio::fs;
@@ -49,9 +50,7 @@ async fn self_issue(Json(issue): Json<SelfIssueRequest>) -> Result<impl IntoResp
 
     let sk = issuer_keys.private.nostr_prv;
 
-    info!("sk:{:#?}", sk);
     let issue_seal = format!("tapret1st:{}", get_udas_utxo().await);
-    info!("issue_seal:{issue_seal}");
     let request = IssueRequest {
         ticker: issue.ticker,
         name: issue.name,
@@ -60,12 +59,10 @@ async fn self_issue(Json(issue): Json<SelfIssueRequest>) -> Result<impl IntoResp
         supply: 1,
         seal: issue_seal.to_owned(),
         iface: "RGB21".to_string(),
-        medias: issue.medias,
+        meta: issue.meta,
     };
-    info!("request:{:#?}", request);
 
     let issue_res = issue_contract(&sk, request).await?;
-    info!("issue_res:{:#?}", issue_res);
 
     Ok((StatusCode::OK, Json(issue_res)))
 }
@@ -261,13 +258,48 @@ async fn co_store(
     Path((pk, name)): Path<(String, String)>,
     body: Bytes,
 ) -> Result<impl IntoResponse, AppError> {
-    info!("POST /carbonado/{pk}/{name}, {} bytes", body.len());
+    let incoming_header = carbonado::file::Header::try_from(&body)?;
+    let body_len = incoming_header.encoded_len - incoming_header.padding_len;
+    info!("POST /carbonado/{pk}/{name}, {body_len} bytes");
 
-    let filepath = handle_file(&pk, &name, body.len()).await?;
+    let filepath = handle_file(&pk, &name, body_len.try_into()?).await?;
 
-    fs::write(filepath, body).await?;
+    match OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .open(&filepath)
+    {
+        Ok(file) => {
+            let present_header = match carbonado::file::Header::try_from(&file) {
+                Ok(header) => header,
+                _ => carbonado::file::Header::try_from(&body)?,
+            };
+            let present_len = present_header.encoded_len - present_header.padding_len;
+            debug!("body len: {body_len} present_len: {present_len}");
+            if body_len >= present_len {
+                debug!("body is bigger, overwriting.");
+                let resp = fs::write(&filepath, &body).await;
+                debug!("write file status {}", resp.is_ok());
+            } else {
+                debug!("no file written.");
+            }
+        }
+        Err(err) => match err.kind() {
+            ErrorKind::NotFound => {
+                debug!("no file found, writing {body_len} bytes.");
+                fs::write(&filepath, &body).await?;
+            }
+            _ => {
+                error!("error in POST /carbonado/{pk}/{name}: {err}");
+                return Err(err.into());
+            }
+        },
+    }
 
-    Ok(StatusCode::OK)
+    let cc = CacheControl::new().with_no_cache();
+
+    Ok((StatusCode::OK, TypedHeader(cc)))
 }
 
 async fn co_retrieve(
@@ -275,13 +307,24 @@ async fn co_retrieve(
 ) -> Result<impl IntoResponse, AppError> {
     info!("GET /carbonado/{pk}/{name}");
 
-    let filepath = handle_file(&pk, &name, 0).await?;
-
+    let filepath = &handle_file(&pk, &name, 0).await?;
+    let fullpath = filepath.to_string_lossy();
     let bytes = fs::read(filepath).await;
+    let cc = CacheControl::new().with_no_cache();
 
     match bytes {
-        Ok(bytes) => Ok((StatusCode::OK, bytes)),
-        Err(_e) => Ok((StatusCode::OK, Vec::<u8>::new())),
+        Ok(bytes) => {
+            debug!("read {0} bytes.", bytes.len());
+            Ok((StatusCode::OK, TypedHeader(cc), bytes))
+        }
+        Err(e) => {
+            debug!(
+                "file read error {0} .Details: {1}.",
+                fullpath,
+                e.to_string()
+            );
+            Ok((StatusCode::OK, TypedHeader(cc), Vec::<u8>::new()))
+        }
     }
 }
 
@@ -300,7 +343,7 @@ async fn key(Path(pk): Path<String>) -> Result<impl IntoResponse, AppError> {
 #[tokio::main]
 async fn main() -> Result<()> {
     if env::var("RUST_LOG").is_err() {
-        env::set_var("RUST_LOG", "debug");
+        env::set_var("RUST_LOG", "bitmask_core=debug,bitmaskd=debug");
     }
 
     pretty_env_logger::init();

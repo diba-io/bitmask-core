@@ -1,5 +1,5 @@
 #![cfg(not(target_arch = "wasm32"))]
-use std::{env, process::Stdio};
+use std::{collections::HashMap, env, process::Stdio};
 
 use bdk::wallet::AddressIndex;
 use bitmask_core::{
@@ -10,8 +10,9 @@ use bitmask_core::{
     },
     structs::{
         AllocationDetail, ContractResponse, ContractType, EncryptedWalletData, ImportRequest,
-        InvoiceRequest, InvoiceResponse, IssueRequest, IssueResponse, MediaInfo, PsbtRequest,
-        PsbtResponse, RgbTransferRequest, RgbTransferResponse, WatcherRequest,
+        InvoiceRequest, InvoiceResponse, IssueMetaRequest, IssueMetadata, IssueRequest,
+        IssueResponse, MediaInfo, NewCollectible, PsbtRequest, PsbtResponse, RgbTransferRequest,
+        RgbTransferResponse, WatcherRequest,
     },
 };
 use tokio::process::Command;
@@ -107,20 +108,12 @@ pub async fn shutdown_regtest(force: bool) -> anyhow::Result<()> {
 }
 
 #[allow(dead_code)]
-pub async fn send_coins(iface: &str, watcher_pub: &str) -> anyhow::Result<()> {
-    let issuer_keys = save_mnemonic(ISSUER_MNEMONIC, "").await?;
+pub async fn send_coins(iface: &str, _watcher_pub: &str) -> anyhow::Result<()> {
     let watcher_name = "default";
-    let create_watch_req = WatcherRequest {
-        name: watcher_name.to_string(),
-        xpub: watcher_pub.to_string(),
-    };
-
-    // Create Watcher
-    let sk = issuer_keys.private.nostr_prv;
-    let resp = create_watcher(&sk, create_watch_req).await;
-    assert!(resp.is_ok());
+    let issuer_keys = save_mnemonic(ISSUER_MNEMONIC, "").await?;
 
     // Send Coins
+    let sk = issuer_keys.private.nostr_prv;
     let next_address = watcher_next_address(&sk, watcher_name, iface).await?;
     send_some_coins(&next_address.address, "0.01").await;
     Ok(())
@@ -131,27 +124,34 @@ pub async fn issuer_issue_contract(
     supply: u64,
     force: bool,
     send_coins: bool,
-    infos: Option<Vec<MediaInfo>>,
+    meta: Option<IssueMetaRequest>,
 ) -> Result<IssueResponse, anyhow::Error> {
     setup_regtest(force, None).await;
     let issuer_keys = save_mnemonic(ISSUER_MNEMONIC, "").await?;
     let watcher_name = "default";
-    let create_watch_req = WatcherRequest {
-        name: watcher_name.to_string(),
-        xpub: issuer_keys.public.watcher_xpub,
-    };
 
     // Create Watcher
     let sk = issuer_keys.private.nostr_prv;
-    let resp = create_watcher(&sk, create_watch_req).await;
-    assert!(resp.is_ok());
+    let create_watch_req = WatcherRequest {
+        name: watcher_name.to_string(),
+        xpub: issuer_keys.public.watcher_xpub,
+        force: send_coins,
+    };
+
+    create_watcher(&sk, create_watch_req.clone()).await?;
 
     if send_coins {
         let next_address = watcher_next_address(&sk, watcher_name, iface).await?;
         send_some_coins(&next_address.address, "0.01").await;
     }
 
-    let next_utxo = watcher_next_utxo(&sk, watcher_name, iface).await?;
+    let mut next_utxo = watcher_next_utxo(&sk, watcher_name, iface).await?;
+    if next_utxo.utxo.is_empty() {
+        let next_address = watcher_next_address(&sk, watcher_name, iface).await?;
+        send_some_coins(&next_address.address, "0.01").await;
+
+        next_utxo = watcher_next_utxo(&sk, watcher_name, iface).await?;
+    }
 
     let issue_utxo = next_utxo.utxo;
     let issue_seal = format!("tapret1st:{issue_utxo}");
@@ -163,7 +163,7 @@ pub async fn issuer_issue_contract(
         supply,
         seal: issue_seal.to_owned(),
         iface: iface.to_string(),
-        medias: infos,
+        meta,
     };
 
     issue_contract(&sk, request).await
@@ -179,6 +179,7 @@ pub async fn import_new_contract(
     let create_watch_req = WatcherRequest {
         name: "default".to_owned(),
         xpub: owner_keys.public.watcher_xpub,
+        force: true,
     };
 
     let resp = create_watcher(&sk, create_watch_req).await;
@@ -203,6 +204,7 @@ pub async fn import_new_contract(
 
 pub async fn create_new_invoice(
     issuer_resp: IssueResponse,
+    params: Option<HashMap<String, String>>,
 ) -> Result<InvoiceResponse, anyhow::Error> {
     let owner_keys = save_mnemonic(OWNER_MNEMONIC, "").await?;
     let descriptor_pub = match issuer_resp.iface.as_str() {
@@ -214,14 +216,6 @@ pub async fn create_new_invoice(
 
     // Create Watcher
     let sk = owner_keys.private.nostr_prv;
-    let create_watch_req = WatcherRequest {
-        name: "default".to_owned(),
-        xpub: owner_keys.public.watcher_xpub,
-    };
-
-    let resp = create_watcher(&sk, create_watch_req).await;
-    assert!(resp.is_ok());
-
     let contract_type = match issuer_resp.iface.as_str() {
         "RGB20" => ContractType::RGB20,
         "RGB21" => ContractType::RGB21,
@@ -251,11 +245,13 @@ pub async fn create_new_invoice(
     let seal = beneficiary_utxo.outpoint.to_string();
     let seal = format!("tapret1st:{seal}");
 
+    let params = params.unwrap_or_default();
     let invoice_req = InvoiceRequest {
         contract_id: issuer_resp.contract_id,
         iface: issuer_resp.iface,
         amount: 1,
         seal,
+        params,
     };
 
     create_invoice(&sk, invoice_req).await
@@ -274,7 +270,11 @@ pub async fn create_new_psbt(
     let mut asset_utxo = String::new();
     let mut asset_utxo_terminal = String::new();
     let watcher_details = resp?;
-    for contract_allocations in watcher_details.contracts {
+    for contract_allocations in watcher_details
+        .contracts
+        .into_iter()
+        .filter(|x| x.contract_id == issuer_resp.contract_id)
+    {
         let allocations: Vec<AllocationDetail> = contract_allocations
             .allocations
             .into_iter()
@@ -283,7 +283,8 @@ pub async fn create_new_psbt(
 
         if let Some(allocation) = allocations.into_iter().next() {
             asset_utxo = allocation.utxo.to_owned();
-            asset_utxo_terminal = allocation.derivation.to_owned();
+            asset_utxo_terminal = allocation.derivation;
+            break;
         }
     }
 
@@ -322,4 +323,34 @@ pub async fn create_new_transfer(
     let sk = issuer_keys.private.nostr_prv;
 
     transfer_asset(&sk, transfer_req).await
+}
+
+pub fn get_uda_data() -> IssueMetaRequest {
+    IssueMetaRequest::with(IssueMetadata::UDA(vec![MediaInfo {
+        ty: "image/png".to_string(),
+        source: "https://carbonado.io/diba.png".to_string(),
+    }]))
+}
+
+pub fn _get_collectible_data() -> IssueMetaRequest {
+    IssueMetaRequest::with(IssueMetadata::Collectible(vec![
+        NewCollectible {
+            ticker: "DIBAA".to_string(),
+            name: "DIBAA".to_string(),
+            media: vec![MediaInfo {
+                ty: "image/png".to_string(),
+                source: "https://carbonado.io/diba1.png".to_string(),
+            }],
+            ..Default::default()
+        },
+        NewCollectible {
+            ticker: "DIBAB".to_string(),
+            name: "DIBAB".to_string(),
+            media: vec![MediaInfo {
+                ty: "image/png".to_string(),
+                source: "https://carbonado.io/diba2.png".to_string(),
+            }],
+            ..Default::default()
+        },
+    ]))
 }
