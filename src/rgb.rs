@@ -82,7 +82,7 @@ pub async fn issue_contract(sk: &str, request: IssueRequest) -> Result<IssueResp
     let mut stock = retrieve_stock(sk, ASSETS_STOCK).await?;
     let mut rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await?;
 
-    // Resolvers Workaround
+    // Prefetch
     let mut resolver = ExplorerResolver {
         explorer_url: BITCOIN_EXPLORER_API.read().await.to_string(),
         ..Default::default()
@@ -194,7 +194,7 @@ pub async fn create_psbt(sk: &str, request: PsbtRequest) -> Result<PsbtResponse>
 
     let stock: rgbstd::persistence::Stock = retrieve_stock(sk, ASSETS_STOCK).await?;
 
-    // Resolvers Workaround
+    // Prefetch
     let mut resolver = ExplorerResolver {
         explorer_url: BITCOIN_EXPLORER_API.read().await.to_string(),
         ..Default::default()
@@ -284,7 +284,7 @@ pub async fn accept_transfer(sk: &str, request: AcceptRequest) -> Result<AcceptR
 
     let mut stock = retrieve_stock(sk, ASSETS_STOCK).await?;
 
-    // Resolvers Workaround
+    // Prefetch
     let mut resolver = ExplorerResolver {
         explorer_url: BITCOIN_EXPLORER_API.read().await.to_string(),
         ..Default::default()
@@ -349,7 +349,7 @@ pub async fn list_contracts(sk: &str) -> Result<ContractsResponse> {
     let mut stock = retrieve_stock(sk, ASSETS_STOCK).await?;
     let mut rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await?;
 
-    // Resolvers Workaround
+    // Prefetch
     let mut resolver = ExplorerResolver {
         explorer_url: BITCOIN_EXPLORER_API.read().await.to_string(),
         ..Default::default()
@@ -431,7 +431,7 @@ pub async fn import(sk: &str, request: ImportRequest) -> Result<ContractResponse
     let mut stock = retrieve_stock(sk, ASSETS_STOCK).await?;
     let mut rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await?;
 
-    // Resolvers Workaround
+    // Prefetch
     let mut resolver = ExplorerResolver {
         explorer_url: BITCOIN_EXPLORER_API.read().await.to_string(),
         ..Default::default()
@@ -511,7 +511,7 @@ pub async fn watcher_details(sk: &str, name: &str) -> Result<WatcherDetailRespon
     };
     let mut wallet = wallet?;
 
-    // Resolvers Workaround
+    // Prefetch
     let mut resolver = ExplorerResolver {
         explorer_url: BITCOIN_EXPLORER_API.read().await.to_string(),
         ..Default::default()
@@ -584,7 +584,7 @@ pub async fn watcher_next_utxo(sk: &str, name: &str, iface: &str) -> Result<Next
 
     let mut wallet = wallet?;
 
-    // Resolvers Workaround
+    // Prefetch
     let mut resolver = ExplorerResolver {
         explorer_url: BITCOIN_EXPLORER_API.read().await.to_string(),
         ..Default::default()
