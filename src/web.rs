@@ -417,7 +417,7 @@ pub mod rgb {
     }
 
     #[wasm_bindgen]
-    pub fn watcher(nostr_hex_sk: String, request: JsValue) -> Promise {
+    pub fn create_watcher(nostr_hex_sk: String, request: JsValue) -> Promise {
         set_panic_hook();
 
         future_to_promise(async move {

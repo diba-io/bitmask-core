@@ -114,12 +114,20 @@ pub async fn retrieve(sk: &str, name: &str) -> Result<Vec<u8>> {
 
 #[cfg(feature = "server")]
 pub async fn retrieve(sk: &str, name: &str) -> Result<Vec<u8>> {
+    use crate::constants::NETWORK;
+
     let sk = hex::decode(sk)?;
     let secret_key = SecretKey::from_slice(&sk)?;
     let public_key = PublicKey::from_secret_key_global(&secret_key);
     let pk = public_key.to_hex();
 
-    let filepath = handle_file(&pk, name, 0).await?;
+    let network = NETWORK.read().await.to_string();
+    let mut final_name = name.to_string();
+    if !name.contains(&network) {
+        final_name = format!("{network}-{name}");
+    }
+
+    let filepath = handle_file(&pk, &final_name, 0).await?;
     let bytes = fs::read(filepath).await?;
 
     if bytes.is_empty() {
@@ -132,18 +140,28 @@ pub async fn retrieve(sk: &str, name: &str) -> Result<Vec<u8>> {
 
 #[cfg(feature = "server")]
 pub async fn handle_file(pk: &str, name: &str, bytes: usize) -> Result<std::path::PathBuf> {
+    use crate::constants::NETWORK;
+
+    let network = NETWORK.read().await.to_string();
+    let mut final_name = name.to_string();
+    if !name.contains(&network) {
+        final_name = format!("{network}-{name}");
+    }
+
     let directory = std::path::Path::new(
         &std::env::var("CARBONADO_DIR").unwrap_or("/tmp/bitmaskd/carbonado".to_owned()),
     )
     .join(pk);
-    let filepath = directory.join(name);
 
+    let filepath = directory.join(final_name);
     fs::create_dir_all(directory).await?;
-
     if bytes == 0 {
-        info!("read {}", filepath.to_string_lossy());
+        info!(format!("read {}", filepath.to_string_lossy()));
     } else {
-        info!("write {bytes} bytes to {}", filepath.to_string_lossy());
+        info!(format!(
+            "write {bytes} bytes to {}",
+            filepath.to_string_lossy()
+        ));
     }
 
     Ok(filepath)
