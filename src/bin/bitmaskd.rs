@@ -29,6 +29,7 @@ use bitmask_core::{
         PsbtRequest, RgbTransferRequest, SelfIssueRequest, SignPsbtRequest, WatcherRequest,
     },
 };
+use carbonado::file;
 use log::{debug, error, info};
 use rgbstd::interface::Iface;
 use serde::{Deserialize, Serialize};
@@ -276,10 +277,10 @@ async fn co_store(
             };
             let present_len = present_header.encoded_len - present_header.padding_len;
             debug!("body len: {body_len} present_len: {present_len}");
-            if body_len > present_len {
+            if body_len >= present_len {
                 debug!("body is bigger, overwriting.");
                 let resp = fs::write(&filepath, &body).await;
-                debug!("write file {}", resp.is_ok());
+                debug!("write file status {}", resp.is_ok());
             } else {
                 debug!("no file written.");
             }
@@ -306,7 +307,8 @@ async fn co_retrieve(
 ) -> Result<impl IntoResponse, AppError> {
     info!("GET /carbonado/{pk}/{name}");
 
-    let filepath = handle_file(&pk, &name, 0).await?;
+    let filepath = &handle_file(&pk, &name, 0).await?;
+    let fullpath = filepath.to_string_lossy();
     let bytes = fs::read(filepath).await;
     let cc = CacheControl::new().with_no_cache();
 
@@ -316,7 +318,11 @@ async fn co_retrieve(
             Ok((StatusCode::OK, TypedHeader(cc), bytes))
         }
         Err(e) => {
-            debug!("file read error {0}.", e.to_string());
+            debug!(
+                "file read error {0} .Details: {1}.",
+                fullpath,
+                e.to_string()
+            );
             Ok((StatusCode::OK, TypedHeader(cc), Vec::<u8>::new()))
         }
     }
