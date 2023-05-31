@@ -278,7 +278,8 @@ async fn co_store(
             debug!("body len: {body_len} present_len: {present_len}");
             if body_len > present_len {
                 debug!("body is bigger, overwriting.");
-                fs::write(&filepath, &body).await?;
+                let resp = fs::write(&filepath, &body).await;
+                debug!("write file {}", resp.is_ok());
             } else {
                 debug!("no file written.");
             }
@@ -306,14 +307,18 @@ async fn co_retrieve(
     info!("GET /carbonado/{pk}/{name}");
 
     let filepath = handle_file(&pk, &name, 0).await?;
-
     let bytes = fs::read(filepath).await;
-
     let cc = CacheControl::new().with_no_cache();
 
     match bytes {
-        Ok(bytes) => Ok((StatusCode::OK, TypedHeader(cc), bytes)),
-        Err(_e) => Ok((StatusCode::OK, TypedHeader(cc), Vec::<u8>::new())),
+        Ok(bytes) => {
+            debug!("read {0} bytes.", bytes.len());
+            Ok((StatusCode::OK, TypedHeader(cc), bytes))
+        }
+        Err(e) => {
+            debug!("file read error {0}.", e.to_string());
+            Ok((StatusCode::OK, TypedHeader(cc), Vec::<u8>::new()))
+        }
     }
 }
 

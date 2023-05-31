@@ -152,14 +152,16 @@ pub async fn handle_file(pk: &str, name: &str, bytes: usize) -> Result<std::path
         &std::env::var("CARBONADO_DIR").unwrap_or("/tmp/bitmaskd/carbonado".to_owned()),
     )
     .join(pk);
+
     let filepath = directory.join(final_name);
-
     fs::create_dir_all(directory).await?;
-
     if bytes == 0 {
-        info!("read {}", filepath.to_string_lossy());
+        info!(format!("read {}", filepath.to_string_lossy()));
     } else {
-        info!("write {bytes} bytes to {}", filepath.to_string_lossy());
+        info!(format!(
+            "write {bytes} bytes to {}",
+            filepath.to_string_lossy()
+        ));
     }
 
     Ok(filepath)
