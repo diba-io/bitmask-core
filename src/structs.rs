@@ -538,7 +538,9 @@ pub struct AllocationDetail {
 #[serde(rename_all = "camelCase")]
 pub enum AllocationValue {
     #[display(inner)]
+    #[serde(rename = "value")]
     Value(u64),
+    #[serde(rename = "uda")]
     UDA(UDAPosition),
 }
 
