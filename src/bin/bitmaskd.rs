@@ -229,8 +229,7 @@ async fn clear_watcher(
 
 async fn next_address(
     TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
-    Path(name): Path<String>,
-    Path(iface): Path<String>,
+    Path((name, iface)): Path<(String, String)>,
 ) -> Result<impl IntoResponse, AppError> {
     info!("GET /watcher/{name:?}/address");
     info!("GET /watcher/{name:?}/{iface:?}/address");
@@ -243,8 +242,7 @@ async fn next_address(
 
 async fn next_utxo(
     TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
-    Path(name): Path<String>,
-    Path(iface): Path<String>,
+    Path((name, iface)): Path<(String, String)>,
 ) -> Result<impl IntoResponse, AppError> {
     info!("GET /watcher/{name:?}/{iface:?}/utxo");
 
