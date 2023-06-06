@@ -38,6 +38,9 @@ services:
       context: ./
       dockerfile: ./docker/bitmask/Dockerfile
     restart: unless-stopped
+    environment:
+      - BITCOIN_NETWORK=regtest
+      - BITCOIN_EXPLORER_API_REGTEST=http://node1:80/regtest/api
     ports:
       - 7070:7070
     networks:
