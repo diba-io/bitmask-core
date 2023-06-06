@@ -3,10 +3,10 @@ version: "3.7"
 networks:
   bmnet:
     driver: bridge
-    ipam:
-      config:
-        - subnet: 172.21.0.0/24
-          gateway: 172.21.0.1
+    # ipam:
+    #   config:
+    #     - subnet: 172.21.0.0/24
+    #       gateway: 172.21.0.1
 
 volumes:
   node1_data:
@@ -28,7 +28,7 @@ services:
       - 3000:80
     networks:
       bmnet:
-        ipv4_address: 172.21.0.4
+        # ipv4_address: 172.21.0.4
         aliases:
           - node1
 
