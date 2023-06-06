@@ -16,6 +16,7 @@ services:
   node1:
     container_name: bitcoin1
     image: bitmask/node1:latest
+    platform: linux/amd64
     build:
       context: ./docker/esplora/
     restart: unless-stopped
@@ -34,6 +35,7 @@ services:
   bitmaskd:
     container_name: bitmaskd
     image: bitmask/server:latest
+    platform: linux/amd64
     build:
       context: ./
       dockerfile: ./docker/bitmask/Dockerfile
