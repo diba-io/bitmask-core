@@ -17,7 +17,7 @@ use bitcoin_30::secp256k1::{ecdh::SharedSecret, PublicKey, SecretKey};
 use bitmask_core::{
     bitcoin::{get_encrypted_wallet, get_wallet_data, save_mnemonic, sign_psbt_file},
     carbonado::handle_file,
-    constants::{get_marketplace_seed, get_udas_utxo},
+    constants::{get_marketplace_seed, get_network, get_udas_utxo, switch_network},
     rgb::{
         accept_transfer, clear_watcher as rgb_clear_watcher, create_invoice, create_psbt,
         create_watcher, import as rgb_import, issue_contract, list_contracts, list_interfaces,
@@ -368,6 +368,9 @@ async fn main() -> Result<()> {
         .route("/carbonado/:pk/:name", post(co_store))
         .route("/carbonado/:pk/:name", get(co_retrieve))
         .layer(CorsLayer::permissive());
+
+    let network = get_network().await;
+    switch_network(&network).await?;
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 7070));
 
