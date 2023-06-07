@@ -326,6 +326,10 @@ async fn co_retrieve(
     }
 }
 
+async fn status() -> Result<impl IntoResponse, AppError> {
+    Ok((StatusCode::OK, "OK".to_string()))
+}
+
 async fn key(Path(pk): Path<String>) -> Result<impl IntoResponse, AppError> {
     let sk = env::var("NOSTR_SK")?;
     let sk = SecretKey::from_str(&sk)?;
@@ -365,6 +369,7 @@ async fn main() -> Result<()> {
         .route("/watcher/:name/:iface/utxo", get(next_utxo))
         .route("/watcher/:name", delete(clear_watcher))
         .route("/key/:pk", get(key))
+        .route("/carbonado/status", get(status))
         .route("/carbonado/:pk/:name", post(co_store))
         .route("/carbonado/:pk/:name", get(co_retrieve))
         .layer(CorsLayer::permissive());
