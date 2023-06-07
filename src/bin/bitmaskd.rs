@@ -327,7 +327,9 @@ async fn co_retrieve(
 }
 
 async fn status() -> Result<impl IntoResponse, AppError> {
-    Ok((StatusCode::OK, "OK".to_string()))
+    let cc = CacheControl::new().with_no_cache();
+
+    Ok((StatusCode::OK, TypedHeader(cc), "OK".to_string()))
 }
 
 async fn key(Path(pk): Path<String>) -> Result<impl IntoResponse, AppError> {
