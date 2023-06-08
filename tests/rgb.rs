@@ -17,9 +17,12 @@ mod rgb {
         mod stress;
         mod udas;
         pub mod utils;
+        mod watcher;
     }
 
-    mod wasm {
+    mod web {
+        mod contracts;
+        mod imports;
         mod std;
     }
 }

@@ -3,7 +3,7 @@
 use amplify::hex::ToHex;
 use bitcoin::Script;
 use bp::{LockTime, Outpoint, SeqNo, Tx, TxIn, TxOut, TxVer, Txid, VarIntArray, Witness};
-use rgb::{prelude::DeriveInfo, MiningStatus, Utxo};
+use rgb::{prelude::DeriveInfo, MiningStatus, TerminalPath, Utxo};
 use rgbstd::{resolvers::ResolveHeight, validation::ResolveTx as ResolveCommiment};
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap},
