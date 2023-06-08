@@ -9,7 +9,7 @@ use bitmask_core::{
         watcher_details, watcher_next_address, watcher_next_utxo,
     },
     structs::{
-        AllocationDetail, ContractResponse, ContractType, EncryptedWalletData, ImportRequest,
+        AllocationDetail, AssetType, ContractResponse, EncryptedWalletData, ImportRequest,
         InvoiceRequest, InvoiceResponse, IssueMetaRequest, IssueMetadata, IssueRequest,
         IssueResponse, MediaInfo, NewCollectible, PsbtRequest, PsbtResponse, RgbTransferRequest,
         RgbTransferResponse, WatcherRequest,
@@ -186,9 +186,9 @@ pub async fn import_new_contract(
     assert!(resp.is_ok());
 
     let contract_type = match issuer_resp.iface.as_str() {
-        "RGB20" => ContractType::RGB20,
-        "RGB21" => ContractType::RGB21,
-        _ => ContractType::Contract,
+        "RGB20" => AssetType::RGB20,
+        "RGB21" => AssetType::RGB21,
+        _ => AssetType::Contract,
     };
 
     // Import Contract
@@ -217,9 +217,9 @@ pub async fn create_new_invoice(
     // Create Watcher
     let sk = owner_keys.private.nostr_prv;
     let contract_type = match issuer_resp.iface.as_str() {
-        "RGB20" => ContractType::RGB20,
-        "RGB21" => ContractType::RGB21,
-        _ => ContractType::Contract,
+        "RGB20" => AssetType::RGB20,
+        "RGB21" => AssetType::RGB21,
+        _ => AssetType::Contract,
     };
 
     // Import Contract

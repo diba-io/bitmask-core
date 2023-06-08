@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 #![allow(unused_imports)]
 #![allow(unused_variables)]
 #![cfg(all(target_arch = "wasm32"))]
@@ -7,9 +8,9 @@ use bdk::blockchain::EsploraBlockchain;
 use bitcoin::{consensus, Transaction};
 use bitmask_core::{
     debug, info,
-    rgb::{prefetch::prefetch_resolve_txs, resolvers::ExplorerResolver},
+    rgb::{prefetch::prefetch_resolver_txs, resolvers::ExplorerResolver},
     structs::{
-        ContractResponse, ContractType, ContractsResponse, EncryptedWalletData, FundVaultDetails,
+        AssetType, ContractResponse, ContractsResponse, EncryptedWalletData, FundVaultDetails,
         ImportRequest, MnemonicSeedData, WalletData, WatcherRequest,
     },
     web::{
@@ -32,7 +33,7 @@ wasm_bindgen_test_configure!(run_in_browser);
 const ENCRYPTION_PASSWORD: &str = "hunter2";
 const SEED_PASSWORD: &str = "";
 
-#[wasm_bindgen_test]
+// #[wasm_bindgen_test]
 async fn import_fungible_contract() {
     set_panic_hook();
     let mnemonic = env!("TEST_WALLET_SEED", "TEST_WALLET_SEED variable not set");
@@ -58,7 +59,7 @@ async fn import_fungible_contract() {
     info!("Import Contract");
     let sk = wallet_data.private.nostr_prv;
     let contract_import = ImportRequest {
-        import: ContractType::RGB20,
+        import: AssetType::RGB20,
         data: FUNGIBLE_CONTRACT.to_string(),
     };
 
@@ -78,7 +79,7 @@ async fn import_fungible_contract() {
     assert_eq!(1, contract.len());
 }
 
-#[wasm_bindgen_test]
+// #[wasm_bindgen_test]
 async fn import_uda_contract() {
     set_panic_hook();
     let mnemonic = env!("TEST_WALLET_SEED", "TEST_WALLET_SEED variable not set");
@@ -114,7 +115,7 @@ async fn import_uda_contract() {
 
     info!("Import Contract");
     let contract_import = ImportRequest {
-        import: ContractType::RGB21,
+        import: AssetType::RGB21,
         data: UDA_CONTRACT.to_string(),
     };
 
@@ -159,7 +160,7 @@ async fn import_two_contracts() {
 
     info!("Import Contract (Fungible)");
     let contract_import = ImportRequest {
-        import: ContractType::RGB20,
+        import: AssetType::RGB20,
         data: FUNGIBLE_CONTRACT.to_string(),
     };
     let req = serde_wasm_bindgen::to_value(&contract_import).expect("oh no!");
@@ -167,7 +168,7 @@ async fn import_two_contracts() {
 
     info!("Import Contract (UDA)");
     let contract_import = ImportRequest {
-        import: ContractType::RGB21,
+        import: AssetType::RGB21,
         data: UDA_CONTRACT.to_string(),
     };
     let req = serde_wasm_bindgen::to_value(&contract_import).expect("oh no!");

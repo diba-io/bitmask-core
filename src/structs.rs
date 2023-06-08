@@ -236,7 +236,9 @@ pub struct GenesisFormats {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-pub enum ContractType {
+pub enum AssetType {
+    #[serde(rename = "bitcoin")]
+    Bitcoin = 0,
     #[serde(rename = "contract")]
     Contract = 9,
     #[serde(rename = "rgb20")]
@@ -249,7 +251,7 @@ pub enum ContractType {
 #[serde(rename_all = "camelCase")]
 pub struct ImportRequest {
     /// The type data
-    pub import: ContractType,
+    pub import: AssetType,
     /// The payload data (in hexadecimal)
     pub data: String,
 }
@@ -580,6 +582,12 @@ pub struct NextAddressResponse {
 #[serde(rename_all = "camelCase")]
 pub struct NextUtxoResponse {
     pub utxo: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct WatcherUtxoResponse {
+    pub utxos: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

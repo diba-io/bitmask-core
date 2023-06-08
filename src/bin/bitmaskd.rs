@@ -10,19 +10,19 @@ use axum::{
     headers::{authorization::Bearer, Authorization, CacheControl},
     http::StatusCode,
     response::{IntoResponse, Response},
-    routing::{delete, get, post},
+    routing::{delete, get, post, put},
     Json, Router, TypedHeader,
 };
 use bitcoin_30::secp256k1::{ecdh::SharedSecret, PublicKey, SecretKey};
 use bitmask_core::{
     bitcoin::{get_encrypted_wallet, get_wallet_data, save_mnemonic, sign_psbt_file},
     carbonado::handle_file,
-    constants::{get_marketplace_seed, get_udas_utxo},
+    constants::{get_marketplace_seed, get_network, get_udas_utxo, switch_network},
     rgb::{
         accept_transfer, clear_watcher as rgb_clear_watcher, create_invoice, create_psbt,
         create_watcher, import as rgb_import, issue_contract, list_contracts, list_interfaces,
-        list_schemas, transfer_asset, watcher_details as rgb_watcher_details, watcher_next_address,
-        watcher_next_utxo,
+        list_schemas, transfer_asset, watcher_address, watcher_details as rgb_watcher_details,
+        watcher_next_address, watcher_next_utxo, watcher_utxo,
     },
     structs::{
         AcceptRequest, ImportRequest, InvoiceRequest, IssueAssetRequest, IssueRequest, MediaInfo,
@@ -229,25 +229,49 @@ async fn clear_watcher(
 
 async fn next_address(
     TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
-    Path((name, iface)): Path<(String, String)>,
+    Path((name, asset)): Path<(String, String)>,
 ) -> Result<impl IntoResponse, AppError> {
     info!("GET /watcher/{name:?}/address");
-    info!("GET /watcher/{name:?}/{iface:?}/address");
+    info!("GET /watcher/{name:?}/{asset:?}/address");
 
     let nostr_hex_sk = auth.token();
-    let resp = watcher_next_address(nostr_hex_sk, &name, &iface).await?;
+    let resp = watcher_next_address(nostr_hex_sk, &name, &asset).await?;
 
     Ok((StatusCode::OK, Json(resp)))
 }
 
 async fn next_utxo(
     TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
-    Path((name, iface)): Path<(String, String)>,
+    Path((name, asset)): Path<(String, String)>,
 ) -> Result<impl IntoResponse, AppError> {
-    info!("GET /watcher/{name:?}/{iface:?}/utxo");
+    info!("GET /watcher/{name:?}/{asset:?}/utxo");
 
     let nostr_hex_sk = auth.token();
-    let resp = watcher_next_utxo(nostr_hex_sk, &name, &iface).await?;
+    let resp = watcher_next_utxo(nostr_hex_sk, &name, &asset).await?;
+
+    Ok((StatusCode::OK, Json(resp)))
+}
+
+async fn register_address(
+    TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
+    Path((name, address)): Path<(String, String)>,
+) -> Result<impl IntoResponse, AppError> {
+    info!("PUT /watcher/{name:?}/address/{address:?}");
+
+    let nostr_hex_sk = auth.token();
+    let resp = watcher_address(nostr_hex_sk, &name, &address).await?;
+
+    Ok((StatusCode::OK, Json(resp)))
+}
+
+async fn register_utxo(
+    TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
+    Path((name, utxo)): Path<(String, String)>,
+) -> Result<impl IntoResponse, AppError> {
+    info!("PUT /watcher/{name:?}/utxo/{utxo:?}");
+
+    let nostr_hex_sk = auth.token();
+    let resp = watcher_utxo(nostr_hex_sk, &name, &utxo).await?;
 
     Ok((StatusCode::OK, Json(resp)))
 }
@@ -367,14 +391,22 @@ async fn main() -> Result<()> {
         .route("/import", post(import))
         .route("/watcher", post(watcher))
         .route("/watcher/:name", get(watcher_details))
-        .route("/watcher/:name/:iface/address", get(next_address))
-        .route("/watcher/:name/:iface/utxo", get(next_utxo))
+        .route("/watcher/:name/:asset/address", get(next_address))
+        .route("/watcher/:name/:asset/utxo", get(next_utxo))
+        .route(
+            "/watcher/:name/:asset/address/:address",
+            put(register_address),
+        )
+        .route("/watcher/:name/:asset/utxo/:utxo", put(register_utxo))
         .route("/watcher/:name", delete(clear_watcher))
         .route("/key/:pk", get(key))
         .route("/carbonado/status", get(status))
         .route("/carbonado/:pk/:name", post(co_store))
         .route("/carbonado/:pk/:name", get(co_retrieve))
         .layer(CorsLayer::permissive());
+
+    let network = get_network().await;
+    switch_network(&network).await?;
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 7070));
 

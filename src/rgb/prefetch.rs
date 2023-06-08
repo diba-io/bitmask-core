@@ -4,10 +4,15 @@ use amplify::{
     confinement::Confined,
     hex::{FromHex, ToHex},
 };
+
 use bdk::blockchain::EsploraBlockchain;
 use bech32::{decode, FromBase32};
 use bitcoin::{OutPoint, Script, Txid};
 use bitcoin_30::ScriptBuf;
+use bitcoin_scripts::{
+    address::{AddressCompat, AddressNetwork},
+    PubkeyScript,
+};
 use bp::{LockTime, Outpoint, SeqNo, Tx, TxIn, TxOut, TxVer, Txid as BpTxid, VarIntArray, Witness};
 use rgb::{DeriveInfo, MiningStatus, RgbWallet, SpkDescriptor, Utxo};
 use rgbstd::containers::Contract;
@@ -18,13 +23,13 @@ use wallet::onchain::ResolveTx;
 use crate::rgb::resolvers::ExplorerResolver;
 
 #[cfg(not(target_arch = "wasm32"))]
-pub async fn prefetch_resolve_commit_utxo(contract: &str, explorer: &mut ExplorerResolver) {}
+pub async fn prefetch_resolver_rgb(contract: &str, explorer: &mut ExplorerResolver) {}
 
 #[cfg(not(target_arch = "wasm32"))]
-pub async fn prefetch_resolve_psbt_tx(asset_utxo: &str, explorer: &mut ExplorerResolver) {}
+pub async fn prefetch_resolver_psbt(asset_utxo: &str, explorer: &mut ExplorerResolver) {}
 
 #[cfg(not(target_arch = "wasm32"))]
-pub async fn prefetch_resolve_spend(
+pub async fn prefetch_resolver_utxo_status(
     iface_index: u32,
     wallet: RgbWallet,
     explorer: &mut ExplorerResolver,
@@ -32,7 +37,7 @@ pub async fn prefetch_resolve_spend(
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-pub async fn prefetch_resolve_watcher(
+pub async fn prefetch_resolver_utxos(
     iface_index: u32,
     explorer: &mut ExplorerResolver,
     wallet: &mut RgbWallet,
@@ -40,10 +45,27 @@ pub async fn prefetch_resolve_watcher(
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-pub async fn prefetch_resolve_txs(txids: Vec<Txid>, explorer: &mut ExplorerResolver) {}
+pub async fn prefetch_resolver_txs(txids: Vec<Txid>, explorer: &mut ExplorerResolver) {}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub async fn prefetch_resolver_waddress(
+    address: &str,
+    wallet: &mut RgbWallet,
+    explorer: &mut ExplorerResolver,
+) {
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub async fn prefetch_resolver_wutxo(
+    utxo: &str,
+    network: AddressNetwork,
+    wallet: &mut RgbWallet,
+    explorer: &mut ExplorerResolver,
+) {
+}
 
 #[cfg(target_arch = "wasm32")]
-pub async fn prefetch_resolve_commit_utxo(contract: &str, explorer: &mut ExplorerResolver) {
+pub async fn prefetch_resolver_rgb(contract: &str, explorer: &mut ExplorerResolver) {
     let esplora_client: EsploraBlockchain =
         EsploraBlockchain::new(&explorer.explorer_url, 100).with_concurrency(6);
     let serialized = if contract.starts_with("rgb1") {
@@ -102,7 +124,7 @@ pub async fn prefetch_resolve_commit_utxo(contract: &str, explorer: &mut Explore
 }
 
 #[cfg(target_arch = "wasm32")]
-pub async fn prefetch_resolve_psbt_tx(asset_utxo: &str, explorer: &mut ExplorerResolver) {
+pub async fn prefetch_resolver_psbt(asset_utxo: &str, explorer: &mut ExplorerResolver) {
     let esplora_client: EsploraBlockchain =
         EsploraBlockchain::new(&explorer.explorer_url, 100).with_concurrency(6);
 
@@ -118,7 +140,7 @@ pub async fn prefetch_resolve_psbt_tx(asset_utxo: &str, explorer: &mut ExplorerR
 }
 
 #[cfg(target_arch = "wasm32")]
-pub async fn prefetch_resolve_spend(
+pub async fn prefetch_resolver_utxo_status(
     iface_index: u32,
     wallet: RgbWallet,
     explorer: &mut ExplorerResolver,
@@ -152,7 +174,7 @@ pub async fn prefetch_resolve_spend(
 }
 
 #[cfg(target_arch = "wasm32")]
-pub async fn prefetch_resolve_watcher(
+pub async fn prefetch_resolver_utxos(
     iface_index: u32,
     explorer: &mut ExplorerResolver,
     wallet: &mut RgbWallet,
@@ -160,33 +182,112 @@ pub async fn prefetch_resolve_watcher(
     let esplora_client: EsploraBlockchain =
         EsploraBlockchain::new(&explorer.explorer_url, 100).with_concurrency(6);
 
-    let step = 20;
-    let mut index = 0;
+    let step = 100;
+    let index = 0;
 
-    let iface_indexes: Vec<u32> = wallet
-        .utxos
-        .clone()
-        .into_iter()
-        .filter(|utxo| utxo.derivation.terminal.app == iface_index)
-        .map(|utxo| utxo.derivation.terminal.index)
-        .collect();
+    // loop {
+    let scripts = wallet.descr.derive(iface_index, index..step);
+    let new_scripts: BTreeMap<DeriveInfo, ScriptBuf> =
+        scripts.into_iter().map(|(d, sc)| (d, sc)).collect();
 
-    loop {
-        let scripts = wallet.descr.derive(iface_index, index..step);
-        let new_scripts: BTreeMap<DeriveInfo, ScriptBuf> = scripts
-            .into_iter()
-            .filter(|(d, _)| !iface_indexes.contains(&d.terminal.index))
-            .map(|(d, sc)| (d, sc))
-            .collect();
+    let mut utxos = bset![];
+    let script_list = new_scripts.into_iter().map(|(d, sc)| {
+        (
+            d,
+            Script::from_str(&sc.to_hex_string()).expect("invalid script"),
+        )
+    });
 
-        let mut utxos = bset![];
-        let script_list = new_scripts.into_iter().map(|(d, sc)| {
+    for (derive, script) in script_list {
+        let txs = match esplora_client.scripthash_txs(&script, none!()).await {
+            Ok(txs) => txs,
+            _ => vec![],
+        };
+
+        txs.into_iter().for_each(|tx| {
+            let index = tx
+                .vout
+                .clone()
+                .into_iter()
+                .position(|txout| txout.scriptpubkey == script);
+            if let Some(index) = index {
+                let index = index;
+
+                let status = match tx.status.block_height {
+                    Some(height) => MiningStatus::Blockchain(height),
+                    _ => MiningStatus::Mempool,
+                };
+                let outpoint = Outpoint::new(
+                    bp::Txid::from_str(&tx.txid.to_hex()).expect("invalid transactionID parse"),
+                    index as u32,
+                );
+                let new_utxo = Utxo {
+                    outpoint,
+                    status,
+                    amount: tx.vout[index].value,
+                    derivation: derive.clone(),
+                };
+                utxos.insert(new_utxo);
+            }
+        });
+    }
+
+    if !utxos.is_empty() {
+        wallet.utxos.append(&mut utxos);
+    }
+
+    // index += step;
+    // }
+}
+
+#[cfg(target_arch = "wasm32")]
+pub async fn prefetch_resolver_txs(txids: Vec<Txid>, explorer: &mut ExplorerResolver) {
+    let esplora_client = EsploraBlockchain::new(&explorer.explorer_url, 100).with_concurrency(6);
+    for txid in txids {
+        if let Some(tx) = esplora_client
+            .get_tx(&txid)
+            .await
+            .expect("service unavaliable")
+        {
+            explorer.txs.insert(txid, tx);
+        }
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+pub async fn prefetch_resolver_waddress(
+    address: &str,
+    wallet: &mut RgbWallet,
+    explorer: &mut ExplorerResolver,
+) {
+    let esplora_client: EsploraBlockchain =
+        EsploraBlockchain::new(&explorer.explorer_url, 100).with_concurrency(6);
+
+    let step = 100;
+    let index = 0;
+
+    let sc = AddressCompat::from_str(address).expect("invalid address");
+    let script = ScriptBuf::from_hex(&sc.script_pubkey().to_hex()).expect("invalid script");
+
+    let mut scripts: BTreeMap<DeriveInfo, ScriptBuf> = BTreeMap::new();
+    let asset_indexes: Vec<u32> = [0, 1, 9, 20, 21].to_vec();
+    for app in asset_indexes {
+        scripts.append(&mut wallet.descr.derive(app, index..step));
+    }
+
+    let script = scripts.into_iter().find(|(_, sc)| sc.eq(&script));
+    if let Some((d, sc)) = script {
+        let mut scripts = BTreeMap::new();
+        scripts.insert(d, sc);
+
+        let script_list = scripts.into_iter().map(|(d, sc)| {
             (
                 d,
                 Script::from_str(&sc.to_hex_string()).expect("invalid script"),
             )
         });
 
+        let mut utxos = bset![];
         for (derive, script) in script_list {
             let txs = match esplora_client.scripthash_txs(&script, none!()).await {
                 Ok(txs) => txs,
@@ -221,24 +322,35 @@ pub async fn prefetch_resolve_watcher(
             });
         }
 
-        if utxos.is_empty() {
-            break;
+        if !utxos.is_empty() {
+            wallet.utxos.append(&mut utxos);
         }
-        wallet.utxos.append(&mut utxos);
-        index += step;
     }
 }
 
 #[cfg(target_arch = "wasm32")]
-pub async fn prefetch_resolve_txs(txids: Vec<Txid>, explorer: &mut ExplorerResolver) {
-    let esplora_client = EsploraBlockchain::new(&explorer.explorer_url, 100).with_concurrency(6);
-    for txid in txids {
-        if let Some(tx) = esplora_client
-            .get_tx(&txid)
-            .await
-            .expect("service unavaliable")
-        {
-            explorer.txs.insert(txid, tx);
+pub async fn prefetch_resolver_wutxo(
+    utxo: &str,
+    network: AddressNetwork,
+    wallet: &mut RgbWallet,
+    explorer: &mut ExplorerResolver,
+) {
+    let esplora_client: EsploraBlockchain =
+        EsploraBlockchain::new(&explorer.explorer_url, 100).with_concurrency(6);
+
+    let outpoint = OutPoint::from_str(utxo).expect("invalid outpoint");
+
+    if let Some(tx) = esplora_client
+        .get_tx(&outpoint.txid)
+        .await
+        .expect("service unavaliable")
+    {
+        if let Some(vout) = tx.output.to_vec().get(outpoint.vout as usize) {
+            let sc = Script::from_str(&vout.script_pubkey.to_hex()).expect("invalid script");
+            let pub_script = PubkeyScript::from(sc);
+            if let Some(address) = AddressCompat::from_script(&pub_script, network) {
+                prefetch_resolver_waddress(&address.to_string(), wallet, explorer).await;
+            }
         }
     }
 }
