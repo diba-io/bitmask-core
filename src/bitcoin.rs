@@ -23,7 +23,7 @@ pub use crate::bitcoin::{
     keys::{new_mnemonic, save_mnemonic},
     payment::{create_payjoin, create_transaction},
     psbt::sign_psbt,
-    wallet::{get_blockchain, get_wallet, synchronize_wallet},
+    wallet::{get_blockchain, get_wallet, synchronize_wallet, MemoryWallet},
 };
 
 use crate::{
@@ -191,15 +191,23 @@ pub async fn get_wallet_data(
 
     let wallet = get_wallet(descriptor, change_descriptor).await?;
     synchronize_wallet(&wallet).await?;
-    let address = wallet.get_address(AddressIndex::LastUnused)?.to_string();
+    let address = wallet
+        .lock()
+        .await
+        .get_address(AddressIndex::LastUnused)?
+        .to_string();
     info!(format!("address: {address}"));
-    let balance = wallet.get_balance()?;
+    let balance = wallet.lock().await.get_balance()?;
     info!(format!("balance: {balance:?}"));
-    let utxos = wallet.list_unspent().unwrap_or_default();
+    let utxos = wallet.lock().await.list_unspent().unwrap_or_default();
     let utxos: Vec<String> = utxos.into_iter().map(|x| x.outpoint.to_string()).collect();
     trace!(format!("unspent: {utxos:#?}"));
 
-    let mut transactions = wallet.list_transactions(false).unwrap_or_default();
+    let mut transactions = wallet
+        .lock()
+        .await
+        .list_transactions(false)
+        .unwrap_or_default();
     trace!(format!("transactions: {transactions:#?}"));
 
     transactions.sort_by(|a, b| {
@@ -239,7 +247,11 @@ pub async fn get_new_address(
 
     let wallet = get_wallet(descriptor, change_descriptor).await?;
     synchronize_wallet(&wallet).await?;
-    let address = wallet.get_address(AddressIndex::New)?.to_string();
+    let address = wallet
+        .lock()
+        .await
+        .get_address(AddressIndex::New)?
+        .to_string();
     info!(format!("address: {address}"));
     Ok(address)
 }
@@ -367,8 +379,8 @@ pub async fn get_assets_vault(
         synchronize_wallet(&udas_wallet)
     )?;
 
-    let assets_utxos = assets_wallet.list_unspent()?;
-    let uda_utxos = udas_wallet.list_unspent()?;
+    let assets_utxos = assets_wallet.lock().await.list_unspent()?;
+    let uda_utxos = udas_wallet.lock().await.list_unspent()?;
 
     debug!(format!("Asset UTXOs: {assets_utxos:#?}"));
     debug!(format!("UDA UTXOs: {uda_utxos:#?}"));

@@ -26,7 +26,10 @@ async fn allow_monitoring_address() -> anyhow::Result<()> {
     let issuer_wallet = get_wallet(&issuer_keys.private.btc_descriptor_xprv, None).await?;
     synchronize_wallet(&issuer_wallet).await?;
 
-    let address = issuer_wallet.get_address(bdk::wallet::AddressIndex::LastUnused)?;
+    let address = issuer_wallet
+        .lock()
+        .await
+        .get_address(bdk::wallet::AddressIndex::LastUnused)?;
 
     // Register Address (Watcher)
     let resp = watcher_address(&sk, watcher_name, &address.address.to_string()).await;
@@ -53,7 +56,10 @@ async fn allow_monitoring_address_with_coins() -> anyhow::Result<()> {
     // Get Address
     let issuer_wallet = get_wallet(&issuer_keys.private.btc_descriptor_xprv, None).await?;
     synchronize_wallet(&issuer_wallet).await?;
-    let address = issuer_wallet.get_address(bdk::wallet::AddressIndex::LastUnused)?;
+    let address = issuer_wallet
+        .lock()
+        .await
+        .get_address(bdk::wallet::AddressIndex::LastUnused)?;
     let address = address.address.to_string();
 
     // Send some coins
