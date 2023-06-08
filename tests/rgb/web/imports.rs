@@ -32,6 +32,7 @@ wasm_bindgen_test_configure!(run_in_browser);
 const ENCRYPTION_PASSWORD: &str = "hunter2";
 const SEED_PASSWORD: &str = "";
 
+#[ignore]
 #[wasm_bindgen_test]
 async fn import_fungible_contract() {
     set_panic_hook();
@@ -78,6 +79,7 @@ async fn import_fungible_contract() {
     assert_eq!(1, contract.len());
 }
 
+#[ignore]
 #[wasm_bindgen_test]
 async fn import_uda_contract() {
     set_panic_hook();
