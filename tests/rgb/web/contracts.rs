@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 #![allow(unused_imports)]
 #![allow(unused_variables)]
 #![cfg(all(target_arch = "wasm32"))]
@@ -30,8 +31,7 @@ wasm_bindgen_test_configure!(run_in_browser);
 const ENCRYPTION_PASSWORD: &str = "hunter2";
 const SEED_PASSWORD: &str = "";
 
-#[ignore]
-#[wasm_bindgen_test]
+// #[wasm_bindgen_test]
 async fn allow_issue_and_list_contracts() {
     set_panic_hook();
     let mnemonic = env!("TEST_WALLET_SEED", "TEST_WALLET_SEED variable not set");
