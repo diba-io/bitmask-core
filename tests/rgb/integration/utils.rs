@@ -233,6 +233,8 @@ pub async fn create_new_invoice(
 
     // Create Invoice
     let owner_address = &owner_vault
+        .lock()
+        .await
         .get_address(AddressIndex::LastUnused)?
         .address
         .to_string();
@@ -240,7 +242,7 @@ pub async fn create_new_invoice(
     send_some_coins(owner_address, "0.1").await;
     synchronize_wallet(&owner_vault).await?;
 
-    let beneficiary_utxo = owner_vault.list_unspent()?;
+    let beneficiary_utxo = owner_vault.lock().await.list_unspent()?;
     let beneficiary_utxo = beneficiary_utxo.first().unwrap();
     let seal = beneficiary_utxo.outpoint.to_string();
     let seal = format!("tapret1st:{seal}");
