@@ -3,3 +3,4 @@
 .DS_Store
 wasm-pack.log
 launch.json
+/build
