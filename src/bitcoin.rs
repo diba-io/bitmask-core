@@ -190,8 +190,8 @@ pub async fn get_wallet_data(
     info!(format!("change_descriptor {change_descriptor:?}"));
 
     let wallet = get_wallet(descriptor, change_descriptor).await?;
-    panic!("hello");
     synchronize_wallet(&wallet).await?;
+
     let address = wallet
         .lock()
         .await

@@ -27,9 +27,12 @@ pub async fn get_wallet(
     descriptor: &str,
     change_descriptor: Option<String>,
 ) -> Result<Arc<Mutex<Wallet<MemoryDatabase>>>> {
-    let network = NETWORK.read().await.to_owned();
     let descriptor = descriptor.to_owned();
     let key = (descriptor.clone(), change_descriptor.clone());
+
+    let network_lock = NETWORK.read().await;
+    let network = network_lock.to_owned();
+    drop(network_lock);
 
     let wallets = match network {
         bitcoin::Network::Bitcoin => BDK.bitcoin.clone(),
@@ -38,35 +41,37 @@ pub async fn get_wallet(
         bitcoin::Network::Regtest => BDK.regtest.clone(),
     };
 
-    match wallets.clone().read().await.get(&key) {
-        Some(wallet) => Ok(wallet.clone()),
-        None => {
-            let new_wallet = Arc::new(Mutex::new(Wallet::new(
-                &descriptor,
-                change_descriptor.as_ref(),
-                network,
-                MemoryDatabase::default(),
-            )?));
-
-            match network {
-                bitcoin::Network::Bitcoin => {
-                    BDK.bitcoin.write().await.insert(key, new_wallet.clone());
-                }
-                bitcoin::Network::Testnet => {
-                    BDK.testnet.write().await.insert(key, new_wallet.clone());
-                }
-                bitcoin::Network::Signet => {
-                    BDK.signet.write().await.insert(key, new_wallet.clone());
-                }
-                bitcoin::Network::Regtest => {
-                    BDK.regtest.write().await.insert(key, new_wallet.clone());
-                }
-            };
-            panic!("get_wallet");
-
-            Ok(new_wallet)
-        }
+    let wallets = wallets.clone();
+    let wallets_lock = wallets.read().await;
+    let wallets_ref = wallets_lock.get(&key);
+    if let Some(wallets) = wallets_ref {
+        return Ok(wallets.clone());
     }
+    drop(wallets_lock);
+
+    let new_wallet = Arc::new(Mutex::new(Wallet::new(
+        &descriptor,
+        change_descriptor.as_ref(),
+        network,
+        MemoryDatabase::default(),
+    )?));
+
+    match network {
+        bitcoin::Network::Bitcoin => {
+            BDK.bitcoin.write().await.insert(key, new_wallet.clone());
+        }
+        bitcoin::Network::Testnet => {
+            BDK.testnet.write().await.insert(key, new_wallet.clone());
+        }
+        bitcoin::Network::Signet => {
+            BDK.signet.write().await.insert(key, new_wallet.clone());
+        }
+        bitcoin::Network::Regtest => {
+            BDK.regtest.write().await.insert(key, new_wallet.clone());
+        }
+    };
+
+    Ok(new_wallet)
 }
 
 pub async fn get_blockchain() -> EsploraBlockchain {
