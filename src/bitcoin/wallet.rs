@@ -1,57 +1,77 @@
+use std::{collections::BTreeMap, sync::Arc};
+
 use anyhow::Result;
-use bdk::{
-    blockchain::esplora::EsploraBlockchain,
-    database::{AnyDatabase, MemoryDatabase},
-    SyncOptions, Wallet,
-};
+use bdk::{blockchain::esplora::EsploraBlockchain, database::MemoryDatabase, SyncOptions, Wallet};
+use once_cell::sync::Lazy;
+use tokio::sync::{Mutex, RwLock};
 
 use crate::{
     constants::{BITCOIN_EXPLORER_API, NETWORK},
     debug,
 };
 
+pub type MemoryWallet = Arc<Mutex<Wallet<MemoryDatabase>>>;
+type Wallets = BTreeMap<(String, Option<String>), MemoryWallet>;
+
+#[derive(Default)]
+struct Networks {
+    bitcoin: Arc<RwLock<Wallets>>,
+    testnet: Arc<RwLock<Wallets>>,
+    signet: Arc<RwLock<Wallets>>,
+    regtest: Arc<RwLock<Wallets>>,
+}
+
+static BDK: Lazy<Networks> = Lazy::new(Networks::default);
+
 pub async fn get_wallet(
     descriptor: &str,
     change_descriptor: Option<String>,
-) -> Result<Wallet<AnyDatabase>> {
-    // #[cfg(feature = "server")]
-    // #[cfg(not(target_arch = "wasm32"))]
-    // let db = {
-    //     use bdk::database::SqliteDatabase;
-    //     use bitcoin_hashes::{sha256, Hash, HashEngine};
-    //     use std::fs;
+) -> Result<Arc<Mutex<Wallet<MemoryDatabase>>>> {
+    let descriptor = descriptor.to_owned();
+    let key = (descriptor.clone(), change_descriptor.clone());
 
-    //     use directories::ProjectDirs;
-    //     let mut engine = sha256::Hash::engine();
-    //     engine.input(descriptor.as_bytes());
-    //     if let Some(change_descriptor) = change_descriptor {
-    //         engine.input(change_descriptor.as_bytes());
-    //     };
-    //     let hash = sha256::Hash::from_engine(engine);
-    //     debug!("Descriptor hash:", hash.to_string());
-    //     let project_dirs = ProjectDirs::from("org", "DIBA", "BitMask").unwrap();
-    //     let db_path = project_dirs.data_local_dir().join("wallet_db");
-    //     fs::create_dir_all(&db_path).unwrap();
-    //     let db = SqliteDatabase::new(&db_path.join(hash.to_string()));
-    //     AnyDatabase::Sqlite(db)
-    // };
-    #[cfg(not(target_arch = "wasm32"))]
-    let db = AnyDatabase::Memory(MemoryDatabase::default());
+    let network_lock = NETWORK.read().await;
+    let network = network_lock.to_owned();
+    drop(network_lock);
 
-    #[cfg(target_arch = "wasm32")]
-    let db = AnyDatabase::Memory(MemoryDatabase::default());
+    let wallets = match network {
+        bitcoin::Network::Bitcoin => BDK.bitcoin.clone(),
+        bitcoin::Network::Testnet => BDK.testnet.clone(),
+        bitcoin::Network::Signet => BDK.signet.clone(),
+        bitcoin::Network::Regtest => BDK.regtest.clone(),
+    };
 
-    debug!(format!("Using database: {db:?}"));
+    let wallets = wallets.clone();
+    let wallets_lock = wallets.read().await;
+    let wallets_ref = wallets_lock.get(&key);
+    if let Some(wallets) = wallets_ref {
+        return Ok(wallets.clone());
+    }
+    drop(wallets_lock);
 
-    let wallet = Wallet::new(
-        descriptor,
-        change_descriptor.as_deref(),
-        *NETWORK.read().await,
-        db,
-    )?;
-    debug!(format!("Using wallet: {wallet:#?}"));
+    let new_wallet = Arc::new(Mutex::new(Wallet::new(
+        &descriptor,
+        change_descriptor.as_ref(),
+        network,
+        MemoryDatabase::default(),
+    )?));
 
-    Ok(wallet)
+    match network {
+        bitcoin::Network::Bitcoin => {
+            BDK.bitcoin.write().await.insert(key, new_wallet.clone());
+        }
+        bitcoin::Network::Testnet => {
+            BDK.testnet.write().await.insert(key, new_wallet.clone());
+        }
+        bitcoin::Network::Signet => {
+            BDK.signet.write().await.insert(key, new_wallet.clone());
+        }
+        bitcoin::Network::Regtest => {
+            BDK.regtest.write().await.insert(key, new_wallet.clone());
+        }
+    };
+
+    Ok(new_wallet)
 }
 
 pub async fn get_blockchain() -> EsploraBlockchain {
@@ -59,9 +79,13 @@ pub async fn get_blockchain() -> EsploraBlockchain {
     EsploraBlockchain::new(&BITCOIN_EXPLORER_API.read().await, 100)
 }
 
-pub async fn synchronize_wallet(wallet: &Wallet<AnyDatabase>) -> Result<()> {
+pub async fn synchronize_wallet(wallet: &MemoryWallet) -> Result<()> {
     let blockchain = get_blockchain().await;
-    wallet.sync(&blockchain, SyncOptions::default()).await?;
+    wallet
+        .lock()
+        .await
+        .sync(&blockchain, SyncOptions::default())
+        .await?;
     debug!("Synced");
     Ok(())
 }

@@ -198,7 +198,7 @@ pub async fn estimate_fee_tx(
         .await
         .expect("cannot sync wallet");
 
-    let local = wallet.get_utxo(outpoint);
+    let local = wallet.lock().await.get_utxo(outpoint);
     let local = local.expect("utxo not found").unwrap();
 
     let change_index = match change_index {

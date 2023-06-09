@@ -1,14 +1,12 @@
 use anyhow::{anyhow, Result};
-use bdk::{
-    database::AnyDatabase, wallet::tx_builder::TxOrdering, FeeRate, TransactionDetails, Wallet,
-};
+use bdk::{wallet::tx_builder::TxOrdering, FeeRate, TransactionDetails};
 use bitcoin::consensus::serialize;
 use payjoin::{PjUri, PjUriExt};
 
 use crate::{
     bitcoin::{
         psbt::{sign_original_psbt, sign_psbt},
-        wallet::synchronize_wallet,
+        wallet::{synchronize_wallet, MemoryWallet},
     },
     debug, info,
     structs::SatsInvoice,
@@ -16,12 +14,13 @@ use crate::{
 
 pub async fn create_transaction(
     invoices: Vec<SatsInvoice>,
-    wallet: &Wallet<AnyDatabase>,
+    wallet: &MemoryWallet,
     fee_rate: Option<FeeRate>,
 ) -> Result<TransactionDetails> {
     synchronize_wallet(wallet).await?;
     let (psbt, details) = {
-        let mut builder = wallet.build_tx();
+        let locked_wallet = wallet.lock().await;
+        let mut builder = locked_wallet.build_tx();
         for invoice in invoices {
             builder.add_recipient(invoice.address.script_pubkey(), invoice.amount);
         }
@@ -40,12 +39,13 @@ pub async fn create_transaction(
 
 pub async fn create_payjoin(
     invoices: Vec<SatsInvoice>,
-    wallet: &Wallet<AnyDatabase>,
+    wallet: &MemoryWallet,
     fee_rate: Option<FeeRate>,
     pj_uri: PjUri<'_>, // TODO specify Uri<PayJoinParams>
 ) -> Result<TransactionDetails> {
     let (psbt, details) = {
-        let mut builder = wallet.build_tx();
+        let locked_wallet = wallet.lock().await;
+        let mut builder = locked_wallet.build_tx();
         for invoice in invoices {
             builder.add_recipient(invoice.address.script_pubkey(), invoice.amount);
         }

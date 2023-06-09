@@ -4,14 +4,13 @@ ARG BUILDER_DIR=/srv/bitmask
 ARG BUILDER_SRC=/opt/src/bitmask
 
 RUN apt-get update -y && \
-  apt-get install -y pkg-config make g++ libssl-dev && \
-  rustup target add x86_64-unknown-linux-gnu
+  apt-get install -y pkg-config make g++ libssl-dev
 
 WORKDIR $BUILDER_DIR
 WORKDIR $BUILDER_SRC
 COPY . .
 
-RUN cargo install --locked --all-features --path . --root ${BUILDER_DIR} --target x86_64-unknown-linux-gnu
+RUN cargo install --locked --features server --path . --root ${BUILDER_DIR}
 
 # Runtime
 FROM rust:slim AS runtime
@@ -21,7 +20,7 @@ ARG BIN_DIR=/usr/local/bin
 ARG DATA_DIR=/tmp/bitmaskd/carbonado/
 ARG USER=bitmask
 
-RUN apt-get update -y \
+RUN apt-get update -y && apt-get install -y iputils-ping telnet \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 RUN adduser --home "${DATA_DIR}" --shell /bin/bash --disabled-login \

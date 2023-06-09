@@ -1,22 +1,22 @@
 use anyhow::{Error, Result};
-use bdk::{
-    blockchain::Blockchain, database::AnyDatabase, psbt::PsbtUtils, SignOptions,
-    TransactionDetails, Wallet,
-};
+use bdk::{blockchain::Blockchain, psbt::PsbtUtils, SignOptions, TransactionDetails};
 use bitcoin::{consensus::serialize, util::psbt::PartiallySignedTransaction};
 
 use crate::{
-    bitcoin::{get_blockchain, synchronize_wallet},
+    bitcoin::{get_blockchain, synchronize_wallet, MemoryWallet},
     debug,
 };
 
 /// Signs and broadcasts a transaction given a Psbt
 pub async fn sign_psbt(
-    wallet: &Wallet<AnyDatabase>,
+    wallet: &MemoryWallet,
     mut psbt: PartiallySignedTransaction,
 ) -> Result<TransactionDetails> {
     debug!("Signing PSBT...");
-    let finalized = wallet.sign(&mut psbt, SignOptions::default())?;
+    let finalized = wallet
+        .lock()
+        .await
+        .sign(&mut psbt, SignOptions::default())?;
     debug!(format!("Finalized: {finalized}"));
     if finalized {
         debug!("Signed PSBT:", base64::encode(&serialize(&psbt)));
@@ -57,7 +57,7 @@ pub async fn sign_psbt(
 
 // Only signs an original psbt.
 pub async fn sign_original_psbt(
-    wallet: &Wallet<AnyDatabase>,
+    wallet: &MemoryWallet,
     mut psbt: PartiallySignedTransaction,
 ) -> Result<PartiallySignedTransaction> {
     debug!("Funding PSBT...");
@@ -65,6 +65,6 @@ pub async fn sign_original_psbt(
         remove_partial_sigs: false,
         ..Default::default()
     };
-    wallet.sign(&mut psbt, opts)?;
+    wallet.lock().await.sign(&mut psbt, opts)?;
     Ok(psbt)
 }
