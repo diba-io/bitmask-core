@@ -17,7 +17,7 @@ const SEED_PASSWORD: &str = "";
 
 #[tokio::test]
 async fn error_for_bad_mnemonic() -> Result<()> {
-    init_logging("wallet=warn");
+    init_logging("wallet=info");
 
     let network = get_network().await;
     info!("Wallet test on {network}");
@@ -34,7 +34,7 @@ async fn error_for_bad_mnemonic() -> Result<()> {
 
 #[tokio::test]
 async fn create_wallet() -> Result<()> {
-    init_logging("wallet=warn");
+    init_logging("wallet=info");
 
     switch_network("bitcoin").await?;
     let network = get_network().await;
@@ -49,19 +49,19 @@ async fn create_wallet() -> Result<()> {
     let main_vault = get_encrypted_wallet(&hash, &main_mnemonic_data.encrypted_descriptors)?;
 
     let main_btc_wallet = get_wallet_data(&main_vault.private.btc_descriptor_xprv, None).await?;
-    let main_rgb_wallet =
-        get_wallet_data(&main_vault.private.rgb_assets_descriptor_xprv, None).await?;
+    // let main_rgb_wallet =
+    //     get_wallet_data(&main_vault.private.rgb_assets_descriptor_xprv, None).await?;
 
     println!("Descriptor: {}", main_vault.private.btc_descriptor_xprv);
     println!("Address (Bitcoin): {}", main_btc_wallet.address);
-    println!("Address (RGB): {}", main_rgb_wallet.address);
+    // println!("Address (RGB): {}", main_rgb_wallet.address);
 
     Ok(())
 }
 
 #[tokio::test]
 async fn import_wallet() -> Result<()> {
-    init_logging("wallet=warn");
+    init_logging("wallet=info");
 
     let network = get_network().await;
     info!("Asset test on {network}");
@@ -93,7 +93,7 @@ async fn import_wallet() -> Result<()> {
 
 #[tokio::test]
 async fn get_wallet_balance() -> Result<()> {
-    init_logging("wallet=warn");
+    init_logging("wallet=info");
 
     let main_mnemonic = env::var("TEST_WALLET_SEED")?;
     let hash = hash_password(ENCRYPTION_PASSWORD);

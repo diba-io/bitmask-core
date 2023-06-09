@@ -3,7 +3,7 @@ use std::{collections::BTreeMap, sync::Arc};
 use anyhow::Result;
 use bdk::{blockchain::esplora::EsploraBlockchain, database::MemoryDatabase, SyncOptions, Wallet};
 use once_cell::sync::Lazy;
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, RwLock};
 
 use crate::{
     constants::{BITCOIN_EXPLORER_API, NETWORK},
@@ -15,10 +15,10 @@ type Wallets = BTreeMap<(String, Option<String>), MemoryWallet>;
 
 #[derive(Default)]
 struct Networks {
-    bitcoin: Arc<Mutex<Wallets>>,
-    testnet: Arc<Mutex<Wallets>>,
-    signet: Arc<Mutex<Wallets>>,
-    regtest: Arc<Mutex<Wallets>>,
+    bitcoin: Arc<RwLock<Wallets>>,
+    testnet: Arc<RwLock<Wallets>>,
+    signet: Arc<RwLock<Wallets>>,
+    regtest: Arc<RwLock<Wallets>>,
 }
 
 static BDK: Lazy<Networks> = Lazy::new(Networks::default);
@@ -38,7 +38,7 @@ pub async fn get_wallet(
         bitcoin::Network::Regtest => BDK.regtest.clone(),
     };
 
-    match wallets.clone().lock().await.get(&key) {
+    match wallets.clone().read().await.get(&key) {
         Some(wallet) => Ok(wallet.clone()),
         None => {
             let new_wallet = Arc::new(Mutex::new(Wallet::new(
@@ -50,16 +50,19 @@ pub async fn get_wallet(
 
             match network {
                 bitcoin::Network::Bitcoin => {
-                    BDK.bitcoin.lock().await.insert(key, new_wallet.clone())
+                    BDK.bitcoin.write().await.insert(key, new_wallet.clone());
                 }
                 bitcoin::Network::Testnet => {
-                    BDK.testnet.lock().await.insert(key, new_wallet.clone())
+                    BDK.testnet.write().await.insert(key, new_wallet.clone());
                 }
-                bitcoin::Network::Signet => BDK.signet.lock().await.insert(key, new_wallet.clone()),
+                bitcoin::Network::Signet => {
+                    BDK.signet.write().await.insert(key, new_wallet.clone());
+                }
                 bitcoin::Network::Regtest => {
-                    BDK.regtest.lock().await.insert(key, new_wallet.clone())
+                    BDK.regtest.write().await.insert(key, new_wallet.clone());
                 }
             };
+            panic!("get_wallet");
 
             Ok(new_wallet)
         }
