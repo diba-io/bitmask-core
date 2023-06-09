@@ -11,7 +11,7 @@ WORKDIR $BUILDER_DIR
 WORKDIR $BUILDER_SRC
 COPY . .
 
-RUN cargo install --locked --debug --all-features --path . --root ${BUILDER_DIR} --target x86_64-unknown-linux-gnu
+RUN cargo install --locked --all-features --path . --root ${BUILDER_DIR} --target x86_64-unknown-linux-gnu
 
 # Runtime
 FROM rust:slim AS runtime

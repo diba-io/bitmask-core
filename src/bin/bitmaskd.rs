@@ -1,44 +1,68 @@
 #![allow(unused_imports)]
 #![cfg(feature = "server")]
 #![cfg(not(target_arch = "wasm32"))]
-use std::{env, net::SocketAddr, str::FromStr};
+use std::{env, fs::OpenOptions, io::ErrorKind, net::SocketAddr, str::FromStr};
 
 use anyhow::Result;
 use axum::{
     body::Bytes,
     extract::Path,
-    headers::{authorization::Bearer, Authorization},
+    headers::{authorization::Bearer, Authorization, CacheControl},
     http::StatusCode,
     response::{IntoResponse, Response},
-    routing::{get, post},
+    routing::{delete, get, post, put},
     Json, Router, TypedHeader,
 };
 use bitcoin_30::secp256k1::{ecdh::SharedSecret, PublicKey, SecretKey};
 use bitmask_core::{
-    bitcoin::sign_psbt_file,
+    bitcoin::{get_encrypted_wallet, get_wallet_data, save_mnemonic, sign_psbt_file},
+    carbonado::handle_file,
+    constants::{get_marketplace_seed, get_network, get_udas_utxo, switch_network},
     rgb::{
-        accept_transfer, create_invoice, create_psbt, create_watcher, import as rgb_import,
-        issue_contract, list_contracts, list_interfaces, list_schemas, transfer_asset,
-        watcher_details as rgb_watcher_details, watcher_next_address, watcher_next_utxo,
+        accept_transfer, clear_watcher as rgb_clear_watcher, create_invoice, create_psbt,
+        create_watcher, import as rgb_import, issue_contract, list_contracts, list_interfaces,
+        list_schemas, transfer_asset, watcher_address, watcher_details as rgb_watcher_details,
+        watcher_next_address, watcher_next_utxo, watcher_utxo,
     },
     structs::{
-        AcceptRequest, ImportRequest, InvoiceRequest, IssueRequest, PsbtRequest,
-        RgbTransferRequest, SignPsbtRequest, WatcherRequest,
+        AcceptRequest, ImportRequest, InvoiceRequest, IssueAssetRequest, IssueRequest, MediaInfo,
+        PsbtRequest, RgbTransferRequest, SelfIssueRequest, SignPsbtRequest, WatcherRequest,
     },
 };
-use log::info;
+use carbonado::file;
+use log::{debug, error, info};
+use rgbstd::interface::Iface;
+use serde::{Deserialize, Serialize};
 use tokio::fs;
 use tower_http::cors::CorsLayer;
 
-async fn issue(
-    TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
-    Json(issue): Json<IssueRequest>,
-) -> Result<impl IntoResponse, AppError> {
+async fn issue(Json(issue): Json<IssueAssetRequest>) -> Result<impl IntoResponse, AppError> {
     info!("POST /issue {issue:?}");
 
-    let nostr_hex_sk = auth.token();
+    let issue_res = issue_contract(&issue.sk, issue.request).await?;
 
-    let issue_res = issue_contract(nostr_hex_sk, issue).await?;
+    Ok((StatusCode::OK, Json(issue_res)))
+}
+
+async fn self_issue(Json(issue): Json<SelfIssueRequest>) -> Result<impl IntoResponse, AppError> {
+    info!("POST /self_issue {issue:?}");
+    let issuer_keys = save_mnemonic(&get_marketplace_seed().await, "").await?;
+
+    let sk = issuer_keys.private.nostr_prv;
+
+    let issue_seal = format!("tapret1st:{}", get_udas_utxo().await);
+    let request = IssueRequest {
+        ticker: issue.ticker,
+        name: issue.name,
+        description: issue.description,
+        precision: 1,
+        supply: 1,
+        seal: issue_seal.to_owned(),
+        iface: "RGB21".to_string(),
+        meta: issue.meta,
+    };
+
+    let issue_res = issue_contract(&sk, request).await?;
 
     Ok((StatusCode::OK, Json(issue_res)))
 }
@@ -191,62 +215,113 @@ async fn watcher_details(
     Ok((StatusCode::OK, Json(resp)))
 }
 
-async fn next_address(
+async fn clear_watcher(
     TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
     Path(name): Path<String>,
-    Path(iface): Path<String>,
 ) -> Result<impl IntoResponse, AppError> {
-    info!("GET /watcher/{name:?}/address");
-    info!("GET /watcher/{name:?}/{iface:?}/address");
+    info!("DELETE /watcher/{name:?}");
 
     let nostr_hex_sk = auth.token();
-    let resp = watcher_next_address(nostr_hex_sk, &name, &iface).await?;
+    let resp = rgb_clear_watcher(nostr_hex_sk, &name).await?;
+
+    Ok((StatusCode::OK, Json(resp)))
+}
+
+async fn next_address(
+    TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
+    Path((name, asset)): Path<(String, String)>,
+) -> Result<impl IntoResponse, AppError> {
+    info!("GET /watcher/{name:?}/address");
+    info!("GET /watcher/{name:?}/{asset:?}/address");
+
+    let nostr_hex_sk = auth.token();
+    let resp = watcher_next_address(nostr_hex_sk, &name, &asset).await?;
 
     Ok((StatusCode::OK, Json(resp)))
 }
 
 async fn next_utxo(
     TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
-    Path(name): Path<String>,
-    Path(iface): Path<String>,
+    Path((name, asset)): Path<(String, String)>,
 ) -> Result<impl IntoResponse, AppError> {
-    info!("GET /watcher/{name:?}/{iface:?}/utxo");
+    info!("GET /watcher/{name:?}/{asset:?}/utxo");
 
     let nostr_hex_sk = auth.token();
-    let resp = watcher_next_utxo(nostr_hex_sk, &name, &iface).await?;
+    let resp = watcher_next_utxo(nostr_hex_sk, &name, &asset).await?;
 
     Ok((StatusCode::OK, Json(resp)))
 }
 
-async fn handle_file(pk: &str, name: &str, bytes: usize) -> Result<std::path::PathBuf> {
-    let directory = std::path::Path::new(
-        &std::env::var("CARBONADO_DIR").unwrap_or("/tmp/bitmaskd/carbonado".to_owned()),
-    )
-    .join(pk);
-    let filepath = directory.join(name);
+async fn register_address(
+    TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
+    Path((name, address)): Path<(String, String)>,
+) -> Result<impl IntoResponse, AppError> {
+    info!("PUT /watcher/{name:?}/address/{address:?}");
 
-    fs::create_dir_all(directory).await?;
+    let nostr_hex_sk = auth.token();
+    let resp = watcher_address(nostr_hex_sk, &name, &address).await?;
 
-    if bytes == 0 {
-        info!("read {}", filepath.to_string_lossy());
-    } else {
-        info!("write {bytes} bytes to {}", filepath.to_string_lossy());
-    }
+    Ok((StatusCode::OK, Json(resp)))
+}
 
-    Ok(filepath)
+async fn register_utxo(
+    TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
+    Path((name, utxo)): Path<(String, String)>,
+) -> Result<impl IntoResponse, AppError> {
+    info!("PUT /watcher/{name:?}/utxo/{utxo:?}");
+
+    let nostr_hex_sk = auth.token();
+    let resp = watcher_utxo(nostr_hex_sk, &name, &utxo).await?;
+
+    Ok((StatusCode::OK, Json(resp)))
 }
 
 async fn co_store(
     Path((pk, name)): Path<(String, String)>,
     body: Bytes,
 ) -> Result<impl IntoResponse, AppError> {
-    info!("POST /carbonado/{pk}/{name}, {} bytes", body.len());
+    let incoming_header = carbonado::file::Header::try_from(&body)?;
+    let body_len = incoming_header.encoded_len - incoming_header.padding_len;
+    info!("POST /carbonado/{pk}/{name}, {body_len} bytes");
 
-    let filepath = handle_file(&pk, &name, body.len()).await?;
+    let filepath = handle_file(&pk, &name, body_len.try_into()?).await?;
 
-    fs::write(filepath, body).await?;
+    match OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .open(&filepath)
+    {
+        Ok(file) => {
+            let present_header = match carbonado::file::Header::try_from(&file) {
+                Ok(header) => header,
+                _ => carbonado::file::Header::try_from(&body)?,
+            };
+            let present_len = present_header.encoded_len - present_header.padding_len;
+            debug!("body len: {body_len} present_len: {present_len}");
+            if body_len >= present_len {
+                debug!("body is bigger, overwriting.");
+                let resp = fs::write(&filepath, &body).await;
+                debug!("write file status {}", resp.is_ok());
+            } else {
+                debug!("no file written.");
+            }
+        }
+        Err(err) => match err.kind() {
+            ErrorKind::NotFound => {
+                debug!("no file found, writing {body_len} bytes.");
+                fs::write(&filepath, &body).await?;
+            }
+            _ => {
+                error!("error in POST /carbonado/{pk}/{name}: {err}");
+                return Err(err.into());
+            }
+        },
+    }
 
-    Ok(StatusCode::OK)
+    let cc = CacheControl::new().with_no_cache();
+
+    Ok((StatusCode::OK, TypedHeader(cc)))
 }
 
 async fn co_retrieve(
@@ -254,14 +329,31 @@ async fn co_retrieve(
 ) -> Result<impl IntoResponse, AppError> {
     info!("GET /carbonado/{pk}/{name}");
 
-    let filepath = handle_file(&pk, &name, 0).await?;
-
+    let filepath = &handle_file(&pk, &name, 0).await?;
+    let fullpath = filepath.to_string_lossy();
     let bytes = fs::read(filepath).await;
+    let cc = CacheControl::new().with_no_cache();
 
     match bytes {
-        Ok(bytes) => Ok((StatusCode::OK, bytes)),
-        Err(_e) => Ok((StatusCode::OK, Vec::<u8>::new())),
+        Ok(bytes) => {
+            debug!("read {0} bytes.", bytes.len());
+            Ok((StatusCode::OK, TypedHeader(cc), bytes))
+        }
+        Err(e) => {
+            debug!(
+                "file read error {0} .Details: {1}.",
+                fullpath,
+                e.to_string()
+            );
+            Ok((StatusCode::OK, TypedHeader(cc), Vec::<u8>::new()))
+        }
     }
+}
+
+async fn status() -> Result<impl IntoResponse, AppError> {
+    let cc = CacheControl::new().with_no_cache();
+
+    Ok((StatusCode::OK, TypedHeader(cc), "OK".to_string()))
 }
 
 async fn key(Path(pk): Path<String>) -> Result<impl IntoResponse, AppError> {
@@ -279,13 +371,14 @@ async fn key(Path(pk): Path<String>) -> Result<impl IntoResponse, AppError> {
 #[tokio::main]
 async fn main() -> Result<()> {
     if env::var("RUST_LOG").is_err() {
-        env::set_var("RUST_LOG", "debug");
+        env::set_var("RUST_LOG", "bitmask_core=debug,bitmaskd=debug");
     }
 
     pretty_env_logger::init();
 
     let app = Router::new()
         .route("/issue", post(issue))
+        .route("/selfissue", post(self_issue))
         .route("/invoice", post(invoice))
         // .route("/psbt", post(psbt))
         // .route("/sign", post(sign_psbt))
@@ -298,12 +391,22 @@ async fn main() -> Result<()> {
         .route("/import", post(import))
         .route("/watcher", post(watcher))
         .route("/watcher/:name", get(watcher_details))
-        .route("/watcher/:name/:iface/address", get(next_address))
-        .route("/watcher/:name/:iface/utxo", get(next_utxo))
+        .route("/watcher/:name/:asset/address", get(next_address))
+        .route("/watcher/:name/:asset/utxo", get(next_utxo))
+        .route(
+            "/watcher/:name/:asset/address/:address",
+            put(register_address),
+        )
+        .route("/watcher/:name/:asset/utxo/:utxo", put(register_utxo))
+        .route("/watcher/:name", delete(clear_watcher))
         .route("/key/:pk", get(key))
+        .route("/carbonado/status", get(status))
         .route("/carbonado/:pk/:name", post(co_store))
         .route("/carbonado/:pk/:name", get(co_retrieve))
         .layer(CorsLayer::permissive());
+
+    let network = get_network().await;
+    switch_network(&network).await?;
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 7070));
 

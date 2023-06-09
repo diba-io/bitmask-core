@@ -1,4 +1,6 @@
 #![cfg(not(target_arch = "wasm32"))]
+use std::collections::HashMap;
+
 use amplify::hex::ToHex;
 use bitmask_core::{
     rgb::transfer::{accept_transfer, create_invoice, pay_invoice},
@@ -20,8 +22,16 @@ async fn allow_create_invoice() -> anyhow::Result<()> {
     let amount = 1;
 
     let mut stock = Stock::default();
+    let params = HashMap::new();
     let contract_id = create_fake_contract(&mut stock);
-    let result = create_invoice(&contract_id.to_string(), iface, amount, seal, &mut stock);
+    let result = create_invoice(
+        &contract_id.to_string(),
+        iface,
+        amount,
+        seal,
+        params,
+        &mut stock,
+    );
 
     assert!(result.is_ok());
     Ok(())
