@@ -1,12 +1,7 @@
-use std::{collections::HashMap, str::FromStr};
-
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    constants::LNDHUB_ENDPOINT,
-    util::{get, post_json_auth},
-};
+use crate::{constants::LNDHUB_ENDPOINT, util::post_json_auth};
 
 /// Nostr pubkey
 #[derive(Debug, Serialize, Deserialize, Clone)]
