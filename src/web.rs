@@ -681,3 +681,35 @@ pub mod carbonado {
         crate::carbonado::decode_base64(&string).map_err(|err| JsError::new(&err.to_string()))
     }
 }
+
+pub mod nostr {
+    use super::*;
+
+    #[wasm_bindgen]
+    pub fn new_nostr_pubkey(pubkey: String, token: String) -> Promise {
+        set_panic_hook();
+
+        future_to_promise(async move {
+            match crate::nostr::new_nostr_pubkey(&pubkey, &token).await {
+                Ok(result) => Ok(JsValue::from_string(
+                    serde_json::to_string(&result).unwrap(),
+                )),
+                Err(err) => Err(JsValue::from_string(err.to_string())),
+            }
+        })
+    }
+
+    #[wasm_bindgen]
+    pub fn update_nostr_pubkey(pubkey: String, token: String) -> Promise {
+        set_panic_hook();
+
+        future_to_promise(async move {
+            match crate::nostr::update_nostr_pubkey(&pubkey, &token).await {
+                Ok(result) => Ok(JsValue::from_string(
+                    serde_json::to_string(&result).unwrap(),
+                )),
+                Err(err) => Err(JsValue::from_string(err.to_string())),
+            }
+        })
+    }
+}
