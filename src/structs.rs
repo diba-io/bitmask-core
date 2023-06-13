@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use zeroize::{Zeroize, ZeroizeOnDrop};
 
 pub use bdk::{Balance, BlockTime, TransactionDetails};
 pub use bitcoin::{util::address::Address, Txid};
@@ -26,7 +27,10 @@ pub struct WalletTransaction {
     pub confirmation_time: Option<BlockTime>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, Zeroize, ZeroizeOnDrop)]
+pub struct SecretString(pub String);
+
+#[derive(Serialize, Deserialize, Clone, Debug, Zeroize, ZeroizeOnDrop)]
 #[serde(rename_all = "camelCase")]
 pub struct PrivateWalletData {
     pub xprvkh: String,
@@ -38,7 +42,7 @@ pub struct PrivateWalletData {
     pub nostr_nsec: String,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, Zeroize, ZeroizeOnDrop)]
 #[serde(rename_all = "camelCase")]
 pub struct PublicWalletData {
     pub xpub: String,
@@ -52,9 +56,9 @@ pub struct PublicWalletData {
     pub nostr_npub: String,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, Zeroize, ZeroizeOnDrop)]
 #[serde(rename_all = "camelCase")]
-pub struct EncryptedWalletData {
+pub struct DecryptedWalletData {
     pub mnemonic: String,
     pub private: PrivateWalletData,
     pub public: PublicWalletData,
@@ -74,13 +78,6 @@ pub struct EncryptedWalletDataV04 {
     pub xprvkh: String,
     pub xpubkh: String,
     pub mnemonic: String,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-#[serde(rename_all = "camelCase")]
-pub struct MnemonicSeedData {
-    pub mnemonic: String,
-    pub encrypted_descriptors: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

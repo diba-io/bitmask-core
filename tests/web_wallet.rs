@@ -1,7 +1,7 @@
 #![cfg(all(target_arch = "wasm32"))]
 use bitmask_core::{
     debug, info,
-    structs::{EncryptedWalletData, MnemonicSeedData, TransactionDetails, WalletData},
+    structs::{DecryptedWalletData, MnemonicSeedData, TransactionDetails, WalletData},
     web::{
         bitcoin::{
             get_encrypted_wallet, get_wallet_data, hash_password, new_mnemonic_seed,

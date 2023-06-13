@@ -15,7 +15,7 @@ use axum::{
 };
 use bitcoin_30::secp256k1::{ecdh::SharedSecret, PublicKey, SecretKey};
 use bitmask_core::{
-    bitcoin::{get_encrypted_wallet, get_wallet_data, save_mnemonic, sign_psbt_file},
+    bitcoin::{decrypt_wallet, get_wallet_data, save_mnemonic, sign_psbt_file},
     carbonado::handle_file,
     constants::{get_marketplace_seed, get_network, get_udas_utxo, switch_network},
     rgb::{
@@ -26,7 +26,8 @@ use bitmask_core::{
     },
     structs::{
         AcceptRequest, ImportRequest, InvoiceRequest, IssueAssetRequest, IssueRequest, MediaInfo,
-        PsbtRequest, RgbTransferRequest, SelfIssueRequest, SignPsbtRequest, WatcherRequest,
+        PsbtRequest, RgbTransferRequest, SecretString, SelfIssueRequest, SignPsbtRequest,
+        WatcherRequest,
     },
 };
 use carbonado::file;
@@ -46,9 +47,7 @@ async fn issue(Json(issue): Json<IssueAssetRequest>) -> Result<impl IntoResponse
 
 async fn self_issue(Json(issue): Json<SelfIssueRequest>) -> Result<impl IntoResponse, AppError> {
     info!("POST /self_issue {issue:?}");
-    let issuer_keys = save_mnemonic(&get_marketplace_seed().await, "").await?;
-
-    let sk = issuer_keys.private.nostr_prv;
+    let issuer_keys = save_mnemonic(&SecretString(get_marketplace_seed().await), "").await?;
 
     let issue_seal = format!("tapret1st:{}", get_udas_utxo().await);
     let request = IssueRequest {
@@ -62,7 +61,8 @@ async fn self_issue(Json(issue): Json<SelfIssueRequest>) -> Result<impl IntoResp
         meta: issue.meta,
     };
 
-    let issue_res = issue_contract(&sk, request).await?;
+    let sk = issuer_keys.private.nostr_prv.as_ref();
+    let issue_res = issue_contract(sk, request).await?;
 
     Ok((StatusCode::OK, Json(issue_res)))
 }

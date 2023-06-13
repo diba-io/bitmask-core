@@ -4,10 +4,9 @@ use std::env;
 
 use anyhow::Result;
 use bitmask_core::{
-    bitcoin::{
-        get_encrypted_wallet, get_wallet_data, hash_password, save_mnemonic_seed, send_sats,
-    },
+    bitcoin::{decrypt_wallet, encrypt_seed, get_wallet_data, hash_password, send_sats},
     constants::switch_network,
+    structs::SecretString,
     util::init_logging,
 };
 use log::{debug, info};
@@ -24,10 +23,15 @@ async fn payjoin() -> Result<()> {
 
     info!("Import wallets");
     let mnemonic = env::var("TEST_WALLET_SEED")?;
-    let hash = hash_password(ENCRYPTION_PASSWORD);
-    let mnemonic_data = save_mnemonic_seed(&mnemonic, &hash, SEED_PASSWORD).await?;
+    let hash = hash_password(&SecretString(ENCRYPTION_PASSWORD.to_owned()));
+    let encrypted_descriptors = encrypt_seed(
+        &SecretString(mnemonic),
+        &hash,
+        &SecretString(SEED_PASSWORD.to_owned()),
+    )
+    .await?;
 
-    let vault = get_encrypted_wallet(&hash, &mnemonic_data.encrypted_descriptors)?;
+    let vault = decrypt_wallet(&hash, &encrypted_descriptors)?;
 
     let wallet = get_wallet_data(
         &vault.private.btc_descriptor_xprv,

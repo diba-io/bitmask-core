@@ -9,7 +9,7 @@ use bitmask_core::{
         watcher_details, watcher_next_address, watcher_next_utxo,
     },
     structs::{
-        AllocationDetail, AssetType, ContractResponse, EncryptedWalletData, ImportRequest,
+        AllocationDetail, AssetType, ContractResponse, DecryptedWalletData, ImportRequest,
         InvoiceRequest, InvoiceResponse, IssueMetaRequest, IssueMetadata, IssueRequest,
         IssueResponse, MediaInfo, NewCollectible, PsbtRequest, PsbtResponse, RgbTransferRequest,
         RgbTransferResponse, WatcherRequest,
@@ -260,7 +260,7 @@ pub async fn create_new_invoice(
 }
 
 pub async fn create_new_psbt(
-    issuer_keys: EncryptedWalletData,
+    issuer_keys: DecryptedWalletData,
     issuer_resp: IssueResponse,
 ) -> Result<PsbtResponse, anyhow::Error> {
     // Get Allocations
@@ -311,7 +311,7 @@ pub async fn create_new_psbt(
 }
 
 pub async fn create_new_transfer(
-    issuer_keys: EncryptedWalletData,
+    issuer_keys: DecryptedWalletData,
     owner_resp: InvoiceResponse,
     psbt_resp: PsbtResponse,
 ) -> Result<RgbTransferResponse, anyhow::Error> {

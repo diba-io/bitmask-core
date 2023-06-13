@@ -2,8 +2,9 @@
 
 use anyhow::Result;
 use bitmask_core::{
-    bitcoin::{get_encrypted_wallet, upgrade_wallet},
+    bitcoin::{decrypt_wallet, upgrade_wallet},
     constants::switch_network,
+    structs::SecretString,
     util::init_logging,
 };
 use log::{debug, info};
@@ -21,16 +22,29 @@ async fn migration_v4() -> Result<()> {
     switch_network("testnet").await?;
 
     info!("Import bitmask-core 0.4 encrypted descriptor");
-    let wallet = get_encrypted_wallet(ENCRYPTION_PASSWORD, ENCRYPTED_DESCRIPTOR_04);
+    let wallet = decrypt_wallet(
+        &SecretString(ENCRYPTION_PASSWORD.to_owned()),
+        &SecretString(ENCRYPTED_DESCRIPTOR_04.to_owned()),
+    );
 
     assert!(wallet.is_err(), "Importing an old descriptor should error");
 
-    let upgraded_descriptor =
-        upgrade_wallet(ENCRYPTION_PASSWORD, ENCRYPTED_DESCRIPTOR_04, SEED_PASSWORD).await?;
+    let upgraded_descriptor = upgrade_wallet(
+        &SecretString(ENCRYPTION_PASSWORD.to_owned()),
+        &SecretString(ENCRYPTED_DESCRIPTOR_04.to_owned()),
+        &SecretString(SEED_PASSWORD.to_owned()),
+    )
+    .await?;
 
-    debug!("Upgraded descriptor: {upgraded_descriptor}");
+    debug!(
+        "Upgraded descriptor: {}",
+        serde_json::to_string_pretty(&upgraded_descriptor)?
+    );
 
-    let wallet = get_encrypted_wallet(ENCRYPTION_PASSWORD, &upgraded_descriptor)?;
+    let wallet = decrypt_wallet(
+        &SecretString(ENCRYPTION_PASSWORD.to_owned()),
+        &upgraded_descriptor,
+    )?;
 
     assert_eq!(
         wallet.public.xpub, "tpubD6NzVbkrYhZ4Xxrh54Ew5kjkagEfUhS3aCNqRJmUuNfnTXhK4LGXyUzZ5kxgn8f2txjnFtypnoYfRQ9Y8P2nhSNXffxVKutJgxNPxgmwpUR",
@@ -48,16 +62,29 @@ async fn migration_v5() -> Result<()> {
     switch_network("testnet").await?;
 
     info!("Import bitmask-core 0.5 encrypted descriptor");
-    let wallet = get_encrypted_wallet(ENCRYPTION_PASSWORD, ENCRYPTED_DESCRIPTOR_05);
+    let wallet = decrypt_wallet(
+        &SecretString(ENCRYPTION_PASSWORD.to_owned()),
+        &SecretString(ENCRYPTED_DESCRIPTOR_05.to_owned()),
+    );
 
     assert!(wallet.is_err(), "Importing an old descriptor should error");
 
-    let upgraded_descriptor =
-        upgrade_wallet(ENCRYPTION_PASSWORD, ENCRYPTED_DESCRIPTOR_05, SEED_PASSWORD).await?;
+    let upgraded_descriptor = upgrade_wallet(
+        &SecretString(ENCRYPTION_PASSWORD.to_owned()),
+        &SecretString(ENCRYPTED_DESCRIPTOR_05.to_owned()),
+        &SecretString(SEED_PASSWORD.to_owned()),
+    )
+    .await?;
 
-    println!("Upgraded descriptor: {upgraded_descriptor}");
+    println!(
+        "Upgraded descriptor: {}",
+        serde_json::to_string_pretty(&upgraded_descriptor)?
+    );
 
-    let wallet = get_encrypted_wallet(ENCRYPTION_PASSWORD, &upgraded_descriptor)?;
+    let wallet = decrypt_wallet(
+        &SecretString(ENCRYPTION_PASSWORD.to_owned()),
+        &upgraded_descriptor,
+    )?;
 
     assert_eq!(
         wallet.public.xpub, "tpubD6NzVbkrYhZ4XJmEMNjxuARFrP5kME8ndqpk9M2QeqtuTv2kTrm87a93Td47bHRRCrSSVvVEu3trvwthVswtPNwK2Kyc9PpudxC1MZrPuNL",

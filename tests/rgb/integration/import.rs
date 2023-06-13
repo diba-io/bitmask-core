@@ -2,7 +2,7 @@
 use bitmask_core::{
     bitcoin::{save_mnemonic, sign_psbt_file},
     rgb::{accept_transfer, create_watcher, get_contract},
-    structs::{AcceptRequest, EncryptedWalletData, SignPsbtRequest, WatcherRequest},
+    structs::{AcceptRequest, DecryptedWalletData, SignPsbtRequest, WatcherRequest},
 };
 
 use crate::rgb::integration::utils::{
@@ -45,7 +45,7 @@ async fn allow_import_uda_contract() -> anyhow::Result<()> {
 #[tokio::test]
 async fn allow_get_fungible_contract_state_by_accept_cosign() -> anyhow::Result<()> {
     // 1. Issue and Generate Trasnfer (Issuer side)
-    let issuer_keys: EncryptedWalletData = save_mnemonic(ISSUER_MNEMONIC, "").await?;
+    let issuer_keys: DecryptedWalletData = save_mnemonic(ISSUER_MNEMONIC, "").await?;
     let owner_keys = save_mnemonic(OWNER_MNEMONIC, "").await?;
     let issuer_resp = issuer_issue_contract("RGB20", 5, false, true, None).await?;
     let owner_resp = create_new_invoice(issuer_resp.clone(), None).await?;
@@ -110,7 +110,7 @@ async fn allow_get_fungible_contract_state_by_accept_cosign() -> anyhow::Result<
 async fn allow_get_uda_contract_state_by_accept_cosign() -> anyhow::Result<()> {
     // 1. Issue and Generate Trasnfer (Issuer side)
     let single = Some(get_uda_data());
-    let issuer_keys: EncryptedWalletData = save_mnemonic(ISSUER_MNEMONIC, "").await?;
+    let issuer_keys: DecryptedWalletData = save_mnemonic(ISSUER_MNEMONIC, "").await?;
     let owner_keys = save_mnemonic(OWNER_MNEMONIC, "").await?;
     let issuer_resp = issuer_issue_contract("RGB21", 1, false, true, single).await?;
     let owner_resp = create_new_invoice(issuer_resp.clone(), None).await?;
