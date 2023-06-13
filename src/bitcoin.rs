@@ -126,7 +126,7 @@ pub async fn upgrade_wallet(
             // println!("Recovered wallet data: {recovered_wallet_data:?}"); // Keep commented out for security
             // todo!("Add later version migrations here");
 
-            let upgraded_descriptor = encrypt_seed(
+            let upgraded_descriptor = encrypt_wallet(
                 &SecretString(recovered_wallet_data.mnemonic),
                 hash,
                 seed_password,
@@ -138,15 +138,18 @@ pub async fn upgrade_wallet(
     }
 }
 
-pub fn versioned_descriptor(encrypted_message: EncryptedMessage) -> String {
+pub fn versioned_descriptor(encrypted_message: EncryptedMessage) -> SecretString {
     let mut descriptor_data = DIBA_DESCRIPTOR.to_vec();
     let mut encrypted_descriptors = encrypted_message.serialize();
     descriptor_data.append(&mut encrypted_descriptors);
 
-    hex::encode(descriptor_data)
+    descriptor_data.zeroize();
+    encrypted_descriptors.zeroize();
+
+    SecretString(hex::encode(descriptor_data))
 }
 
-pub async fn new_wallet(hash: &SecretString, seed_password: &SecretString) -> Result<String> {
+pub async fn new_wallet(hash: &SecretString, seed_password: &SecretString) -> Result<SecretString> {
     let shared_key: [u8; 32] = hex::decode(&hash.0)?
         .try_into()
         .expect("hash is of fixed size");
@@ -157,7 +160,7 @@ pub async fn new_wallet(hash: &SecretString, seed_password: &SecretString) -> Re
     Ok(encrypted_descriptors)
 }
 
-pub async fn encrypt_seed(
+pub async fn encrypt_wallet(
     mnemonic_phrase: &SecretString,
     hash: &SecretString,
     seed_password: &SecretString,
@@ -169,16 +172,14 @@ pub async fn encrypt_seed(
     let encrypted_message = wallet_data.encrypt(&SharedKey::from_array(shared_key))?;
     let encrypted_descriptors = versioned_descriptor(encrypted_message);
 
-    Ok(SecretString(encrypted_descriptors))
+    Ok(encrypted_descriptors)
 }
 
 pub async fn get_wallet_data(
-    descriptor: &str,
-    change_descriptor: Option<String>,
+    descriptor: &SecretString,
+    change_descriptor: Option<&SecretString>,
 ) -> Result<WalletData> {
     info!("get_wallet_data");
-    info!(format!("descriptor: {descriptor}"));
-    info!(format!("change_descriptor {change_descriptor:?}"));
 
     let wallet = get_wallet(descriptor, change_descriptor).await?;
     synchronize_wallet(&wallet).await?;
@@ -230,12 +231,10 @@ pub async fn get_wallet_data(
 }
 
 pub async fn get_new_address(
-    descriptor: &str,
-    change_descriptor: Option<String>,
+    descriptor: &SecretString,
+    change_descriptor: Option<&SecretString>,
 ) -> Result<String> {
     info!("get_new_address");
-    info!(format!("descriptor: {descriptor}"));
-    info!(format!("change_descriptor: {change_descriptor:?}"));
 
     let wallet = get_wallet(descriptor, change_descriptor).await?;
     synchronize_wallet(&wallet).await?;
@@ -249,15 +248,15 @@ pub async fn get_new_address(
 }
 
 pub async fn send_sats(
-    descriptor: &str,
-    change_descriptor: &str,
+    descriptor: &SecretString,
+    change_descriptor: &SecretString,
     destination: &str, // bip21 uri or address
     amount: u64,
     fee_rate: Option<f32>,
 ) -> Result<TransactionDetails> {
     use payjoin::UriExt;
 
-    let wallet = get_wallet(descriptor, Some(change_descriptor.to_owned())).await?;
+    let wallet = get_wallet(descriptor, Some(change_descriptor)).await?;
     synchronize_wallet(&wallet).await?;
 
     let fee_rate = fee_rate.map(FeeRate::from_sat_per_vb);
@@ -287,8 +286,8 @@ pub async fn send_sats(
 }
 
 pub async fn fund_vault(
-    btc_descriptor_xprv: &str,
-    btc_change_descriptor_xprv: &str,
+    btc_descriptor_xprv: &SecretString,
+    btc_change_descriptor_xprv: &SecretString,
     assets_address: &str,
     uda_address: &str,
     asset_amount: u64,
@@ -298,11 +297,7 @@ pub async fn fund_vault(
     let assets_address = Address::from_str(assets_address)?;
     let uda_address = Address::from_str(uda_address)?;
 
-    let wallet = get_wallet(
-        btc_descriptor_xprv,
-        Some(btc_change_descriptor_xprv.to_owned()),
-    )
-    .await?;
+    let wallet = get_wallet(btc_descriptor_xprv, Some(btc_change_descriptor_xprv)).await?;
     synchronize_wallet(&wallet).await?;
 
     let asset_invoice = SatsInvoice {
@@ -360,8 +355,8 @@ fn utxo_string(utxo: &LocalUtxo) -> String {
 }
 
 pub async fn get_assets_vault(
-    rgb_assets_descriptor_xpub: &str,
-    rgb_udas_descriptor_xpub: &str,
+    rgb_assets_descriptor_xpub: &SecretString,
+    rgb_udas_descriptor_xpub: &SecretString,
 ) -> Result<FundVaultDetails> {
     let assets_wallet = get_wallet(rgb_assets_descriptor_xpub, None).await?;
     let udas_wallet = get_wallet(rgb_udas_descriptor_xpub, None).await?;

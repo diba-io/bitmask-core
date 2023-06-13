@@ -2,16 +2,18 @@ use std::{collections::BTreeMap, sync::Arc};
 
 use anyhow::Result;
 use bdk::{blockchain::esplora::EsploraBlockchain, database::MemoryDatabase, SyncOptions, Wallet};
+use bitcoin_hashes::{sha256, Hash};
 use once_cell::sync::Lazy;
 use tokio::sync::{Mutex, RwLock};
 
 use crate::{
     constants::{BITCOIN_EXPLORER_API, NETWORK},
     debug,
+    structs::SecretString,
 };
 
 pub type MemoryWallet = Arc<Mutex<Wallet<MemoryDatabase>>>;
-type Wallets = BTreeMap<(String, Option<String>), MemoryWallet>;
+type Wallets = BTreeMap<String, MemoryWallet>;
 
 #[derive(Default)]
 struct Networks {
@@ -24,11 +26,11 @@ struct Networks {
 static BDK: Lazy<Networks> = Lazy::new(Networks::default);
 
 pub async fn get_wallet(
-    descriptor: &str,
-    change_descriptor: Option<String>,
+    descriptor: &SecretString,
+    change_descriptor: Option<&SecretString>,
 ) -> Result<Arc<Mutex<Wallet<MemoryDatabase>>>> {
-    let descriptor = descriptor.to_owned();
-    let key = (descriptor.clone(), change_descriptor.clone());
+    let descriptor_key = format!("{descriptor:?}{change_descriptor:?}");
+    let key = sha256::Hash::hash(descriptor_key.as_bytes()).to_string();
 
     let network_lock = NETWORK.read().await;
     let network = network_lock.to_owned();
@@ -49,9 +51,14 @@ pub async fn get_wallet(
     }
     drop(wallets_lock);
 
+    let change_descriptor = match change_descriptor {
+        Some(change_descriptor) => Some(&change_descriptor.0),
+        None => None,
+    };
+
     let new_wallet = Arc::new(Mutex::new(Wallet::new(
-        &descriptor,
-        change_descriptor.as_ref(),
+        &descriptor.0,
+        change_descriptor,
         network,
         MemoryDatabase::default(),
     )?));
