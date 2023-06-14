@@ -178,7 +178,7 @@ pub async fn encrypt_wallet(
 
 pub async fn get_wallet_data(
     descriptor: &SecretString,
-    change_descriptor: Option<&SecretString>,
+    change_descriptor: Option<SecretString>,
 ) -> Result<WalletData> {
     info!("get_wallet_data");
 
@@ -235,7 +235,7 @@ pub async fn get_wallet_data(
 
 pub async fn get_new_address(
     descriptor: &SecretString,
-    change_descriptor: Option<&SecretString>,
+    change_descriptor: Option<SecretString>,
 ) -> Result<String> {
     info!("get_new_address");
 
@@ -259,7 +259,7 @@ pub async fn send_sats(
 ) -> Result<TransactionDetails> {
     use payjoin::UriExt;
 
-    let wallet = get_wallet(descriptor, Some(change_descriptor)).await?;
+    let wallet = get_wallet(descriptor, Some(change_descriptor.to_owned())).await?;
     synchronize_wallet(&wallet).await?;
 
     let fee_rate = fee_rate.map(FeeRate::from_sat_per_vb);
@@ -300,7 +300,11 @@ pub async fn fund_vault(
     let assets_address = Address::from_str(assets_address)?;
     let uda_address = Address::from_str(uda_address)?;
 
-    let wallet = get_wallet(btc_descriptor_xprv, Some(btc_change_descriptor_xprv)).await?;
+    let wallet = get_wallet(
+        btc_descriptor_xprv,
+        Some(btc_change_descriptor_xprv.clone()),
+    )
+    .await?;
     synchronize_wallet(&wallet).await?;
 
     let asset_invoice = SatsInvoice {

@@ -188,13 +188,10 @@ pub mod bitcoin {
     #[wasm_bindgen]
     pub fn get_wallet_data(descriptor: String, change_descriptor: Option<String>) -> Promise {
         set_panic_hook();
-
         future_to_promise(async move {
-            match crate::bitcoin::get_wallet_data(
-                &SecretString(descriptor),
-                Some(&SecretString(change_descriptor.unwrap_or_default())),
-            )
-            .await
+            let change_descriptor = change_descriptor.map(SecretString);
+            match crate::bitcoin::get_wallet_data(&SecretString(descriptor), change_descriptor)
+                .await
             {
                 Ok(result) => Ok(JsValue::from_string(
                     serde_json::to_string(&result).unwrap(),
