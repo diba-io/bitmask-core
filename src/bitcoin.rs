@@ -10,8 +10,6 @@ use serde_encrypt::{
     serialize::impls::BincodeSerializer, shared_key::SharedKey, traits::SerdeEncryptSharedKey,
     AsSharedKey, EncryptedMessage,
 };
-use tokio::try_join;
-
 mod assets;
 mod keys;
 mod payment;
@@ -23,7 +21,7 @@ pub use crate::bitcoin::{
     keys::{new_mnemonic, save_mnemonic},
     payment::{create_payjoin, create_transaction},
     psbt::sign_psbt,
-    wallet::{get_blockchain, get_wallet, synchronize_wallet, MemoryWallet},
+    wallet::{get_blockchain, get_wallet, sync_wallets, MemoryWallet},
 };
 
 use crate::{
@@ -190,7 +188,6 @@ pub async fn get_wallet_data(
     info!(format!("change_descriptor {change_descriptor:?}"));
 
     let wallet = get_wallet(descriptor, change_descriptor).await?;
-    synchronize_wallet(&wallet).await?;
 
     let address = wallet
         .lock()
@@ -247,7 +244,6 @@ pub async fn get_new_address(
     info!(format!("change_descriptor: {change_descriptor:?}"));
 
     let wallet = get_wallet(descriptor, change_descriptor).await?;
-    synchronize_wallet(&wallet).await?;
     let address = wallet
         .lock()
         .await
@@ -267,8 +263,6 @@ pub async fn send_sats(
     use payjoin::UriExt;
 
     let wallet = get_wallet(descriptor, Some(change_descriptor.to_owned())).await?;
-    synchronize_wallet(&wallet).await?;
-
     let fee_rate = fee_rate.map(FeeRate::from_sat_per_vb);
 
     let transaction = match payjoin::Uri::try_from(destination) {
@@ -312,7 +306,6 @@ pub async fn fund_vault(
         Some(btc_change_descriptor_xprv.to_owned()),
     )
     .await?;
-    synchronize_wallet(&wallet).await?;
 
     let asset_invoice = SatsInvoice {
         address: assets_address,
@@ -375,11 +368,6 @@ pub async fn get_assets_vault(
     let assets_wallet = get_wallet(rgb_assets_descriptor_xpub, None).await?;
     let udas_wallet = get_wallet(rgb_udas_descriptor_xpub, None).await?;
 
-    try_join!(
-        synchronize_wallet(&assets_wallet),
-        synchronize_wallet(&udas_wallet)
-    )?;
-
     let assets_utxos = assets_wallet.lock().await.list_unspent()?;
     let uda_utxos = udas_wallet.lock().await.list_unspent()?;
 
@@ -431,7 +419,6 @@ pub async fn sign_psbt_file(_sk: &str, request: SignPsbtRequest) -> Result<SignP
     };
 
     let wallet = get_wallet(&sk, None).await?;
-    synchronize_wallet(&wallet).await?;
 
     let sign = sign_psbt(&wallet, final_psbt).await?;
     let resp = match sign.transaction {

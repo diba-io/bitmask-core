@@ -26,7 +26,7 @@ use wallet::{
     psbt::{ProprietaryKeyDescriptor, ProprietaryKeyError, ProprietaryKeyLocation},
 };
 
-use crate::bitcoin::{get_wallet, synchronize_wallet};
+use crate::bitcoin::get_wallet;
 use crate::rgb::{constants::RGB_PSBT_TAPRET, structs::AddressAmount};
 
 #[allow(clippy::too_many_arguments)]
@@ -193,10 +193,6 @@ pub async fn estimate_fee_tx(
     let wallet = get_wallet(descriptor_pub, None)
         .await
         .expect("cannot retrieve wallet");
-
-    synchronize_wallet(&wallet)
-        .await
-        .expect("cannot sync wallet");
 
     let local = wallet.lock().await.get_utxo(outpoint);
     let local = local.expect("utxo not found").unwrap();

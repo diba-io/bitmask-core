@@ -4,7 +4,8 @@ use std::env;
 use anyhow::Result;
 use bitmask_core::{
     bitcoin::{
-        get_encrypted_wallet, get_wallet_data, hash_password, new_mnemonic_seed, save_mnemonic_seed,
+        get_encrypted_wallet, get_wallet_data, hash_password, new_mnemonic_seed,
+        save_mnemonic_seed, sync_wallets,
     },
     constants::{get_network, switch_network},
     util::init_logging,
@@ -99,6 +100,8 @@ async fn get_wallet_balance() -> Result<()> {
     let hash = hash_password(ENCRYPTION_PASSWORD);
     let main_mnemonic_data = save_mnemonic_seed(&main_mnemonic, &hash, SEED_PASSWORD).await?;
     let main_vault = get_encrypted_wallet(&hash, &main_mnemonic_data.encrypted_descriptors)?;
+
+    sync_wallets().await?;
 
     let main_btc_wallet = get_wallet_data(&main_vault.private.btc_descriptor_xprv, None).await?;
 
