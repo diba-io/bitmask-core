@@ -1,11 +1,10 @@
 #![cfg(all(target_arch = "wasm32"))]
 use bitmask_core::{
     debug, info,
-    structs::{DecryptedWalletData, MnemonicSeedData, TransactionDetails, WalletData},
+    structs::{DecryptedWalletData, SecretString, TransactionDetails, WalletData},
     web::{
         bitcoin::{
-            get_encrypted_wallet, get_wallet_data, hash_password, new_mnemonic_seed,
-            save_mnemonic_seed, send_sats,
+            decrypt_wallet, encrypt_wallet, get_wallet_data, hash_password, new_wallet, send_sats,
         },
         json_parse, resolve, set_panic_hook, to_string,
     },
@@ -33,7 +32,7 @@ async fn create_wallet() {
 
     info!("Mnemonic string is 12 words long");
     let hash = hash_password(ENCRYPTION_PASSWORD.to_owned());
-    let mnemonic: JsValue = resolve(new_mnemonic_seed(hash, SEED_PASSWORD.to_owned())).await;
+    let mnemonic: JsValue = resolve(new_wallet(hash, SEED_PASSWORD.to_owned())).await;
     assert!(!mnemonic.is_undefined());
     assert!(mnemonic.is_string());
     assert_eq!(to_string(&mnemonic).split(' ').count(), 12);
@@ -47,22 +46,19 @@ async fn import_and_open_wallet() {
 
     info!("Import wallet");
     let hash = hash_password(ENCRYPTION_PASSWORD.to_owned());
-    let mnemonic_data_str = resolve(save_mnemonic_seed(
+    let mnemonic_data_str = resolve(encrypt_wallet(
         MNEMONIC.to_owned(),
         hash.clone(),
         SEED_PASSWORD.to_owned(),
     ))
     .await;
 
-    let mnemonic_data: MnemonicSeedData = json_parse(&mnemonic_data_str);
+    let mnemonic_data: SecretString = json_parse(&mnemonic_data_str);
 
     info!("Get encrypted wallet properties");
-    let encrypted_wallet_str: JsValue = resolve(get_encrypted_wallet(
-        hash,
-        mnemonic_data.encrypted_descriptors,
-    ))
-    .await;
-    let encrypted_wallet_data: EncryptedWalletData = json_parse(&encrypted_wallet_str);
+    let encrypted_wallet_str: JsValue =
+        resolve(decrypt_wallet(hash, mnemonic_data.0.clone())).await;
+    let encrypted_wallet_data: DecryptedWalletData = json_parse(&encrypted_wallet_str);
 
     assert_eq!(
         encrypted_wallet_data.private.btc_descriptor_xprv, DESCRIPTOR,
@@ -101,41 +97,33 @@ async fn import_test_wallet() {
 
     info!("Import wallet");
     let hash0 = hash_password(ENCRYPTION_PASSWORD.to_owned());
-    let mnemonic_data_str = resolve(save_mnemonic_seed(
+    let mnemonic_data_str = resolve(encrypt_wallet(
         mnemonic.to_owned(),
         hash0.clone(),
         SEED_PASSWORD.to_owned(),
     ))
     .await;
-    let mnemonic_data: MnemonicSeedData = json_parse(&mnemonic_data_str);
+    let mnemonic_data: SecretString = json_parse(&mnemonic_data_str);
 
     info!("Get vault properties");
-    let vault_str: JsValue = resolve(get_encrypted_wallet(
-        hash0.clone(),
-        mnemonic_data.encrypted_descriptors,
-    ))
-    .await;
-    let _encrypted_wallet_data: EncryptedWalletData = json_parse(&vault_str);
+    let vault_str: JsValue = resolve(decrypt_wallet(hash0.clone(), mnemonic_data.0.clone())).await;
+    let _encrypted_wallet_data: DecryptedWalletData = json_parse(&vault_str);
 
     info!("Import wallet once more");
     let hash1 = hash_password(ENCRYPTION_PASSWORD.to_owned());
     assert_eq!(&hash0, &hash1, "hashes match");
 
-    let mnemonic_data_str = resolve(save_mnemonic_seed(
+    let mnemonic_data_str = resolve(encrypt_wallet(
         mnemonic.to_owned(),
         hash1.clone(),
         SEED_PASSWORD.to_owned(),
     ))
     .await;
-    let mnemonic_data: MnemonicSeedData = json_parse(&mnemonic_data_str);
+    let mnemonic_data: SecretString = json_parse(&mnemonic_data_str);
 
     info!("Get vault properties");
-    let vault_str: JsValue = resolve(get_encrypted_wallet(
-        hash1,
-        mnemonic_data.encrypted_descriptors,
-    ))
-    .await;
-    let encrypted_wallet_data: EncryptedWalletData = json_parse(&vault_str);
+    let vault_str: JsValue = resolve(decrypt_wallet(hash1, mnemonic_data.0.clone())).await;
+    let encrypted_wallet_data: DecryptedWalletData = json_parse(&vault_str);
 
     info!("Get wallet data");
     let wallet_str: JsValue = resolve(get_wallet_data(
@@ -176,8 +164,11 @@ async fn import_test_wallet() {
 
     info!("Test sending a transaction back to itself for a thousand sats");
     let tx_details = resolve(send_sats(
-        encrypted_wallet_data.private.btc_descriptor_xprv,
-        encrypted_wallet_data.private.btc_change_descriptor_xprv,
+        encrypted_wallet_data.private.btc_descriptor_xprv.clone(),
+        encrypted_wallet_data
+            .private
+            .btc_change_descriptor_xprv
+            .clone(),
         wallet_data.address,
         1_000,
         Some(1.1),

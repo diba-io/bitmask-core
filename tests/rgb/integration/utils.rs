@@ -12,7 +12,7 @@ use bitmask_core::{
         AllocationDetail, AssetType, ContractResponse, DecryptedWalletData, ImportRequest,
         InvoiceRequest, InvoiceResponse, IssueMetaRequest, IssueMetadata, IssueRequest,
         IssueResponse, MediaInfo, NewCollectible, PsbtRequest, PsbtResponse, RgbTransferRequest,
-        RgbTransferResponse, WatcherRequest,
+        RgbTransferResponse, SecretString, WatcherRequest,
     },
 };
 use tokio::process::Command;
@@ -79,21 +79,29 @@ pub async fn setup_regtest(force: bool, mnemonic: Option<&str>) {
     }
     if let Some(words) = mnemonic {
         let seed_password = "";
-        let vault_data = bitmask_core::bitcoin::save_mnemonic(words, seed_password)
-            .await
-            .expect("invalid mnemonic");
+        let vault_data = bitmask_core::bitcoin::save_mnemonic(
+            &SecretString(words.to_string()),
+            &SecretString(seed_password.to_string()),
+        )
+        .await
+        .expect("invalid mnemonic");
 
         // Send Coins to RGB Wallet
-        let fungible_snapshot =
-            get_wallet_data(&vault_data.public.rgb_assets_descriptor_xpub, None)
-                .await
-                .expect("invalid wallet snapshot");
+        let fungible_snapshot = get_wallet_data(
+            &SecretString(vault_data.public.rgb_assets_descriptor_xpub.clone()),
+            None,
+        )
+        .await
+        .expect("invalid wallet snapshot");
         send_some_coins(&fungible_snapshot.address, "0.1").await;
 
         // Send Coins to RGB Wallet
-        let uda_snapshot = get_wallet_data(&vault_data.public.rgb_udas_descriptor_xpub, None)
-            .await
-            .expect("invalid wallet snapshot");
+        let uda_snapshot = get_wallet_data(
+            &SecretString(vault_data.public.rgb_udas_descriptor_xpub.clone()),
+            None,
+        )
+        .await
+        .expect("invalid wallet snapshot");
         send_some_coins(&uda_snapshot.address, "0.1").await;
     };
 }
@@ -110,10 +118,14 @@ pub async fn shutdown_regtest(force: bool) -> anyhow::Result<()> {
 #[allow(dead_code)]
 pub async fn send_coins(iface: &str, _watcher_pub: &str) -> anyhow::Result<()> {
     let watcher_name = "default";
-    let issuer_keys = save_mnemonic(ISSUER_MNEMONIC, "").await?;
+    let issuer_keys = save_mnemonic(
+        &SecretString(ISSUER_MNEMONIC.to_string()),
+        &SecretString("".to_string()),
+    )
+    .await?;
 
     // Send Coins
-    let sk = issuer_keys.private.nostr_prv;
+    let sk = &issuer_keys.private.nostr_prv;
     let next_address = watcher_next_address(&sk, watcher_name, iface).await?;
     send_some_coins(&next_address.address, "0.01").await;
     Ok(())
@@ -127,14 +139,18 @@ pub async fn issuer_issue_contract(
     meta: Option<IssueMetaRequest>,
 ) -> Result<IssueResponse, anyhow::Error> {
     setup_regtest(force, None).await;
-    let issuer_keys = save_mnemonic(ISSUER_MNEMONIC, "").await?;
+    let issuer_keys = save_mnemonic(
+        &SecretString(ISSUER_MNEMONIC.to_string()),
+        &SecretString("".to_string()),
+    )
+    .await?;
     let watcher_name = "default";
 
     // Create Watcher
-    let sk = issuer_keys.private.nostr_prv;
+    let sk = &issuer_keys.private.nostr_prv;
     let create_watch_req = WatcherRequest {
         name: watcher_name.to_string(),
-        xpub: issuer_keys.public.watcher_xpub,
+        xpub: issuer_keys.public.watcher_xpub.clone(),
         force: send_coins,
     };
 
@@ -172,13 +188,17 @@ pub async fn issuer_issue_contract(
 pub async fn import_new_contract(
     issuer_resp: IssueResponse,
 ) -> Result<ContractResponse, anyhow::Error> {
-    let owner_keys = save_mnemonic(OWNER_MNEMONIC, "").await?;
+    let owner_keys = save_mnemonic(
+        &SecretString(OWNER_MNEMONIC.to_string()),
+        &SecretString("".to_string()),
+    )
+    .await?;
 
     // Create Watcher
-    let sk = owner_keys.private.nostr_prv;
+    let sk = owner_keys.private.nostr_prv.clone();
     let create_watch_req = WatcherRequest {
         name: "default".to_owned(),
-        xpub: owner_keys.public.watcher_xpub,
+        xpub: owner_keys.public.watcher_xpub.clone(),
         force: true,
     };
 
@@ -206,16 +226,20 @@ pub async fn create_new_invoice(
     issuer_resp: IssueResponse,
     params: Option<HashMap<String, String>>,
 ) -> Result<InvoiceResponse, anyhow::Error> {
-    let owner_keys = save_mnemonic(OWNER_MNEMONIC, "").await?;
+    let owner_keys = save_mnemonic(
+        &SecretString(OWNER_MNEMONIC.to_string()),
+        &SecretString("".to_string()),
+    )
+    .await?;
     let descriptor_pub = match issuer_resp.iface.as_str() {
-        "RGB20" => owner_keys.public.rgb_assets_descriptor_xpub,
-        "RGB21" => owner_keys.public.rgb_udas_descriptor_xpub,
-        _ => owner_keys.public.rgb_assets_descriptor_xpub,
+        "RGB20" => owner_keys.public.rgb_assets_descriptor_xpub.clone(),
+        "RGB21" => owner_keys.public.rgb_udas_descriptor_xpub.clone(),
+        _ => owner_keys.public.rgb_assets_descriptor_xpub.clone(),
     };
-    let owner_vault = get_wallet(&descriptor_pub, None).await?;
+    let owner_vault = get_wallet(&SecretString(descriptor_pub), None).await?;
 
     // Create Watcher
-    let sk = owner_keys.private.nostr_prv;
+    let sk = owner_keys.private.nostr_prv.clone();
     let contract_type = match issuer_resp.iface.as_str() {
         "RGB20" => AssetType::RGB20,
         "RGB21" => AssetType::RGB21,
@@ -265,7 +289,7 @@ pub async fn create_new_psbt(
 ) -> Result<PsbtResponse, anyhow::Error> {
     // Get Allocations
     let watcher_name = "default";
-    let sk = issuer_keys.private.nostr_prv;
+    let sk = issuer_keys.private.nostr_prv.clone();
     let resp = watcher_details(&sk, watcher_name).await;
     assert!(resp.is_ok());
 
@@ -291,14 +315,14 @@ pub async fn create_new_psbt(
     }
 
     let descriptor_pub = match issuer_resp.iface.as_str() {
-        "RGB20" => issuer_keys.public.rgb_assets_descriptor_xpub,
-        "RGB21" => issuer_keys.public.rgb_udas_descriptor_xpub,
-        _ => issuer_keys.public.rgb_assets_descriptor_xpub,
+        "RGB20" => issuer_keys.public.rgb_assets_descriptor_xpub.clone(),
+        "RGB21" => issuer_keys.public.rgb_udas_descriptor_xpub.clone(),
+        _ => issuer_keys.public.rgb_assets_descriptor_xpub.clone(),
     };
 
     assert_eq!(asset_utxo, issuer_resp.issue_utxo);
     let req = PsbtRequest {
-        descriptor_pub,
+        descriptor_pub: SecretString(descriptor_pub),
         asset_utxo: asset_utxo.to_string(),
         asset_utxo_terminal: asset_utxo_terminal.to_string(),
         change_index: None,
@@ -322,8 +346,7 @@ pub async fn create_new_transfer(
         terminal: psbt_resp.terminal,
     };
 
-    let sk = issuer_keys.private.nostr_prv;
-
+    let sk = issuer_keys.private.nostr_prv.clone();
     transfer_asset(&sk, transfer_req).await
 }
 

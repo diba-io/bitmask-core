@@ -189,14 +189,12 @@ pub mod bitcoin {
     pub fn get_wallet_data(descriptor: String, change_descriptor: Option<String>) -> Promise {
         set_panic_hook();
 
-        let change_descriptor = match change_descriptor {
-            Some(descriptor) => Some(&SecretString(descriptor)),
-            None => None,
-        };
-
         future_to_promise(async move {
-            match crate::bitcoin::get_wallet_data(&SecretString(descriptor), change_descriptor)
-                .await
+            match crate::bitcoin::get_wallet_data(
+                &SecretString(descriptor),
+                Some(&SecretString(change_descriptor.unwrap_or_default())),
+            )
+            .await
             {
                 Ok(result) => Ok(JsValue::from_string(
                     serde_json::to_string(&result).unwrap(),
@@ -339,12 +337,12 @@ pub mod rgb {
     }
 
     #[wasm_bindgen]
-    pub fn psbt_sign_file(nostr_hex_sk: String, request: JsValue) -> Promise {
+    pub fn psbt_sign_file(_nostr_hex_sk: String, request: JsValue) -> Promise {
         set_panic_hook();
 
         future_to_promise(async move {
             let psbt_req: SignPsbtRequest = serde_wasm_bindgen::from_value(request).unwrap();
-            match crate::bitcoin::sign_psbt_file(&nostr_hex_sk, psbt_req).await {
+            match crate::bitcoin::sign_psbt_file(psbt_req).await {
                 Ok(result) => Ok(JsValue::from_string(
                     serde_json::to_string(&result).unwrap(),
                 )),

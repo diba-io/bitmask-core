@@ -34,8 +34,10 @@ async fn payjoin() -> Result<()> {
     let vault = decrypt_wallet(&hash, &encrypted_descriptors)?;
 
     let wallet = get_wallet_data(
-        &vault.private.btc_descriptor_xprv,
-        Some(vault.private.btc_change_descriptor_xprv.clone()),
+        &SecretString(vault.private.btc_descriptor_xprv.clone()),
+        Some(&SecretString(
+            vault.private.btc_change_descriptor_xprv.clone(),
+        )),
     )
     .await?;
     info!("Address: {}", wallet.address);
@@ -46,8 +48,8 @@ async fn payjoin() -> Result<()> {
     let amount = 1000;
 
     match send_sats(
-        &vault.private.btc_descriptor_xprv,
-        &vault.private.btc_change_descriptor_xprv,
+        &SecretString(vault.private.btc_descriptor_xprv.clone()),
+        &SecretString(vault.private.btc_change_descriptor_xprv.clone()),
         &destination,
         amount,
         Some(1.1),

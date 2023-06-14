@@ -220,7 +220,7 @@ pub async fn create_psbt(sk: &str, request: PsbtRequest) -> Result<PsbtResponse>
     };
 
     let (psbt_file, change_terminal) = create_rgb_psbt(
-        descriptor_pub,
+        descriptor_pub.0.to_string(),
         asset_utxo,
         asset_utxo_terminal.clone(),
         change_index,

@@ -51,11 +51,7 @@ pub async fn get_wallet(
     }
     drop(wallets_lock);
 
-    let change_descriptor = match change_descriptor {
-        Some(change_descriptor) => Some(&change_descriptor.0),
-        None => None,
-    };
-
+    let change_descriptor = change_descriptor.map(|change_descriptor| &change_descriptor.0);
     let new_wallet = Arc::new(Mutex::new(Wallet::new(
         &descriptor.0,
         change_descriptor,

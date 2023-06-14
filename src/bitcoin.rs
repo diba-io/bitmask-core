@@ -46,7 +46,6 @@ impl SerdeEncryptSharedKey for EncryptedWalletDataV04 {
 }
 
 /// Bitcoin Wallet Operations
-
 const BITMASK_ARGON2_SALT: &[u8] = b"DIBA BitMask Password Hash"; // Never change this
 
 pub fn hash_password(password: &SecretString) -> SecretString {
@@ -62,7 +61,6 @@ pub fn hash_password(password: &SecretString) -> SecretString {
         .expect("Password hashed with Argon2id");
 
     output_key_material.zeroize();
-
     SecretString(hex::encode(output_key_material))
 }
 
@@ -156,7 +154,6 @@ pub async fn new_wallet(hash: &SecretString, seed_password: &SecretString) -> Re
     let wallet_data = new_mnemonic(seed_password).await?;
     let encrypted_message = wallet_data.encrypt(&SharedKey::from_array(shared_key))?;
     let encrypted_descriptors = versioned_descriptor(encrypted_message);
-
     Ok(encrypted_descriptors)
 }
 
@@ -168,10 +165,10 @@ pub async fn encrypt_wallet(
     let shared_key: [u8; 32] = hex::decode(&hash.0)?
         .try_into()
         .expect("hash is of fixed size");
+
     let wallet_data = save_mnemonic(mnemonic_phrase, seed_password).await?;
     let encrypted_message = wallet_data.encrypt(&SharedKey::from_array(shared_key))?;
     let encrypted_descriptors = versioned_descriptor(encrypted_message);
-
     Ok(encrypted_descriptors)
 }
 
@@ -397,27 +394,13 @@ pub async fn get_assets_vault(
     })
 }
 
-pub async fn sign_psbt_file(_sk: &str, request: SignPsbtRequest) -> Result<SignPsbtResponse> {
-    let SignPsbtRequest {
-        psbt,
-        mnemonic,
-        seed_password,
-        iface,
-    } = request;
+pub async fn sign_psbt_file(request: SignPsbtRequest) -> Result<SignPsbtResponse> {
+    let SignPsbtRequest { psbt, descriptor } = request;
 
     let original_psbt = Psbt::from_str(&psbt)?;
     let final_psbt = PartiallySignedTransaction::from(original_psbt);
 
-    // TODO: Refactor this!
-    let encrypt_wallet =
-        save_mnemonic(&SecretString(mnemonic), &SecretString(seed_password)).await?;
-    let sk = match iface.as_str() {
-        "RGB20" => &encrypt_wallet.private.rgb_assets_descriptor_xprv,
-        "RGB21" => &encrypt_wallet.private.rgb_udas_descriptor_xprv,
-        _ => &encrypt_wallet.private.rgb_assets_descriptor_xprv,
-    };
-
-    let wallet = get_wallet(sk, None).await?;
+    let wallet = get_wallet(&descriptor, None).await?;
     synchronize_wallet(&wallet).await?;
 
     let sign = sign_psbt(&wallet, final_psbt).await?;

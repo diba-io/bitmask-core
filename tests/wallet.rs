@@ -48,21 +48,12 @@ async fn create_wallet() -> Result<()> {
     let hash = hash_password(&SecretString(ENCRYPTION_PASSWORD.to_owned()));
     let encrypted_descriptors = new_wallet(&hash, &SecretString(SEED_PASSWORD.to_owned())).await?;
     let decrypted_wallet = decrypt_wallet(&hash, &encrypted_descriptors)?;
-    let wallet_data = get_wallet_data(
-        &decrypted_wallet.private.btc_descriptor_xprv,
-        Some(&decrypted_wallet.private.btc_change_descriptor_xprv),
-    )
-    .await?;
-    info!("Generated mnemonic: {}", decrypted_wallet.mnemonic);
-    let encrypted_descriptors = encrypt_wallet(
-        &SecretString(decrypted_wallet.mnemonic),
-        &hash,
-        &SecretString(SEED_PASSWORD.to_owned()),
-    )
-    .await?;
 
-    let main_btc_wallet =
-        get_wallet_data(&decrypted_wallet.private.btc_descriptor_xprv, None).await?;
+    let main_btc_wallet = get_wallet_data(
+        &SecretString(decrypted_wallet.private.btc_descriptor_xprv.clone()),
+        None,
+    )
+    .await?;
     // let main_rgb_wallet =
     //     get_wallet_data(&decrypted_wallet.private.rgb_assets_descriptor_xprv, None).await?;
 
@@ -97,9 +88,16 @@ async fn import_wallet() -> Result<()> {
     let encrypted_descriptors = encrypt_wallet(&main_mnemonic, &hash1, &seed_password).await?;
     let main_vault = decrypt_wallet(&hash1, &encrypted_descriptors)?;
 
-    let main_btc_wallet = get_wallet_data(&main_vault.private.btc_descriptor_xprv, None).await?;
-    let main_rgb_wallet =
-        get_wallet_data(&main_vault.private.rgb_assets_descriptor_xprv, None).await?;
+    let main_btc_wallet = get_wallet_data(
+        &SecretString(main_vault.private.btc_descriptor_xprv.clone()),
+        None,
+    )
+    .await?;
+    let main_rgb_wallet = get_wallet_data(
+        &SecretString(main_vault.private.rgb_assets_descriptor_xprv.clone()),
+        None,
+    )
+    .await?;
 
     println!("Descriptor: {}", main_vault.private.btc_descriptor_xprv);
     println!("Address (Bitcoin): {}", main_btc_wallet.address);
@@ -118,9 +116,17 @@ async fn get_wallet_balance() -> Result<()> {
     let encrypted_descriptors = encrypt_wallet(&main_mnemonic, &hash, &seed_password).await?;
     let main_vault = decrypt_wallet(&hash, &encrypted_descriptors)?;
 
-    let main_btc_wallet = get_wallet_data(&main_vault.private.btc_descriptor_xprv, None).await?;
+    let main_btc_wallet = get_wallet_data(
+        &SecretString(main_vault.private.btc_descriptor_xprv.clone()),
+        None,
+    )
+    .await?;
 
-    let btc_wallet = get_wallet_data(&main_vault.private.btc_descriptor_xprv, None).await?;
+    let btc_wallet = get_wallet_data(
+        &SecretString(main_vault.private.btc_descriptor_xprv.clone()),
+        None,
+    )
+    .await?;
     warn!("Descriptor:", main_vault.private.btc_descriptor_xprv);
     warn!("Address:", main_btc_wallet.address);
     warn!("Wallet Balance:", btc_wallet.balance.confirmed.to_string());

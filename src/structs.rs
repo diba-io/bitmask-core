@@ -27,7 +27,8 @@ pub struct WalletTransaction {
     pub confirmation_time: Option<BlockTime>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Zeroize, ZeroizeOnDrop)]
+#[derive(Serialize, Deserialize, Clone, Debug, Zeroize, ZeroizeOnDrop, Display)]
+#[display(inner)]
 pub struct SecretString(pub String);
 
 #[derive(Serialize, Deserialize, Clone, Debug, Zeroize, ZeroizeOnDrop)]
@@ -355,7 +356,7 @@ pub struct InvoiceResponse {
 #[serde(rename_all = "camelCase")]
 pub struct PsbtRequest {
     /// Descriptor XPub
-    pub descriptor_pub: String,
+    pub descriptor_pub: SecretString,
     /// Asset UTXO
     pub asset_utxo: String,
     /// Asset UTXO Terminal (ex. /0/0)
@@ -384,12 +385,8 @@ pub struct PsbtResponse {
 pub struct SignPsbtRequest {
     /// PSBT encoded in Base64
     pub psbt: String,
-    /// mnemonic
-    pub mnemonic: String,
-    /// password
-    pub seed_password: String,
-    /// iface
-    pub iface: String,
+    /// Descriptor to Sign
+    pub descriptor: SecretString,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
