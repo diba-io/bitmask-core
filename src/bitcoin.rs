@@ -60,8 +60,9 @@ pub fn hash_password(password: &SecretString) -> SecretString {
         )
         .expect("Password hashed with Argon2id");
 
+    let hash = SecretString(hex::encode(output_key_material));
     output_key_material.zeroize();
-    SecretString(hex::encode(output_key_material))
+    hash
 }
 
 pub fn decrypt_wallet(
@@ -141,19 +142,22 @@ pub fn versioned_descriptor(encrypted_message: EncryptedMessage) -> SecretString
     let mut encrypted_descriptors = encrypted_message.serialize();
     descriptor_data.append(&mut encrypted_descriptors);
 
+    let encrypted = SecretString(hex::encode(&descriptor_data));
+
     descriptor_data.zeroize();
     encrypted_descriptors.zeroize();
-
-    SecretString(hex::encode(descriptor_data))
+    encrypted
 }
 
 pub async fn new_wallet(hash: &SecretString, seed_password: &SecretString) -> Result<SecretString> {
-    let shared_key: [u8; 32] = hex::decode(&hash.0)?
+    let mut shared_key: [u8; 32] = hex::decode(&hash.0)?
         .try_into()
         .expect("hash is of fixed size");
     let wallet_data = new_mnemonic(seed_password).await?;
     let encrypted_message = wallet_data.encrypt(&SharedKey::from_array(shared_key))?;
     let encrypted_descriptors = versioned_descriptor(encrypted_message);
+
+    shared_key.zeroize();
     Ok(encrypted_descriptors)
 }
 
@@ -218,6 +222,8 @@ pub async fn get_wallet_data(
             confirmation_time: tx.confirmation_time,
         })
         .collect();
+
+    trace!(format!("transactions: {transactions:#?}"));
 
     Ok(WalletData {
         address,
