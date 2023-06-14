@@ -126,7 +126,7 @@ pub async fn send_coins(iface: &str, _watcher_pub: &str) -> anyhow::Result<()> {
 
     // Send Coins
     let sk = &issuer_keys.private.nostr_prv;
-    let next_address = watcher_next_address(&sk, watcher_name, iface).await?;
+    let next_address = watcher_next_address(sk, watcher_name, iface).await?;
     send_some_coins(&next_address.address, "0.01").await;
     Ok(())
 }
@@ -154,19 +154,19 @@ pub async fn issuer_issue_contract(
         force: send_coins,
     };
 
-    create_watcher(&sk, create_watch_req.clone()).await?;
+    create_watcher(sk, create_watch_req.clone()).await?;
 
     if send_coins {
-        let next_address = watcher_next_address(&sk, watcher_name, iface).await?;
+        let next_address = watcher_next_address(sk, watcher_name, iface).await?;
         send_some_coins(&next_address.address, "0.01").await;
     }
 
-    let mut next_utxo = watcher_next_utxo(&sk, watcher_name, iface).await?;
+    let mut next_utxo = watcher_next_utxo(sk, watcher_name, iface).await?;
     if next_utxo.utxo.is_empty() {
-        let next_address = watcher_next_address(&sk, watcher_name, iface).await?;
+        let next_address = watcher_next_address(sk, watcher_name, iface).await?;
         send_some_coins(&next_address.address, "0.01").await;
 
-        next_utxo = watcher_next_utxo(&sk, watcher_name, iface).await?;
+        next_utxo = watcher_next_utxo(sk, watcher_name, iface).await?;
     }
 
     let issue_utxo = next_utxo.utxo;
@@ -182,7 +182,7 @@ pub async fn issuer_issue_contract(
         meta,
     };
 
-    issue_contract(&sk, request).await
+    issue_contract(sk, request).await
 }
 
 pub async fn import_new_contract(

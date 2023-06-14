@@ -84,6 +84,7 @@ fn nostr_keypair(xprv: &ExtendedPrivKey, path: &str, change: u32) -> Result<(Str
 
 pub async fn new_mnemonic(seed_password: &SecretString) -> Result<DecryptedWalletData> {
     let mut entropy: Vec<u8> = Vec::with_capacity(32);
+    println!("TODO: temporary entropy: {entropy:#?}");
     getrandom::getrandom(&mut entropy)?;
     let mnemonic = Mnemonic::from_entropy_in(Language::English, &entropy)?;
     entropy.zeroize();
