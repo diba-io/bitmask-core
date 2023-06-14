@@ -57,7 +57,7 @@ descriptor-wallet = { version = "0.10.0-alpha.2", features = [
 futures = { version = "0.3.28", features = [
     "executor",
 ], default-features = true }
-getrandom = "0.2.10"
+getrandom = { version = "0.2.10", features = ["js"] }
 hex = "0.4.3"
 lightning-invoice = "0.23.0"
 log = "0.4.17"
