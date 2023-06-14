@@ -3,7 +3,7 @@ use std::{collections::HashMap, env, process::Stdio};
 
 use bdk::wallet::AddressIndex;
 use bitmask_core::{
-    bitcoin::{get_wallet, get_wallet_data, save_mnemonic, synchronize_wallet},
+    bitcoin::{get_wallet, get_wallet_data, save_mnemonic, sync_wallet},
     rgb::{
         create_invoice, create_psbt, create_watcher, import, issue_contract, transfer_asset,
         watcher_details, watcher_next_address, watcher_next_utxo,
@@ -240,7 +240,7 @@ pub async fn create_new_invoice(
         .to_string();
 
     send_some_coins(owner_address, "0.1").await;
-    synchronize_wallet(&owner_vault).await?;
+    sync_wallet(&owner_vault).await?;
 
     let beneficiary_utxo = owner_vault.lock().await.list_unspent()?;
     let beneficiary_utxo = beneficiary_utxo.first().unwrap();

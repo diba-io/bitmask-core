@@ -21,7 +21,7 @@ pub use crate::bitcoin::{
     keys::{new_mnemonic, save_mnemonic},
     payment::{create_payjoin, create_transaction},
     psbt::sign_psbt,
-    wallet::{get_blockchain, get_wallet, sync_wallets, MemoryWallet},
+    wallet::{get_blockchain, get_wallet, sync_wallet, sync_wallets, MemoryWallet},
 };
 
 use crate::{

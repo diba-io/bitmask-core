@@ -1,6 +1,6 @@
 #![cfg(not(target_arch = "wasm32"))]
 use bitmask_core::{
-    bitcoin::{get_wallet, save_mnemonic, synchronize_wallet},
+    bitcoin::{get_wallet, save_mnemonic, sync_wallet},
     rgb::{create_watcher, watcher_address, watcher_next_address, watcher_next_utxo, watcher_utxo},
     structs::WatcherRequest,
 };
@@ -24,7 +24,7 @@ async fn allow_monitoring_address() -> anyhow::Result<()> {
 
     // Get Address
     let issuer_wallet = get_wallet(&issuer_keys.private.btc_descriptor_xprv, None).await?;
-    synchronize_wallet(&issuer_wallet).await?;
+    sync_wallet(&issuer_wallet).await?;
 
     let address = issuer_wallet
         .lock()
@@ -55,7 +55,7 @@ async fn allow_monitoring_address_with_coins() -> anyhow::Result<()> {
 
     // Get Address
     let issuer_wallet = get_wallet(&issuer_keys.private.btc_descriptor_xprv, None).await?;
-    synchronize_wallet(&issuer_wallet).await?;
+    sync_wallet(&issuer_wallet).await?;
     let address = issuer_wallet
         .lock()
         .await

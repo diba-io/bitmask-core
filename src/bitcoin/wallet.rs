@@ -53,7 +53,7 @@ where
 pub async fn get_wallet(
     descriptor: &str,
     change_descriptor: Option<String>,
-) -> Result<Arc<Mutex<Wallet<MemoryDatabase>>>> {
+) -> Result<MemoryWallet> {
     let descriptor = descriptor.to_owned();
     let key = (descriptor.clone(), change_descriptor.clone());
 
@@ -103,6 +103,18 @@ pub async fn get_wallet(
 pub async fn get_blockchain() -> EsploraBlockchain {
     debug!("Getting blockchain");
     EsploraBlockchain::new(&BITCOIN_EXPLORER_API.read().await, 100)
+}
+
+pub async fn sync_wallet(wallet: &MemoryWallet) -> Result<()> {
+    let blockchain = get_blockchain().await;
+    wallet
+        .lock()
+        .await
+        .sync(&blockchain, SyncOptions::default())
+        .await?;
+
+    debug!("Wallet synced");
+    Ok(())
 }
 
 pub async fn sync_wallets() -> Result<()> {
@@ -162,6 +174,6 @@ pub async fn sync_wallets() -> Result<()> {
         }
     };
 
-    debug!("All synced");
+    debug!("All wallets synced");
     Ok(())
 }
