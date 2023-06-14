@@ -5,7 +5,7 @@ use bitmask_core::{
     web::{
         bitcoin::{
             get_encrypted_wallet, get_wallet_data, hash_password, new_mnemonic_seed,
-            save_mnemonic_seed, send_sats,
+            save_mnemonic_seed, send_sats, sync_wallets,
         },
         json_parse, resolve, set_panic_hook, to_string,
     },
