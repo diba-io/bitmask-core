@@ -46,7 +46,6 @@ impl SerdeEncryptSharedKey for EncryptedWalletDataV04 {
 }
 
 /// Bitcoin Wallet Operations
-
 const BITMASK_ARGON2_SALT: &[u8] = b"DIBA BitMask Password Hash"; // Never change this
 
 pub fn hash_password(password: &SecretString) -> SecretString {
@@ -61,9 +60,9 @@ pub fn hash_password(password: &SecretString) -> SecretString {
         )
         .expect("Password hashed with Argon2id");
 
+    let hash = SecretString(hex::encode(output_key_material));
     output_key_material.zeroize();
-
-    SecretString(hex::encode(output_key_material))
+    hash
 }
 
 pub fn decrypt_wallet(
@@ -143,20 +142,22 @@ pub fn versioned_descriptor(encrypted_message: EncryptedMessage) -> SecretString
     let mut encrypted_descriptors = encrypted_message.serialize();
     descriptor_data.append(&mut encrypted_descriptors);
 
+    let encrypted = SecretString(hex::encode(&descriptor_data));
+
     descriptor_data.zeroize();
     encrypted_descriptors.zeroize();
-
-    SecretString(hex::encode(descriptor_data))
+    encrypted
 }
 
 pub async fn new_wallet(hash: &SecretString, seed_password: &SecretString) -> Result<SecretString> {
-    let shared_key: [u8; 32] = hex::decode(&hash.0)?
+    let mut shared_key: [u8; 32] = hex::decode(&hash.0)?
         .try_into()
         .expect("hash is of fixed size");
     let wallet_data = new_mnemonic(seed_password).await?;
     let encrypted_message = wallet_data.encrypt(&SharedKey::from_array(shared_key))?;
     let encrypted_descriptors = versioned_descriptor(encrypted_message);
 
+    shared_key.zeroize();
     Ok(encrypted_descriptors)
 }
 
@@ -168,16 +169,16 @@ pub async fn encrypt_wallet(
     let shared_key: [u8; 32] = hex::decode(&hash.0)?
         .try_into()
         .expect("hash is of fixed size");
+
     let wallet_data = save_mnemonic(mnemonic_phrase, seed_password).await?;
     let encrypted_message = wallet_data.encrypt(&SharedKey::from_array(shared_key))?;
     let encrypted_descriptors = versioned_descriptor(encrypted_message);
-
     Ok(encrypted_descriptors)
 }
 
 pub async fn get_wallet_data(
     descriptor: &SecretString,
-    change_descriptor: Option<&SecretString>,
+    change_descriptor: Option<SecretString>,
 ) -> Result<WalletData> {
     info!("get_wallet_data");
 
@@ -222,6 +223,8 @@ pub async fn get_wallet_data(
         })
         .collect();
 
+    trace!(format!("transactions: {transactions:#?}"));
+
     Ok(WalletData {
         address,
         balance,
@@ -232,7 +235,7 @@ pub async fn get_wallet_data(
 
 pub async fn get_new_address(
     descriptor: &SecretString,
-    change_descriptor: Option<&SecretString>,
+    change_descriptor: Option<SecretString>,
 ) -> Result<String> {
     info!("get_new_address");
 
@@ -256,7 +259,7 @@ pub async fn send_sats(
 ) -> Result<TransactionDetails> {
     use payjoin::UriExt;
 
-    let wallet = get_wallet(descriptor, Some(change_descriptor)).await?;
+    let wallet = get_wallet(descriptor, Some(change_descriptor.to_owned())).await?;
     synchronize_wallet(&wallet).await?;
 
     let fee_rate = fee_rate.map(FeeRate::from_sat_per_vb);
@@ -297,7 +300,11 @@ pub async fn fund_vault(
     let assets_address = Address::from_str(assets_address)?;
     let uda_address = Address::from_str(uda_address)?;
 
-    let wallet = get_wallet(btc_descriptor_xprv, Some(btc_change_descriptor_xprv)).await?;
+    let wallet = get_wallet(
+        btc_descriptor_xprv,
+        Some(btc_change_descriptor_xprv.clone()),
+    )
+    .await?;
     synchronize_wallet(&wallet).await?;
 
     let asset_invoice = SatsInvoice {
@@ -397,27 +404,13 @@ pub async fn get_assets_vault(
     })
 }
 
-pub async fn sign_psbt_file(_sk: &str, request: SignPsbtRequest) -> Result<SignPsbtResponse> {
-    let SignPsbtRequest {
-        psbt,
-        mnemonic,
-        seed_password,
-        iface,
-    } = request;
+pub async fn sign_psbt_file(request: SignPsbtRequest) -> Result<SignPsbtResponse> {
+    let SignPsbtRequest { psbt, descriptor } = request;
 
     let original_psbt = Psbt::from_str(&psbt)?;
     let final_psbt = PartiallySignedTransaction::from(original_psbt);
 
-    // TODO: Refactor this!
-    let encrypt_wallet =
-        save_mnemonic(&SecretString(mnemonic), &SecretString(seed_password)).await?;
-    let sk = match iface.as_str() {
-        "RGB20" => &encrypt_wallet.private.rgb_assets_descriptor_xprv,
-        "RGB21" => &encrypt_wallet.private.rgb_udas_descriptor_xprv,
-        _ => &encrypt_wallet.private.rgb_assets_descriptor_xprv,
-    };
-
-    let wallet = get_wallet(sk, None).await?;
+    let wallet = get_wallet(&descriptor, None).await?;
     synchronize_wallet(&wallet).await?;
 
     let sign = sign_psbt(&wallet, final_psbt).await?;

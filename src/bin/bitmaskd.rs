@@ -47,7 +47,11 @@ async fn issue(Json(issue): Json<IssueAssetRequest>) -> Result<impl IntoResponse
 
 async fn self_issue(Json(issue): Json<SelfIssueRequest>) -> Result<impl IntoResponse, AppError> {
     info!("POST /self_issue {issue:?}");
-    let issuer_keys = save_mnemonic(&SecretString(get_marketplace_seed().await), "").await?;
+    let issuer_keys = save_mnemonic(
+        &SecretString(get_marketplace_seed().await),
+        &SecretString("".to_string()),
+    )
+    .await?;
 
     let issue_seal = format!("tapret1st:{}", get_udas_utxo().await);
     let request = IssueRequest {
@@ -93,13 +97,11 @@ async fn _psbt(
 }
 
 async fn _sign_psbt(
-    TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
+    TypedHeader(_auth): TypedHeader<Authorization<Bearer>>,
     Json(psbt_req): Json<SignPsbtRequest>,
 ) -> Result<impl IntoResponse, AppError> {
     info!("POST /sign {psbt_req:?}");
-
-    let nostr_hex_sk = auth.token();
-    let psbt_res = sign_psbt_file(nostr_hex_sk, psbt_req).await?;
+    let psbt_res = sign_psbt_file(psbt_req).await?;
 
     Ok((StatusCode::OK, Json(psbt_res)))
 }
