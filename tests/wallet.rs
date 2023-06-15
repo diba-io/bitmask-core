@@ -3,8 +3,8 @@ use std::env;
 
 use anyhow::Result;
 use bitmask_core::{
+    bitcoin::sync_wallets,
     bitcoin::{decrypt_wallet, encrypt_wallet, get_wallet_data, hash_password, new_wallet},
-    bitcoin::{get_wallet_data, hash_password, sync_wallets},
     constants::{get_network, switch_network},
     structs::SecretString,
     util::init_logging,
