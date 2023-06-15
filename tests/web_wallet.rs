@@ -82,8 +82,6 @@ async fn import_and_open_wallet() {
         "expected xpubkh matches loaded wallet"
     );
 
-    resolve(sync_wallets()).await;
-
     info!("Get wallet data");
     let wallet_str: JsValue = resolve(get_wallet_data(
         DESCRIPTOR.to_owned(),

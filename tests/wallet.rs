@@ -3,7 +3,6 @@ use std::env;
 
 use anyhow::Result;
 use bitmask_core::{
-    bitcoin::sync_wallets,
     bitcoin::{decrypt_wallet, encrypt_wallet, get_wallet_data, hash_password, new_wallet},
     constants::{get_network, switch_network},
     structs::SecretString,
@@ -117,21 +116,14 @@ async fn get_wallet_balance() -> Result<()> {
     let encrypted_descriptors = encrypt_wallet(&main_mnemonic, &hash, &seed_password).await?;
     let main_vault = decrypt_wallet(&hash, &encrypted_descriptors)?;
 
-    sync_wallets().await?;
-
-    let main_btc_wallet = get_wallet_data(
-        &SecretString(main_vault.private.btc_descriptor_xprv.clone()),
-        None,
-    )
-    .await?;
-
     let btc_wallet = get_wallet_data(
         &SecretString(main_vault.private.btc_descriptor_xprv.clone()),
         None,
     )
     .await?;
+
     warn!("Descriptor:", main_vault.private.btc_descriptor_xprv);
-    warn!("Address:", main_btc_wallet.address);
+    warn!("Address:", btc_wallet.address);
     warn!("Wallet Balance:", btc_wallet.balance.confirmed.to_string());
 
     Ok(())
