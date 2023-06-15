@@ -5,13 +5,12 @@
 use bitmask_core::{
     info,
     structs::{
-        ContractsResponse, EncryptedWalletData, IssueRequest, MnemonicSeedData,
-        NextAddressResponse, NextUtxoResponse, WatcherRequest, WatcherResponse,
+        ContractsResponse, DecryptedWalletData, IssueRequest, NextAddressResponse,
+        NextUtxoResponse, SecretString, WatcherRequest, WatcherResponse,
     },
     web::{
         bitcoin::{
-            get_assets_vault, get_encrypted_wallet, get_wallet_data, hash_password,
-            save_mnemonic_seed,
+            decrypt_wallet, encrypt_wallet, get_assets_vault, get_wallet_data, hash_password,
         },
         json_parse, resolve,
         rgb::{
@@ -38,23 +37,19 @@ async fn allow_issue_and_list_contracts() {
     let hash = hash_password(ENCRYPTION_PASSWORD.to_owned());
 
     info!("Import Seed");
-    let mnemonic_data_str = resolve(save_mnemonic_seed(
+    let mnemonic_data_str = resolve(encrypt_wallet(
         mnemonic.to_owned(),
         hash.clone(),
         SEED_PASSWORD.to_owned(),
     ))
     .await;
-    let mnemonic_data: MnemonicSeedData = json_parse(&mnemonic_data_str);
+    let mnemonic_data: SecretString = json_parse(&mnemonic_data_str);
 
     info!("Get Vault");
-    let issuer_keys: JsValue = resolve(get_encrypted_wallet(
-        hash,
-        mnemonic_data.encrypted_descriptors,
-    ))
-    .await;
+    let issuer_keys: JsValue = resolve(decrypt_wallet(hash, mnemonic_data.0.clone())).await;
 
     info!("Get Keys");
-    let issuer_keys: EncryptedWalletData = json_parse(&issuer_keys);
+    let issuer_keys: DecryptedWalletData = json_parse(&issuer_keys);
 
     info!("Issue Contract");
     let sk = &issuer_keys.private.nostr_prv;
@@ -64,7 +59,7 @@ async fn allow_issue_and_list_contracts() {
     let watcher_name = "default";
     let create_watch_req = WatcherRequest {
         name: watcher_name.to_string(),
-        xpub: issuer_keys.public.watcher_xpub,
+        xpub: issuer_keys.public.watcher_xpub.clone(),
         force: true,
     };
 

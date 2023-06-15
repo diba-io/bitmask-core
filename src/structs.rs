@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use zeroize::{Zeroize, ZeroizeOnDrop};
 
 pub use bdk::{Balance, BlockTime, TransactionDetails};
 pub use bitcoin::{util::address::Address, Txid};
@@ -26,7 +27,11 @@ pub struct WalletTransaction {
     pub confirmation_time: Option<BlockTime>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, Zeroize, ZeroizeOnDrop, Display)]
+#[display(inner)]
+pub struct SecretString(pub String);
+
+#[derive(Serialize, Deserialize, Clone, Debug, Zeroize, ZeroizeOnDrop)]
 #[serde(rename_all = "camelCase")]
 pub struct PrivateWalletData {
     pub xprvkh: String,
@@ -38,7 +43,7 @@ pub struct PrivateWalletData {
     pub nostr_nsec: String,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, Zeroize, ZeroizeOnDrop)]
 #[serde(rename_all = "camelCase")]
 pub struct PublicWalletData {
     pub xpub: String,
@@ -52,9 +57,9 @@ pub struct PublicWalletData {
     pub nostr_npub: String,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, Zeroize, ZeroizeOnDrop)]
 #[serde(rename_all = "camelCase")]
-pub struct EncryptedWalletData {
+pub struct DecryptedWalletData {
     pub mnemonic: String,
     pub private: PrivateWalletData,
     pub public: PublicWalletData,
@@ -74,13 +79,6 @@ pub struct EncryptedWalletDataV04 {
     pub xprvkh: String,
     pub xpubkh: String,
     pub mnemonic: String,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-#[serde(rename_all = "camelCase")]
-pub struct MnemonicSeedData {
-    pub mnemonic: String,
-    pub encrypted_descriptors: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -358,7 +356,7 @@ pub struct InvoiceResponse {
 #[serde(rename_all = "camelCase")]
 pub struct PsbtRequest {
     /// Descriptor XPub
-    pub descriptor_pub: String,
+    pub descriptor_pub: SecretString,
     /// Asset UTXO
     pub asset_utxo: String,
     /// Asset UTXO Terminal (ex. /0/0)
@@ -387,12 +385,8 @@ pub struct PsbtResponse {
 pub struct SignPsbtRequest {
     /// PSBT encoded in Base64
     pub psbt: String,
-    /// mnemonic
-    pub mnemonic: String,
-    /// password
-    pub seed_password: String,
-    /// iface
-    pub iface: String,
+    /// Descriptor to Sign
+    pub descriptor: SecretString,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

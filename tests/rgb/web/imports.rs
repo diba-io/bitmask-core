@@ -10,13 +10,12 @@ use bitmask_core::{
     debug, info,
     rgb::{prefetch::prefetch_resolver_txs, resolvers::ExplorerResolver},
     structs::{
-        AssetType, ContractResponse, ContractsResponse, EncryptedWalletData, FundVaultDetails,
-        ImportRequest, MnemonicSeedData, WalletData, WatcherRequest,
+        AssetType, ContractResponse, ContractsResponse, DecryptedWalletData, FundVaultDetails,
+        ImportRequest, SecretString, WalletData, WatcherRequest,
     },
     web::{
         bitcoin::{
-            get_assets_vault, get_encrypted_wallet, get_wallet_data, hash_password,
-            save_mnemonic_seed,
+            decrypt_wallet, encrypt_wallet, get_assets_vault, get_wallet_data, hash_password,
         },
         json_parse, resolve,
         rgb::{create_watcher, import_contract, list_contracts},
@@ -40,24 +39,20 @@ async fn import_fungible_contract() {
     let hash = hash_password(ENCRYPTION_PASSWORD.to_owned());
 
     info!("Import wallet");
-    let mnemonic_data_str = resolve(save_mnemonic_seed(
+    let mnemonic_data_str = resolve(encrypt_wallet(
         mnemonic.to_owned(),
         hash.clone(),
         SEED_PASSWORD.to_owned(),
     ))
     .await;
-    let mnemonic_data: MnemonicSeedData = json_parse(&mnemonic_data_str);
+    let mnemonic_data: SecretString = json_parse(&mnemonic_data_str);
 
     info!("Get vault properties");
-    let vault_str: JsValue = resolve(get_encrypted_wallet(
-        hash,
-        mnemonic_data.encrypted_descriptors,
-    ))
-    .await;
-    let wallet_data: EncryptedWalletData = json_parse(&vault_str);
+    let vault_str: JsValue = resolve(decrypt_wallet(hash, mnemonic_data.0.clone())).await;
+    let wallet_data: DecryptedWalletData = json_parse(&vault_str);
 
     info!("Import Contract");
-    let sk = wallet_data.private.nostr_prv;
+    let sk = &wallet_data.private.nostr_prv;
     let contract_import = ImportRequest {
         import: AssetType::RGB20,
         data: FUNGIBLE_CONTRACT.to_string(),
@@ -67,7 +62,7 @@ async fn import_fungible_contract() {
     let resp = resolve(import_contract(sk.clone(), req)).await;
     let resp: ContractResponse = json_parse(&resp);
 
-    let resp: JsValue = resolve(list_contracts(sk)).await;
+    let resp: JsValue = resolve(list_contracts(sk.to_string())).await;
     let resp: ContractsResponse = json_parse(&resp);
 
     let contract: Vec<ContractResponse> = resp
@@ -86,28 +81,24 @@ async fn import_uda_contract() {
     let hash = hash_password(ENCRYPTION_PASSWORD.to_owned());
 
     info!("Import wallet");
-    let mnemonic_data_str = resolve(save_mnemonic_seed(
+    let mnemonic_data_str = resolve(encrypt_wallet(
         mnemonic.to_owned(),
         hash.clone(),
         SEED_PASSWORD.to_owned(),
     ))
     .await;
-    let mnemonic_data: MnemonicSeedData = json_parse(&mnemonic_data_str);
+    let mnemonic_data: SecretString = json_parse(&mnemonic_data_str);
 
     info!("Get vault properties");
-    let vault_str: JsValue = resolve(get_encrypted_wallet(
-        hash,
-        mnemonic_data.encrypted_descriptors,
-    ))
-    .await;
-    let wallet_data: EncryptedWalletData = json_parse(&vault_str);
+    let vault_str: JsValue = resolve(decrypt_wallet(hash, mnemonic_data.0.clone())).await;
+    let wallet_data: DecryptedWalletData = json_parse(&vault_str);
 
     info!("Create Watcher");
-    let sk = wallet_data.private.nostr_prv;
+    let sk = &wallet_data.private.nostr_prv;
     let watcher_name = "default";
     let create_watch_req = WatcherRequest {
         name: watcher_name.to_string(),
-        xpub: wallet_data.public.watcher_xpub,
+        xpub: wallet_data.public.watcher_xpub.clone(),
         force: true,
     };
     let req = serde_wasm_bindgen::to_value(&create_watch_req).expect("oh no!");
@@ -123,7 +114,7 @@ async fn import_uda_contract() {
     let resp: JsValue = resolve(import_contract(sk.clone(), req)).await;
     let resp: ContractResponse = json_parse(&resp);
 
-    let resp: JsValue = resolve(list_contracts(sk)).await;
+    let resp: JsValue = resolve(list_contracts(sk.to_string())).await;
     let resp: ContractsResponse = json_parse(&resp);
     let contract: Vec<ContractResponse> = resp
         .contracts
@@ -141,21 +132,17 @@ async fn import_two_contracts() {
     let hash = hash_password(ENCRYPTION_PASSWORD.to_owned());
 
     info!("Import wallet");
-    let mnemonic_data_str = resolve(save_mnemonic_seed(
+    let mnemonic_data_str = resolve(encrypt_wallet(
         mnemonic.to_owned(),
         hash.clone(),
         SEED_PASSWORD.to_owned(),
     ))
     .await;
-    let mnemonic_data: MnemonicSeedData = json_parse(&mnemonic_data_str);
+    let mnemonic_data: SecretString = json_parse(&mnemonic_data_str);
 
     info!("Get vault properties");
-    let vault_str: JsValue = resolve(get_encrypted_wallet(
-        hash,
-        mnemonic_data.encrypted_descriptors,
-    ))
-    .await;
-    let wallet_data: EncryptedWalletData = json_parse(&vault_str);
+    let vault_str: JsValue = resolve(decrypt_wallet(hash, mnemonic_data.0.clone())).await;
+    let wallet_data: DecryptedWalletData = json_parse(&vault_str);
     let sk = &wallet_data.private.nostr_prv;
 
     info!("Import Contract (Fungible)");
@@ -187,22 +174,19 @@ async fn asset_transfer() {
     let hash = hash_password(ENCRYPTION_PASSWORD.to_owned());
 
     // Import wallet
-    let mnemonic_data_str = resolve(save_mnemonic_seed(
+    let mnemonic_data_str = resolve(encrypt_wallet(
         mnemonic.to_owned(),
         hash.clone(),
         SEED_PASSWORD.to_owned(),
     ))
     .await;
 
-    let mnemonic_data: MnemonicSeedData = json_parse(&mnemonic_data_str);
+    let mnemonic_data: SecretString = json_parse(&mnemonic_data_str);
 
     // Get vault properties
-    let wallet_data_str: JsValue = resolve(get_encrypted_wallet(
-        hash,
-        mnemonic_data.encrypted_descriptors,
-    ))
-    .await;
-    let wallet_data: EncryptedWalletData = json_parse(&wallet_data_str);
+    let wallet_data_str: JsValue =
+        resolve(decrypt_wallet(hash, mnemonic_data.0.clone().clone())).await;
+    let wallet_data: DecryptedWalletData = json_parse(&wallet_data_str);
 
     info!("Get Wallets");
     let assets_wallet = resolve(get_wallet_data(
@@ -221,7 +205,7 @@ async fn asset_transfer() {
     info!("Check Asset Vault");
     let vault_details = resolve(get_assets_vault(
         wallet_data.public.rgb_assets_descriptor_xpub.clone(),
-        wallet_data.public.rgb_udas_descriptor_xpub,
+        wallet_data.public.rgb_udas_descriptor_xpub.clone(),
     ))
     .await;
     let vault_details: FundVaultDetails = json_parse(&vault_details);

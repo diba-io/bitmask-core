@@ -2,7 +2,7 @@
 use bitmask_core::{
     bitcoin::{save_mnemonic, sign_psbt_file},
     rgb::{accept_transfer, create_watcher, get_contract},
-    structs::{AcceptRequest, EncryptedWalletData, SignPsbtRequest, WatcherRequest},
+    structs::{AcceptRequest, DecryptedWalletData, SecretString, SignPsbtRequest, WatcherRequest},
 };
 
 use crate::rgb::integration::utils::{
@@ -45,23 +45,29 @@ async fn allow_import_uda_contract() -> anyhow::Result<()> {
 #[tokio::test]
 async fn allow_get_fungible_contract_state_by_accept_cosign() -> anyhow::Result<()> {
     // 1. Issue and Generate Trasnfer (Issuer side)
-    let issuer_keys: EncryptedWalletData = save_mnemonic(ISSUER_MNEMONIC, "").await?;
-    let owner_keys = save_mnemonic(OWNER_MNEMONIC, "").await?;
+    let issuer_keys: DecryptedWalletData = save_mnemonic(
+        &SecretString(ISSUER_MNEMONIC.to_string()),
+        &SecretString("".to_string()),
+    )
+    .await?;
+    let owner_keys = save_mnemonic(
+        &SecretString(OWNER_MNEMONIC.to_string()),
+        &SecretString("".to_string()),
+    )
+    .await?;
     let issuer_resp = issuer_issue_contract("RGB20", 5, false, true, None).await?;
     let owner_resp = create_new_invoice(issuer_resp.clone(), None).await?;
     let psbt_resp = create_new_psbt(issuer_keys.clone(), issuer_resp.clone()).await?;
-    let transfer_resp = create_new_transfer(issuer_keys.clone(), owner_resp, psbt_resp).await?;
+    let transfer_resp = &create_new_transfer(issuer_keys.clone(), owner_resp, psbt_resp).await?;
 
     // 2. Sign and Publish TX (Issuer side)
     let issuer_sk = issuer_keys.private.nostr_prv.to_string();
     let owner_sk = owner_keys.private.nostr_prv.to_string();
     let request = SignPsbtRequest {
-        psbt: transfer_resp.clone().psbt,
-        mnemonic: ISSUER_MNEMONIC.to_string(),
-        seed_password: String::new(),
-        iface: issuer_resp.iface,
+        psbt: transfer_resp.psbt.clone(),
+        descriptor: SecretString(issuer_keys.private.rgb_assets_descriptor_xprv.clone()),
     };
-    let resp = sign_psbt_file(&issuer_sk, request).await;
+    let resp = sign_psbt_file(request).await;
     assert!(resp.is_ok());
 
     // 3. Accept Consig (Issuer Side)
@@ -75,7 +81,7 @@ async fn allow_get_fungible_contract_state_by_accept_cosign() -> anyhow::Result<
 
     // 4. Accept Consig (Owner Side)
     let request = AcceptRequest {
-        consignment: transfer_resp.consig,
+        consignment: transfer_resp.consig.clone(),
         force: false,
     };
     let resp = accept_transfer(&owner_sk, request).await;
@@ -92,7 +98,7 @@ async fn allow_get_fungible_contract_state_by_accept_cosign() -> anyhow::Result<
     let watcher_name = "default";
     let create_watch_req = WatcherRequest {
         name: watcher_name.to_string(),
-        xpub: owner_keys.public.watcher_xpub,
+        xpub: owner_keys.public.watcher_xpub.clone(),
         force: true,
     };
     create_watcher(&owner_sk, create_watch_req).await?;
@@ -110,28 +116,35 @@ async fn allow_get_fungible_contract_state_by_accept_cosign() -> anyhow::Result<
 async fn allow_get_uda_contract_state_by_accept_cosign() -> anyhow::Result<()> {
     // 1. Issue and Generate Trasnfer (Issuer side)
     let single = Some(get_uda_data());
-    let issuer_keys: EncryptedWalletData = save_mnemonic(ISSUER_MNEMONIC, "").await?;
-    let owner_keys = save_mnemonic(OWNER_MNEMONIC, "").await?;
+    let issuer_keys: DecryptedWalletData = save_mnemonic(
+        &SecretString(ISSUER_MNEMONIC.to_string()),
+        &SecretString("".to_string()),
+    )
+    .await?;
+    let owner_keys = save_mnemonic(
+        &SecretString(OWNER_MNEMONIC.to_string()),
+        &SecretString("".to_string()),
+    )
+    .await?;
+
     let issuer_resp = issuer_issue_contract("RGB21", 1, false, true, single).await?;
     let owner_resp = create_new_invoice(issuer_resp.clone(), None).await?;
     let psbt_resp = create_new_psbt(issuer_keys.clone(), issuer_resp.clone()).await?;
-    let transfer_resp = create_new_transfer(issuer_keys.clone(), owner_resp, psbt_resp).await?;
+    let transfer_resp = &create_new_transfer(issuer_keys.clone(), owner_resp, psbt_resp).await?;
 
     // 2. Sign and Publish TX (Issuer side)
     let issuer_sk = issuer_keys.private.nostr_prv.to_string();
     let owner_sk = owner_keys.private.nostr_prv.to_string();
     let request = SignPsbtRequest {
-        psbt: transfer_resp.clone().psbt,
-        mnemonic: ISSUER_MNEMONIC.to_string(),
-        seed_password: String::new(),
-        iface: issuer_resp.iface,
+        psbt: transfer_resp.psbt.clone(),
+        descriptor: SecretString(issuer_keys.private.rgb_udas_descriptor_xprv.clone()),
     };
-    let resp = sign_psbt_file(&issuer_sk, request).await;
+    let resp = sign_psbt_file(request).await;
     assert!(resp.is_ok());
 
     // 3. Accept Consig (Issuer Side)
     let request = AcceptRequest {
-        consignment: transfer_resp.clone().consig,
+        consignment: transfer_resp.consig.clone(),
         force: false,
     };
     let resp = accept_transfer(&issuer_sk, request).await;
@@ -140,7 +153,7 @@ async fn allow_get_uda_contract_state_by_accept_cosign() -> anyhow::Result<()> {
 
     // 4. Accept Consig (Owner Side)
     let request = AcceptRequest {
-        consignment: transfer_resp.consig,
+        consignment: transfer_resp.consig.clone(),
         force: false,
     };
     let resp = accept_transfer(&owner_sk, request).await;
@@ -157,7 +170,7 @@ async fn allow_get_uda_contract_state_by_accept_cosign() -> anyhow::Result<()> {
     let watcher_name = "default";
     let create_watch_req = WatcherRequest {
         name: watcher_name.to_string(),
-        xpub: owner_keys.public.watcher_xpub,
+        xpub: owner_keys.public.watcher_xpub.clone(),
         force: true,
     };
     create_watcher(&owner_sk, create_watch_req).await?;
@@ -175,7 +188,7 @@ async fn allow_get_uda_contract_state_by_accept_cosign() -> anyhow::Result<()> {
 // async fn _allow_get_collectible_contract_state_by_accept_cosign() -> anyhow::Result<()> {
 //     // 1. Issue and Generate Trasnfer (Issuer side)
 //     let collectible = Some(get_collectible_data());
-//     let issuer_keys: EncryptedWalletData = save_mnemonic(ISSUER_MNEMONIC, "").await?;
+//     let issuer_keys: DecryptedWalletData = save_mnemonic(ISSUER_MNEMONIC, "").await?;
 //     let owner_keys = save_mnemonic(OWNER_MNEMONIC, "").await?;
 //     let issuer_resp = issuer_issue_contract("RGB21", 1, false, true, collectible).await?;
 //     let owner_resp = create_new_invoice(issuer_resp.clone(), None).await?;

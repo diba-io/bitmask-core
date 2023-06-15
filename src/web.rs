@@ -1,6 +1,6 @@
 use crate::structs::{
     AcceptRequest, ImportRequest, InvoiceRequest, IssueRequest, PsbtRequest, RgbTransferRequest,
-    SignPsbtRequest, WatcherRequest,
+    SecretString, SignPsbtRequest, WatcherRequest,
 };
 // use crate::{carbonado, lightning, rgb};
 
@@ -103,15 +103,20 @@ pub mod bitcoin {
     pub fn hash_password(password: String) -> String {
         set_panic_hook();
 
-        crate::bitcoin::hash_password(&password)
+        crate::bitcoin::hash_password(&SecretString(password))
+            .0
+            .to_owned()
     }
 
     #[wasm_bindgen]
-    pub fn get_encrypted_wallet(hash: String, encrypted_descriptors: String) -> Promise {
+    pub fn decrypt_wallet(hash: String, encrypted_descriptors: String) -> Promise {
         set_panic_hook();
 
         future_to_promise(async move {
-            match crate::bitcoin::get_encrypted_wallet(&hash, &encrypted_descriptors) {
+            match crate::bitcoin::decrypt_wallet(
+                &SecretString(hash),
+                &SecretString(encrypted_descriptors),
+            ) {
                 Ok(result) => Ok(JsValue::from_string(
                     serde_json::to_string(&result).unwrap(),
                 )),
@@ -129,7 +134,27 @@ pub mod bitcoin {
         set_panic_hook();
 
         future_to_promise(async move {
-            match crate::bitcoin::upgrade_wallet(&hash, &encrypted_descriptors, &seed_password)
+            match crate::bitcoin::upgrade_wallet(
+                &SecretString(hash),
+                &SecretString(encrypted_descriptors),
+                &SecretString(seed_password),
+            )
+            .await
+            {
+                Ok(result) => Ok(JsValue::from_string(
+                    serde_json::to_string(&result).unwrap(),
+                )),
+                Err(err) => Err(JsValue::from_string(err.to_string())),
+            }
+        })
+    }
+
+    #[wasm_bindgen]
+    pub fn new_wallet(hash: String, seed_password: String) -> Promise {
+        set_panic_hook();
+
+        future_to_promise(async move {
+            match crate::bitcoin::new_wallet(&SecretString(hash), &SecretString(seed_password))
                 .await
             {
                 Ok(result) => Ok(JsValue::from_string(
@@ -141,25 +166,17 @@ pub mod bitcoin {
     }
 
     #[wasm_bindgen]
-    pub fn new_mnemonic_seed(hash: String, seed_password: String) -> Promise {
+    pub fn encrypt_wallet(mnemonic: String, hash: String, seed_password: String) -> Promise {
         set_panic_hook();
 
         future_to_promise(async move {
-            match crate::bitcoin::new_mnemonic_seed(&hash, &seed_password).await {
-                Ok(result) => Ok(JsValue::from_string(
-                    serde_json::to_string(&result).unwrap(),
-                )),
-                Err(err) => Err(JsValue::from_string(err.to_string())),
-            }
-        })
-    }
-
-    #[wasm_bindgen]
-    pub fn save_mnemonic_seed(mnemonic: String, hash: String, seed_password: String) -> Promise {
-        set_panic_hook();
-
-        future_to_promise(async move {
-            match crate::bitcoin::save_mnemonic_seed(&mnemonic, &hash, &seed_password).await {
+            match crate::bitcoin::encrypt_wallet(
+                &SecretString(mnemonic),
+                &SecretString(hash),
+                &SecretString(seed_password),
+            )
+            .await
+            {
                 Ok(result) => Ok(JsValue::from_string(
                     serde_json::to_string(&result).unwrap(),
                 )),
@@ -171,9 +188,11 @@ pub mod bitcoin {
     #[wasm_bindgen]
     pub fn get_wallet_data(descriptor: String, change_descriptor: Option<String>) -> Promise {
         set_panic_hook();
-
         future_to_promise(async move {
-            match crate::bitcoin::get_wallet_data(&descriptor, change_descriptor).await {
+            let change_descriptor = change_descriptor.map(SecretString);
+            match crate::bitcoin::get_wallet_data(&SecretString(descriptor), change_descriptor)
+                .await
+            {
                 Ok(result) => Ok(JsValue::from_string(
                     serde_json::to_string(&result).unwrap(),
                 )),
@@ -194,8 +213,8 @@ pub mod bitcoin {
 
         future_to_promise(async move {
             match crate::bitcoin::send_sats(
-                &descriptor,
-                &change_descriptor,
+                &SecretString(descriptor),
+                &SecretString(change_descriptor),
                 &destination,
                 amount,
                 fee_rate,
@@ -224,8 +243,8 @@ pub mod bitcoin {
 
         future_to_promise(async move {
             match crate::bitcoin::fund_vault(
-                &descriptor,
-                &change_descriptor,
+                &SecretString(descriptor),
+                &SecretString(change_descriptor),
                 &address,
                 &uda_address,
                 asset_amount,
@@ -251,8 +270,8 @@ pub mod bitcoin {
 
         future_to_promise(async move {
             match crate::bitcoin::get_assets_vault(
-                &rgb_assets_descriptor_xpub,
-                &rgb_udas_descriptor_xpub,
+                &SecretString(rgb_assets_descriptor_xpub),
+                &SecretString(rgb_udas_descriptor_xpub),
             )
             .await
             {
@@ -315,12 +334,12 @@ pub mod rgb {
     }
 
     #[wasm_bindgen]
-    pub fn psbt_sign_file(nostr_hex_sk: String, request: JsValue) -> Promise {
+    pub fn psbt_sign_file(_nostr_hex_sk: String, request: JsValue) -> Promise {
         set_panic_hook();
 
         future_to_promise(async move {
             let psbt_req: SignPsbtRequest = serde_wasm_bindgen::from_value(request).unwrap();
-            match crate::bitcoin::sign_psbt_file(&nostr_hex_sk, psbt_req).await {
+            match crate::bitcoin::sign_psbt_file(psbt_req).await {
                 Ok(result) => Ok(JsValue::from_string(
                     serde_json::to_string(&result).unwrap(),
                 )),

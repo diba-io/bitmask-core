@@ -28,6 +28,7 @@ use wallet::{
 
 use crate::bitcoin::{get_wallet, synchronize_wallet};
 use crate::rgb::{constants::RGB_PSBT_TAPRET, structs::AddressAmount};
+use crate::structs::SecretString;
 
 #[allow(clippy::too_many_arguments)]
 pub fn create_psbt(
@@ -183,7 +184,7 @@ pub fn save_commit(terminal: &str, commit: Vec<u8>, wallet: &mut RgbWallet) {
 
 // TODO: [Experimental] Review with Diba Team
 pub async fn estimate_fee_tx(
-    descriptor_pub: &str,
+    descriptor_pub: &SecretString,
     asset_utxo: &str,
     asset_utxo_terminal: &str,
     change_index: Option<u16>,
@@ -235,7 +236,7 @@ pub async fn estimate_fee_tx(
 }
 
 fn get_recipient_script(
-    descriptor_pub: &str,
+    descriptor_pub: &SecretString,
     asset_utxo_terminal: &str,
     change_index: UnhardenedIndex,
 ) -> Option<Script> {
@@ -245,7 +246,8 @@ fn get_recipient_script(
 
     let contract_index = contract_terminal.first().expect("first derivation index");
     let terminal_step = format!("/{contract_index}/*");
-    let descriptor_pub = descriptor_pub.replace(&terminal_step, "/*/*");
+
+    let descriptor_pub = descriptor_pub.0.replace(&terminal_step, "/*/*");
     let descriptor: &Descriptor<DerivationAccount> =
         &Descriptor::from_str(&descriptor_pub).expect("invalid descriptor parse");
 
