@@ -6,7 +6,7 @@ use bitmask_core::{
         bitcoin::{
             decrypt_wallet, encrypt_wallet, get_wallet_data, hash_password, new_wallet, send_sats,
         },
-        json_parse, resolve, set_panic_hook, to_string,
+        json_parse, resolve, set_panic_hook,
     },
 };
 use wasm_bindgen::prelude::*;
@@ -30,12 +30,20 @@ const PUBKEY_HASH: &str = "41e7fa8bc772add75092e31f0a15c10675163e82";
 async fn create_wallet() {
     set_panic_hook();
 
-    info!("Mnemonic string is 12 words long");
+    info!("Mnemonic string is 24 words long");
     let hash = hash_password(ENCRYPTION_PASSWORD.to_owned());
-    let mnemonic: JsValue = resolve(new_wallet(hash, SEED_PASSWORD.to_owned())).await;
+    let mnemonic: JsValue = resolve(new_wallet(hash.clone(), SEED_PASSWORD.to_owned())).await;
+
     assert!(!mnemonic.is_undefined());
     assert!(mnemonic.is_string());
-    assert_eq!(to_string(&mnemonic).split(' ').count(), 12);
+
+    let mnemonic_data: SecretString = json_parse(&mnemonic);
+
+    let encrypted_wallet_str: JsValue =
+        resolve(decrypt_wallet(hash, mnemonic_data.0.clone())).await;
+    let encrypted_wallet_data: DecryptedWalletData = json_parse(&encrypted_wallet_str);
+
+    assert_eq!(encrypted_wallet_data.mnemonic.split(' ').count(), 24);
 }
 
 /// Can import a hardcoded mnemonic
