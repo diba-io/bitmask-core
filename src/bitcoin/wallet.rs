@@ -27,7 +27,7 @@ static BDK: Lazy<Networks> = Lazy::new(Networks::default);
 
 pub async fn get_wallet(
     descriptor: &SecretString,
-    change_descriptor: Option<&SecretString>,
+    change_descriptor: Option<SecretString>,
 ) -> Result<Arc<Mutex<Wallet<MemoryDatabase>>>> {
     let descriptor_key = format!("{descriptor:?}{change_descriptor:?}");
     let key = sha256::Hash::hash(descriptor_key.as_bytes()).to_string();
@@ -51,7 +51,11 @@ pub async fn get_wallet(
     }
     drop(wallets_lock);
 
-    let change_descriptor = change_descriptor.map(|change_descriptor| &change_descriptor.0);
+    let mut change_descriptor = None;
+    if let Some(desc) = change_descriptor {
+        change_descriptor = Some(desc);
+    };
+
     let new_wallet = Arc::new(Mutex::new(Wallet::new(
         &descriptor.0,
         change_descriptor,
