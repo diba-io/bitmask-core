@@ -13,10 +13,11 @@ use bip39::{Language, Mnemonic};
 use bitcoin_hashes::{sha256, Hash};
 use miniscript_crate::DescriptorPublicKey;
 use nostr_sdk::prelude::{FromSkStr, ToBech32};
+use zeroize::Zeroize;
 
 use crate::{
     constants::{BTC_PATH, NETWORK, NOSTR_PATH},
-    structs::{EncryptedWalletData, PrivateWalletData, PublicWalletData},
+    structs::{DecryptedWalletData, PrivateWalletData, PublicWalletData, SecretString},
 };
 
 fn get_descriptor(xprv: &ExtendedPrivKey, path: &str, change: u32) -> Result<DescriptorSecretKey> {
@@ -81,27 +82,29 @@ fn nostr_keypair(xprv: &ExtendedPrivKey, path: &str, change: u32) -> Result<(Str
     }
 }
 
-pub async fn new_mnemonic(seed_password: &str) -> Result<EncryptedWalletData> {
-    let mut rng = bip39::rand::thread_rng();
-    let mnemonic_phrase = Mnemonic::generate_in_with(&mut rng, Language::English, 12)?;
+pub async fn new_mnemonic(seed_password: &SecretString) -> Result<DecryptedWalletData> {
+    let mut entropy = [0u8; 32];
+    getrandom::getrandom(&mut entropy)?;
+    let mnemonic = Mnemonic::from_entropy_in(Language::English, &entropy)?;
+    entropy.zeroize();
 
-    get_mnemonic(mnemonic_phrase, seed_password).await
+    get_mnemonic(mnemonic, seed_password).await
 }
 
 pub async fn save_mnemonic(
-    mnemonic_phrase: &str,
-    seed_password: &str,
-) -> Result<EncryptedWalletData> {
-    let mnemonic = Mnemonic::from_str(mnemonic_phrase)?;
+    mnemonic_phrase: &SecretString,
+    seed_password: &SecretString,
+) -> Result<DecryptedWalletData> {
+    let mnemonic = Mnemonic::from_str(&mnemonic_phrase.0)?;
 
     get_mnemonic(mnemonic, seed_password).await
 }
 
 pub async fn get_mnemonic(
     mnemonic_phrase: Mnemonic,
-    seed_password: &str,
-) -> Result<EncryptedWalletData> {
-    let seed = mnemonic_phrase.to_seed_normalized(seed_password);
+    seed_password: &SecretString,
+) -> Result<DecryptedWalletData> {
+    let seed = mnemonic_phrase.to_seed_normalized(&seed_password.0);
 
     let network = NETWORK.read().await;
     let xprv = ExtendedPrivKey::new_master(*network, &seed)?;
@@ -151,7 +154,7 @@ pub async fn get_mnemonic(
         nostr_npub,
     };
 
-    Ok(EncryptedWalletData {
+    Ok(DecryptedWalletData {
         mnemonic: mnemonic_phrase.to_string(),
         private,
         public,

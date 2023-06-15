@@ -8,7 +8,7 @@ use bitmask_core::{
     rgb::{
         clear_stock, clear_watcher, constants::RGB_DEFAULT_NAME, create_watcher, list_contracts,
     },
-    structs::{IssueResponse, WatcherRequest},
+    structs::{IssueResponse, SecretString, WatcherRequest},
 };
 use psbt::Psbt;
 
@@ -29,13 +29,17 @@ async fn allow_issue_x_fungibles_in_one_utxo() -> anyhow::Result<()> {
 
     let max = 150;
     let supply = 5;
-    let issuer_keys = save_mnemonic(ISSUER_MNEMONIC, "").await?;
-    let issuer_sk = issuer_keys.private.nostr_prv;
+    let issuer_keys = save_mnemonic(
+        &SecretString(ISSUER_MNEMONIC.to_string()),
+        &SecretString("".to_string()),
+    )
+    .await?;
+    let issuer_sk = issuer_keys.private.nostr_prv.clone();
     clear_stock(&issuer_sk).await;
     clear_watcher(&issuer_sk, "default").await?;
 
     let iface = "RGB20";
-    let watcher_pub = issuer_keys.public.watcher_xpub;
+    let watcher_pub = issuer_keys.public.watcher_xpub.clone();
     send_coins(iface, &watcher_pub).await?;
 
     let mut contracts = HashMap::new();
@@ -81,8 +85,12 @@ async fn allow_issue_x_fungibles_generate_utxos() -> anyhow::Result<()> {
 
     let max = 26;
     let supply = 5;
-    let issuer_keys = save_mnemonic(ISSUER_MNEMONIC, "").await?;
-    let issuer_sk = issuer_keys.private.nostr_prv;
+    let issuer_keys = save_mnemonic(
+        &SecretString(ISSUER_MNEMONIC.to_string()),
+        &SecretString("".to_string()),
+    )
+    .await?;
+    let issuer_sk = issuer_keys.private.nostr_prv.clone();
     clear_stock(&issuer_sk).await;
     clear_watcher(&issuer_sk, "default").await?;
 
@@ -128,8 +136,13 @@ async fn allow_issue_x_fungibles_witn_spend_utxos() -> anyhow::Result<()> {
 
     let max = 26;
     let supply = 5;
-    let issuer_keys = save_mnemonic(ISSUER_MNEMONIC, "").await?;
-    let issuer_sk = issuer_keys.clone().private.nostr_prv;
+    let issuer_keys = &save_mnemonic(
+        &SecretString(ISSUER_MNEMONIC.to_string()),
+        &SecretString("".to_string()),
+    )
+    .await?;
+
+    let issuer_sk = issuer_keys.private.nostr_prv.clone();
     clear_stock(&issuer_sk).await;
     clear_watcher(&issuer_sk, "default").await?;
 
@@ -151,7 +164,11 @@ async fn allow_issue_x_fungibles_witn_spend_utxos() -> anyhow::Result<()> {
     let original_psbt = Psbt::from_str(&psbt_resp.psbt)?;
     let final_psbt = PartiallySignedTransaction::from(original_psbt);
 
-    let issuer_wallet = get_wallet(&issuer_keys.private.rgb_assets_descriptor_xprv, None).await?;
+    let issuer_wallet = get_wallet(
+        &SecretString(issuer_keys.private.rgb_assets_descriptor_xprv.clone()),
+        None,
+    )
+    .await?;
     sync_wallet(&issuer_wallet).await?;
 
     let sign = sign_psbt(&issuer_wallet, final_psbt).await;
@@ -196,13 +213,17 @@ async fn allow_import_fungible_before_create_watcher() -> anyhow::Result<()> {
     }
 
     let supply = 5;
-    let issuer_keys = save_mnemonic(ISSUER_MNEMONIC, "").await?;
-    let issuer_sk = issuer_keys.private.nostr_prv;
+    let issuer_keys = &save_mnemonic(
+        &SecretString(ISSUER_MNEMONIC.to_string()),
+        &SecretString("".to_string()),
+    )
+    .await?;
+    let issuer_sk = issuer_keys.private.nostr_prv.clone();
     clear_stock(&issuer_sk).await;
     clear_watcher(&issuer_sk, "default").await?;
 
     let iface = "RGB20";
-    let watcher_pub = issuer_keys.public.watcher_xpub;
+    let watcher_pub = issuer_keys.public.watcher_xpub.clone();
     send_coins(iface, &watcher_pub).await?;
 
     let issuer_resp = issuer_issue_contract(iface, supply, false, false, None).await;
@@ -261,13 +282,17 @@ async fn allow_issue_x_uda_in_one_utxo() -> anyhow::Result<()> {
 
     let max = 150;
     let supply = 1;
-    let issuer_keys = save_mnemonic(ISSUER_MNEMONIC, "").await?;
-    let issuer_sk = issuer_keys.private.nostr_prv;
+    let issuer_keys = &save_mnemonic(
+        &SecretString(ISSUER_MNEMONIC.to_string()),
+        &SecretString("".to_string()),
+    )
+    .await?;
+    let issuer_sk = issuer_keys.private.nostr_prv.clone();
     clear_stock(&issuer_sk).await;
     clear_watcher(&issuer_sk, "default").await?;
 
     let iface = "RGB21";
-    let watcher_pub = issuer_keys.public.watcher_xpub;
+    let watcher_pub = issuer_keys.public.watcher_xpub.clone();
     send_coins(iface, &watcher_pub).await?;
 
     let mut contracts = HashMap::new();
@@ -313,8 +338,12 @@ async fn allow_issue_x_uda_generate_utxos() -> anyhow::Result<()> {
 
     let max = 26;
     let supply = 1;
-    let issuer_keys = save_mnemonic(ISSUER_MNEMONIC, "").await?;
-    let issuer_sk = issuer_keys.private.nostr_prv;
+    let issuer_keys = &save_mnemonic(
+        &SecretString(ISSUER_MNEMONIC.to_string()),
+        &SecretString("".to_string()),
+    )
+    .await?;
+    let issuer_sk = issuer_keys.private.nostr_prv.clone();
     clear_stock(&issuer_sk).await;
     clear_watcher(&issuer_sk, "default").await?;
 
@@ -360,8 +389,12 @@ async fn allow_issue_x_uda_witn_spend_utxos() -> anyhow::Result<()> {
 
     let max = 26;
     let supply = 1;
-    let issuer_keys = save_mnemonic(ISSUER_MNEMONIC, "").await?;
-    let issuer_sk = issuer_keys.clone().private.nostr_prv;
+    let issuer_keys = &save_mnemonic(
+        &SecretString(ISSUER_MNEMONIC.to_string()),
+        &SecretString("".to_string()),
+    )
+    .await?;
+    let issuer_sk = issuer_keys.private.nostr_prv.clone();
     clear_stock(&issuer_sk).await;
     clear_watcher(&issuer_sk, "default").await?;
 
@@ -383,7 +416,11 @@ async fn allow_issue_x_uda_witn_spend_utxos() -> anyhow::Result<()> {
     let original_psbt = Psbt::from_str(&psbt_resp.psbt)?;
     let final_psbt = PartiallySignedTransaction::from(original_psbt);
 
-    let issuer_wallet = get_wallet(&issuer_keys.private.rgb_udas_descriptor_xprv, None).await?;
+    let issuer_wallet = get_wallet(
+        &SecretString(issuer_keys.private.rgb_assets_descriptor_xprv.clone()),
+        None,
+    )
+    .await?;
     sync_wallet(&issuer_wallet).await?;
 
     let sign = sign_psbt(&issuer_wallet, final_psbt).await;
@@ -428,13 +465,17 @@ async fn allow_import_uda_before_create_watcher() -> anyhow::Result<()> {
     }
 
     let supply = 1;
-    let issuer_keys = save_mnemonic(ISSUER_MNEMONIC, "").await?;
-    let issuer_sk = issuer_keys.private.nostr_prv;
+    let issuer_keys = &save_mnemonic(
+        &SecretString(ISSUER_MNEMONIC.to_string()),
+        &SecretString("".to_string()),
+    )
+    .await?;
+    let issuer_sk = issuer_keys.private.nostr_prv.clone();
     clear_stock(&issuer_sk).await;
     clear_watcher(&issuer_sk, "default").await?;
 
     let iface = "RGB21";
-    let watcher_pub = issuer_keys.public.watcher_xpub;
+    let watcher_pub = issuer_keys.public.watcher_xpub.clone();
     send_coins(iface, &watcher_pub).await?;
 
     let issuer_resp = issuer_issue_contract(iface, supply, false, false, None).await;

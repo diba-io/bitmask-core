@@ -3,6 +3,7 @@ use std::{collections::BTreeMap, sync::Arc};
 use anyhow::Result;
 use bdk::{blockchain::esplora::EsploraBlockchain, database::MemoryDatabase, SyncOptions, Wallet};
 use bitcoin::Network;
+use bitcoin_hashes::{sha256, Hash};
 use futures::Future;
 use once_cell::sync::Lazy;
 use tokio::sync::{Mutex, RwLock};
@@ -10,6 +11,7 @@ use tokio::sync::{Mutex, RwLock};
 use crate::{
     constants::{BITCOIN_EXPLORER_API, NETWORK},
     debug,
+    structs::SecretString,
 };
 
 pub type MemoryWallet = Arc<Mutex<Wallet<MemoryDatabase>>>;
@@ -51,11 +53,11 @@ where
 }
 
 pub async fn get_wallet(
-    descriptor: &str,
-    change_descriptor: Option<String>,
-) -> Result<MemoryWallet> {
-    let descriptor = descriptor.to_owned();
-    let key = (descriptor.clone(), change_descriptor.clone());
+    descriptor: &SecretString,
+    change_descriptor: Option<SecretString>,
+) -> Result<Arc<Mutex<Wallet<MemoryDatabase>>>> {
+    let descriptor_key = format!("{descriptor:?}{change_descriptor:?}");
+    let key = sha256::Hash::hash(descriptor_key.as_bytes()).to_string();
 
     let network_lock = NETWORK.read().await;
     let network = network_lock.to_owned();
@@ -70,20 +72,25 @@ pub async fn get_wallet(
 
     let wallets = wallets.clone();
     let wallets_lock = wallets.read().await;
-    let wallets_ref = wallets_lock.get(&key);
+    let wallets_ref = wallets_lock.get(&(key.clone(), None));
     if let Some(wallets) = wallets_ref {
         return Ok(wallets.clone());
     }
     drop(wallets_lock);
 
+    let mut change_descriptor = None;
+    if let Some(desc) = change_descriptor {
+        change_descriptor = Some(desc);
+    };
+
     let new_wallet = Arc::new(Mutex::new(Wallet::new(
-        &descriptor,
-        change_descriptor.as_ref(),
+        &descriptor.0,
+        change_descriptor,
         network,
         MemoryDatabase::default(),
     )?));
 
-    let key_outer = key.clone();
+    let key_outer = key;
     let new_wallet_outer = new_wallet.clone();
 
     access_network_wallets(network, move |wallets| {
@@ -91,7 +98,10 @@ pub async fn get_wallet(
         let new_wallet_inner = new_wallet_outer.clone();
 
         async move {
-            wallets.write().await.insert(key_inner, new_wallet_inner);
+            wallets
+                .write()
+                .await
+                .insert((key_inner, None), new_wallet_inner);
             Ok(())
         }
     })

@@ -2,28 +2,36 @@
 use bitmask_core::{
     bitcoin::{get_wallet, save_mnemonic, sync_wallet},
     rgb::{create_watcher, watcher_address, watcher_next_address, watcher_next_utxo, watcher_utxo},
-    structs::WatcherRequest,
+    structs::{SecretString, WatcherRequest},
 };
 
 use crate::rgb::integration::utils::{send_some_coins, ISSUER_MNEMONIC};
 
 #[tokio::test]
 async fn allow_monitoring_address() -> anyhow::Result<()> {
-    let issuer_keys = save_mnemonic(ISSUER_MNEMONIC, "").await?;
+    let issuer_keys = &save_mnemonic(
+        &SecretString(ISSUER_MNEMONIC.to_string()),
+        &SecretString("".to_string()),
+    )
+    .await?;
 
     // Create Watcher
     let watcher_name = "default";
-    let sk = issuer_keys.private.nostr_prv;
+    let sk = issuer_keys.private.nostr_prv.clone();
     let create_watch_req = WatcherRequest {
         name: watcher_name.to_string(),
-        xpub: issuer_keys.public.watcher_xpub,
+        xpub: issuer_keys.public.watcher_xpub.clone(),
         force: true,
     };
 
     create_watcher(&sk, create_watch_req.clone()).await?;
 
     // Get Address
-    let issuer_wallet = get_wallet(&issuer_keys.private.btc_descriptor_xprv, None).await?;
+    let issuer_wallet = get_wallet(
+        &SecretString(issuer_keys.private.rgb_assets_descriptor_xprv.clone()),
+        None,
+    )
+    .await?;
     sync_wallet(&issuer_wallet).await?;
 
     let address = issuer_wallet
@@ -40,22 +48,31 @@ async fn allow_monitoring_address() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn allow_monitoring_address_with_coins() -> anyhow::Result<()> {
-    let issuer_keys = save_mnemonic(ISSUER_MNEMONIC, "").await?;
+    let issuer_keys = &save_mnemonic(
+        &SecretString(ISSUER_MNEMONIC.to_string()),
+        &SecretString("".to_string()),
+    )
+    .await?;
 
     // Create Watcher
     let watcher_name = "default";
-    let sk = issuer_keys.private.nostr_prv;
+    let sk = issuer_keys.private.nostr_prv.clone();
     let create_watch_req = WatcherRequest {
         name: watcher_name.to_string(),
-        xpub: issuer_keys.public.watcher_xpub,
+        xpub: issuer_keys.public.watcher_xpub.clone(),
         force: true,
     };
 
     create_watcher(&sk, create_watch_req.clone()).await?;
 
     // Get Address
-    let issuer_wallet = get_wallet(&issuer_keys.private.btc_descriptor_xprv, None).await?;
+    let issuer_wallet = get_wallet(
+        &SecretString(issuer_keys.private.rgb_assets_descriptor_xprv.clone()),
+        None,
+    )
+    .await?;
     sync_wallet(&issuer_wallet).await?;
+
     let address = issuer_wallet
         .lock()
         .await
@@ -74,14 +91,18 @@ async fn allow_monitoring_address_with_coins() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn allow_monitoring_invalid_utxo() -> anyhow::Result<()> {
-    let issuer_keys = save_mnemonic(ISSUER_MNEMONIC, "").await?;
+    let issuer_keys = &save_mnemonic(
+        &SecretString(ISSUER_MNEMONIC.to_string()),
+        &SecretString("".to_string()),
+    )
+    .await?;
 
     // Create Watcher
     let watcher_name = "default";
-    let sk = issuer_keys.private.nostr_prv;
+    let sk = issuer_keys.private.nostr_prv.clone();
     let create_watch_req = WatcherRequest {
         name: watcher_name.to_string(),
-        xpub: issuer_keys.public.watcher_xpub,
+        xpub: issuer_keys.public.watcher_xpub.clone(),
         force: true,
     };
     create_watcher(&sk, create_watch_req.clone()).await?;
@@ -101,14 +122,18 @@ async fn allow_monitoring_invalid_utxo() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn allow_monitoring_valid_utxo() -> anyhow::Result<()> {
-    let issuer_keys = save_mnemonic(ISSUER_MNEMONIC, "").await?;
+    let issuer_keys = &save_mnemonic(
+        &SecretString(ISSUER_MNEMONIC.to_string()),
+        &SecretString("".to_string()),
+    )
+    .await?;
 
     // Create Watcher
     let watcher_name = "default";
-    let sk = issuer_keys.private.nostr_prv;
+    let sk = issuer_keys.private.nostr_prv.clone();
     let create_watch_req = WatcherRequest {
         name: watcher_name.to_string(),
-        xpub: issuer_keys.public.watcher_xpub,
+        xpub: issuer_keys.public.watcher_xpub.clone(),
         force: true,
     };
     create_watcher(&sk, create_watch_req.clone()).await?;
