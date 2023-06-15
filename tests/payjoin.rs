@@ -35,7 +35,7 @@ async fn payjoin() -> Result<()> {
 
     let wallet = get_wallet_data(
         &SecretString(vault.private.btc_descriptor_xprv.clone()),
-        Some(SecretString(
+        Some(&SecretString(
             vault.private.btc_change_descriptor_xprv.clone(),
         )),
     )

@@ -26,7 +26,7 @@ use wallet::{
     psbt::{ProprietaryKeyDescriptor, ProprietaryKeyError, ProprietaryKeyLocation},
 };
 
-use crate::bitcoin::{get_wallet, synchronize_wallet};
+use crate::bitcoin::{get_wallet, sync_wallet};
 use crate::rgb::{constants::RGB_PSBT_TAPRET, structs::AddressAmount};
 use crate::structs::SecretString;
 
@@ -195,9 +195,7 @@ pub async fn estimate_fee_tx(
         .await
         .expect("cannot retrieve wallet");
 
-    synchronize_wallet(&wallet)
-        .await
-        .expect("cannot sync wallet");
+    sync_wallet(&wallet).await.expect("");
 
     let local = wallet.lock().await.get_utxo(outpoint);
     let local = local.expect("utxo not found").unwrap();

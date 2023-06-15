@@ -6,7 +6,7 @@ use payjoin::{PjUri, PjUriExt};
 use crate::{
     bitcoin::{
         psbt::{sign_original_psbt, sign_psbt},
-        wallet::{synchronize_wallet, MemoryWallet},
+        wallet::MemoryWallet,
     },
     debug, info,
     structs::SatsInvoice,
@@ -17,7 +17,6 @@ pub async fn create_transaction(
     wallet: &MemoryWallet,
     fee_rate: Option<FeeRate>,
 ) -> Result<TransactionDetails> {
-    synchronize_wallet(wallet).await?;
     let (psbt, details) = {
         let locked_wallet = wallet.lock().await;
         let mut builder = locked_wallet.build_tx();

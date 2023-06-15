@@ -5,6 +5,7 @@ use bitmask_core::{
     web::{
         bitcoin::{
             decrypt_wallet, encrypt_wallet, get_wallet_data, hash_password, new_wallet, send_sats,
+            sync_wallets,
         },
         json_parse, resolve, set_panic_hook,
     },
@@ -145,6 +146,7 @@ async fn import_test_wallet() {
     ))
     .await;
     let wallet_data: WalletData = json_parse(&wallet_str);
+    resolve(sync_wallets()).await;
 
     debug!(format!("Wallet address: {}", wallet_data.address));
 

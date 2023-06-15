@@ -10,7 +10,6 @@ use serde_encrypt::{
     serialize::impls::BincodeSerializer, shared_key::SharedKey, traits::SerdeEncryptSharedKey,
     AsSharedKey, EncryptedMessage,
 };
-use tokio::try_join;
 use zeroize::Zeroize;
 
 mod assets;
@@ -24,7 +23,7 @@ pub use crate::bitcoin::{
     keys::{new_mnemonic, save_mnemonic},
     payment::{create_payjoin, create_transaction},
     psbt::sign_psbt,
-    wallet::{get_blockchain, get_wallet, synchronize_wallet, MemoryWallet},
+    wallet::{get_blockchain, get_wallet, sync_wallet, sync_wallets, MemoryWallet},
 };
 
 use crate::{
@@ -69,11 +68,9 @@ pub fn decrypt_wallet(
     hash: &SecretString,
     encrypted_descriptors: &SecretString,
 ) -> Result<DecryptedWalletData> {
-    // let hash: &str = hash.0.as_ref();
     let mut shared_key: [u8; 32] = hex::decode(&hash.0)?
         .try_into()
         .expect("hash is of fixed size");
-    // let encrypted_descriptors: &str = encrypted_descriptors.0.as_ref();
     let encrypted_descriptors: Vec<u8> = hex::decode(&encrypted_descriptors.0)?;
     let (version_prefix, encrypted_descriptors) = encrypted_descriptors.split_at(5);
 
@@ -178,12 +175,12 @@ pub async fn encrypt_wallet(
 
 pub async fn get_wallet_data(
     descriptor: &SecretString,
-    change_descriptor: Option<SecretString>,
+    change_descriptor: Option<&SecretString>,
 ) -> Result<WalletData> {
     info!("get_wallet_data");
 
     let wallet = get_wallet(descriptor, change_descriptor).await?;
-    synchronize_wallet(&wallet).await?;
+    sync_wallet(&wallet).await?;
 
     let address = wallet
         .lock()
@@ -235,12 +232,11 @@ pub async fn get_wallet_data(
 
 pub async fn get_new_address(
     descriptor: &SecretString,
-    change_descriptor: Option<SecretString>,
+    change_descriptor: Option<&SecretString>,
 ) -> Result<String> {
     info!("get_new_address");
 
     let wallet = get_wallet(descriptor, change_descriptor).await?;
-    synchronize_wallet(&wallet).await?;
     let address = wallet
         .lock()
         .await
@@ -259,9 +255,7 @@ pub async fn send_sats(
 ) -> Result<TransactionDetails> {
     use payjoin::UriExt;
 
-    let wallet = get_wallet(descriptor, Some(change_descriptor.to_owned())).await?;
-    synchronize_wallet(&wallet).await?;
-
+    let wallet = get_wallet(descriptor, Some(change_descriptor)).await?;
     let fee_rate = fee_rate.map(FeeRate::from_sat_per_vb);
 
     let transaction = match payjoin::Uri::try_from(destination) {
@@ -300,12 +294,7 @@ pub async fn fund_vault(
     let assets_address = Address::from_str(assets_address)?;
     let uda_address = Address::from_str(uda_address)?;
 
-    let wallet = get_wallet(
-        btc_descriptor_xprv,
-        Some(btc_change_descriptor_xprv.clone()),
-    )
-    .await?;
-    synchronize_wallet(&wallet).await?;
+    let wallet = get_wallet(btc_descriptor_xprv, Some(btc_change_descriptor_xprv)).await?;
 
     let asset_invoice = SatsInvoice {
         address: assets_address,
@@ -368,11 +357,6 @@ pub async fn get_assets_vault(
     let assets_wallet = get_wallet(rgb_assets_descriptor_xpub, None).await?;
     let udas_wallet = get_wallet(rgb_udas_descriptor_xpub, None).await?;
 
-    try_join!(
-        synchronize_wallet(&assets_wallet),
-        synchronize_wallet(&udas_wallet)
-    )?;
-
     let assets_utxos = assets_wallet.lock().await.list_unspent()?;
     let uda_utxos = udas_wallet.lock().await.list_unspent()?;
 
@@ -411,8 +395,6 @@ pub async fn sign_psbt_file(request: SignPsbtRequest) -> Result<SignPsbtResponse
     let final_psbt = PartiallySignedTransaction::from(original_psbt);
 
     let wallet = get_wallet(&descriptor, None).await?;
-    synchronize_wallet(&wallet).await?;
-
     let sign = sign_psbt(&wallet, final_psbt).await?;
     let resp = match sign.transaction {
         Some(tx) => SignPsbtResponse {

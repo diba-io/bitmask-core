@@ -190,9 +190,26 @@ pub mod bitcoin {
         set_panic_hook();
         future_to_promise(async move {
             let change_descriptor = change_descriptor.map(SecretString);
-            match crate::bitcoin::get_wallet_data(&SecretString(descriptor), change_descriptor)
-                .await
+            match crate::bitcoin::get_wallet_data(
+                &SecretString(descriptor),
+                change_descriptor.as_ref(),
+            )
+            .await
             {
+                Ok(result) => Ok(JsValue::from_string(
+                    serde_json::to_string(&result).unwrap(),
+                )),
+                Err(err) => Err(JsValue::from_string(err.to_string())),
+            }
+        })
+    }
+
+    #[wasm_bindgen]
+    pub fn sync_wallets() -> Promise {
+        set_panic_hook();
+
+        future_to_promise(async move {
+            match crate::bitcoin::sync_wallets().await {
                 Ok(result) => Ok(JsValue::from_string(
                     serde_json::to_string(&result).unwrap(),
                 )),

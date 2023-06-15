@@ -3,7 +3,7 @@ use bdk::{blockchain::Blockchain, psbt::PsbtUtils, SignOptions, TransactionDetai
 use bitcoin::{consensus::serialize, util::psbt::PartiallySignedTransaction};
 
 use crate::{
-    bitcoin::{get_blockchain, synchronize_wallet, MemoryWallet},
+    bitcoin::{get_blockchain, MemoryWallet},
     debug,
 };
 
@@ -25,7 +25,7 @@ pub async fn sign_psbt(
         debug!("tx:", base64::encode(&serialize(&tx.clone())));
         let blockchain = get_blockchain().await;
         blockchain.broadcast(&tx).await?;
-        synchronize_wallet(wallet).await?;
+
         let txid = tx.txid();
         let tx = blockchain
             .get_tx(&txid)

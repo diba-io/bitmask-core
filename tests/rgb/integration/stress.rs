@@ -4,7 +4,7 @@ use std::{collections::HashMap, str::FromStr};
 use anyhow::Ok;
 use bitcoin::psbt::PartiallySignedTransaction;
 use bitmask_core::{
-    bitcoin::{get_wallet, save_mnemonic, sign_psbt, synchronize_wallet},
+    bitcoin::{get_wallet, save_mnemonic, sign_psbt, sync_wallet},
     rgb::{
         clear_stock, clear_watcher, constants::RGB_DEFAULT_NAME, create_watcher, list_contracts,
     },
@@ -169,7 +169,7 @@ async fn allow_issue_x_fungibles_witn_spend_utxos() -> anyhow::Result<()> {
         None,
     )
     .await?;
-    synchronize_wallet(&issuer_wallet).await?;
+    sync_wallet(&issuer_wallet).await?;
 
     let sign = sign_psbt(&issuer_wallet, final_psbt).await;
     assert!(sign.is_ok());
@@ -417,11 +417,11 @@ async fn allow_issue_x_uda_witn_spend_utxos() -> anyhow::Result<()> {
     let final_psbt = PartiallySignedTransaction::from(original_psbt);
 
     let issuer_wallet = get_wallet(
-        &SecretString(issuer_keys.private.rgb_udas_descriptor_xprv.clone()),
+        &SecretString(issuer_keys.private.rgb_assets_descriptor_xprv.clone()),
         None,
     )
     .await?;
-    synchronize_wallet(&issuer_wallet).await?;
+    sync_wallet(&issuer_wallet).await?;
 
     let sign = sign_psbt(&issuer_wallet, final_psbt).await;
     assert!(sign.is_ok());
