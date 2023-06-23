@@ -1,7 +1,7 @@
 # BitMask Core
 Core functionality for the BitMask wallet - <https://bitmask.app>
 
-**BitMask** is a bitcoin wallet and a browser extension for accessing decentralized web applications on the Bitcoin blokchain. It is designed to support UTXO based smart contracting protocols such as RGB, with planned support for Omni layer, TARO and many others.
+**BitMask** is a Bitcoin-only web wallet and browser extension for accessing decentralized web applications on the Bitcoin timechain. It is designed to support UTXO-based smart contracting protocols such as [RGB](https://rgb.tech), in addition to Lightning payments.
 
 [![Build status](https://img.shields.io/github/actions/workflow/status/diba-io/bitmask-core/rust.yaml?branch=development&style=flat-square)](https://github.com/diba-io/bitmask-core/actions/workflows/rust.yaml)
 [![Crates.io](https://img.shields.io/crates/v/bitmask-core?style=flat-square)](https://docs.rs/bitmask-core/latest/bitmask-core/)
@@ -12,12 +12,15 @@ Core functionality for the BitMask wallet - <https://bitmask.app>
 ## Uses
 
 - [bdk](https://github.com/bitcoindevkit/bdk) - Bitcoin Dev Kit
-- [gloo](https://github.com/rustwasm/gloo)
-- [wasm-pack](https://github.com/rustwasm/wasm-pack)
+- [rgb-wallet](https://github.com/RGB-WG/rgb-wallet) - RGB Wallet
+- [wasm-pack](https://github.com/rustwasm/wasm-pack) - WebAssembly
+- [lndhubx](https://lndhubx.kollider.xyz) - Custodial Lightning
+- [nostr-sdk](https://github.com/rust-nostr/nostr) - Nostr SDK
+- [carbonado](https://github.com/diba-io/carbonado) - Carbonado e2ee decentralized storage
 
 ## Build
 
-This should work with either wasm-pack, trunk, or x86-64.
+This should work with either wasm-pack, [trunk](https://github.com/thedodd/trunk), or x86-64.
 
 Some environment variables may be needed in order to compile on macos-aarch64, for more, [see this](https://github.com/sapio-lang/sapio/issues/146#issuecomment-960659800).
 
@@ -52,9 +55,11 @@ Upon a new release, follow these steps:
 1. Run `cargo +nightly udeps` to see if there are any unused dependencies.
 
 ## Docker
+
 For running bitmask-core tests in Regtest Mode, please follow the steps below:
 
 ### Initial Setup
+
 1. Build bitcoin node + electrum: `docker-compose build`.
 2. Up and running Docker containers: `docker-compose up -d node1 bitmaskd`.
 3. Load the command line: `source .commands`
@@ -70,6 +75,7 @@ For running bitmask-core tests in Regtest Mode, please follow the steps below:
 13. Run the test to check the balance: `cargo test --test wallet -- get_wallet_balance --exact`.
 
 ### Running the tests
+
 Running the tests: `cargo test --test-threads 1`
 
 ### Troubleshooting
