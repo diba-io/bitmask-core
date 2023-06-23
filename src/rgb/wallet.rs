@@ -18,6 +18,7 @@ use std::{
 };
 use strict_encoding::tn;
 
+use crate::rgb::structs::EmptyFilter;
 use crate::rgb::{resolvers::ResolveSpent, structs::AddressTerminal};
 use crate::structs::{AllocationDetail, AllocationValue, UDAPosition, WatcherDetail};
 
@@ -152,18 +153,22 @@ pub fn sync_wallet(iface_index: u32, wallet: &mut RgbWallet, resolver: &mut impl
     let step = 20;
     let index = 0;
 
-    // loop {
     let scripts = wallet.descr.derive(iface_index, index..step);
-    let new_scripts = scripts.into_iter().map(|(d, sc)| (d, sc)).collect();
+    let new_scripts = scripts
+        .into_iter()
+        .map(|(d, sc)| {
+            // Reconstruct Taptree
+
+            (d, sc)
+        })
+        .collect();
 
     let mut new_utxos = resolver
         .resolve_utxo(new_scripts)
         .expect("service unavalible");
     if !new_utxos.is_empty() {
         wallet.utxos.append(&mut new_utxos);
-        // index += step;
     }
-    // }
 }
 
 pub fn register_address<T>(
@@ -236,7 +241,6 @@ pub fn list_allocations(
     iface_index: u32,
     resolver: &mut impl Resolver,
 ) -> Result<Vec<WatcherDetail>, anyhow::Error> {
-    // TODO: Workaround
     let iface_name = match iface_index {
         20 => "RGB20",
         21 => "RGB21",
@@ -244,13 +248,14 @@ pub fn list_allocations(
     };
 
     sync_wallet(iface_index, wallet, resolver);
+    let empty = EmptyFilter {};
     let mut details = vec![];
     for contract_id in stock.contract_ids()? {
         let iface = stock.iface_by_name(&tn!(iface_name))?;
         if let Ok(contract) = stock.contract_iface(contract_id, iface.iface_id()) {
             let mut owners = vec![];
             for owned in &contract.iface.assignments {
-                if let Ok(allocations) = contract.fungible(owned.name.clone()) {
+                if let Ok(allocations) = contract.fungible(owned.name.clone(), Some(&empty)) {
                     for allocation in allocations {
                         if let Some(utxo) = wallet.utxo(allocation.owner) {
                             owners.push(AllocationDetail {

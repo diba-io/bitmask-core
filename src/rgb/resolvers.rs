@@ -54,7 +54,6 @@ impl rgb::Resolver for ExplorerResolver {
                     .position(|txout| txout.scriptpubkey == script);
                 if let Some(index) = index {
                     let index = index;
-
                     let status = match tx.status.block_height {
                         Some(height) => MiningStatus::Blockchain(height),
                         _ => MiningStatus::Mempool,

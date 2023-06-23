@@ -2,7 +2,9 @@ use std::{collections::HashMap, str::FromStr};
 
 use bitcoin::Address;
 use bitcoin_scripts::address::AddressCompat;
-use rgb::{RgbWallet, TerminalPath};
+use bp::Outpoint;
+use rgb::{interface::OutpointFilter, RgbWallet, TerminalPath};
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug, Display)]
@@ -37,4 +39,11 @@ pub struct RgbAccount {
 pub struct AddressTerminal {
     pub address: AddressCompat,
     pub terminal: TerminalPath,
+}
+
+pub struct EmptyFilter {}
+impl OutpointFilter for EmptyFilter {
+    fn include_outpoint(&self, _outpoint: Outpoint) -> bool {
+        true
+    }
 }

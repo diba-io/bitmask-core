@@ -11,6 +11,7 @@ use rgbstd::{
 use strict_encoding::{FieldName, StrictDeserialize, StrictSerialize};
 use strict_types::StrictVal;
 
+use crate::rgb::structs::EmptyFilter;
 use crate::structs::{
     AllocationValue, ContractFormats, ContractMeta, ContractMetadata, ContractResponse, MediaInfo,
     UDADetail,
@@ -111,8 +112,9 @@ pub fn extract_contract_by_id(
         };
     }
 
+    let empty = EmptyFilter {};
     for owned in &contract_iface.iface.assignments {
-        if let Ok(allocations) = contract_iface.fungible(owned.name.clone()) {
+        if let Ok(allocations) = contract_iface.fungible(owned.name.clone(), Some(&empty)) {
             for allocation in allocations {
                 supply = allocation.value;
             }
