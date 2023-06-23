@@ -1,4 +1,5 @@
-# BitMask Core
+# BitMask Core - The super bitcoin infrastructure
+
 Core functionality for the BitMask wallet - <https://bitmask.app>
 
 **BitMask** is a Bitcoin-only web wallet and browser extension for accessing decentralized web applications on the Bitcoin timechain. It is designed to support UTXO-based smart contracting protocols such as [RGB](https://rgb.tech), in addition to Lightning payments.
