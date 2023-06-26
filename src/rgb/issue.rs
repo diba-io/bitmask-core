@@ -27,6 +27,7 @@ pub enum IssueError {
     ContractNotfound(String),
     ImportContract(String),
     ContractInvalid(String),
+    InvalidTicker(String),
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -57,6 +58,10 @@ where
         Ok(name) => name,
         _ => return Err(IssueError::Forge(BuilderError::InterfaceMismatch)),
     };
+
+    if ticker.len() < 3 || ticker.len() > 8 || ticker.chars().any(|c| c < 'A' && c > 'Z') {
+        return Err(IssueError::InvalidTicker("Ticker must be between 3 and 8 chars, contain no spaces and consist only of capital letters".to_string()));
+    }
 
     let contract_issued = match iface.name.as_str() {
         "RGB20" => {
