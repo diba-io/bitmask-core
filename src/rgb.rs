@@ -48,9 +48,10 @@ use crate::{
     structs::{
         AcceptRequest, AcceptResponse, AssetType, ContractResponse, ContractsResponse,
         ImportRequest, InterfaceDetail, InterfacesResponse, InvoiceRequest, InvoiceResponse,
-        IssueRequest, IssueResponse, NextAddressResponse, NextUtxoResponse, PsbtRequest,
-        PsbtResponse, RgbTransferRequest, RgbTransferResponse, SchemaDetail, SchemasResponse,
-        WatcherDetailResponse, WatcherRequest, WatcherResponse, WatcherUtxoResponse,
+        IssueRequest, IssueResponse, NextAddressResponse, NextUtxoResponse, NextUtxosResponse,
+        PsbtRequest, PsbtResponse, RgbTransferRequest, RgbTransferResponse, SchemaDetail,
+        SchemasResponse, WatcherDetailResponse, WatcherRequest, WatcherResponse,
+        WatcherUtxoResponse,
     },
 };
 
@@ -65,7 +66,8 @@ use self::{
     },
     psbt::{estimate_fee_tx, save_commit},
     wallet::{
-        create_wallet, next_address, next_utxo, register_address, register_utxo, sync_wallet,
+        create_wallet, next_address, next_utxo, next_utxos, register_address, register_utxo,
+        sync_wallet,
     },
 };
 
@@ -675,6 +677,44 @@ pub async fn watcher_next_utxo(sk: &str, name: &str, iface: &str) -> Result<Next
     store_wallets(sk, ASSETS_WALLETS, &rgb_account).await?;
 
     Ok(NextUtxoResponse { utxo })
+}
+
+pub async fn watcher_unspent_utxo(sk: &str, name: &str, iface: &str) -> Result<NextUtxosResponse> {
+    let mut rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await?;
+    let wallet = match rgb_account.wallets.get(name) {
+        Some(wallet) => Ok(wallet.to_owned()),
+        _ => Err(anyhow!("Wallet watcher not found")),
+    };
+
+    let iface_index = match iface {
+        "RGB20" => 20,
+        "RGB21" => 21,
+        _ => 9,
+    };
+
+    let mut wallet = wallet?;
+
+    // Prefetch
+    let mut resolver = ExplorerResolver {
+        explorer_url: BITCOIN_EXPLORER_API.read().await.to_string(),
+        ..Default::default()
+    };
+
+    prefetch_resolver_utxos(iface_index, &mut wallet, &mut resolver).await;
+    prefetch_resolver_utxo_status(iface_index, &mut wallet, &mut resolver).await;
+
+    sync_wallet(iface_index, &mut wallet, &mut resolver);
+    let utxos = next_utxos(iface_index, wallet.clone(), &mut resolver)?
+        .into_iter()
+        .map(|x| x.outpoint.to_string())
+        .collect();
+
+    rgb_account
+        .wallets
+        .insert(RGB_DEFAULT_NAME.to_string(), wallet);
+    store_wallets(sk, ASSETS_WALLETS, &rgb_account).await?;
+
+    Ok(NextUtxosResponse { utxos })
 }
 
 pub async fn clear_stock(sk: &str) {

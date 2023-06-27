@@ -1,21 +1,22 @@
 #![cfg(not(target_arch = "wasm32"))]
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 
 use bitmask_core::{
     bitcoin::{save_mnemonic, sign_psbt_file},
     rgb::{
         accept_transfer, create_invoice, create_watcher, get_contract, import,
-        watcher_next_address, watcher_next_utxo,
+        watcher_next_address, watcher_next_utxo, watcher_unspent_utxo,
     },
     structs::{
-        AcceptRequest, AssetType, DecryptedWalletData, ImportRequest, InvoiceRequest, SecretString,
-        SignPsbtRequest, WatcherRequest,
+        AcceptRequest, AllocationDetail, AssetType, DecryptedWalletData, ImportRequest,
+        InvoiceRequest, SecretString, SignPsbtRequest, WatcherRequest,
     },
 };
 
 use crate::rgb::integration::utils::{
-    create_new_invoice, create_new_psbt, create_new_transfer, issuer_issue_contract,
-    send_some_coins, ANOTHER_OWNER_MNEMONIC, ISSUER_MNEMONIC, OWNER_MNEMONIC,
+    create_new_invoice, create_new_invoice_v2, create_new_psbt, create_new_psbt_v2,
+    create_new_transfer, issuer_issue_contract, send_some_coins, ANOTHER_OWNER_MNEMONIC,
+    ISSUER_MNEMONIC, OWNER_MNEMONIC,
 };
 
 #[tokio::test]
@@ -953,24 +954,31 @@ async fn allows_spend_amount_from_two_different_transitions() -> anyhow::Result<
     let owner_contract = resp?;
     assert_eq!(2, owner_contract.balance);
 
-    // 7. Create 2 Invoices (Another Owner Side)
-    let another_invoice_1 = &create_new_invoice(
+    // 7. reate new Invoices (Issuer Side)
+    let address = watcher_next_address(&another_owner_sk, watcher_name, "RGB20").await?;
+    send_some_coins(&address.address, "0.1").await;
+    send_some_coins(&address.address, "0.1").await;
+
+    let utxos = watcher_unspent_utxo(&another_owner_sk, watcher_name, "RGB20").await?;
+    let another_invoice_1 = &create_new_invoice_v2(
         &issuer_resp.contract_id,
         &issuer_resp.iface,
         1,
+        &utxos.utxos[0],
         another_owner_keys.clone(),
         None,
         Some(issuer_resp.clone().contract.strict),
     )
     .await?;
 
-    let another_invoice_2 = &create_new_invoice(
+    let another_invoice_2 = &create_new_invoice_v2(
         &issuer_resp.contract_id,
         &issuer_resp.iface,
         1,
+        &utxos.utxos[1],
         another_owner_keys.clone(),
         None,
-        None,
+        Some(issuer_resp.clone().contract.strict),
     )
     .await?;
 
@@ -1085,11 +1093,12 @@ async fn allows_spend_amount_from_two_different_transitions() -> anyhow::Result<
     )
     .await?;
 
-    let allocs = another_owner_contract
+    let allocs: BTreeSet<AllocationDetail> = another_owner_contract
         .allocations
         .into_iter()
         .filter(|alloc| alloc.is_mine && !alloc.is_spent)
-        .collect::<Vec<_>>();
+        .map(|f| f)
+        .collect();
     assert_eq!(2, allocs.len());
 
     // 13. Spend All Funds (Another Owner Side)
@@ -1098,11 +1107,9 @@ async fn allows_spend_amount_from_two_different_transitions() -> anyhow::Result<
         .rgb_assets_descriptor_xprv
         .clone();
 
-    let allocs = allocs.into_iter().map(|a| a.utxo).collect();
-    let psbt_resp = create_new_psbt(
-        &owner_contract.contract_id,
+    let psbt_resp = create_new_psbt_v2(
         &owner_contract.iface,
-        allocs,
+        allocs.into_iter().collect(),
         another_owner_keys.clone(),
     )
     .await?;
@@ -1128,7 +1135,7 @@ async fn allows_spend_amount_from_two_different_transitions() -> anyhow::Result<
     assert!(resp.is_ok());
     assert!(resp?.valid);
 
-    // 15. Accept Consig (Another Owner Side)
+    // 15. Get Contract (Another Owner Side)
     let resp = get_contract(&another_owner_sk, contract_id).await;
     assert!(resp.is_ok());
 

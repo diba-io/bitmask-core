@@ -336,6 +336,85 @@ pub async fn create_new_psbt(
     create_psbt(&sk, req).await
 }
 
+pub async fn create_new_invoice_v2(
+    contract_id: &str,
+    iface: &str,
+    amount: u64,
+    utxo: &str,
+    owner_keys: DecryptedWalletData,
+    params: Option<HashMap<String, String>>,
+    contract: Option<String>,
+) -> Result<InvoiceResponse, anyhow::Error> {
+    // Create Watcher
+    let sk = owner_keys.private.nostr_prv.clone();
+    let contract_type = match iface {
+        "RGB20" => AssetType::RGB20,
+        "RGB21" => AssetType::RGB21,
+        _ => AssetType::Contract,
+    };
+
+    if let Some(contract) = contract {
+        // Import Contract
+        let import_req = ImportRequest {
+            import: contract_type,
+            data: contract,
+        };
+
+        let resp = import(&sk, import_req).await;
+        assert!(resp.is_ok());
+    }
+
+    let seal = format!("tapret1st:{utxo}");
+
+    let params = params.unwrap_or_default();
+    let invoice_req = InvoiceRequest {
+        contract_id: contract_id.to_owned(),
+        iface: iface.to_owned(),
+        amount: amount,
+        seal,
+        params,
+    };
+
+    create_invoice(&sk, invoice_req).await
+}
+
+pub async fn create_new_psbt_v2(
+    iface: &str,
+    owner_utxos: Vec<AllocationDetail>,
+    owner_keys: DecryptedWalletData,
+) -> Result<PsbtResponse, anyhow::Error> {
+    // Get Allocations
+    let watcher_name = "default";
+    let sk = owner_keys.private.nostr_prv.clone();
+    let resp = watcher_details(&sk, watcher_name).await;
+    assert!(resp.is_ok());
+
+    let inputs = owner_utxos
+        .into_iter()
+        .map(|x| PsbtInputRequest {
+            asset_utxo: x.utxo.to_owned(),
+            asset_utxo_terminal: x.derivation,
+            tapret: None,
+        })
+        .collect();
+
+    let descriptor_pub = match iface {
+        "RGB20" => owner_keys.public.rgb_assets_descriptor_xpub.clone(),
+        "RGB21" => owner_keys.public.rgb_udas_descriptor_xpub.clone(),
+        _ => owner_keys.public.rgb_assets_descriptor_xpub.clone(),
+    };
+
+    let req = PsbtRequest {
+        descriptor_pub: SecretString(descriptor_pub),
+        inputs,
+        change_index: None,
+        bitcoin_changes: vec![],
+        fee: None,
+    };
+
+    create_psbt(&sk, req).await
+}
+
 pub async fn create_new_transfer(
     owner_keys: DecryptedWalletData,
     invoice_resp: InvoiceResponse,

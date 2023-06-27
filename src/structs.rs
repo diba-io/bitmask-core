@@ -524,7 +524,7 @@ pub struct WatcherDetail {
     pub allocations: Vec<AllocationDetail>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Eq, Ord, PartialEq, PartialOrd, Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct AllocationDetail {
     /// Anchored UTXO
@@ -539,7 +539,7 @@ pub struct AllocationDetail {
     pub is_spent: bool,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Display)]
+#[derive(Eq, Ord, PartialEq, PartialOrd, Serialize, Deserialize, Debug, Clone, Display)]
 #[serde(rename_all = "camelCase")]
 pub enum AllocationValue {
     #[display(inner)]
@@ -549,7 +549,9 @@ pub enum AllocationValue {
     UDA(UDAPosition),
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Default, Display)]
+#[derive(
+    Eq, Ord, PartialEq, PartialOrd, Serialize, Deserialize, Debug, Clone, Default, Display,
+)]
 #[serde(rename_all = "camelCase")]
 #[display("{token_index}:{fraction}")]
 pub struct UDAPosition {
@@ -585,6 +587,12 @@ pub struct NextAddressResponse {
 #[serde(rename_all = "camelCase")]
 pub struct NextUtxoResponse {
     pub utxo: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct NextUtxosResponse {
+    pub utxos: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]

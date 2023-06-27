@@ -150,6 +150,44 @@ pub fn next_utxo(
     Ok(next_utxo)
 }
 
+pub fn next_utxos(
+    iface_index: u32,
+    wallet: RgbWallet,
+    resolver: &mut impl ResolveSpent,
+) -> Result<Vec<Utxo>, anyhow::Error> {
+    let mut utxos: Vec<Utxo> = wallet
+        .utxos
+        .into_iter()
+        .filter(|utxo| {
+            utxo.derivation.terminal.app == iface_index && utxo.derivation.tweak.is_none()
+        })
+        .collect();
+
+    if utxos.is_empty() {
+        return Ok(none!());
+    }
+
+    // TODO: This is really necessary?
+    utxos.sort_by(|a, b| {
+        a.derivation
+            .terminal
+            .index
+            .cmp(&b.derivation.terminal.index)
+    });
+    let mut next_utxo: Vec<Utxo> = vec![];
+    for utxo in utxos {
+        let txid =
+            Txid::from_str(&utxo.outpoint.txid.to_hex()).expect("invalid transaction id parse");
+        let is_spent = resolver
+            .resolve_spent_status(txid, utxo.outpoint.vout.into_u32().into())
+            .expect("unavaliable service");
+        if !is_spent {
+            next_utxo.push(utxo);
+        }
+    }
+    Ok(next_utxo)
+}
+
 pub fn sync_wallet(iface_index: u32, wallet: &mut RgbWallet, resolver: &mut impl Resolver) {
     let step = 20;
     let index = 0;
