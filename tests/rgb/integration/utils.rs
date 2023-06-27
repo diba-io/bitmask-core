@@ -11,8 +11,8 @@ use bitmask_core::{
     structs::{
         AllocationDetail, AssetType, ContractResponse, DecryptedWalletData, ImportRequest,
         InvoiceRequest, InvoiceResponse, IssueMetaRequest, IssueMetadata, IssueRequest,
-        IssueResponse, MediaInfo, NewCollectible, PsbtRequest, PsbtResponse, RgbTransferRequest,
-        RgbTransferResponse, SecretString, WatcherRequest,
+        IssueResponse, MediaInfo, NewCollectible, PsbtInputRequest, PsbtRequest, PsbtResponse,
+        RgbTransferRequest, RgbTransferResponse, SecretString, WatcherRequest,
     },
 };
 use tokio::process::Command;
@@ -288,9 +288,8 @@ pub async fn create_new_invoice(
 pub async fn create_new_psbt(
     contract_id: &str,
     iface: &str,
-    owner_utxo: &str,
+    owner_utxos: Vec<String>,
     owner_keys: DecryptedWalletData,
-    tweak: Option<String>,
 ) -> Result<PsbtResponse, anyhow::Error> {
     // Get Allocations
     let watcher_name = "default";
@@ -298,8 +297,7 @@ pub async fn create_new_psbt(
     let resp = watcher_details(&sk, watcher_name).await;
     assert!(resp.is_ok());
 
-    let mut asset_utxo = String::new();
-    let mut asset_utxo_terminal = String::new();
+    let mut inputs = vec![];
     let watcher_details = resp?;
     for contract_allocations in watcher_details
         .contracts
@@ -309,13 +307,15 @@ pub async fn create_new_psbt(
         let allocations: Vec<AllocationDetail> = contract_allocations
             .allocations
             .into_iter()
-            .filter(|a| a.is_mine && a.utxo == owner_utxo)
+            .filter(|a| a.is_mine && !a.is_spent && owner_utxos.contains(&a.utxo))
             .collect();
 
         if let Some(allocation) = allocations.into_iter().next() {
-            asset_utxo = allocation.utxo.to_owned();
-            asset_utxo_terminal = allocation.derivation;
-            break;
+            inputs.push(PsbtInputRequest {
+                asset_utxo: allocation.utxo.to_owned(),
+                asset_utxo_terminal: allocation.derivation,
+                tapret: None,
+            })
         }
     }
 
@@ -325,15 +325,12 @@ pub async fn create_new_psbt(
         _ => owner_keys.public.rgb_assets_descriptor_xpub.clone(),
     };
 
-    assert_eq!(asset_utxo, owner_utxo);
     let req = PsbtRequest {
         descriptor_pub: SecretString(descriptor_pub),
-        asset_utxo: asset_utxo.to_string(),
-        asset_utxo_terminal: asset_utxo_terminal.to_string(),
+        inputs,
         change_index: None,
         bitcoin_changes: vec![],
         fee: None,
-        tapret: tweak,
     };
 
     create_psbt(&sk, req).await

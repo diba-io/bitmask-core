@@ -358,15 +358,22 @@ pub struct PsbtRequest {
     /// Descriptor XPub
     pub descriptor_pub: SecretString,
     /// Asset UTXO
+    pub inputs: Vec<PsbtInputRequest>,
+    /// Bitcoin Change Addresses (format: {address}:{amount})
+    pub bitcoin_changes: Vec<String>,
+    /// Asset Change Index UTXO (default: 1)
+    pub change_index: Option<u16>,
+    /// Bitcoin Fee
+    pub fee: Option<u64>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct PsbtInputRequest {
+    /// Asset UTXO
     pub asset_utxo: String,
     /// Asset UTXO Terminal (ex. /0/0)
     pub asset_utxo_terminal: String,
-    /// Asset Change Index UTXO (default: 1)
-    pub change_index: Option<u16>,
-    /// Bitcoin Change Addresses (format: {address}:{amount})
-    pub bitcoin_changes: Vec<String>,
-    /// Bitcoin Fee
-    pub fee: Option<u64>,
     /// TapTweak used to spend outputs based in tapret commitments
     pub tapret: Option<String>,
 }

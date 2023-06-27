@@ -1,13 +1,21 @@
 #![cfg(not(target_arch = "wasm32"))]
+use std::collections::HashMap;
+
 use bitmask_core::{
     bitcoin::{save_mnemonic, sign_psbt_file},
-    rgb::{accept_transfer, create_watcher, get_contract},
-    structs::{AcceptRequest, DecryptedWalletData, SecretString, SignPsbtRequest, WatcherRequest},
+    rgb::{
+        accept_transfer, create_invoice, create_watcher, get_contract, import,
+        watcher_next_address, watcher_next_utxo,
+    },
+    structs::{
+        AcceptRequest, AssetType, DecryptedWalletData, ImportRequest, InvoiceRequest, SecretString,
+        SignPsbtRequest, WatcherRequest,
+    },
 };
 
 use crate::rgb::integration::utils::{
     create_new_invoice, create_new_psbt, create_new_transfer, issuer_issue_contract,
-    ANOTHER_OWNER_MNEMONIC, ISSUER_MNEMONIC, OWNER_MNEMONIC,
+    send_some_coins, ANOTHER_OWNER_MNEMONIC, ISSUER_MNEMONIC, OWNER_MNEMONIC,
 };
 
 #[tokio::test]
@@ -36,9 +44,8 @@ async fn allow_issuer_make_conseq_transfers() -> anyhow::Result<()> {
     let psbt_resp = create_new_psbt(
         &issuer_resp.contract_id,
         &issuer_resp.iface,
-        &issuer_resp.issue_utxo,
+        vec![issuer_resp.issue_utxo.clone()],
         issuer_keys.clone(),
-        None,
     )
     .await?;
     let transfer_resp =
@@ -90,9 +97,8 @@ async fn allow_issuer_make_conseq_transfers() -> anyhow::Result<()> {
     let psbt_resp = create_new_psbt(
         &issuer_resp.contract_id,
         &issuer_resp.iface,
-        &new_alloc.utxo,
+        vec![new_alloc.utxo],
         issuer_keys.clone(),
-        None,
     )
     .await?;
     let transfer_resp = &create_new_transfer(issuer_keys.clone(), owner_resp, psbt_resp).await?;
@@ -148,9 +154,8 @@ async fn allow_owner_make_conseq_transfers() -> anyhow::Result<()> {
     let psbt_resp = create_new_psbt(
         &issuer_resp.contract_id,
         &issuer_resp.iface,
-        &issuer_resp.issue_utxo,
+        vec![issuer_resp.issue_utxo.clone()],
         issuer_keys.clone(),
-        None,
     )
     .await?;
     let transfer_resp =
@@ -222,9 +227,8 @@ async fn allow_owner_make_conseq_transfers() -> anyhow::Result<()> {
     let psbt_resp = create_new_psbt(
         &owner_contract.contract_id,
         &owner_contract.iface,
-        &contract_utxo.utxo,
+        vec![contract_utxo.utxo],
         owner_keys.clone(),
-        None,
     )
     .await?;
     let transfer_resp = &create_new_transfer(
@@ -284,9 +288,8 @@ async fn allow_owner_make_conseq_transfers() -> anyhow::Result<()> {
     let psbt_resp = create_new_psbt(
         &owner_contract.contract_id,
         &owner_contract.iface,
-        &contract_utxo.utxo,
+        vec![contract_utxo.utxo],
         owner_keys.clone(),
-        None,
     )
     .await?;
     let transfer_resp = &create_new_transfer(
@@ -383,9 +386,8 @@ async fn allow_conseq_transfers_between_tree_owners() -> anyhow::Result<()> {
     let psbt_resp = create_new_psbt(
         &issuer_resp.contract_id,
         &issuer_resp.iface,
-        &issuer_resp.issue_utxo,
+        vec![issuer_resp.issue_utxo.clone()],
         issuer_keys.clone(),
-        None,
     )
     .await?;
     let transfer_resp = &create_new_transfer(
@@ -461,9 +463,8 @@ async fn allow_conseq_transfers_between_tree_owners() -> anyhow::Result<()> {
     let psbt_resp = create_new_psbt(
         &issuer_contract.contract_id,
         &issuer_contract.iface,
-        &issuer_utxo.utxo,
+        vec![issuer_utxo.utxo],
         issuer_keys.clone(),
-        None,
     )
     .await?;
     let issuer_transfer_to_another_resp = &create_new_transfer(
@@ -490,9 +491,8 @@ async fn allow_conseq_transfers_between_tree_owners() -> anyhow::Result<()> {
     let psbt_resp = create_new_psbt(
         &owner_contract.contract_id,
         &owner_contract.iface,
-        &owner_utxo.utxo,
+        vec![owner_utxo.utxo],
         owner_keys.clone(),
-        None,
     )
     .await?;
     let owner_transfer_to_another_resp = &create_new_transfer(
@@ -551,6 +551,589 @@ async fn allow_conseq_transfers_between_tree_owners() -> anyhow::Result<()> {
 
     let another_owner_contract = resp?;
     assert_eq!(2, another_owner_contract.balance);
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn allows_spend_amount_from_two_different_owners() -> anyhow::Result<()> {
+    // 0. Retrieve all keys
+    let issuer_keys: DecryptedWalletData = save_mnemonic(
+        &SecretString(ISSUER_MNEMONIC.to_string()),
+        &SecretString("".to_string()),
+    )
+    .await?;
+    let owner_keys = &save_mnemonic(
+        &SecretString(OWNER_MNEMONIC.to_string()),
+        &SecretString("".to_string()),
+    )
+    .await?;
+    let another_owner_keys = &save_mnemonic(
+        &SecretString(ANOTHER_OWNER_MNEMONIC.to_string()),
+        &SecretString("".to_string()),
+    )
+    .await?;
+
+    // 1. Create All Watchers
+    let watcher_name = "default";
+    let issuer_sk = issuer_keys.private.nostr_prv.to_string();
+    let create_watch_req = WatcherRequest {
+        name: watcher_name.to_string(),
+        xpub: issuer_keys.public.watcher_xpub.clone(),
+        force: true,
+    };
+    create_watcher(&issuer_sk, create_watch_req.clone()).await?;
+
+    let owner_sk = owner_keys.private.nostr_prv.to_string();
+    let create_watch_req = WatcherRequest {
+        name: watcher_name.to_string(),
+        xpub: owner_keys.public.watcher_xpub.clone(),
+        force: true,
+    };
+    create_watcher(&owner_sk, create_watch_req.clone()).await?;
+
+    let another_owner_sk = another_owner_keys.private.nostr_prv.to_string();
+    let create_watch_req = WatcherRequest {
+        name: watcher_name.to_string(),
+        xpub: another_owner_keys.public.watcher_xpub.clone(),
+        force: true,
+    };
+    create_watcher(&another_owner_sk, create_watch_req.clone()).await?;
+
+    // 2. Issuer Contract
+    let issuer_resp = &issuer_issue_contract("RGB20", 5, false, true, None).await?;
+
+    // 3. Owner Create Invoice
+    let owner_invoice = &create_new_invoice(
+        &issuer_resp.contract_id,
+        &issuer_resp.iface,
+        2,
+        owner_keys.clone(),
+        None,
+        Some(issuer_resp.clone().contract.strict),
+    )
+    .await?;
+
+    // 4. Create First Transfer
+    let psbt_resp = create_new_psbt(
+        &issuer_resp.contract_id,
+        &issuer_resp.iface,
+        vec![issuer_resp.issue_utxo.clone()],
+        issuer_keys.clone(),
+    )
+    .await?;
+    let transfer_resp = &create_new_transfer(
+        issuer_keys.clone(),
+        owner_invoice.clone(),
+        psbt_resp.clone(),
+    )
+    .await?;
+
+    let issuer_xprv = issuer_keys.private.rgb_assets_descriptor_xprv.clone();
+    let request = SignPsbtRequest {
+        psbt: transfer_resp.psbt.clone(),
+        descriptor: SecretString(issuer_xprv),
+    };
+    let resp = sign_psbt_file(request).await;
+    assert!(resp.is_ok());
+
+    // 5. Accept Consig (Issuer and Owner Side)
+    let all_sks = [issuer_sk.clone(), owner_sk.clone()];
+    for sk in all_sks {
+        let request = AcceptRequest {
+            consignment: transfer_resp.clone().consig,
+            force: false,
+        };
+        let accept_resp = accept_transfer(&sk, request).await;
+        assert!(accept_resp.is_ok());
+        assert!(accept_resp?.valid);
+    }
+
+    // 6. Check Contract Balances (Issuer Owner Side)
+    let contract_id = &issuer_resp.contract_id;
+    let resp = get_contract(&issuer_sk, contract_id).await;
+    assert!(resp.is_ok());
+
+    let issuer_contract = resp?;
+    assert_eq!(3, issuer_contract.balance);
+
+    let resp = get_contract(&owner_sk, contract_id).await;
+    assert!(resp.is_ok());
+
+    let owner_contract = resp?;
+    assert_eq!(2, owner_contract.balance);
+
+    // 7. Create 2 Invoices (Another Owner Side)
+    let another_owner_address =
+        watcher_next_address(&another_owner_sk, watcher_name, "RGB20").await?;
+    send_some_coins(&another_owner_address.address, "0.1").await;
+
+    let another_owner_utxo = watcher_next_utxo(&another_owner_sk, watcher_name, "RGB20").await?;
+    let another_owner_seal = format!("tapret1st:{}", another_owner_utxo.utxo);
+    let invoice_req = InvoiceRequest {
+        contract_id: contract_id.to_owned(),
+        iface: issuer_resp.iface.to_owned(),
+        amount: 1,
+        seal: another_owner_seal,
+        params: HashMap::default(),
+    };
+    let import_req = ImportRequest {
+        import: AssetType::RGB20,
+        data: issuer_resp.contract.strict.clone(),
+    };
+
+    let resp = import(&another_owner_sk, import_req).await;
+    assert!(resp.is_ok());
+
+    let another_invoice_1 = &create_invoice(&another_owner_sk, invoice_req.clone()).await?;
+    let another_invoice_2 = &create_invoice(&another_owner_sk, invoice_req.clone()).await?;
+
+    // 8. Create Transfer and Accept (Issuer Side)
+    let issuer_xpriv = issuer_keys.private.rgb_assets_descriptor_xprv.clone();
+    let issuer_utxo = issuer_contract
+        .allocations
+        .into_iter()
+        .find(|alloc| alloc.is_mine && !alloc.is_spent)
+        .unwrap();
+
+    let psbt_resp = create_new_psbt(
+        &issuer_contract.contract_id,
+        &issuer_contract.iface,
+        vec![issuer_utxo.utxo],
+        issuer_keys.clone(),
+    )
+    .await?;
+    let issuer_transfer_to_another_resp = &create_new_transfer(
+        issuer_keys.clone(),
+        another_invoice_1.clone(),
+        psbt_resp.clone(),
+    )
+    .await?;
+    let request = SignPsbtRequest {
+        psbt: issuer_transfer_to_another_resp.psbt.clone(),
+        descriptor: SecretString(issuer_xpriv),
+    };
+    let resp = sign_psbt_file(request).await;
+    assert!(resp.is_ok());
+
+    // 9. Create Transfer and Accept (Owner Side)
+    let owner_xpriv = owner_keys.private.rgb_assets_descriptor_xprv.clone();
+    let owner_utxo = owner_contract
+        .allocations
+        .into_iter()
+        .find(|alloc| alloc.is_mine && !alloc.is_spent)
+        .unwrap();
+
+    let psbt_resp = create_new_psbt(
+        &owner_contract.contract_id,
+        &owner_contract.iface,
+        vec![owner_utxo.utxo],
+        owner_keys.clone(),
+    )
+    .await?;
+    let owner_transfer_to_another_resp = &create_new_transfer(
+        owner_keys.clone(),
+        another_invoice_2.clone(),
+        psbt_resp.clone(),
+    )
+    .await?;
+    let request = SignPsbtRequest {
+        psbt: owner_transfer_to_another_resp.psbt.clone(),
+        descriptor: SecretString(owner_xpriv),
+    };
+    let resp = sign_psbt_file(request).await;
+    assert!(resp.is_ok());
+
+    // 9. Accept Consig (Issuer and Another Owner Sides)
+    let all_sks = [issuer_sk.clone(), another_owner_sk.clone()];
+    for sk in all_sks {
+        let request = AcceptRequest {
+            consignment: issuer_transfer_to_another_resp.clone().consig,
+            force: false,
+        };
+        let resp = accept_transfer(&sk, request).await;
+        assert!(resp.is_ok());
+        assert!(resp?.valid);
+    }
+
+    // 10. Accept Consig (Owner and Another Owner Sides)
+    let all_sks = [owner_sk.clone(), another_owner_sk.clone()];
+    for sk in all_sks {
+        let request = AcceptRequest {
+            consignment: owner_transfer_to_another_resp.clone().consig,
+            force: false,
+        };
+        let resp = accept_transfer(&sk, request).await;
+        assert!(resp.is_ok());
+        assert!(resp?.valid);
+    }
+
+    // 11. Verify Balances (All Sides)
+    let contract_id = &issuer_resp.contract_id;
+    let resp = get_contract(&issuer_sk, contract_id).await;
+    assert!(resp.is_ok());
+
+    let issuer_contract = resp?;
+    assert_eq!(2, issuer_contract.balance);
+
+    let resp = get_contract(&owner_sk, contract_id).await;
+    assert!(resp.is_ok());
+
+    let owner_contract = resp?;
+    assert_eq!(1, owner_contract.balance);
+
+    let resp = get_contract(&another_owner_sk, contract_id).await;
+    assert!(resp.is_ok());
+
+    let another_owner_contract = resp?;
+    assert_eq!(2, another_owner_contract.balance);
+
+    // 12. Generate Invoice (Issuer Side)
+    let issuer_invoice = &create_new_invoice(
+        &issuer_resp.contract_id,
+        &issuer_resp.iface,
+        2,
+        issuer_keys.clone(),
+        None,
+        Some(issuer_resp.clone().contract.strict),
+    )
+    .await?;
+
+    // 13. Spend All Funds (Another Owner Side)
+    let another_owner_xpriv = another_owner_keys
+        .private
+        .rgb_assets_descriptor_xprv
+        .clone();
+    let another_owner_utxo = another_owner_utxo.utxo;
+
+    let psbt_resp = create_new_psbt(
+        &owner_contract.contract_id,
+        &owner_contract.iface,
+        vec![another_owner_utxo],
+        another_owner_keys.clone(),
+    )
+    .await?;
+    let another_transfer_to_issuer = &create_new_transfer(
+        another_owner_keys.clone(),
+        issuer_invoice.clone(),
+        psbt_resp.clone(),
+    )
+    .await?;
+    let request = SignPsbtRequest {
+        psbt: another_transfer_to_issuer.psbt.clone(),
+        descriptor: SecretString(another_owner_xpriv),
+    };
+    let resp = sign_psbt_file(request).await;
+    assert!(resp.is_ok());
+
+    // 14. Accept Consig (Another Owner Side)
+    let request = AcceptRequest {
+        consignment: another_transfer_to_issuer.clone().consig,
+        force: false,
+    };
+    let resp = accept_transfer(&another_owner_sk, request).await;
+    assert!(resp.is_ok());
+    assert!(resp?.valid);
+
+    // 15. Accept Consig (Another Owner Side)
+    let resp = get_contract(&another_owner_sk, contract_id).await;
+    assert!(resp.is_ok());
+
+    let another_owner_contract = resp?;
+    assert_eq!(0, another_owner_contract.balance);
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn allows_spend_amount_from_two_different_transitions() -> anyhow::Result<()> {
+    // 0. Retrieve all keys
+    let issuer_keys: DecryptedWalletData = save_mnemonic(
+        &SecretString(ISSUER_MNEMONIC.to_string()),
+        &SecretString("".to_string()),
+    )
+    .await?;
+    let owner_keys = &save_mnemonic(
+        &SecretString(OWNER_MNEMONIC.to_string()),
+        &SecretString("".to_string()),
+    )
+    .await?;
+    let another_owner_keys = &save_mnemonic(
+        &SecretString(ANOTHER_OWNER_MNEMONIC.to_string()),
+        &SecretString("".to_string()),
+    )
+    .await?;
+
+    // 1. Create All Watchers
+    let watcher_name = "default";
+    let issuer_sk = issuer_keys.private.nostr_prv.to_string();
+    let create_watch_req = WatcherRequest {
+        name: watcher_name.to_string(),
+        xpub: issuer_keys.public.watcher_xpub.clone(),
+        force: true,
+    };
+    create_watcher(&issuer_sk, create_watch_req.clone()).await?;
+
+    let owner_sk = owner_keys.private.nostr_prv.to_string();
+    let create_watch_req = WatcherRequest {
+        name: watcher_name.to_string(),
+        xpub: owner_keys.public.watcher_xpub.clone(),
+        force: true,
+    };
+    create_watcher(&owner_sk, create_watch_req.clone()).await?;
+
+    let another_owner_sk = another_owner_keys.private.nostr_prv.to_string();
+    let create_watch_req = WatcherRequest {
+        name: watcher_name.to_string(),
+        xpub: another_owner_keys.public.watcher_xpub.clone(),
+        force: true,
+    };
+    create_watcher(&another_owner_sk, create_watch_req.clone()).await?;
+
+    // 2. Issuer Contract
+    let issuer_resp = &issuer_issue_contract("RGB20", 5, false, true, None).await?;
+
+    // 3. Owner Create Invoice
+    let owner_invoice = &create_new_invoice(
+        &issuer_resp.contract_id,
+        &issuer_resp.iface,
+        2,
+        owner_keys.clone(),
+        None,
+        Some(issuer_resp.clone().contract.strict),
+    )
+    .await?;
+
+    // 4. Create First Transfer
+    let psbt_resp = create_new_psbt(
+        &issuer_resp.contract_id,
+        &issuer_resp.iface,
+        vec![issuer_resp.issue_utxo.clone()],
+        issuer_keys.clone(),
+    )
+    .await?;
+    let transfer_resp = &create_new_transfer(
+        issuer_keys.clone(),
+        owner_invoice.clone(),
+        psbt_resp.clone(),
+    )
+    .await?;
+
+    let issuer_xprv = issuer_keys.private.rgb_assets_descriptor_xprv.clone();
+    let request = SignPsbtRequest {
+        psbt: transfer_resp.psbt.clone(),
+        descriptor: SecretString(issuer_xprv),
+    };
+    let resp = sign_psbt_file(request).await;
+    assert!(resp.is_ok());
+
+    // 5. Accept Consig (Issuer and Owner Side)
+    let all_sks = [issuer_sk.clone(), owner_sk.clone()];
+    for sk in all_sks {
+        let request = AcceptRequest {
+            consignment: transfer_resp.clone().consig,
+            force: false,
+        };
+        let accept_resp = accept_transfer(&sk, request).await;
+        assert!(accept_resp.is_ok());
+        assert!(accept_resp?.valid);
+    }
+
+    // 6. Check Contract Balances (Issuer Owner Side)
+    let contract_id = &issuer_resp.contract_id;
+    let resp = get_contract(&issuer_sk, contract_id).await;
+    assert!(resp.is_ok());
+
+    let issuer_contract = resp?;
+    assert_eq!(3, issuer_contract.balance);
+
+    let resp = get_contract(&owner_sk, contract_id).await;
+    assert!(resp.is_ok());
+
+    let owner_contract = resp?;
+    assert_eq!(2, owner_contract.balance);
+
+    // 7. Create 2 Invoices (Another Owner Side)
+    let another_invoice_1 = &create_new_invoice(
+        &issuer_resp.contract_id,
+        &issuer_resp.iface,
+        1,
+        another_owner_keys.clone(),
+        None,
+        Some(issuer_resp.clone().contract.strict),
+    )
+    .await?;
+
+    let another_invoice_2 = &create_new_invoice(
+        &issuer_resp.contract_id,
+        &issuer_resp.iface,
+        1,
+        another_owner_keys.clone(),
+        None,
+        None,
+    )
+    .await?;
+
+    // 8. Create Transfer and Accept (Issuer Side)
+    let issuer_xpriv = issuer_keys.private.rgb_assets_descriptor_xprv.clone();
+    let issuer_utxo = issuer_contract
+        .allocations
+        .into_iter()
+        .find(|alloc| alloc.is_mine && !alloc.is_spent)
+        .unwrap();
+
+    let psbt_resp = create_new_psbt(
+        &issuer_contract.contract_id,
+        &issuer_contract.iface,
+        vec![issuer_utxo.utxo],
+        issuer_keys.clone(),
+    )
+    .await?;
+    let issuer_transfer_to_another_resp = &create_new_transfer(
+        issuer_keys.clone(),
+        another_invoice_1.clone(),
+        psbt_resp.clone(),
+    )
+    .await?;
+    let request = SignPsbtRequest {
+        psbt: issuer_transfer_to_another_resp.psbt.clone(),
+        descriptor: SecretString(issuer_xpriv),
+    };
+    let resp = sign_psbt_file(request).await;
+    assert!(resp.is_ok());
+
+    // 9. Create Transfer and Accept (Owner Side)
+    let owner_xpriv = owner_keys.private.rgb_assets_descriptor_xprv.clone();
+    let owner_utxo = owner_contract
+        .allocations
+        .into_iter()
+        .find(|alloc| alloc.is_mine && !alloc.is_spent)
+        .unwrap();
+
+    let psbt_resp = create_new_psbt(
+        &owner_contract.contract_id,
+        &owner_contract.iface,
+        vec![owner_utxo.utxo],
+        owner_keys.clone(),
+    )
+    .await?;
+    let owner_transfer_to_another_resp = &create_new_transfer(
+        owner_keys.clone(),
+        another_invoice_2.clone(),
+        psbt_resp.clone(),
+    )
+    .await?;
+    let request = SignPsbtRequest {
+        psbt: owner_transfer_to_another_resp.psbt.clone(),
+        descriptor: SecretString(owner_xpriv),
+    };
+    let resp = sign_psbt_file(request).await;
+    assert!(resp.is_ok());
+
+    // 9. Accept Consig (Issuer and Another Owner Sides)
+    let all_sks = [issuer_sk.clone(), another_owner_sk.clone()];
+    for sk in all_sks {
+        let request = AcceptRequest {
+            consignment: issuer_transfer_to_another_resp.clone().consig,
+            force: false,
+        };
+        let resp = accept_transfer(&sk, request).await;
+        assert!(resp.is_ok());
+        assert!(resp?.valid);
+    }
+
+    // 10. Accept Consig (Owner and Another Owner Sides)
+    let all_sks = [owner_sk.clone(), another_owner_sk.clone()];
+    for sk in all_sks {
+        let request = AcceptRequest {
+            consignment: owner_transfer_to_another_resp.clone().consig,
+            force: false,
+        };
+        let resp = accept_transfer(&sk, request).await;
+        assert!(resp.is_ok());
+        assert!(resp?.valid);
+    }
+
+    // 11. Verify Balances (All Sides)
+    let contract_id = &issuer_resp.contract_id;
+    let resp = get_contract(&issuer_sk, contract_id).await;
+    assert!(resp.is_ok());
+
+    let issuer_contract = resp?;
+    assert_eq!(2, issuer_contract.balance);
+
+    let resp = get_contract(&owner_sk, contract_id).await;
+    assert!(resp.is_ok());
+
+    let owner_contract = resp?;
+    assert_eq!(1, owner_contract.balance);
+
+    let resp = get_contract(&another_owner_sk, contract_id).await;
+    assert!(resp.is_ok());
+
+    let another_owner_contract = resp?;
+    assert_eq!(2, another_owner_contract.balance);
+
+    // 12. Generate Invoice (Issuer Side)
+    let issuer_invoice = &create_new_invoice(
+        &issuer_resp.contract_id,
+        &issuer_resp.iface,
+        2,
+        issuer_keys.clone(),
+        None,
+        Some(issuer_resp.clone().contract.strict),
+    )
+    .await?;
+
+    let allocs = another_owner_contract
+        .allocations
+        .into_iter()
+        .filter(|alloc| alloc.is_mine && !alloc.is_spent)
+        .collect::<Vec<_>>();
+    assert_eq!(2, allocs.len());
+
+    // 13. Spend All Funds (Another Owner Side)
+    let another_owner_xpriv = another_owner_keys
+        .private
+        .rgb_assets_descriptor_xprv
+        .clone();
+
+    let allocs = allocs.into_iter().map(|a| a.utxo).collect();
+    let psbt_resp = create_new_psbt(
+        &owner_contract.contract_id,
+        &owner_contract.iface,
+        allocs,
+        another_owner_keys.clone(),
+    )
+    .await?;
+    let another_transfer_to_issuer = &create_new_transfer(
+        another_owner_keys.clone(),
+        issuer_invoice.clone(),
+        psbt_resp.clone(),
+    )
+    .await?;
+    let request = SignPsbtRequest {
+        psbt: another_transfer_to_issuer.psbt.clone(),
+        descriptor: SecretString(another_owner_xpriv),
+    };
+    let resp = sign_psbt_file(request).await;
+    assert!(resp.is_ok());
+
+    // 14. Accept Consig (Another Owner Side)
+    let request = AcceptRequest {
+        consignment: another_transfer_to_issuer.clone().consig,
+        force: false,
+    };
+    let resp = accept_transfer(&another_owner_sk, request).await;
+    assert!(resp.is_ok());
+    assert!(resp?.valid);
+
+    // 15. Accept Consig (Another Owner Side)
+    let resp = get_contract(&another_owner_sk, contract_id).await;
+    assert!(resp.is_ok());
+
+    let another_owner_contract = resp?;
+    assert_eq!(0, another_owner_contract.balance);
 
     Ok(())
 }

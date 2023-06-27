@@ -68,9 +68,8 @@ async fn allow_get_fungible_contract_state_by_accept_cosign() -> anyhow::Result<
     let psbt_resp = create_new_psbt(
         &issuer_resp.contract_id,
         &issuer_resp.iface,
-        &issuer_resp.issue_utxo,
+        vec![issuer_resp.issue_utxo.clone()],
         issuer_keys.clone(),
-        None,
     )
     .await?;
     let transfer_resp =
@@ -155,9 +154,8 @@ async fn allow_get_uda_contract_state_by_accept_cosign() -> anyhow::Result<()> {
     let psbt_resp = create_new_psbt(
         &issuer_resp.contract_id,
         &issuer_resp.iface,
-        &issuer_resp.issue_utxo,
+        vec![issuer_resp.issue_utxo.clone()],
         issuer_keys.clone(),
-        None,
     )
     .await?;
     let transfer_resp =

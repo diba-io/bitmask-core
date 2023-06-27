@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{collections::BTreeMap, str::FromStr};
 
 use ::psbt::serialize::Serialize;
 use amplify::{confinement::U16, hex::ToHex};
@@ -187,12 +187,10 @@ pub async fn create_invoice(sk: &str, request: InvoiceRequest) -> Result<Invoice
 pub async fn create_psbt(sk: &str, request: PsbtRequest) -> Result<PsbtResponse> {
     let PsbtRequest {
         descriptor_pub,
-        asset_utxo,
-        asset_utxo_terminal,
-        change_index,
+        inputs,
         bitcoin_changes,
+        change_index,
         fee,
-        tapret,
     } = request;
 
     let stock = retrieve_stock(sk, ASSETS_STOCK).await?;
@@ -203,31 +201,40 @@ pub async fn create_psbt(sk: &str, request: PsbtRequest) -> Result<PsbtResponse>
         explorer_url: BITCOIN_EXPLORER_API.read().await.to_string(),
         ..Default::default()
     };
-    prefetch_resolver_psbt(&asset_utxo, &mut resolver).await;
+    for asset_utxo in inputs.clone() {
+        prefetch_resolver_psbt(&asset_utxo.asset_utxo, &mut resolver).await;
+    }
 
+    let bitcoin_inputs: BTreeMap<String, String> = inputs
+        .clone()
+        .into_iter()
+        .map(|input| (input.asset_utxo, input.asset_utxo_terminal))
+        .collect();
     // Retrieve transaction fee
     let fee = match fee {
         Some(fee) => fee,
         _ => estimate_fee_tx(
             &descriptor_pub,
-            &asset_utxo,
-            &asset_utxo_terminal,
-            change_index,
+            bitcoin_inputs,
             bitcoin_changes.clone(),
+            change_index,
             &mut resolver,
         ),
     };
 
+    let asset_inputs: Vec<(String, String, Option<String>)> = inputs
+        .into_iter()
+        .map(|input| (input.asset_utxo, input.asset_utxo_terminal, input.tapret))
+        .collect();
+
     let wallet = rgb_account.wallets.get("default");
     let (psbt_file, change_terminal) = create_rgb_psbt(
         descriptor_pub.0.to_string(),
-        asset_utxo,
-        asset_utxo_terminal.clone(),
+        asset_inputs,
         change_index,
         bitcoin_changes,
         fee,
         wallet.cloned(),
-        tapret,
         &resolver,
     )?;
 

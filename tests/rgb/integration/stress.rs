@@ -162,9 +162,8 @@ async fn allow_issue_x_fungibles_witn_spend_utxos() -> anyhow::Result<()> {
     let psbt_resp = create_new_psbt(
         &issuer.contract_id,
         &issuer.iface,
-        &issuer.issue_utxo,
+        vec![issuer.issue_utxo],
         issuer_keys.clone(),
-        None,
     )
     .await?;
     let original_psbt = Psbt::from_str(&psbt_resp.psbt)?;
@@ -370,10 +369,6 @@ async fn allow_issue_x_uda_generate_utxos() -> anyhow::Result<()> {
 
     for i in 0..max {
         let contract = &contract_resp.contracts[i];
-        // println!(
-        //     "Contract #{i} ({}) : {} ({})",
-        //     contract.contract_id, contract.balance, contract.allocations[0].utxo
-        // );
         assert_eq!(
             contracts.get(&contract.contract_id.to_string()).unwrap(),
             &contract.balance
@@ -416,9 +411,8 @@ async fn allow_issue_x_uda_witn_spend_utxos() -> anyhow::Result<()> {
     let psbt_resp = create_new_psbt(
         &issuer.contract_id,
         &issuer.iface,
-        &issuer.issue_utxo,
+        vec![issuer.issue_utxo],
         issuer_keys.clone(),
-        None,
     )
     .await?;
     let original_psbt = Psbt::from_str(&psbt_resp.psbt)?;

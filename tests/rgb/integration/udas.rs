@@ -35,9 +35,8 @@ async fn allow_beneficiary_accept_transfer() -> anyhow::Result<()> {
     let psbt_resp = create_new_psbt(
         &issuer_resp.contract_id,
         &issuer_resp.iface,
-        &issuer_resp.issue_utxo,
+        vec![issuer_resp.issue_utxo.clone()],
         issuer_keys.clone(),
-        None,
     )
     .await?;
     let transfer_resp = create_new_transfer(issuer_keys.clone(), owner_resp, psbt_resp).await?;
