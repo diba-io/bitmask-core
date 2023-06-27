@@ -55,14 +55,30 @@ async fn allow_get_fungible_contract_state_by_accept_cosign() -> anyhow::Result<
         &SecretString("".to_string()),
     )
     .await?;
-    let issuer_resp = issuer_issue_contract("RGB20", 5, false, true, None).await?;
-    let owner_resp = create_new_invoice(issuer_resp.clone(), None).await?;
-    let psbt_resp = create_new_psbt(issuer_keys.clone(), issuer_resp.clone()).await?;
-    let transfer_resp = &create_new_transfer(issuer_keys.clone(), owner_resp, psbt_resp).await?;
+    let issuer_resp = &issuer_issue_contract("RGB20", 5, false, true, None).await?;
+    let owner_resp = &create_new_invoice(
+        &issuer_resp.contract_id,
+        &issuer_resp.iface,
+        1,
+        owner_keys.clone(),
+        None,
+        Some(issuer_resp.clone().contract.legacy),
+    )
+    .await?;
+    let psbt_resp = create_new_psbt(
+        &issuer_resp.contract_id,
+        &issuer_resp.iface,
+        &issuer_resp.issue_utxo,
+        issuer_keys.clone(),
+        None,
+    )
+    .await?;
+    let transfer_resp =
+        &create_new_transfer(issuer_keys.clone(), owner_resp.clone(), psbt_resp).await?;
 
     // 2. Sign and Publish TX (Issuer side)
     let issuer_sk = issuer_keys.private.nostr_prv.to_string();
-    let owner_sk = owner_keys.private.nostr_prv.to_string();
+    let owner_sk = owner_keys.clone().private.nostr_prv.to_string();
     let request = SignPsbtRequest {
         psbt: transfer_resp.psbt.clone(),
         descriptor: SecretString(issuer_keys.private.rgb_assets_descriptor_xprv.clone()),
@@ -98,7 +114,7 @@ async fn allow_get_fungible_contract_state_by_accept_cosign() -> anyhow::Result<
     let watcher_name = "default";
     let create_watch_req = WatcherRequest {
         name: watcher_name.to_string(),
-        xpub: owner_keys.public.watcher_xpub.clone(),
+        xpub: owner_keys.clone().public.watcher_xpub.clone(),
         force: true,
     };
     create_watcher(&owner_sk, create_watch_req).await?;
@@ -121,20 +137,35 @@ async fn allow_get_uda_contract_state_by_accept_cosign() -> anyhow::Result<()> {
         &SecretString("".to_string()),
     )
     .await?;
-    let owner_keys = save_mnemonic(
+    let owner_keys = &save_mnemonic(
         &SecretString(OWNER_MNEMONIC.to_string()),
         &SecretString("".to_string()),
     )
     .await?;
-
     let issuer_resp = issuer_issue_contract("RGB21", 1, false, true, single).await?;
-    let owner_resp = create_new_invoice(issuer_resp.clone(), None).await?;
-    let psbt_resp = create_new_psbt(issuer_keys.clone(), issuer_resp.clone()).await?;
-    let transfer_resp = &create_new_transfer(issuer_keys.clone(), owner_resp, psbt_resp).await?;
+    let owner_resp = &create_new_invoice(
+        &issuer_resp.contract_id,
+        &issuer_resp.iface,
+        1,
+        owner_keys.clone(),
+        None,
+        Some(issuer_resp.clone().contract.legacy),
+    )
+    .await?;
+    let psbt_resp = create_new_psbt(
+        &issuer_resp.contract_id,
+        &issuer_resp.iface,
+        &issuer_resp.issue_utxo,
+        issuer_keys.clone(),
+        None,
+    )
+    .await?;
+    let transfer_resp =
+        &create_new_transfer(issuer_keys.clone(), owner_resp.clone(), psbt_resp).await?;
 
     // 2. Sign and Publish TX (Issuer side)
     let issuer_sk = issuer_keys.private.nostr_prv.to_string();
-    let owner_sk = owner_keys.private.nostr_prv.to_string();
+    let owner_sk = owner_keys.clone().private.nostr_prv.to_string();
     let request = SignPsbtRequest {
         psbt: transfer_resp.psbt.clone(),
         descriptor: SecretString(issuer_keys.private.rgb_udas_descriptor_xprv.clone()),
@@ -170,7 +201,7 @@ async fn allow_get_uda_contract_state_by_accept_cosign() -> anyhow::Result<()> {
     let watcher_name = "default";
     let create_watch_req = WatcherRequest {
         name: watcher_name.to_string(),
-        xpub: owner_keys.public.watcher_xpub.clone(),
+        xpub: owner_keys.clone().public.watcher_xpub.clone(),
         force: true,
     };
     create_watcher(&owner_sk, create_watch_req).await?;

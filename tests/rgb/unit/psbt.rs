@@ -30,6 +30,7 @@ async fn allow_create_psbt_file() -> anyhow::Result<()> {
         vec![],
         fee,
         None,
+        None,
         &tx_resolver,
     );
     assert!(psbt.is_ok());

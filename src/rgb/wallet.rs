@@ -9,6 +9,7 @@ use bp::dbc::tapret::TapretCommitment;
 use commit_verify::mpc::Commitment;
 use rgb::{DeriveInfo, Resolver, RgbDescr, RgbWallet, SpkDescriptor, Tapret, TerminalPath, Utxo};
 use rgbstd::{
+    contract::ContractId,
     persistence::{Inventory, Stash, Stock},
     validation::ResolveTx,
 };
@@ -154,14 +155,7 @@ pub fn sync_wallet(iface_index: u32, wallet: &mut RgbWallet, resolver: &mut impl
     let index = 0;
 
     let scripts = wallet.descr.derive(iface_index, index..step);
-    let new_scripts = scripts
-        .into_iter()
-        .map(|(d, sc)| {
-            // Reconstruct Taptree
-
-            (d, sc)
-        })
-        .collect();
+    let new_scripts = scripts.into_iter().map(|(d, sc)| (d, sc)).collect();
 
     let mut new_utxos = resolver
         .resolve_utxo(new_scripts)
@@ -176,12 +170,16 @@ pub fn register_address<T>(
     asset_indexes: Vec<u32>,
     wallet: &mut RgbWallet,
     resolver: &mut T,
+    limit: Option<u32>,
 ) -> Result<Vec<Utxo>, anyhow::Error>
 where
     T: ResolveTx + Resolver,
 {
-    let step = 100;
     let index = 0;
+    let mut step = 100;
+    if let Some(limit) = limit {
+        step = limit;
+    }
 
     let sc = AddressCompat::from_str(address).expect("invalid address");
     let script = ScriptBuf::from_hex(&sc.script_pubkey().to_hex()).expect("invalid script");
@@ -213,6 +211,7 @@ pub fn register_utxo<T>(
     asset_indexes: Vec<u32>,
     wallet: &mut RgbWallet,
     resolver: &mut T,
+    limit: Option<u32>,
 ) -> Result<Vec<Utxo>, anyhow::Error>
 where
     T: ResolveTx + Resolver,
@@ -226,89 +225,13 @@ where
             let sc = Script::from_str(&vout.script_pubkey.to_hex()).expect("invalid script");
             let pub_script = PubkeyScript::from(sc);
             if let Some(address) = AddressCompat::from_script(&pub_script, network) {
-                utxos = register_address(&address.to_string(), asset_indexes, wallet, resolver)
-                    .expect("invalid utxos");
+                utxos =
+                    register_address(&address.to_string(), asset_indexes, wallet, resolver, limit)
+                        .expect("invalid utxos");
             }
         }
     }
-
     Ok(utxos)
-}
-
-pub fn list_allocations(
-    wallet: &mut RgbWallet,
-    stock: &mut Stock,
-    iface_index: u32,
-    resolver: &mut impl Resolver,
-) -> Result<Vec<WatcherDetail>, anyhow::Error> {
-    let iface_name = match iface_index {
-        20 => "RGB20",
-        21 => "RGB21",
-        _ => "Contract",
-    };
-
-    sync_wallet(iface_index, wallet, resolver);
-    let empty = EmptyFilter {};
-    let mut details = vec![];
-    for contract_id in stock.contract_ids()? {
-        let iface = stock.iface_by_name(&tn!(iface_name))?;
-        if let Ok(contract) = stock.contract_iface(contract_id, iface.iface_id()) {
-            let mut owners = vec![];
-            for owned in &contract.iface.assignments {
-                if let Ok(allocations) = contract.fungible(owned.name.clone(), Some(&empty)) {
-                    for allocation in allocations {
-                        if let Some(utxo) = wallet.utxo(allocation.owner) {
-                            owners.push(AllocationDetail {
-                                utxo: utxo.outpoint.to_string(),
-                                value: AllocationValue::Value(allocation.value),
-                                derivation: format!(
-                                    "/{}/{}",
-                                    utxo.derivation.terminal.app, utxo.derivation.terminal.index
-                                ),
-                                is_mine: true,
-                            });
-                        } else {
-                            owners.push(AllocationDetail {
-                                utxo: allocation.owner.to_string(),
-                                value: AllocationValue::Value(allocation.value),
-                                derivation: default!(),
-                                is_mine: false,
-                            });
-                        }
-                    }
-                }
-
-                if let Ok(allocations) = contract.data(owned.name.clone()) {
-                    for allocation in allocations {
-                        if let Some(utxo) = wallet.utxo(allocation.owner) {
-                            owners.push(AllocationDetail {
-                                utxo: utxo.outpoint.to_string(),
-                                value: AllocationValue::UDA(UDAPosition::with(allocation.value)),
-                                derivation: format!(
-                                    "/{}/{}",
-                                    utxo.derivation.terminal.app, utxo.derivation.terminal.index
-                                ),
-                                is_mine: true,
-                            });
-                        } else {
-                            owners.push(AllocationDetail {
-                                utxo: allocation.owner.to_string(),
-                                value: AllocationValue::UDA(UDAPosition::with(allocation.value)),
-                                derivation: default!(),
-                                is_mine: false,
-                            });
-                        }
-                    }
-                }
-            }
-            details.push(WatcherDetail {
-                contract_id: contract_id.to_string(),
-                allocations: owners,
-            });
-        }
-    }
-
-    Ok(details)
 }
 
 pub fn save_commitment(
@@ -332,4 +255,191 @@ pub fn save_commitment(
     wallet.utxos.remove(&utxo);
     utxo.derivation.tweak = Some(tap_commit);
     wallet.utxos.insert(utxo);
+}
+
+pub fn list_allocations<T>(
+    wallet: &mut RgbWallet,
+    stock: &mut Stock,
+    iface_index: u32,
+    resolver: &mut T,
+) -> Result<Vec<WatcherDetail>, anyhow::Error>
+where
+    T: ResolveSpent + Resolver,
+{
+    let iface_name = match iface_index {
+        20 => "RGB20",
+        21 => "RGB21",
+        _ => "Contract",
+    };
+
+    sync_wallet(iface_index, wallet, resolver);
+    let empty = EmptyFilter {};
+    let mut details = vec![];
+    for contract_id in stock.contract_ids()? {
+        let iface = stock.iface_by_name(&tn!(iface_name))?;
+        if let Ok(contract) = stock.contract_iface(contract_id, iface.iface_id()) {
+            let mut owners = vec![];
+            for owned in &contract.iface.assignments {
+                if let Ok(allocations) = contract.fungible(owned.name.clone(), Some(&empty)) {
+                    for allocation in allocations {
+                        let txid = bitcoin::Txid::from_str(&allocation.owner.txid.to_hex())
+                            .expect("invalid txid");
+                        let is_spent = resolver
+                            .resolve_spent_status(txid, allocation.owner.vout.into_u32().into())
+                            .expect("cannot find utxo");
+
+                        if let Some(utxo) = wallet.utxo(allocation.owner) {
+                            owners.push(AllocationDetail {
+                                utxo: utxo.outpoint.to_string(),
+                                value: AllocationValue::Value(allocation.value),
+                                derivation: format!(
+                                    "/{}/{}",
+                                    utxo.derivation.terminal.app, utxo.derivation.terminal.index
+                                ),
+                                is_mine: true,
+                                is_spent,
+                            });
+                        } else {
+                            owners.push(AllocationDetail {
+                                utxo: allocation.owner.to_string(),
+                                value: AllocationValue::Value(allocation.value),
+                                derivation: default!(),
+                                is_mine: false,
+                                is_spent,
+                            });
+                        }
+                    }
+                }
+
+                if let Ok(allocations) = contract.data(owned.name.clone()) {
+                    for allocation in allocations {
+                        let txid = bitcoin::Txid::from_str(&allocation.owner.txid.to_hex())
+                            .expect("invalid txid");
+                        let is_spent = resolver
+                            .resolve_spent_status(txid, allocation.owner.vout.into_u32().into())
+                            .expect("cannot find utxo");
+
+                        if let Some(utxo) = wallet.utxo(allocation.owner) {
+                            owners.push(AllocationDetail {
+                                utxo: utxo.outpoint.to_string(),
+                                value: AllocationValue::UDA(UDAPosition::with(allocation.value)),
+                                derivation: format!(
+                                    "/{}/{}",
+                                    utxo.derivation.terminal.app, utxo.derivation.terminal.index
+                                ),
+                                is_mine: true,
+                                is_spent,
+                            });
+                        } else {
+                            owners.push(AllocationDetail {
+                                utxo: allocation.owner.to_string(),
+                                value: AllocationValue::UDA(UDAPosition::with(allocation.value)),
+                                derivation: default!(),
+                                is_mine: false,
+                                is_spent,
+                            });
+                        }
+                    }
+                }
+            }
+            details.push(WatcherDetail {
+                contract_id: contract_id.to_string(),
+                allocations: owners,
+            });
+        }
+    }
+
+    Ok(details)
+}
+
+pub fn allocations_by_contract<T>(
+    contract_id: ContractId,
+    iface_index: u32,
+    wallet: &mut RgbWallet,
+    stock: &mut Stock,
+    resolver: &mut T,
+) -> Result<WatcherDetail, anyhow::Error>
+where
+    T: ResolveSpent + Resolver,
+{
+    let empty = EmptyFilter {};
+    let iface_name = match iface_index {
+        20 => "RGB20",
+        21 => "RGB21",
+        _ => "Contract",
+    };
+    let iface = stock.iface_by_name(&tn!(iface_name))?;
+
+    let mut owners = vec![];
+    if let Ok(contract) = stock.contract_iface(contract_id, iface.iface_id()) {
+        sync_wallet(iface_index, wallet, resolver);
+        for owned in &contract.iface.assignments {
+            if let Ok(allocations) = contract.fungible(owned.name.clone(), Some(&empty)) {
+                for allocation in allocations {
+                    let txid = bitcoin::Txid::from_str(&allocation.owner.txid.to_hex())
+                        .expect("invalid txid");
+                    let is_spent = resolver
+                        .resolve_spent_status(txid, allocation.owner.vout.into_u32().into())
+                        .expect("cannot find utxo");
+
+                    if let Some(utxo) = wallet.utxo(allocation.owner) {
+                        owners.push(AllocationDetail {
+                            utxo: utxo.outpoint.to_string(),
+                            value: AllocationValue::Value(allocation.value),
+                            derivation: format!(
+                                "/{}/{}",
+                                utxo.derivation.terminal.app, utxo.derivation.terminal.index
+                            ),
+                            is_mine: true,
+                            is_spent,
+                        });
+                    } else {
+                        owners.push(AllocationDetail {
+                            utxo: allocation.owner.to_string(),
+                            value: AllocationValue::Value(allocation.value),
+                            derivation: default!(),
+                            is_mine: false,
+                            is_spent,
+                        });
+                    }
+                }
+            }
+
+            if let Ok(allocations) = contract.data(owned.name.clone()) {
+                for allocation in allocations {
+                    let txid = bitcoin::Txid::from_str(&allocation.owner.txid.to_hex())
+                        .expect("invalid txid");
+                    let is_spent = resolver
+                        .resolve_spent_status(txid, allocation.owner.vout.into_u32().into())
+                        .expect("cannot find utxo");
+
+                    if let Some(utxo) = wallet.utxo(allocation.owner) {
+                        owners.push(AllocationDetail {
+                            utxo: utxo.outpoint.to_string(),
+                            value: AllocationValue::UDA(UDAPosition::with(allocation.value)),
+                            derivation: format!(
+                                "/{}/{}",
+                                utxo.derivation.terminal.app, utxo.derivation.terminal.index
+                            ),
+                            is_mine: true,
+                            is_spent,
+                        });
+                    } else {
+                        owners.push(AllocationDetail {
+                            utxo: allocation.owner.to_string(),
+                            value: AllocationValue::UDA(UDAPosition::with(allocation.value)),
+                            derivation: default!(),
+                            is_mine: false,
+                            is_spent,
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(WatcherDetail {
+        contract_id: contract_id.to_string(),
+        allocations: owners,
+    })
 }

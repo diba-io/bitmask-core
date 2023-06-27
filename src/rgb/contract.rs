@@ -11,20 +11,24 @@ use rgbstd::{
 use strict_encoding::{FieldName, StrictDeserialize, StrictSerialize};
 use strict_types::StrictVal;
 
-use crate::rgb::structs::EmptyFilter;
+use crate::rgb::resolvers::ResolveSpent;
+use crate::rgb::wallet::allocations_by_contract;
+use crate::structs::GenesisFormats;
 use crate::structs::{
     AllocationValue, ContractFormats, ContractMeta, ContractMetadata, ContractResponse, MediaInfo,
     UDADetail,
 };
-use crate::{rgb::wallet::list_allocations, structs::GenesisFormats};
 
 // TODO: Create one extractor by contract interface
-pub fn extract_contract_by_id(
+pub fn extract_contract_by_id<T>(
     contract_id: ContractId,
     stock: &mut Stock,
-    resolver: &mut impl Resolver,
+    resolver: &mut T,
     wallet: &mut Option<RgbWallet>,
-) -> Result<ContractResponse, anyhow::Error> {
+) -> Result<ContractResponse, anyhow::Error>
+where
+    T: ResolveSpent + Resolver,
+{
     let contract_bindle = stock
         .export_contract(contract_id)
         .expect("contract not found");
@@ -66,7 +70,6 @@ pub fn extract_contract_by_id(
     let mut name = String::new();
     let mut precision = 0;
     let mut description = String::new();
-    let mut supply = 0;
 
     let ty: FieldName = FieldName::from("spec");
     let nominal = match contract_iface.global(ty) {
@@ -89,12 +92,10 @@ pub fn extract_contract_by_id(
                         name = val[2..val.len() - 2].to_string();
                     };
                 }
-                if naming.contains_key(&FieldName::from("precision")) {
-                    if let Some(val) = naming.get(&FieldName::from("precision")) {
-                        let val = val.to_string();
-                        precision = val.parse()?;
-                    };
-                }
+            }
+            if let Some(StrictVal::Enum(en)) = fields.get(&FieldName::from("precision")) {
+                let val = en.unwrap_ord();
+                precision = val as u64;
             }
         };
     }
@@ -112,42 +113,25 @@ pub fn extract_contract_by_id(
         };
     }
 
-    let empty = EmptyFilter {};
-    for owned in &contract_iface.iface.assignments {
-        if let Ok(allocations) = contract_iface.fungible(owned.name.clone(), Some(&empty)) {
-            for allocation in allocations {
-                supply = allocation.value;
-            }
-        }
-
-        if let Ok(allocations) = contract_iface.data(owned.name.clone()) {
-            for _ in allocations {
-                supply += 1;
-            }
-        }
-    }
-    let mut balance = 0;
-    let mut allocations = vec![];
-
-    // TODO: workaround
     let iface_index = match iface.name.as_str() {
         "RGB20" => 20,
         "RGB21" => 21,
         _ => 9,
     };
 
+    let mut balance = 0;
+    let mut allocations = vec![];
+    let contract_id = ContractId::from_str(&contract_id)?;
     if let Some(wallet) = wallet {
-        let watcher = list_allocations(wallet, stock, iface_index, resolver)
+        let watcher = allocations_by_contract(contract_id, iface_index, wallet, stock, resolver)
             .expect("invalid allocation states");
-        if let Some(mut watcher_detail) = watcher.into_iter().find(|w| w.contract_id == contract_id)
-        {
-            allocations.append(&mut watcher_detail.allocations);
-        }
 
+        allocations = watcher.allocations;
         balance = allocations
             .clone()
             .into_iter()
             .filter(|a| a.is_mine)
+            .filter(|a| !a.is_spent)
             .map(|a| match a.value {
                 AllocationValue::Value(value) => value.to_owned(),
                 AllocationValue::UDA(_) => 1,
@@ -156,10 +140,31 @@ pub fn extract_contract_by_id(
     }
 
     // Genesis
-    let genesis = stock
-        .export_contract(ContractId::from_str(&contract_id)?)
+    let contract_genesis = stock
+        .export_contract(contract_id)
         .expect("contract have genesis");
 
+    let mut supply = 0;
+    for (index, (_, global_assign)) in contract_genesis.genesis.assignments.iter().enumerate() {
+        let idx = index as u16;
+        if global_assign.is_fungible() {
+            if let Some(reveal) = global_assign
+                .as_fungible_state_at(idx)
+                .expect("fail retrieve fungible data")
+            {
+                supply += reveal.value.as_u64();
+            }
+        } else if global_assign.is_structured()
+            && global_assign
+                .as_structured_state_at(idx)
+                .expect("fail retrieve structured data")
+                .is_some()
+        {
+            supply += 1;
+        }
+    }
+
+    let genesis = contract_genesis.genesis.clone();
     let genesis_strict = genesis
         .to_strict_serialized::<0xFFFFFF>()
         .expect("invalid genesis data")
@@ -178,7 +183,7 @@ pub fn extract_contract_by_id(
     let genesis_formats = GenesisFormats {
         legacy: genesis_legacy,
         strict: genesis_strict,
-        armored: genesis.to_string(),
+        armored: "".to_string(),
     };
 
     // Only RGB21/UDA
@@ -297,7 +302,7 @@ pub fn extract_contract_by_id(
     }
 
     let resp = ContractResponse {
-        contract_id,
+        contract_id: contract_id.to_string(),
         iimpl_id,
         iface: iface.name.to_string(),
         ticker,

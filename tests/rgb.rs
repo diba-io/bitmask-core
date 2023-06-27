@@ -13,13 +13,14 @@ mod rgb {
         // mod collectibles;
         mod collectibles;
         mod fungibles;
+        mod import;
         mod issue;
         mod states;
         mod stress;
+        mod transfers;
         mod udas;
         pub mod utils;
         mod watcher;
-        mod import;
     }
 
     mod web {

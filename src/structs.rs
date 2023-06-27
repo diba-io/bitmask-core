@@ -368,7 +368,7 @@ pub struct PsbtRequest {
     /// Bitcoin Fee
     pub fee: Option<u64>,
     /// TapTweak used to spend outputs based in tapret commitments
-    pub input_tweak: Option<String>,
+    pub tapret: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -526,8 +526,10 @@ pub struct AllocationDetail {
     pub value: AllocationValue,
     /// Derivation Path
     pub derivation: String,
-    /// Derivation Path
+    /// My Allocation?
     pub is_mine: bool,
+    /// Allocation spent?
+    pub is_spent: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Display)]

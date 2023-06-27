@@ -150,9 +150,12 @@ where
     let confined_transfer = Transfer::from_strict_serialized::<{ usize::MAX }>(confined);
 
     let transfer = confined_transfer.expect("invalid strict transfer format data");
-    let transfer_status = transfer
-        .validate(resolver)
-        .expect("transfer cannot be validated");
+    let transfer_status = match transfer.validate(resolver) {
+        Ok(status) => status,
+        Err(status) => status,
+    };
+    // .validate(resolver)
+    // .expect("transfer cannot be validated");
 
     let bindle = Bindle::new(transfer_status.clone());
     match stock.accept_transfer(transfer_status, resolver, force) {

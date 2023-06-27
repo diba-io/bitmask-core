@@ -159,8 +159,14 @@ async fn allow_issue_x_fungibles_witn_spend_utxos() -> anyhow::Result<()> {
         //     issuer.contract_id, issuer.supply, issuer.issue_utxo
         // );
     }
-
-    let psbt_resp = create_new_psbt(issuer_keys.clone(), issuer).await?;
+    let psbt_resp = create_new_psbt(
+        &issuer.contract_id,
+        &issuer.iface,
+        &issuer.issue_utxo,
+        issuer_keys.clone(),
+        None,
+    )
+    .await?;
     let original_psbt = Psbt::from_str(&psbt_resp.psbt)?;
     let final_psbt = PartiallySignedTransaction::from(original_psbt);
 
@@ -406,13 +412,15 @@ async fn allow_issue_x_uda_witn_spend_utxos() -> anyhow::Result<()> {
         let issuer_resp = issuer_issue_contract(iface, supply, false, true, None).await;
         issuer = issuer_resp?;
         contracts.insert(issuer.contract_id.clone(), issuer.supply);
-        // println!(
-        //     "Contract #{i} ({}) : {} ({})",
-        //     issuer.contract_id, issuer.supply, issuer.issue_utxo
-        // );
     }
-
-    let psbt_resp = create_new_psbt(issuer_keys.clone(), issuer).await?;
+    let psbt_resp = create_new_psbt(
+        &issuer.contract_id,
+        &issuer.iface,
+        &issuer.issue_utxo,
+        issuer_keys.clone(),
+        None,
+    )
+    .await?;
     let original_psbt = Psbt::from_str(&psbt_resp.psbt)?;
     let final_psbt = PartiallySignedTransaction::from(original_psbt);
 

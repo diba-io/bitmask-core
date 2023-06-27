@@ -4,18 +4,26 @@ use amplify::hex::ToHex;
 use bdk::wallet::coin_selection::{decide_change, Excess};
 use bdk::FeeRate;
 use bitcoin::secp256k1::SECP256K1;
+use bitcoin::util::bip32::Fingerprint;
 use bitcoin::{EcdsaSighashType, OutPoint, Script, XOnlyPublicKey};
+// TODO: Incompletible versions between RGB and Descriptor Wallet
+use bitcoin_30::secp256k1::SECP256K1 as SECP256K1_30;
+use bitcoin_30::taproot::TaprootBuilder;
+use bitcoin_30::ScriptBuf;
 use bitcoin_blockchain::locks::SeqNo;
 use bitcoin_scripts::PubkeyScript;
 use bp::dbc::tapret::TapretCommitment;
+use bp::TapScript;
 use commit_verify::mpc::Commitment;
+use commit_verify::CommitVerify;
+
 use miniscript_crate::Descriptor;
 use psbt::{ProprietaryKey, ProprietaryKeyType};
 use rgb::psbt::{
     DbcPsbtError, TapretKeyError, PSBT_OUT_TAPRET_COMMITMENT, PSBT_OUT_TAPRET_HOST,
     PSBT_TAPRET_PREFIX,
 };
-use rgb::{RgbDescr, RgbWallet, TerminalPath};
+use rgb::{Resolver, RgbDescr, RgbWallet, TerminalPath};
 use wallet::descriptors::derive::DeriveDescriptor;
 use wallet::hd::DerivationSubpath;
 use wallet::psbt::Psbt;
@@ -26,7 +34,6 @@ use wallet::{
     psbt::{ProprietaryKeyDescriptor, ProprietaryKeyError, ProprietaryKeyLocation},
 };
 
-use crate::bitcoin::{get_wallet, sync_wallet};
 use crate::rgb::{constants::RGB_PSBT_TAPRET, structs::AddressAmount};
 use crate::structs::SecretString;
 
@@ -38,11 +45,12 @@ pub fn create_psbt(
     change_index: Option<u16>,
     bitcoin_changes: Vec<String>,
     fee: u64,
-    _tap_tweak: Option<String>,
+    wallet: Option<RgbWallet>,
+    tapret: Option<String>,
     tx_resolver: &impl ResolveTx,
 ) -> Result<(Psbt, String), ProprietaryKeyError> {
     let outpoint: OutPoint = asset_utxo.parse().expect("invalid outpoint parse");
-    let input = InputDescriptor {
+    let mut input = InputDescriptor {
         outpoint,
         terminal: asset_utxo_terminal
             .parse()
@@ -80,6 +88,7 @@ pub fn create_psbt(
         value: None,
     }];
 
+    // Change Terminal Derivation
     let mut change_derivation = vec![input.terminal[0]];
     let change_index = match change_index {
         Some(index) => {
@@ -88,8 +97,21 @@ pub fn create_psbt(
         _ => UnhardenedIndex::default(),
     };
     change_derivation.insert(1, change_index);
-
     let change_terminal = format!("/{contract_index}/{change_index}");
+
+    // Verify TapTweak (User Input)
+    if let Some(tapret) = tapret {
+        input.tweak = Some((
+            Fingerprint::default(),
+            tapret.parse().expect("invalid hash"),
+        ))
+    }
+    // Verify TapTweak (Watcher inspect)
+    else if let Some(tweak) =
+        complete_input_desc(descriptor.clone(), input.clone(), wallet, tx_resolver).expect("")
+    {
+        input.tweak = Some((Fingerprint::default(), tweak.parse().expect("invalid hash")))
+    }
 
     let inputs = vec![input];
     let mut psbt = Psbt::construct(
@@ -135,6 +157,89 @@ pub fn create_psbt(
     }
 
     Ok((psbt, change_terminal))
+}
+
+fn complete_input_desc(
+    descriptor: Descriptor<DerivationAccount>,
+    input: InputDescriptor,
+    wallet: Option<RgbWallet>,
+    tx_resolver: &impl ResolveTx,
+) -> anyhow::Result<Option<String>> {
+    let txid = input.outpoint.txid;
+    let tx = tx_resolver.resolve_tx(txid).expect("tx not found");
+    let prev_output = tx.output.get(input.outpoint.vout as usize).unwrap();
+
+    let mut scripts = bmap![];
+    if let Descriptor::Tr(_) = descriptor {
+        let output_descriptor = DeriveDescriptor::<XOnlyPublicKey>::derive_descriptor(
+            &descriptor,
+            SECP256K1,
+            &input.terminal,
+        )
+        .expect("invalid descriptor");
+
+        scripts.insert(output_descriptor.script_pubkey(), None);
+
+        if let Some(walet) = wallet {
+            let RgbDescr::Tapret(tapret_desc) = walet.descr;
+            let contract_index = u32::from_str(
+                &input
+                    .terminal
+                    .first()
+                    .expect("first derivation index")
+                    .to_string(),
+            )
+            .expect("invalid parse");
+            let change_index = u32::from_str(
+                &input
+                    .terminal
+                    .last()
+                    .expect("first derivation index")
+                    .to_string(),
+            )
+            .expect("invalid parse");
+
+            let terminal = TerminalPath {
+                app: contract_index,
+                index: change_index,
+            };
+
+            if let Some(taprets) = tapret_desc.taprets.get(&terminal) {
+                taprets.iter().for_each(|tweak| {
+                    if let Descriptor::<XOnlyPublicKey>::Tr(tr_desc) = &output_descriptor {
+                        let xonly = tr_desc.internal_key();
+
+                        let tap_tweak = ScriptBuf::from_bytes(TapScript::commit(tweak).to_vec());
+                        let tap_builder = TaprootBuilder::with_capacity(1)
+                            .add_leaf(0, tap_tweak)
+                            .expect("complete tree");
+
+                        // TODO: Incompletible versions between RGB and Descriptor Wallet
+                        let xonly_30 =
+                            bitcoin_30::secp256k1::XOnlyPublicKey::from_str(&xonly.to_hex())
+                                .expect("");
+
+                        let spent_info = tap_builder
+                            .finalize(SECP256K1_30, xonly_30)
+                            .expect("complete tree");
+
+                        let merkle_root = spent_info.merkle_root().expect("script tree present");
+                        let tap_script =
+                            ScriptBuf::new_v1_p2tr(SECP256K1_30, xonly_30, Some(merkle_root));
+
+                        let spk = Script::from_str(&tap_script.as_script().to_hex()).expect("msg");
+                        scripts.insert(spk, Some(merkle_root.to_hex()));
+                    }
+                });
+            }
+        }
+    };
+
+    let result = scripts
+        .into_iter()
+        .find(|(sc, _)| sc.clone() == prev_output.script_pubkey)
+        .expect("derived scriptPubkey does not match transaction scriptPubkey");
+    Ok(result.1)
 }
 
 pub fn extract_commit(mut psbt: Psbt) -> Result<Vec<u8>, DbcPsbtError> {
@@ -183,29 +288,29 @@ pub fn save_commit(terminal: &str, commit: Vec<u8>, wallet: &mut RgbWallet) {
 }
 
 // TODO: [Experimental] Review with Diba Team
-pub async fn estimate_fee_tx(
+pub fn estimate_fee_tx<T>(
     descriptor_pub: &SecretString,
     asset_utxo: &str,
     asset_utxo_terminal: &str,
-    change_index: Option<u16>,
+    asset_change_index: Option<u16>,
     bitcoin_changes: Vec<String>,
-) -> u64 {
+    resolver: &mut T,
+) -> u64
+where
+    T: ResolveTx + Resolver,
+{
     let outpoint = OutPoint::from_str(asset_utxo).expect("invalid outpoint");
-    let wallet = get_wallet(descriptor_pub, None)
-        .await
-        .expect("cannot retrieve wallet");
-
-    sync_wallet(&wallet).await.expect("");
-
-    let local = wallet.lock().await.get_utxo(outpoint);
-    let local = local.expect("utxo not found").unwrap();
-
-    let change_index = match change_index {
-        Some(index) => {
-            UnhardenedIndex::from_str(&index.to_string()).expect("invalid change_index parse")
-        }
+    let asset_change_index = match asset_change_index {
+        Some(index) => index.into(),
         _ => UnhardenedIndex::default(),
     };
+
+    let mut vout_value = 0;
+    if let Ok(tx) = resolver.resolve_tx(outpoint.txid) {
+        if let Some(vout) = tx.output.to_vec().get(outpoint.vout as usize) {
+            vout_value = vout.value;
+        }
+    }
 
     // Other Recipient
     let mut total_spent = 0;
@@ -216,9 +321,10 @@ pub async fn estimate_fee_tx(
     }
 
     // Main Recipient
-    total_spent = local.txout.value - total_spent;
-    let target_script = get_recipient_script(descriptor_pub, asset_utxo_terminal, change_index)
-        .expect("invalid derivation");
+    total_spent = vout_value - total_spent;
+    let target_script =
+        get_recipient_script(descriptor_pub, asset_utxo_terminal, asset_change_index)
+            .expect("invalid derivation");
 
     // TODO: Provide way to get fee rate estimate
     let fee_rate = FeeRate::from_sat_per_vb(5.0);
