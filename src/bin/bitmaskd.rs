@@ -16,7 +16,7 @@ use axum::{
 use bitcoin_30::secp256k1::{ecdh::SharedSecret, PublicKey, SecretKey};
 use bitmask_core::{
     bitcoin::{decrypt_wallet, get_wallet_data, save_mnemonic, sign_psbt_file},
-    carbonado::handle_file,
+    carbonado::{handle_file, retrieve},
     constants::{get_marketplace_seed, get_network, get_udas_utxo, switch_network},
     rgb::{
         accept_transfer, clear_watcher as rgb_clear_watcher, create_invoice, create_psbt,

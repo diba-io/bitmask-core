@@ -8,11 +8,13 @@ use anyhow::Result;
 #[cfg(not(feature = "server"))]
 use anyhow::{anyhow, Context};
 use bitcoin_30::secp256k1::{PublicKey, SecretKey};
+use carbonado::file::Header;
 #[cfg(not(feature = "server"))]
 use percent_encoding::utf8_percent_encode;
 
 pub mod constants;
 
+use crate::structs::FileMetadata;
 #[cfg(not(feature = "server"))]
 use crate::{
     carbonado::constants::FORM,
@@ -27,7 +29,7 @@ pub async fn store(sk: &str, name: &str, input: &[u8]) -> Result<()> {
     let public_key = PublicKey::from_secret_key_global(&secret_key);
     let pk = public_key.serialize();
     let pk_hex = hex::encode(pk);
-    let (body, _encode_info) = carbonado::file::encode(&sk, Some(&pk), input, level)?;
+    let (body, _encode_info) = carbonado::file::encode(&sk, Some(&pk), input, level, None)?;
     let endpoint = CARBONADO_ENDPOINT.read().await.to_string();
     let name = utf8_percent_encode(name, FORM);
     let network = NETWORK.read().await.to_string();
@@ -65,11 +67,23 @@ pub async fn store(sk: &str, name: &str, input: &[u8]) -> Result<()> {
     let public_key = PublicKey::from_secret_key_global(&secret_key);
     let pk = public_key.serialize();
     let pk_hex = hex::encode(pk);
-    let (body, _encode_info) = carbonado::file::encode(&sk, Some(&pk), input, level)?;
+    let (body, _encode_info) = carbonado::file::encode(&sk, Some(&pk), input, level, None)?;
 
     let filepath = handle_file(&pk_hex, name, body.len()).await?;
     fs::write(filepath, body).await?;
     Ok(())
+}
+
+#[cfg(not(feature = "server"))]
+pub async fn retrieve_metadata(sk: &str, name: &str) -> Result<FileMetadata> {
+    let mut result = FileMetadata::default();
+    let (header, _) = retrieve(sk, name).await?;
+    if let Some(header) = header {
+        result.filename = header.file_name();
+        result.metadata = header.metadata.to_string();
+    }
+
+    Ok(result)
 }
 
 #[cfg(not(feature = "server"))]
@@ -103,17 +117,28 @@ pub async fn retrieve(sk: &str, name: &str) -> Result<Vec<u8>> {
         ));
     }
 
-    let encoded = response.bytes().await?;
     if encoded.is_empty() {
-        Ok(Vec::new())
+        Ok((None, Vec::new()))
     } else {
-        let (_header, decoded) = carbonado::file::decode(&sk, &encoded)?;
-        Ok(decoded)
+        let (header, decoded) = carbonado::file::decode(&sk, &encoded)?;
+        Ok((Some(header), decoded))
     }
 }
 
 #[cfg(feature = "server")]
-pub async fn retrieve(sk: &str, name: &str) -> Result<Vec<u8>> {
+pub async fn retrieve_metadata(sk: &str, name: &str) -> Result<FileMetadata> {
+    let mut result = FileMetadata::default();
+    let (header, _) = retrieve(sk, name).await?;
+    if let Some(header) = header {
+        result.filename = header.file_name();
+        result.metadata = header.metadata.to_string();
+    }
+
+    Ok(result)
+}
+
+#[cfg(feature = "server")]
+pub async fn retrieve(sk: &str, name: &str) -> Result<(Option<Header>, Vec<u8>)> {
     use crate::constants::NETWORK;
 
     let sk = hex::decode(sk)?;
@@ -131,10 +156,10 @@ pub async fn retrieve(sk: &str, name: &str) -> Result<Vec<u8>> {
     let bytes = fs::read(filepath).await?;
 
     if bytes.is_empty() {
-        Ok(Vec::new())
+        Ok((None, Vec::new()))
     } else {
-        let (_header, decoded) = carbonado::file::decode(&sk, &bytes)?;
-        Ok(decoded)
+        let (header, decoded) = carbonado::file::decode(&sk, &bytes)?;
+        Ok((Some(header), decoded))
     }
 }
 

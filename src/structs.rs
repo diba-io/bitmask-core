@@ -640,3 +640,10 @@ pub struct ExportRequestMini {
     /// ContractId of the asset to export FROM the node
     pub asset: String,
 }
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct FileMetadata {
+    pub filename: String,
+    pub metadata: String,
+}

@@ -125,6 +125,10 @@ pub async fn switch_network(network_str: &str) -> Result<()> {
 pub static LNDHUB_ENDPOINT: Lazy<RwLock<String>> =
     Lazy::new(|| RwLock::new(dot_env("LNDHUB_ENDPOINT")));
 
+// bitmask node
+pub static BITMASK_ENDPOINT: Lazy<RwLock<String>> =
+    Lazy::new(|| RwLock::new(dot_env("BITMASK_ENDPOINT")));
+
 // carbonado
 pub static CARBONADO_ENDPOINT: Lazy<RwLock<String>> =
     Lazy::new(|| RwLock::new(dot_env("CARBONADO_ENDPOINT")));

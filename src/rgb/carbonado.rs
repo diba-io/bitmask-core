@@ -14,7 +14,7 @@ pub async fn store_stock(sk: &str, name: &str, stock: &Stock) -> Result<()> {
 }
 
 pub async fn retrieve_stock(sk: &str, name: &str) -> Result<Stock> {
-    let data = retrieve(sk, name).await.unwrap_or_default();
+    let (_, data) = retrieve(sk, name).await.unwrap_or_default();
     if data.is_empty() {
         Ok(Stock::default())
     } else {
@@ -31,7 +31,7 @@ pub async fn store_wallets(sk: &str, name: &str, rgb_wallets: &RgbAccount) -> Re
 }
 
 pub async fn retrieve_wallets(sk: &str, name: &str) -> Result<RgbAccount> {
-    let data = retrieve(sk, name).await.unwrap_or_default();
+    let (_, data) = retrieve(sk, name).await.unwrap_or_default();
     if data.is_empty() {
         Ok(RgbAccount::default())
     } else {
