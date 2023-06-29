@@ -119,7 +119,7 @@ pub async fn issue_contract(sk: &str, request: IssueRequest) -> Result<IssueResp
         &network,
         meta,
         &mut resolver,
-        stock,
+        &mut stock,
     )?;
 
     let ContractResponse {
@@ -136,7 +136,12 @@ pub async fn issue_contract(sk: &str, request: IssueRequest) -> Result<IssueResp
         contract,
         genesis,
         meta,
-    } = extract_contract_by_id(contract.contract_id(), stock, &mut resolver, &mut wallet)?;
+    } = extract_contract_by_id(
+        contract.contract_id(),
+        &mut stock,
+        &mut resolver,
+        &mut wallet,
+    )?;
 
     if let Some(wallet) = wallet {
         rgb_account
