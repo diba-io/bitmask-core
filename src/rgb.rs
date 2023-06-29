@@ -34,7 +34,7 @@ use crate::{
         BITCOIN_EXPLORER_API, NETWORK,
     },
     rgb::{
-        carbonado::{retrieve_stock, store_stock},
+        carbonado::{force_store_stock, retrieve_stock, store_stock},
         issue::issue_contract as create_contract,
         psbt::{create_psbt as create_rgb_psbt, extract_commit},
         resolvers::ExplorerResolver,
@@ -306,7 +306,7 @@ pub async fn reissue_contract(sk: &str, request: ReIssueRequest) -> Result<ReIss
         });
     }
 
-    store_stock(sk, ASSETS_STOCK, &stock).await?;
+    force_store_stock(sk, ASSETS_STOCK, &stock).await?;
     store_wallets(sk, ASSETS_WALLETS, &rgb_account).await?;
 
     Ok(ReIssueResponse {

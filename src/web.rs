@@ -678,12 +678,13 @@ pub mod carbonado {
         secret_key: String,
         name: String,
         data: Vec<u8>,
+        force: bool,
         metadata: Option<Vec<u8>>,
     ) -> Promise {
         set_panic_hook();
 
         future_to_promise(async move {
-            match crate::carbonado::store(&secret_key, &name, &data, metadata).await {
+            match crate::carbonado::store(&secret_key, &name, &data, force, metadata).await {
                 Ok(result) => Ok(JsValue::from_string(
                     serde_json::to_string(&result).unwrap(),
                 )),

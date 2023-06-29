@@ -21,7 +21,7 @@ async fn web_storage() {
     let data = b"Hello world!".to_vec();
 
     info!("Testing web data store");
-    resolve(store(sk.clone(), name.clone(), data.clone(), None)).await;
+    resolve(store(sk.clone(), name.clone(), data.clone(), false, None)).await;
 
     info!("Testing web data retrieve");
     let result: JsValue = resolve(retrieve(sk, name)).await;

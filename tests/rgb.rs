@@ -31,5 +31,6 @@ mod rgb {
 
     mod sre {
         mod st130;
+        mod st130_web;
     }
 }

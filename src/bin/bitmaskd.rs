@@ -342,6 +342,49 @@ async fn co_store(
     Ok((StatusCode::OK, TypedHeader(cc)))
 }
 
+async fn co_force_store(
+    Path((pk, name)): Path<(String, String)>,
+    body: Bytes,
+) -> Result<impl IntoResponse, AppError> {
+    let incoming_header = carbonado::file::Header::try_from(&body)?;
+    let body_len = incoming_header.encoded_len - incoming_header.padding_len;
+    info!("POST /carbonado/{pk}/{name}/force, {body_len} bytes");
+
+    let filepath = handle_file(&pk, &name, body_len.try_into()?).await?;
+
+    match OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .open(&filepath)
+    {
+        Ok(file) => {
+            let present_header = match carbonado::file::Header::try_from(&file) {
+                Ok(header) => header,
+                _ => carbonado::file::Header::try_from(&body)?,
+            };
+            let present_len = present_header.encoded_len - present_header.padding_len;
+            debug!("body len: {body_len} present_len: {present_len}");
+            let resp = fs::write(&filepath, &body).await;
+            debug!("file override status {}", resp.is_ok());
+        }
+        Err(err) => match err.kind() {
+            ErrorKind::NotFound => {
+                debug!("no file found, writing {body_len} bytes.");
+                fs::write(&filepath, &body).await?;
+            }
+            _ => {
+                error!("error in POST /carbonado/{pk}/{name}/force: {err}");
+                return Err(err.into());
+            }
+        },
+    }
+
+    let cc = CacheControl::new().with_no_cache();
+
+    Ok((StatusCode::OK, TypedHeader(cc)))
+}
+
 async fn co_retrieve(
     Path((pk, name)): Path<(String, String)>,
 ) -> Result<impl IntoResponse, AppError> {
@@ -395,7 +438,7 @@ async fn co_metadata(
                 fs::write(&filepath, &vec![]).await?;
             }
             _ => {
-                error!("error in POST /carbonado/{pk}/{name}: {err}");
+                error!("error in GET /carbonado/{pk}/{name}/metadata: {err}");
                 return Err(err.into());
             }
         },
@@ -457,6 +500,7 @@ async fn main() -> Result<()> {
         .route("/key/:pk", get(key))
         .route("/carbonado/status", get(status))
         .route("/carbonado/:pk/:name", post(co_store))
+        .route("/carbonado/:pk/:name/force", post(co_force_store))
         .route("/carbonado/:pk/:name", get(co_retrieve))
         .route("/carbonado/:pk/:name/metadata", get(co_metadata))
         .layer(CorsLayer::permissive());
