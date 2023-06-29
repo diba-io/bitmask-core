@@ -39,8 +39,13 @@ jobs:
       - uses: olix0r/cargo-action-fmt/setup@v2
       - uses: Swatinem/rust-cache@v2
 
-      - name: Lint
+      - name: Lint src
         run: cargo clippy --locked --all-features --lib --message-format=json -- -D warnings | cargo-action-fmt
+
+      - name: Lint tests
+        run: cargo clippy --locked --all-features --tests --message-format=json -- -D warnings | cargo-action-fmt
+        env:
+          TEST_WALLET_SEED: ""
 
   lint-wasm:
     runs-on: ubuntu-latest
@@ -61,8 +66,13 @@ jobs:
       - name: Add wasm32 target
         run: rustup target add wasm32-unknown-unknown
 
-      - name: Lint (wasm32)
+      - name: Lint src (wasm32)
         run: cargo clippy --locked --target wasm32-unknown-unknown --lib --message-format=json -- -D warnings | cargo-action-fmt
+
+      - name: Lint tests (wasm32)
+        run: cargo clippy --locked --target wasm32-unknown-unknown --tests --message-format=json -- -D warnings | cargo-action-fmt
+        env:
+          TEST_WALLET_SEED: ""
 
   test:
     runs-on: ubuntu-latest
