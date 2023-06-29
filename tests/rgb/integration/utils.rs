@@ -277,7 +277,7 @@ pub async fn create_new_invoice(
     let invoice_req = InvoiceRequest {
         contract_id: contract_id.to_owned(),
         iface: iface.to_owned(),
-        amount: amount,
+        amount,
         seal,
         params,
     };
@@ -370,7 +370,7 @@ pub async fn create_new_invoice_v2(
     let invoice_req = InvoiceRequest {
         contract_id: contract_id.to_owned(),
         iface: iface.to_owned(),
-        amount: amount,
+        amount,
         seal,
         params,
     };

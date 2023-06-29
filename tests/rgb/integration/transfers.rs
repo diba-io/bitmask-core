@@ -93,7 +93,7 @@ async fn allow_issuer_make_conseq_transfers() -> anyhow::Result<()> {
     let new_alloc = issuer_contract
         .allocations
         .into_iter()
-        .find(|x| x.is_mine == true)
+        .find(|x| x.is_mine)
         .unwrap();
     let psbt_resp = create_new_psbt(
         &issuer_resp.contract_id,
@@ -1097,7 +1097,6 @@ async fn allows_spend_amount_from_two_different_transitions() -> anyhow::Result<
         .allocations
         .into_iter()
         .filter(|alloc| alloc.is_mine && !alloc.is_spent)
-        .map(|f| f)
         .collect();
     assert_eq!(2, allocs.len());
 
