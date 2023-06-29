@@ -51,10 +51,10 @@ async fn allow_re_issue_rgb_contracts() -> anyhow::Result<()> {
 
     // 1. Retrieve metadata
     let fake_file_name = "fake-name.c15";
-    let resp = store(issuer_sk, &fake_file_name, &input, None).await;
+    let resp = store(issuer_sk, fake_file_name, &input, None).await;
     assert!(resp.is_ok());
 
-    let resp = retrieve_metadata(issuer_sk, &fake_file_name).await;
+    let resp = retrieve_metadata(issuer_sk, fake_file_name).await;
     assert!(resp.is_ok());
 
     // 2. Retrieve contracts

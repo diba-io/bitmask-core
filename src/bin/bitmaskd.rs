@@ -57,7 +57,7 @@ async fn reissue(
     info!("POST /reissue {request:?}");
 
     let nostr_hex_sk = auth.token();
-    let issue_res = reissue_contract(&nostr_hex_sk, request).await?;
+    let issue_res = reissue_contract(nostr_hex_sk, request).await?;
     Ok((StatusCode::OK, Json(issue_res)))
 }
 
