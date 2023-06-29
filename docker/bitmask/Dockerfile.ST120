@@ -1,8 +1,8 @@
 # Builder
-FROM rust:slim AS builder
+FROM rust:slim-buster AS builder
 ARG BUILDER_DIR=/srv/bitmask
 ARG BUILDER_SRC=/opt/src/bitmask
-ARG SOURCE_CODE=https://github.com/crisdut/bitmask-core.git
+ARG SOURCE_CODE=https://github.com/diba-io/bitmask-core.git
 ARG VERSION=c18cba0375dbc4c2f2a5a4fe56401bf3d6d52ce7
 
 RUN apt-get update -y && \
@@ -15,7 +15,7 @@ RUN git checkout $VERSION
 RUN cargo install --locked --features server --path . --root ${BUILDER_DIR}
 
 # Runtime
-FROM rust:slim AS runtime
+FROM rust:slim-buster AS runtime
 
 ARG BUILDER_DIR=/srv/bitmask
 ARG BIN_DIR=/usr/local/bin
@@ -36,5 +36,4 @@ VOLUME ${DATA_DIR}
 EXPOSE 7070
 
 WORKDIR ${BIN_DIR}
-
 ENTRYPOINT ["bitmaskd"]

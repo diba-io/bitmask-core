@@ -22,14 +22,20 @@ use crate::{
 };
 
 #[cfg(not(feature = "server"))]
-pub async fn store(sk: &str, name: &str, input: &[u8]) -> Result<()> {
+pub async fn store(sk: &str, name: &str, input: &[u8], metadata: Option<Vec<u8>>) -> Result<()> {
     let level = 15;
     let sk = hex::decode(sk)?;
     let secret_key = SecretKey::from_slice(&sk)?;
     let public_key = PublicKey::from_secret_key_global(&secret_key);
     let pk = public_key.serialize();
     let pk_hex = hex::encode(pk);
-    let (body, _encode_info) = carbonado::file::encode(&sk, Some(&pk), input, level, None)?;
+
+    let mut meta: Option<[u8; 8]> = None;
+    if let Some(metadata) = metadata {
+        meta = Some(metadata.try_into().expect("invalid metadata size"));
+    }
+
+    let (body, _encode_info) = carbonado::file::encode(&sk, Some(&pk), input, level, meta)?;
     let endpoint = CARBONADO_ENDPOINT.read().await.to_string();
     let name = utf8_percent_encode(name, FORM);
     let network = NETWORK.read().await.to_string();
@@ -60,14 +66,20 @@ pub async fn store(sk: &str, name: &str, input: &[u8]) -> Result<()> {
 }
 
 #[cfg(feature = "server")]
-pub async fn store(sk: &str, name: &str, input: &[u8]) -> Result<()> {
+pub async fn store(sk: &str, name: &str, input: &[u8], metadata: Option<Vec<u8>>) -> Result<()> {
     let level = 15;
     let sk = hex::decode(sk)?;
     let secret_key = SecretKey::from_slice(&sk)?;
     let public_key = PublicKey::from_secret_key_global(&secret_key);
     let pk = public_key.serialize();
     let pk_hex = hex::encode(pk);
-    let (body, _encode_info) = carbonado::file::encode(&sk, Some(&pk), input, level, None)?;
+
+    let mut meta: Option<[u8; 8]> = None;
+    if let Some(metadata) = metadata {
+        meta = Some(metadata.try_into().expect("invalid metadata size"));
+    }
+
+    let (body, _encode_info) = carbonado::file::encode(&sk, Some(&pk), input, level, meta)?;
 
     let filepath = handle_file(&pk_hex, name, body.len()).await?;
     fs::write(filepath, body).await?;
@@ -80,14 +92,14 @@ pub async fn retrieve_metadata(sk: &str, name: &str) -> Result<FileMetadata> {
     let (header, _) = retrieve(sk, name).await?;
     if let Some(header) = header {
         result.filename = header.file_name();
-        result.metadata = header.metadata.to_string();
+        result.metadata = header.metadata.unwrap_or_default();
     }
 
     Ok(result)
 }
 
 #[cfg(not(feature = "server"))]
-pub async fn retrieve(sk: &str, name: &str) -> Result<Vec<u8>> {
+pub async fn retrieve(sk: &str, name: &str) -> Result<(Option<Header>, Vec<u8>)> {
     let sk = hex::decode(sk)?;
     let secret_key = SecretKey::from_slice(&sk)?;
     let public_key = PublicKey::from_secret_key_global(&secret_key);
@@ -117,6 +129,7 @@ pub async fn retrieve(sk: &str, name: &str) -> Result<Vec<u8>> {
         ));
     }
 
+    let encoded = response.bytes().await?;
     if encoded.is_empty() {
         Ok((None, Vec::new()))
     } else {
@@ -131,7 +144,7 @@ pub async fn retrieve_metadata(sk: &str, name: &str) -> Result<FileMetadata> {
     let (header, _) = retrieve(sk, name).await?;
     if let Some(header) = header {
         result.filename = header.file_name();
-        result.metadata = header.metadata.to_string();
+        result.metadata = header.metadata.unwrap_or_default();
     }
 
     Ok(result)

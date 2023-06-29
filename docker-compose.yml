@@ -28,6 +28,7 @@ services:
         aliases:
           - node1
 
+  # Bitmaskd 0.6.0-rc.2
   bitmaskd:
     container_name: bitmaskd
     image: bitmask/node:latest

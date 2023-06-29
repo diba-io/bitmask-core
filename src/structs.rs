@@ -134,6 +134,13 @@ pub struct SelfIssueRequest {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
+pub struct ReIssueRequest {
+    /// previous contracts
+    pub contracts: Vec<ContractResponse>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct IssueMetaRequest(pub IssueMetadata);
 
 impl IssueMetaRequest {
@@ -232,6 +239,12 @@ pub struct GenesisFormats {
     pub armored: String,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ReIssueResponse {
+    pub contracts: Vec<IssueResponse>,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub enum AssetType {
@@ -272,7 +285,7 @@ pub struct ContractResponse {
     /// Amount of the asset
     pub supply: u64,
     /// Precision of the asset
-    pub precision: u64,
+    pub precision: u8,
     /// The user contract balance
     pub balance: u64,
     /// The contract allocations
@@ -292,6 +305,10 @@ pub struct ContractMeta(ContractMetadata);
 impl ContractMeta {
     pub fn with(metadata: ContractMetadata) -> Self {
         ContractMeta(metadata)
+    }
+
+    pub fn meta(self) -> ContractMetadata {
+        self.0
     }
 }
 
@@ -536,6 +553,7 @@ pub struct AllocationDetail {
     /// My Allocation?
     pub is_mine: bool,
     /// Allocation spent?
+    #[serde(skip)]
     pub is_spent: bool,
 }
 
@@ -645,5 +663,5 @@ pub struct ExportRequestMini {
 #[serde(rename_all = "camelCase")]
 pub struct FileMetadata {
     pub filename: String,
-    pub metadata: String,
+    pub metadata: [u8; 8],
 }

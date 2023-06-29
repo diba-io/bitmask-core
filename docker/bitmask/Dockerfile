@@ -1,5 +1,5 @@
 # Builder
-FROM rust:slim AS builder
+FROM rust:slim-buster AS builder
 ARG BUILDER_DIR=/srv/bitmask
 ARG BUILDER_SRC=/opt/src/bitmask
 
@@ -13,7 +13,7 @@ COPY . .
 RUN cargo install --locked --features server --path . --root ${BUILDER_DIR}
 
 # Runtime
-FROM rust:slim AS runtime
+FROM rust:slim-buster AS runtime
 
 ARG BUILDER_DIR=/srv/bitmask
 ARG BIN_DIR=/usr/local/bin

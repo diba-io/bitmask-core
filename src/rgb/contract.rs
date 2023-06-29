@@ -68,7 +68,7 @@ where
 
     let mut ticker = String::new();
     let mut name = String::new();
-    let mut precision = 0;
+    let mut precision: u8 = 0;
     let mut description = String::new();
 
     let ty: FieldName = FieldName::from("spec");
@@ -95,7 +95,7 @@ where
             }
             if let Some(StrictVal::Enum(en)) = fields.get(&FieldName::from("precision")) {
                 let val = en.unwrap_ord();
-                precision = val as u64;
+                precision = val;
             }
         };
     }
