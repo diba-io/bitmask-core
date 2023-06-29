@@ -57,7 +57,7 @@ async fn reissue(
     info!("POST /reissue {request:?}");
 
     let nostr_hex_sk = auth.token();
-    let issue_res = reissue_contract(&nostr_hex_sk, request).await?;
+    let issue_res = reissue_contract(nostr_hex_sk, request).await?;
     Ok((StatusCode::OK, Json(issue_res)))
 }
 
@@ -379,7 +379,7 @@ async fn co_metadata(
         .read(true)
         .write(true)
         .create(true)
-        .open(&filepath)
+        .open(filepath)
     {
         Ok(file) => {
             let present_header = match carbonado::file::Header::try_from(&file) {

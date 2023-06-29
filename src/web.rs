@@ -700,7 +700,7 @@ pub mod carbonado {
 
         future_to_promise(async move {
             match crate::carbonado::retrieve(&secret_key, &name).await {
-                Ok((_, result)) => {
+                Ok((result, _)) => {
                     let array = Uint8Array::new_with_length(result.len() as u32);
                     array.copy_from(&result);
                     Ok(JsValue::from(array))

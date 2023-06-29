@@ -8,7 +8,6 @@ use anyhow::Result;
 #[cfg(not(feature = "server"))]
 use anyhow::{anyhow, Context};
 use bitcoin_30::secp256k1::{PublicKey, SecretKey};
-use carbonado::file::Header;
 #[cfg(not(feature = "server"))]
 use percent_encoding::utf8_percent_encode;
 
@@ -116,7 +115,7 @@ pub async fn retrieve_metadata(sk: &str, name: &str) -> Result<FileMetadata> {
 }
 
 #[cfg(not(feature = "server"))]
-pub async fn retrieve(sk: &str, name: &str) -> Result<Vec<u8>> {
+pub async fn retrieve(sk: &str, name: &str) -> Result<(Vec<u8>, Option<Vec<u8>>)> {
     let sk = hex::decode(sk)?;
     let secret_key = SecretKey::from_slice(&sk)?;
     let public_key = PublicKey::from_secret_key_global(&secret_key);
@@ -148,10 +147,11 @@ pub async fn retrieve(sk: &str, name: &str) -> Result<Vec<u8>> {
 
     let encoded = response.bytes().await?;
     if encoded.is_empty() {
-        Ok((None, Vec::new()))
+        Ok((Vec::new(), None))
     } else {
-        let (_, decoded) = carbonado::file::decode(&sk, &encoded)?;
-        Ok(decoded)
+        let (header, decoded) = carbonado::file::decode(&sk, &encoded)?;
+
+        Ok((decoded, header.metadata.map(|m| m.to_vec())))
     }
 }
 
@@ -174,15 +174,17 @@ pub async fn retrieve_metadata(sk: &str, name: &str) -> Result<FileMetadata> {
     let bytes = fs::read(filepath).await?;
 
     let (header, _) = carbonado::file::decode(&sk, &bytes)?;
-    let mut result = FileMetadata::default();
-    result.filename = header.file_name();
-    result.metadata = header.metadata.unwrap_or_default();
+
+    let result = FileMetadata {
+        filename: header.file_name(),
+        metadata: header.metadata.unwrap_or_default(),
+    };
 
     Ok(result)
 }
 
 #[cfg(feature = "server")]
-pub async fn retrieve(sk: &str, name: &str) -> Result<Vec<u8>> {
+pub async fn retrieve(sk: &str, name: &str) -> Result<(Vec<u8>, Option<Vec<u8>>)> {
     use crate::constants::NETWORK;
 
     let sk = hex::decode(sk)?;
@@ -200,11 +202,11 @@ pub async fn retrieve(sk: &str, name: &str) -> Result<Vec<u8>> {
     let bytes = fs::read(filepath).await?;
 
     if bytes.is_empty() {
-        Ok((None, Vec::new()))
+        Ok((Vec::new(), None))
     } else {
-        let (_, decoded) = carbonado::file::decode(&sk, &bytes)?;
+        let (header, decoded) = carbonado::file::decode(&sk, &bytes)?;
 
-        Ok(decoded)
+        Ok((decoded, header.metadata.map(|m| m.to_vec())))
     }
 }
 
