@@ -27,9 +27,9 @@ use bitmask_core::{
         watcher_utxo,
     },
     structs::{
-        AcceptRequest, ImportRequest, InvoiceRequest, IssueAssetRequest, IssueRequest, MediaInfo,
-        PsbtRequest, ReIssueRequest, RgbTransferRequest, SecretString, SelfIssueRequest,
-        SignPsbtRequest, WatcherRequest,
+        AcceptRequest, FileMetadata, ImportRequest, InvoiceRequest, IssueAssetRequest,
+        IssueRequest, MediaInfo, PsbtRequest, ReIssueRequest, RgbTransferRequest, SecretString,
+        SelfIssueRequest, SignPsbtRequest, WatcherRequest,
     },
 };
 use carbonado::file;
@@ -57,7 +57,7 @@ async fn reissue(
     info!("POST /reissue {request:?}");
 
     let nostr_hex_sk = auth.token();
-    let issue_res = reissue_contract(nostr_hex_sk, request).await?;
+    let issue_res = reissue_contract(&nostr_hex_sk, request).await?;
     Ok((StatusCode::OK, Json(issue_res)))
 }
 
@@ -373,9 +373,34 @@ async fn co_metadata(
 ) -> Result<impl IntoResponse, AppError> {
     info!("GET /carbonado/{pk}/{name}/metadata");
 
-    let metadata = retrieve_metadata(&pk, &name).await?;
-    let metadata = metadata.metadata.to_hex();
-    debug!("file with metadata: {0}", metadata);
+    let filepath = &handle_file(&pk, &name, 0).await?;
+    let mut metadata = FileMetadata::default();
+    match OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .open(&filepath)
+    {
+        Ok(file) => {
+            let present_header = match carbonado::file::Header::try_from(&file) {
+                Ok(header) => header,
+                _ => return Ok((StatusCode::OK, Json(metadata))),
+            };
+
+            metadata.filename = present_header.file_name();
+            metadata.metadata = present_header.metadata.unwrap_or_default();
+        }
+        Err(err) => match err.kind() {
+            ErrorKind::NotFound => {
+                fs::write(&filepath, &vec![]).await?;
+            }
+            _ => {
+                error!("error in POST /carbonado/{pk}/{name}: {err}");
+                return Err(err.into());
+            }
+        },
+    }
+
     Ok((StatusCode::OK, Json(metadata)))
 }
 

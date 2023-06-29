@@ -711,6 +711,20 @@ pub mod carbonado {
     }
 
     #[wasm_bindgen]
+    pub fn retrieve_metadata(secret_key: String, name: String) -> Promise {
+        set_panic_hook();
+
+        future_to_promise(async move {
+            match crate::carbonado::retrieve_metadata(&secret_key, &name).await {
+                Ok(result) => Ok(JsValue::from_string(
+                    serde_json::to_string(&result).unwrap(),
+                )),
+                Err(err) => Err(JsValue::from_string(err.to_string())),
+            }
+        })
+    }
+
+    #[wasm_bindgen]
     pub fn encode_hex(bytes: Vec<u8>) -> String {
         set_panic_hook();
 

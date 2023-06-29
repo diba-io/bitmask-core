@@ -172,7 +172,7 @@ pub async fn reissue_contract(sk: &str, request: ReIssueRequest) -> Result<ReIss
 
 async fn issue_rgb_contract(
     request: IssueRequest,
-    stock: &mut Stock,
+    mut stock: &mut Stock,
     rgb_account: &mut RgbAccount,
 ) -> Result<IssueResponse> {
     let IssueRequest {
