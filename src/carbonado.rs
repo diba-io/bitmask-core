@@ -30,10 +30,7 @@ pub async fn store(sk: &str, name: &str, input: &[u8], metadata: Option<Vec<u8>>
     let pk = public_key.serialize();
     let pk_hex = hex::encode(pk);
 
-    let mut meta: Option<[u8; 8]> = None;
-    if let Some(metadata) = metadata {
-        meta = Some(metadata.try_into().expect("invalid metadata size"));
-    }
+    let meta: Option<[u8; 8]> = metadata.map(|m| m.try_into().expect("invalid metadata size"));
 
     let (body, _encode_info) = carbonado::file::encode(&sk, Some(&pk), input, level, meta)?;
     let endpoint = CARBONADO_ENDPOINT.read().await.to_string();
@@ -74,10 +71,7 @@ pub async fn store(sk: &str, name: &str, input: &[u8], metadata: Option<Vec<u8>>
     let pk = public_key.serialize();
     let pk_hex = hex::encode(pk);
 
-    let mut meta: Option<[u8; 8]> = None;
-    if let Some(metadata) = metadata {
-        meta = Some(metadata.try_into().expect("invalid metadata size"));
-    }
+    let meta: Option<[u8; 8]> = metadata.map(|m| m.try_into().expect("invalid metadata size"));
 
     let (body, _encode_info) = carbonado::file::encode(&sk, Some(&pk), input, level, meta)?;
 
