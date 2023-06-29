@@ -28,4 +28,8 @@ mod rgb {
         mod imports;
         mod std;
     }
+
+    mod sre {
+        mod st130;
+    }
 }

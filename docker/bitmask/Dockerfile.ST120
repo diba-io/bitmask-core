@@ -2,14 +2,16 @@
 FROM rust:slim-buster AS builder
 ARG BUILDER_DIR=/srv/bitmask
 ARG BUILDER_SRC=/opt/src/bitmask
+ARG SOURCE_CODE=https://github.com/diba-io/bitmask-core.git
+ARG VERSION=c18cba0375dbc4c2f2a5a4fe56401bf3d6d52ce7
 
 RUN apt-get update -y && \
-  apt-get install -y pkg-config make g++ libssl-dev
+  apt-get install -y pkg-config make g++ libssl-dev git
 
 WORKDIR $BUILDER_DIR
 WORKDIR $BUILDER_SRC
-COPY . .
-
+RUN git clone $SOURCE_CODE $BUILDER_SRC
+RUN git checkout $VERSION
 RUN cargo install --locked --features server --path . --root ${BUILDER_DIR}
 
 # Runtime
@@ -34,5 +36,4 @@ VOLUME ${DATA_DIR}
 EXPOSE 7070
 
 WORKDIR ${BIN_DIR}
-
 ENTRYPOINT ["bitmaskd"]

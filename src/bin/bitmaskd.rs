@@ -3,6 +3,7 @@
 #![cfg(not(target_arch = "wasm32"))]
 use std::{env, fs::OpenOptions, io::ErrorKind, net::SocketAddr, str::FromStr};
 
+use amplify::hex::ToHex;
 use anyhow::Result;
 use axum::{
     body::Bytes,
@@ -16,18 +17,19 @@ use axum::{
 use bitcoin_30::secp256k1::{ecdh::SharedSecret, PublicKey, SecretKey};
 use bitmask_core::{
     bitcoin::{decrypt_wallet, get_wallet_data, save_mnemonic, sign_psbt_file},
-    carbonado::handle_file,
+    carbonado::{handle_file, retrieve, retrieve_metadata},
     constants::{get_marketplace_seed, get_network, get_udas_utxo, switch_network},
     rgb::{
         accept_transfer, clear_watcher as rgb_clear_watcher, create_invoice, create_psbt,
         create_watcher, import as rgb_import, issue_contract, list_contracts, list_interfaces,
-        list_schemas, transfer_asset, watcher_address, watcher_details as rgb_watcher_details,
-        watcher_next_address, watcher_next_utxo, watcher_utxo,
+        list_schemas, reissue_contract, transfer_asset, watcher_address,
+        watcher_details as rgb_watcher_details, watcher_next_address, watcher_next_utxo,
+        watcher_utxo,
     },
     structs::{
-        AcceptRequest, ImportRequest, InvoiceRequest, IssueAssetRequest, IssueRequest, MediaInfo,
-        PsbtRequest, RgbTransferRequest, SecretString, SelfIssueRequest, SignPsbtRequest,
-        WatcherRequest,
+        AcceptRequest, FileMetadata, ImportRequest, InvoiceRequest, IssueAssetRequest,
+        IssueRequest, MediaInfo, PsbtRequest, ReIssueRequest, RgbTransferRequest, SecretString,
+        SelfIssueRequest, SignPsbtRequest, WatcherRequest,
     },
 };
 use carbonado::file;
@@ -37,11 +39,25 @@ use serde::{Deserialize, Serialize};
 use tokio::fs;
 use tower_http::cors::CorsLayer;
 
-async fn issue(Json(issue): Json<IssueAssetRequest>) -> Result<impl IntoResponse, AppError> {
-    info!("POST /issue {issue:?}");
+async fn issue(
+    TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
+    Json(request): Json<IssueRequest>,
+) -> Result<impl IntoResponse, AppError> {
+    info!("POST /issue {request:?}");
 
-    let issue_res = issue_contract(&issue.sk, issue.request).await?;
+    let nostr_hex_sk = auth.token();
+    let issue_res = issue_contract(nostr_hex_sk, request).await?;
+    Ok((StatusCode::OK, Json(issue_res)))
+}
 
+async fn reissue(
+    TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
+    Json(request): Json<ReIssueRequest>,
+) -> Result<impl IntoResponse, AppError> {
+    info!("POST /reissue {request:?}");
+
+    let nostr_hex_sk = auth.token();
+    let issue_res = reissue_contract(&nostr_hex_sk, request).await?;
     Ok((StatusCode::OK, Json(issue_res)))
 }
 
@@ -352,6 +368,42 @@ async fn co_retrieve(
     }
 }
 
+async fn co_metadata(
+    Path((pk, name)): Path<(String, String)>,
+) -> Result<impl IntoResponse, AppError> {
+    info!("GET /carbonado/{pk}/{name}/metadata");
+
+    let filepath = &handle_file(&pk, &name, 0).await?;
+    let mut metadata = FileMetadata::default();
+    match OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .open(&filepath)
+    {
+        Ok(file) => {
+            let present_header = match carbonado::file::Header::try_from(&file) {
+                Ok(header) => header,
+                _ => return Ok((StatusCode::OK, Json(metadata))),
+            };
+
+            metadata.filename = present_header.file_name();
+            metadata.metadata = present_header.metadata.unwrap_or_default();
+        }
+        Err(err) => match err.kind() {
+            ErrorKind::NotFound => {
+                fs::write(&filepath, &vec![]).await?;
+            }
+            _ => {
+                error!("error in POST /carbonado/{pk}/{name}: {err}");
+                return Err(err.into());
+            }
+        },
+    }
+
+    Ok((StatusCode::OK, Json(metadata)))
+}
+
 async fn status() -> Result<impl IntoResponse, AppError> {
     let cc = CacheControl::new().with_no_cache();
 
@@ -380,6 +432,7 @@ async fn main() -> Result<()> {
 
     let app = Router::new()
         .route("/issue", post(issue))
+        .route("/reissue", post(reissue))
         .route("/selfissue", post(self_issue))
         .route("/invoice", post(invoice))
         // .route("/psbt", post(psbt))
@@ -405,6 +458,7 @@ async fn main() -> Result<()> {
         .route("/carbonado/status", get(status))
         .route("/carbonado/:pk/:name", post(co_store))
         .route("/carbonado/:pk/:name", get(co_retrieve))
+        .route("/carbonado/:pk/:name/metadata", get(co_metadata))
         .layer(CorsLayer::permissive());
 
     let network = get_network().await;

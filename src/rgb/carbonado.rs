@@ -5,12 +5,12 @@ use rgbstd::persistence::Stock;
 use strict_encoding::{StrictDeserialize, StrictSerialize};
 
 use crate::carbonado::{retrieve, store};
+use crate::rgb::constants::RGB_STRICT_TYPE_VERSION;
 use crate::rgb::structs::RgbAccount;
 
 pub async fn store_stock(sk: &str, name: &str, stock: &Stock) -> Result<()> {
     let data = stock.to_strict_serialized::<U32>()?;
-
-    store(sk, name, &data).await
+    store(sk, name, &data, Some(RGB_STRICT_TYPE_VERSION.to_vec())).await
 }
 
 pub async fn retrieve_stock(sk: &str, name: &str) -> Result<Stock> {
@@ -27,7 +27,7 @@ pub async fn retrieve_stock(sk: &str, name: &str) -> Result<Stock> {
 
 pub async fn store_wallets(sk: &str, name: &str, rgb_wallets: &RgbAccount) -> Result<()> {
     let data = to_allocvec(rgb_wallets)?;
-    store(sk, name, &data).await
+    store(sk, name, &data, Some(RGB_STRICT_TYPE_VERSION.to_vec())).await
 }
 
 pub async fn retrieve_wallets(sk: &str, name: &str) -> Result<RgbAccount> {

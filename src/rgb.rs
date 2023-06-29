@@ -1,5 +1,6 @@
 use std::{collections::BTreeMap, str::FromStr};
 
+use crate::rgb::structs::RgbAccount;
 use ::psbt::serialize::Serialize;
 use amplify::{confinement::U16, hex::ToHex};
 use anyhow::{anyhow, Result};
@@ -46,12 +47,13 @@ use crate::{
         wallet::list_allocations,
     },
     structs::{
-        AcceptRequest, AcceptResponse, AssetType, ContractResponse, ContractsResponse,
-        ImportRequest, InterfaceDetail, InterfacesResponse, InvoiceRequest, InvoiceResponse,
-        IssueRequest, IssueResponse, NextAddressResponse, NextUtxoResponse, NextUtxosResponse,
-        PsbtRequest, PsbtResponse, RgbTransferRequest, RgbTransferResponse, SchemaDetail,
-        SchemasResponse, WatcherDetailResponse, WatcherRequest, WatcherResponse,
-        WatcherUtxoResponse,
+        AcceptRequest, AcceptResponse, AssetType, ContractMetadata, ContractResponse,
+        ContractsResponse, ImportRequest, InterfaceDetail, InterfacesResponse, InvoiceRequest,
+        InvoiceResponse, IssueMetaRequest, IssueMetadata, IssueRequest, IssueResponse,
+        NewCollectible, NextAddressResponse, NextUtxoResponse, NextUtxosResponse, PsbtRequest,
+        PsbtResponse, ReIssueRequest, ReIssueResponse, RgbTransferRequest, RgbTransferResponse,
+        SchemaDetail, SchemasResponse, UDADetail, WatcherDetailResponse, WatcherRequest,
+        WatcherResponse, WatcherUtxoResponse,
     },
 };
 
@@ -72,8 +74,107 @@ use self::{
 };
 
 /// RGB Operations
-#[allow(clippy::too_many_arguments)]
 pub async fn issue_contract(sk: &str, request: IssueRequest) -> Result<IssueResponse> {
+    let mut stock = retrieve_stock(sk, ASSETS_STOCK).await?;
+    let mut rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await?;
+
+    let resp = issue_rgb_contract(request, &mut stock, &mut rgb_account).await;
+    store_stock(sk, ASSETS_STOCK, &stock).await?;
+    store_wallets(sk, ASSETS_WALLETS, &rgb_account).await?;
+
+    resp
+}
+
+pub async fn reissue_contract(sk: &str, request: ReIssueRequest) -> Result<ReIssueResponse> {
+    let mut stock = Stock::default();
+    let mut rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await?;
+
+    let mut reissue_resp = vec![];
+    for contract in request.contracts {
+        let ContractResponse {
+            ticker,
+            name,
+            description,
+            supply,
+            contract_id: _,
+            iimpl_id: _,
+            iface,
+            precision,
+            balance: _,
+            allocations,
+            contract: _,
+            genesis: _,
+            meta: contract_meta,
+        } = contract;
+
+        let seals: Vec<String> = allocations
+            .into_iter()
+            .map(|alloc| format!("tapret1st:{}", alloc.utxo))
+            .collect();
+        let seal = seals.first().unwrap().to_owned();
+
+        let mut meta = None;
+        if let Some(contract_meta) = contract_meta {
+            meta = Some(match contract_meta.meta() {
+                ContractMetadata::UDA(uda) => IssueMetaRequest(IssueMetadata::UDA(uda.media)),
+                ContractMetadata::Collectible(colectibles) => {
+                    let mut items = vec![];
+                    for collectible_item in colectibles {
+                        let UDADetail {
+                            ticker,
+                            name,
+                            token_index: _,
+                            description,
+                            balance: _,
+                            media,
+                            allocations: _,
+                        } = collectible_item;
+
+                        let new_item = NewCollectible {
+                            ticker,
+                            name,
+                            description,
+                            media,
+                        };
+
+                        items.push(new_item);
+                    }
+
+                    IssueMetaRequest(IssueMetadata::Collectible(items))
+                }
+            })
+        }
+
+        let req = IssueRequest {
+            ticker,
+            name,
+            description,
+            supply,
+            precision,
+            iface,
+            seal,
+            meta,
+        };
+
+        let resp = issue_rgb_contract(req, &mut stock, &mut rgb_account)
+            .await
+            .expect("re-issue contract failed");
+        reissue_resp.push(resp);
+    }
+
+    store_stock(sk, ASSETS_STOCK, &stock).await?;
+    store_wallets(sk, ASSETS_WALLETS, &rgb_account).await?;
+
+    Ok(ReIssueResponse {
+        contracts: reissue_resp,
+    })
+}
+
+async fn issue_rgb_contract(
+    request: IssueRequest,
+    mut stock: &mut Stock,
+    rgb_account: &mut RgbAccount,
+) -> Result<IssueResponse> {
     let IssueRequest {
         ticker,
         name,
@@ -84,8 +185,6 @@ pub async fn issue_contract(sk: &str, request: IssueRequest) -> Result<IssueResp
         seal,
         meta,
     } = request;
-    let mut stock = retrieve_stock(sk, ASSETS_STOCK).await?;
-    let mut rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await?;
 
     // Prefetch
     let mut resolver = ExplorerResolver {
@@ -143,12 +242,10 @@ pub async fn issue_contract(sk: &str, request: IssueRequest) -> Result<IssueResp
         &mut wallet,
     )?;
 
-    store_stock(sk, ASSETS_STOCK, &stock).await?;
     if let Some(wallet) = wallet {
         rgb_account
             .wallets
             .insert(RGB_DEFAULT_NAME.to_string(), wallet);
-        store_wallets(sk, ASSETS_WALLETS, &rgb_account).await?;
     };
 
     Ok(IssueResponse {
