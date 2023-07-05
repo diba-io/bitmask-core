@@ -30,7 +30,7 @@ mod rgb {
     }
 
     mod sre {
-        mod st130;
-        mod st130_web;
+        mod st140;
+        mod st140_web;
     }
 }

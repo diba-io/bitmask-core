@@ -1,32 +1,50 @@
-#![cfg(not(target_arch = "wasm32"))]
-use crate::rgb::integration::utils::ISSUER_MNEMONIC;
+#![allow(dead_code)]
+#![allow(unused_imports)]
+#![allow(unused_variables)]
+#![cfg(target_arch = "wasm32")]
 use anyhow::{anyhow, Context};
-use bitmask_core::carbonado::{retrieve_metadata, store};
 use bitmask_core::rgb::constants::RGB_STRICT_TYPE_VERSION;
+use bitmask_core::structs::FileMetadata;
+use bitmask_core::structs::ReIssueResponse;
 use bitmask_core::structs::WatcherRequest;
 use bitmask_core::{
     bitcoin::save_mnemonic,
-    carbonado::{constants::FORM, retrieve},
+    carbonado::constants::FORM,
     constants::{storage_keys::ASSETS_STOCK, BITMASK_ENDPOINT, NETWORK},
-    rgb::{constants::RGB_OLDEST_VERSION, reissue_contract},
+    info,
+    rgb::constants::RGB_OLDEST_VERSION,
     structs::{ContractsResponse, ReIssueRequest, SecretString},
+    web::{
+        carbonado::{retrieve_metadata, store},
+        json_parse, resolve,
+        rgb::reissue_contract,
+        set_panic_hook,
+    },
 };
 use hex::FromHex;
 use nostr_sdk::key::{PublicKey, SecretKey};
 use percent_encoding::utf8_percent_encode;
 use reqwest::Client;
 
-#[tokio::test]
-#[ignore = "No longer necessary running always, only to check re-issue operation (strict-type 1.3.0)"]
+use wasm_bindgen::prelude::*;
+use wasm_bindgen_test::*;
+
+wasm_bindgen_test_configure!(run_in_browser);
+
+// #[wasm_bindgen_test]
+#[ignore = "No longer necessary running always, only to check re-issue operation (strict-type 1.4.0)"]
 async fn allow_re_issue_rgb_contracts() -> anyhow::Result<()> {
+    set_panic_hook();
+    let mnemonic = env!("TEST_WALLET_SEED", "TEST_WALLET_SEED variable not set");
     let bitmask_endpoint = BITMASK_ENDPOINT.read().await.to_string();
     let issuer_keys = save_mnemonic(
-        &SecretString(ISSUER_MNEMONIC.to_string()),
+        &SecretString(mnemonic.to_string()),
         &SecretString("".to_string()),
     )
     .await?;
 
     // 0. Create Watcher
+    info!("0. Create Watcher");
     let issuer_sk = &issuer_keys.private.nostr_prv;
     let client = Client::new();
     let endpoint = format!("{bitmask_endpoint}/watcher");
@@ -44,6 +62,7 @@ async fn allow_re_issue_rgb_contracts() -> anyhow::Result<()> {
     assert!(resp.is_ok());
 
     // 0. Prepare Data Test
+    info!("0. Prepare Data Test");
     let file_name = ASSETS_STOCK.to_string();
     let input = Vec::<u8>::from_hex(STOCK_ST_120)?;
 
@@ -51,15 +70,26 @@ async fn allow_re_issue_rgb_contracts() -> anyhow::Result<()> {
     assert!(resp.is_ok());
 
     // 1. Retrieve metadata
+    info!("1. Retrieve metadata");
     let fake_file_name = "fake-name.c15";
-    let resp = store(issuer_sk, fake_file_name, &input, false, None).await;
-    assert!(resp.is_ok());
+    resolve(store(
+        issuer_sk.to_string(),
+        fake_file_name.to_string(),
+        input,
+        false,
+        None,
+    ))
+    .await;
 
-    let resp = retrieve_metadata(issuer_sk, fake_file_name).await;
-    assert!(resp.is_ok());
+    let resp: JsValue = resolve(retrieve_metadata(
+        issuer_sk.to_string(),
+        fake_file_name.to_string(),
+    ))
+    .await;
+    let file_header: FileMetadata = json_parse(&resp);
 
     // 2. Retrieve contracts
-    let file_header = resp?;
+    info!("2. Retrieve contracts");
     if file_header.metadata == RGB_OLDEST_VERSION {
         let endpoint = format!("{bitmask_endpoint}/contracts");
 
@@ -69,16 +99,25 @@ async fn allow_re_issue_rgb_contracts() -> anyhow::Result<()> {
         let reissue_req = ReIssueRequest {
             contracts: resp.contracts,
         };
+        let reissue_req = serde_wasm_bindgen::to_value(&reissue_req).expect("oh no!");
 
-        // 2. ReIssue contracts
-        let reissue_resp = reissue_contract(issuer_sk, reissue_req).await;
-        assert!(reissue_resp.is_ok());
+        // 3. ReIssue contracts
+        info!("3. ReIssue contracts");
+        let resp: JsValue = resolve(reissue_contract(issuer_sk.to_string(), reissue_req)).await;
 
-        // 3. Get File Information
-        let (_, header) = retrieve(issuer_sk, &file_name).await?;
-        let header = header.unwrap();
-        assert!(!header.is_empty());
-        assert_eq!(RGB_STRICT_TYPE_VERSION.to_vec(), header);
+        let resp: ReIssueResponse = json_parse(&resp);
+        assert!(!resp.contracts.is_empty());
+
+        // 4. Get File Information
+        info!("4. Get File Information");
+        let resp: JsValue = resolve(retrieve_metadata(
+            issuer_sk.to_string(),
+            file_name.to_string(),
+        ))
+        .await;
+
+        let file_header: FileMetadata = json_parse(&resp);
+        assert_eq!(RGB_STRICT_TYPE_VERSION.to_vec(), file_header.metadata);
     }
 
     Ok(())

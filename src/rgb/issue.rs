@@ -7,10 +7,12 @@ use rgbstd::contract::GenesisSeal;
 use rgbstd::interface::rgb21::{Allocation, EmbeddedMedia, OwnedFraction, TokenData, TokenIndex};
 use rgbstd::resolvers::ResolveHeight;
 use rgbstd::stl::{
-    DivisibleAssetSpec, MediaType, Name, Precision, RicardianContract, Ticker, Timestamp,
+    Amount, ContractData, DivisibleAssetSpec, MediaType, Name, Precision, RicardianContract,
+    Ticker, Timestamp,
 };
 use rgbstd::validation::ResolveTx;
 use std::str::FromStr;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use rgbstd::containers::Contract;
 use rgbstd::interface::{rgb20, rgb21, BuilderError, ContractBuilder};
@@ -118,7 +120,8 @@ fn issue_fungible_asset(
     let description: &'static str = Box::leak(description.to_string().into_boxed_str());
     let precision = Precision::try_from(precision).expect("invalid precision");
     let spec = DivisibleAssetSpec::new(ticker, name, precision);
-    let terms = RicardianContract::new(description);
+    let terms = RicardianContract::from_str(description).expect("invalid terms");
+    let contract_data = ContractData { terms, media: None };
     let created = Timestamp::default();
     // Issuer State
     let seal = ExplicitSeal::<Txid>::from_str(seal).expect("invalid seal definition");
@@ -131,9 +134,11 @@ fn issue_fungible_asset(
         .expect("invalid spec")
         .add_global_state("created", created)
         .expect("invalid created")
-        .add_global_state("terms", terms)
+        .add_global_state("data", contract_data)
         .expect("invalid contract text")
-        .add_fungible_state("beneficiary", seal, supply)
+        .add_global_state("issuedSupply", Amount::from(supply))
+        .expect("invalid issued supply")
+        .add_fungible_state("assetOwner", seal, supply)
         .expect("invalid asset amount")
         .issue_contract()
         .expect("contract doesn't fit schema requirements");
@@ -161,8 +166,11 @@ fn issue_uda_asset(
     let description: &'static str = Box::leak(description.to_string().into_boxed_str());
     let precision = Precision::try_from(precision).expect("invalid precision");
     let spec = DivisibleAssetSpec::new(ticker, name, precision);
-    let terms = RicardianContract::new(description);
-    let created = Timestamp::default();
+    let terms = RicardianContract::from_str(description).expect("invalid terms");
+    let start = SystemTime::now();
+    let since_the_epoch = start.duration_since(UNIX_EPOCH).expect("invalid");
+    let created =
+        Timestamp::from_str(&since_the_epoch.as_secs_f32().to_string()).expect("invalid timestamp");
     let fraction = OwnedFraction::from_inner(supply);
 
     let mut tokens_data = vec![];
@@ -242,7 +250,7 @@ fn issue_uda_asset(
 
     for allocation in allocations {
         contract = contract
-            .add_data_state("beneficiary", seal, allocation)
+            .add_data_state("assetOwner", seal, allocation)
             .expect("invalid asset blob");
     }
 
