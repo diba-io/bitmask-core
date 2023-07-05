@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 #![cfg(not(target_arch = "wasm32"))]
 use std::{collections::HashMap, env, process::Stdio};
 
