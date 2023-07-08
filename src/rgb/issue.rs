@@ -50,16 +50,12 @@ where
     T: ResolveHeight + ResolveTx,
     T::Error: 'static,
 {
-    let iface_name = match TypeName::from_str(iface) {
-        Ok(name) => name,
-        _ => return Err(IssueError::Forge(BuilderError::InterfaceMismatch)),
-    };
+    let iface_name = TypeName::from_str(iface)
+        .map_err(|_| IssueError::Forge(BuilderError::InterfaceMismatch))?;
 
-    let binding = stock.to_owned();
-    let iface = match binding.iface_by_name(&iface_name) {
-        Ok(name) => name,
-        _ => return Err(IssueError::Forge(BuilderError::InterfaceMismatch)),
-    };
+    let iface = stock
+        .iface_by_name(&iface_name)
+        .map_err(|_| IssueError::Forge(BuilderError::InterfaceMismatch))?;
 
     if ticker.len() < 3 || ticker.len() > 8 || ticker.chars().any(|c| c < 'A' && c > 'Z') {
         return Err(IssueError::InvalidTicker("Ticker must be between 3 and 8 chars, contain no spaces and consist only of capital letters".to_string()));
@@ -82,21 +78,16 @@ where
         _ => return Err(IssueError::ContractNotfound(iface.name.to_string())),
     };
 
-    let resp = match contract_issued {
-        Ok(resp) => resp,
-        Err(err) => return Err(IssueError::Forge(err)),
-    };
+    let resp = contract_issued.map_err(IssueError::Forge)?;
+    let contract_id = resp.contract_id().to_string();
 
-    let resp = match resp.clone().validate(resolver) {
-        Ok(resp) => resp,
-        Err(_err) => return Err(IssueError::ContractInvalid(resp.contract_id().to_string())),
-    };
+    let resp = resp
+        .validate(resolver)
+        .map_err(|_| IssueError::ContractInvalid(contract_id.clone()))?;
 
     stock
         .import_contract(resp.clone(), resolver)
-        .or(Err(IssueError::ImportContract(
-            resp.contract_id().to_string(),
-        )))?;
+        .or(Err(IssueError::ImportContract(contract_id)))?;
 
     Ok(resp)
 }

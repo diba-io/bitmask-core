@@ -426,10 +426,7 @@ pub async fn transfer_asset(sk: &str, request: RgbTransferRequest) -> Result<Rgb
     let psbt_hex = psbt.to_string();
     let consig = RgbTransferResponse {
         consig_id: transfer.bindle_id().to_string(),
-        consig: transfer
-            .to_strict_serialized::<U16>()
-            .expect("invalid transfer serialization")
-            .to_hex(),
+        consig: transfer.to_strict_serialized::<U16>()?.to_hex(),
         psbt: psbt_hex,
         commit: commit_hex,
     };
@@ -529,7 +526,7 @@ pub async fn list_contracts(sk: &str) -> Result<ContractsResponse> {
 
     let mut contracts = vec![];
 
-    for contract_id in stock.contract_ids().expect("invalid contracts state") {
+    for contract_id in stock.contract_ids()? {
         let resp = extract_contract_by_id(contract_id, &mut stock, &mut resolver, &mut wallet)?;
         contracts.push(resp);
     }
@@ -548,10 +545,10 @@ pub async fn list_interfaces(sk: &str) -> Result<InterfacesResponse> {
     let stock = retrieve_stock(sk, ASSETS_STOCK).await?;
 
     let mut interfaces = vec![];
-    for schema_id in stock.schema_ids().expect("invalid schemas state") {
-        let schema = stock.schema(schema_id).expect("invalid schemas state");
+    for schema_id in stock.schema_ids()? {
+        let schema = stock.schema(schema_id)?;
         for (iface_id, iimpl) in schema.clone().iimpls.into_iter() {
-            let face = stock.iface_by_id(iface_id).expect("invalid iface state");
+            let face = stock.iface_by_id(iface_id)?;
 
             let item = InterfaceDetail {
                 name: face.name.to_string(),
@@ -569,11 +566,11 @@ pub async fn list_schemas(sk: &str) -> Result<SchemasResponse> {
     let stock = retrieve_stock(sk, ASSETS_STOCK).await?;
 
     let mut schemas = vec![];
-    for schema_id in stock.schema_ids().expect("invalid schemas state") {
-        let schema = stock.schema(schema_id).expect("invalid schemas state");
+    for schema_id in stock.schema_ids()? {
+        let schema = stock.schema(schema_id)?;
         let mut ifaces = vec![];
         for (iface_id, _) in schema.clone().iimpls.into_iter() {
-            let face = stock.iface_by_id(iface_id).expect("invalid iface state");
+            let face = stock.iface_by_id(iface_id)?;
             ifaces.push(face.name.to_string());
         }
         schemas.push(SchemaDetail {
