@@ -13,14 +13,13 @@ mod rgb {
         // mod collectibles;
         mod collectibles;
 
+        mod fungibles;
         mod import;
         mod issue;
-        // TODO: Uncomment after fixing slow encoding/decoding of strict type
-        // mod fungibles;
-        // mod states;
-        // mod stress;
-        // mod transfers;
-        // mod udas;
+        mod states;
+        mod stress;
+        mod transfers;
+        mod udas;
         pub mod utils;
         mod watcher;
     }

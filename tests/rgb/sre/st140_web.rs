@@ -32,7 +32,7 @@ use wasm_bindgen_test::*;
 wasm_bindgen_test_configure!(run_in_browser);
 
 // #[wasm_bindgen_test]
-#[ignore = "No longer necessary running always, only to check re-issue operation (strict-type 1.4.0)"]
+#[ignore = "No longer necessary running always, only to check re-issue operation (strict-type 1.4.x)"]
 async fn allow_re_issue_rgb_contracts() -> anyhow::Result<()> {
     set_panic_hook();
     let mnemonic = env!("TEST_WALLET_SEED", "TEST_WALLET_SEED variable not set");

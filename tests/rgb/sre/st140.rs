@@ -17,7 +17,7 @@ use percent_encoding::utf8_percent_encode;
 use reqwest::Client;
 
 #[tokio::test]
-#[ignore = "No longer necessary running always, only to check re-issue operation (strict-type 1.4.0)"]
+#[ignore = "No longer necessary running always, only to check re-issue operation (strict-type 1.4.x)"]
 async fn allow_re_issue_rgb_contracts() -> anyhow::Result<()> {
     let bitmask_endpoint = BITMASK_ENDPOINT.read().await.to_string();
     let issuer_keys = save_mnemonic(
