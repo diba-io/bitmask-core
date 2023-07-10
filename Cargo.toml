@@ -38,13 +38,12 @@ bitcoin = { version = "0.29.2", features = ["base64"] }
 bitcoin_hashes = "0.12.0"
 bitcoin_scripts = "0.10.0-alpha.2"
 bitcoin_blockchain = "0.10.0-alpha.2"
-bp-core = "0.10.4"
-commit_verify = "0.10.3"
+bp-core = { version = "0.10.4", features = ["stl"] }
+commit_verify = { version = "0.10.3", features = ["stl"] }
 bp-seals = "0.10.4"
 indexmap = "1.9.3"
-carbonado = "0.3.0-rc.13"
+carbonado = "0.3.1"
 console_error_panic_hook = "0.1.7"
-# directories = "4.0.1"
 miniscript_crate = { package = "miniscript", version = "9.0.1", features = [
     "compiler",
 ] }
@@ -72,23 +71,20 @@ psbt = { version = "0.10.0-alpha.2", features = [
     "construct",
 ] }
 regex = "1.7.0"
-reqwest = { version = "0.11.16", features = ["json"] }
+reqwest = { version = "0.11.18", features = ["json"] }
 rgb-contracts = { version = "0.10.0-beta.2", default-features = false, features = [
     "log",
 ] }
 rgb-wallet = { version = "0.10.2" }
 rgb-std = { version = "0.10.2" }
 
-# rgb_wallet_bp = { version = "0.10.2-backport", package = "rgb-wallet", path = "../rgb-wallet" }
-# rgb_std_bp = { version = "0.10.2-backport", package = "rgb-std", path = "../rgb-wallet/std" }
-
 rgb-schemata = { version = "0.10.0-beta.1" }
 serde = "1.0.152"
 serde_json = "1.0.91"
 postcard = { version = "1.0.4", features = ["alloc"] }
 serde-encrypt = "0.7.0"
-strict_types = "1.3.0"
-strict_encoding = "2.3.0"
+strict_types = "1.4.1"
+strict_encoding = "2.4.1"
 tokio = { version = "1.28.2", features = ["macros", "sync"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
@@ -137,3 +133,4 @@ rgb-contracts = { git = "https://github.com/crisdut/rgb", branch = "release/bmc-
 rgb-schemata = { git = "https://github.com/crisdut/rgbsc", branch = "release/bmc-v0.6" }
 rgb-wallet = { git = "https://github.com/crisdut/rgb-wallet", branch = "release/bmc-v0.6" }
 rgb-std = { git = "https://github.com/crisdut/rgb-wallet", branch = "release/bmc-v0.6" }
+rgb-core = { git = "https://github.com/crisdut/rgb-core" }

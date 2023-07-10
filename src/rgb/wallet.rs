@@ -19,7 +19,6 @@ use std::{
 };
 use strict_encoding::tn;
 
-use crate::rgb::structs::EmptyFilter;
 use crate::rgb::{resolvers::ResolveSpent, structs::AddressTerminal};
 use crate::structs::{AllocationDetail, AllocationValue, UDAPosition, WatcherDetail};
 
@@ -311,14 +310,13 @@ where
     };
 
     sync_wallet(iface_index, wallet, resolver);
-    let empty = EmptyFilter {};
     let mut details = vec![];
     for contract_id in stock.contract_ids()? {
         let iface = stock.iface_by_name(&tn!(iface_name))?;
         if let Ok(contract) = stock.contract_iface(contract_id, iface.iface_id()) {
             let mut owners = vec![];
             for owned in &contract.iface.assignments {
-                if let Ok(allocations) = contract.fungible(owned.name.clone(), Some(&empty)) {
+                if let Ok(allocations) = contract.fungible(owned.name.clone(), &None) {
                     for allocation in allocations {
                         let txid = bitcoin::Txid::from_str(&allocation.owner.txid.to_hex())
                             .expect("invalid txid");
@@ -400,7 +398,6 @@ pub fn allocations_by_contract<T>(
 where
     T: ResolveSpent + Resolver,
 {
-    let empty = EmptyFilter {};
     let iface_name = match iface_index {
         20 => "RGB20",
         21 => "RGB21",
@@ -412,7 +409,7 @@ where
     if let Ok(contract) = stock.contract_iface(contract_id, iface.iface_id()) {
         sync_wallet(iface_index, wallet, resolver);
         for owned in &contract.iface.assignments {
-            if let Ok(allocations) = contract.fungible(owned.name.clone(), Some(&empty)) {
+            if let Ok(allocations) = contract.fungible(owned.name.clone(), &None) {
                 for allocation in allocations {
                     let txid = bitcoin::Txid::from_str(&allocation.owner.txid.to_hex())
                         .expect("invalid txid");
