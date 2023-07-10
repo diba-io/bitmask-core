@@ -27,10 +27,7 @@ pub async fn sign_psbt(
         blockchain.broadcast(&tx).await?;
 
         let txid = tx.txid();
-        let tx = blockchain
-            .get_tx(&txid)
-            .await
-            .expect("tx that was just broadcasted now exists");
+        let tx = blockchain.get_tx(&txid).await?;
 
         let mut sent = 0;
         let mut received = 0;
