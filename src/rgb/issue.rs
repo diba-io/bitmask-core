@@ -1,26 +1,28 @@
-use amplify::confinement::SmallBlob;
-use amplify::Wrapper;
-use bp::seals::txout::ExplicitSeal;
-use bp::{Chain, Txid};
-use rgb_schemata::{nia_rgb20, nia_schema, uda_rgb21, uda_schema};
-use rgbstd::contract::GenesisSeal;
-use rgbstd::interface::rgb21::{Allocation, EmbeddedMedia, OwnedFraction, TokenData, TokenIndex};
-use rgbstd::resolvers::ResolveHeight;
-use rgbstd::stl::{
-    Amount, ContractData, DivisibleAssetSpec, MediaType, Name, Precision, RicardianContract,
-    Ticker, Timestamp,
-};
-use rgbstd::validation::ResolveTx;
 use std::str::FromStr;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use rgbstd::containers::Contract;
-use rgbstd::interface::{rgb20, rgb21, BuilderError, ContractBuilder};
-use rgbstd::persistence::{Inventory, Stash, Stock};
+use amplify::{confinement::SmallBlob, Wrapper};
+use bp::{seals::txout::ExplicitSeal, Chain, Txid};
+use rgb_schemata::{nia_rgb20, nia_schema, uda_rgb21, uda_schema};
+use rgbstd::{
+    containers::Contract,
+    contract::GenesisSeal,
+    interface::{
+        rgb20, rgb21,
+        rgb21::{Allocation, EmbeddedMedia, OwnedFraction, TokenData, TokenIndex},
+        BuilderError, ContractBuilder,
+    },
+    persistence::{Inventory, Stash, Stock},
+    resolvers::ResolveHeight,
+    stl::{
+        Amount, ContractData, DivisibleAssetSpec, MediaType, Name, Precision, RicardianContract,
+        Ticker, Timestamp,
+    },
+    validation::ResolveTx,
+};
+use strict_types::encoding::TypeName;
 
 use crate::structs::{IssueMetaRequest, IssueMetadata};
-// use seals::txout::ExplicitSeal;
-use strict_types::encoding::TypeName;
 
 #[derive(Clone, Eq, PartialEq, Debug, Display, Error, From)]
 #[display(doc_comments)]

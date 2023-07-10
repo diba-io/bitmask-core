@@ -4,9 +4,10 @@ use postcard::{from_bytes, to_allocvec};
 use rgbstd::persistence::Stock;
 use strict_encoding::{StrictDeserialize, StrictSerialize};
 
-use crate::carbonado::{retrieve, store};
-use crate::rgb::constants::RGB_STRICT_TYPE_VERSION;
-use crate::rgb::structs::RgbAccount;
+use crate::{
+    carbonado::{retrieve, store},
+    rgb::{constants::RGB_STRICT_TYPE_VERSION, structs::RgbAccount},
+};
 
 pub async fn store_stock(sk: &str, name: &str, stock: &Stock) -> Result<()> {
     let data = stock.to_strict_serialized::<U32>()?;

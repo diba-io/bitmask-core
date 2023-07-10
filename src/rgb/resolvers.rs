@@ -1,15 +1,17 @@
 #![allow(unused_imports)]
 #![allow(unused_variables)]
-use amplify::hex::ToHex;
-use bitcoin::Script;
-use bp::{LockTime, Outpoint, SeqNo, Tx, TxIn, TxOut, TxVer, Txid, VarIntArray, Witness};
-use rgb::{prelude::DeriveInfo, MiningStatus, TerminalPath, Utxo};
-use rgbstd::{resolvers::ResolveHeight, validation::ResolveTx as ResolveCommiment};
+
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap},
     convert::Infallible,
     str::FromStr,
 };
+
+use amplify::hex::ToHex;
+use bitcoin::Script;
+use bp::{LockTime, Outpoint, SeqNo, Tx, TxIn, TxOut, TxVer, Txid, VarIntArray, Witness};
+use rgb::{prelude::DeriveInfo, MiningStatus, TerminalPath, Utxo};
+use rgbstd::{resolvers::ResolveHeight, validation::ResolveTx as ResolveCommiment};
 use wallet::onchain::{ResolveTx, TxResolverError};
 
 #[derive(Default)]

@@ -11,12 +11,10 @@ use rgbstd::{
 use strict_encoding::{FieldName, StrictDeserialize, StrictSerialize};
 use strict_types::StrictVal;
 
-use crate::rgb::resolvers::ResolveSpent;
-use crate::rgb::wallet::allocations_by_contract;
-use crate::structs::GenesisFormats;
+use crate::rgb::{resolvers::ResolveSpent, wallet::allocations_by_contract};
 use crate::structs::{
-    AllocationValue, ContractFormats, ContractMeta, ContractMetadata, ContractResponse, MediaInfo,
-    UDADetail,
+    AllocationValue, ContractFormats, ContractMeta, ContractMetadata, ContractResponse,
+    GenesisFormats, MediaInfo, UDADetail,
 };
 
 // TODO: Create one extractor by contract interface
