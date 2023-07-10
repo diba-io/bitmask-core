@@ -12,6 +12,7 @@ mod rgb {
         // TODO: Review after support multi-token transfer
         // mod collectibles;
         mod collectibles;
+
         mod fungibles;
         mod import;
         mod issue;
@@ -30,7 +31,7 @@ mod rgb {
     }
 
     mod sre {
-        mod st130;
-        mod st130_web;
+        mod st140;
+        mod st140_web;
     }
 }

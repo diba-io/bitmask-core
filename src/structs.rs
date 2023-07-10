@@ -581,6 +581,7 @@ impl UDAPosition {
     pub fn with(uda: AllocationUDA) -> Self {
         UDAPosition {
             token_index: uda
+                .clone()
                 .token_id()
                 .to_string()
                 .parse()

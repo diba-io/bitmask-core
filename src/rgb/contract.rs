@@ -55,12 +55,9 @@ where
             .expect("invalid contract data")
             .to_base32(),
         bech32::Variant::Bech32m,
-    )
-    .expect("invalid contract data");
-    let contract_strict = contract_bindle
-        .to_strict_serialized::<0xFFFFFF>()
-        .expect("invalid contract data")
-        .to_hex();
+    )?;
+
+    let contract_strict = contract_bindle.to_strict_serialized::<0xFFFFFF>()?.to_hex();
 
     let contract_iface = stock
         .contract_iface(contract_bindle.contract_id(), iface_id.to_owned())
@@ -148,37 +145,24 @@ where
     for (index, (_, global_assign)) in contract_genesis.genesis.assignments.iter().enumerate() {
         let idx = index as u16;
         if global_assign.is_fungible() {
-            if let Some(reveal) = global_assign
-                .as_fungible_state_at(idx)
-                .expect("fail retrieve fungible data")
-            {
+            if let Some(reveal) = global_assign.as_fungible_state_at(idx)? {
                 supply += reveal.value.as_u64();
             }
         } else if global_assign.is_structured()
-            && global_assign
-                .as_structured_state_at(idx)
-                .expect("fail retrieve structured data")
-                .is_some()
+            && global_assign.as_structured_state_at(idx)?.is_some()
         {
             supply += 1;
         }
     }
 
     let genesis = contract_genesis.genesis.clone();
-    let genesis_strict = genesis
-        .to_strict_serialized::<0xFFFFFF>()
-        .expect("invalid genesis data")
-        .to_hex();
+    let genesis_strict = genesis.to_strict_serialized::<0xFFFFFF>()?.to_hex();
 
     let genesis_legacy = encode(
         "rgb",
-        genesis
-            .to_strict_serialized::<0xFFFFFF>()
-            .expect("invalid contract data")
-            .to_base32(),
+        genesis.to_strict_serialized::<0xFFFFFF>()?.to_base32(),
         bech32::Variant::Bech32m,
-    )
-    .expect("invalid contract data");
+    )?;
 
     let genesis_formats = GenesisFormats {
         legacy: genesis_legacy,
@@ -190,7 +174,10 @@ where
     let mut meta = none!();
     let ty: FieldName = FieldName::from("tokens");
     if contract_iface.global(ty.clone()).is_ok() {
-        let type_id = contract_iface.iface.global_type(&ty).expect("");
+        let type_id = contract_iface
+            .iface
+            .global_type(&ty)
+            .expect("no global type id");
 
         let type_schema = contract_iface
             .state
@@ -217,16 +204,12 @@ where
             if let Some(preview) = token_data.preview {
                 media = MediaInfo {
                     ty: preview.ty.to_string(),
-                    source: String::from_utf8(preview.data.to_inner()).expect("invalid data"),
+                    source: String::from_utf8(preview.data.to_inner())?,
                 };
             }
 
             let single = ContractMetadata::UDA(UDADetail {
-                token_index: token_data
-                    .index
-                    .to_string()
-                    .parse()
-                    .expect("invalid token_index"),
+                token_index: token_data.index.to_string().parse()?,
                 ticker: ticker.clone(),
                 name: name.clone(),
                 description: description.clone(),
