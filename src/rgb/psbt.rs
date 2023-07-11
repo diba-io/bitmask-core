@@ -2,41 +2,38 @@ use std::collections::BTreeMap;
 use std::str::FromStr;
 
 use amplify::hex::ToHex;
-use bdk::wallet::coin_selection::{decide_change, Excess};
-use bdk::FeeRate;
-use bitcoin::secp256k1::SECP256K1;
-use bitcoin::util::bip32::Fingerprint;
+use bdk::{
+    wallet::coin_selection::{decide_change, Excess},
+    FeeRate,
+};
+use bitcoin::{secp256k1::SECP256K1, util::bip32::Fingerprint};
 use bitcoin::{EcdsaSighashType, OutPoint, Script, XOnlyPublicKey};
 // TODO: Incompatible versions between RGB and Descriptor Wallet
-use bitcoin_30::secp256k1::SECP256K1 as SECP256K1_30;
-use bitcoin_30::taproot::TaprootBuilder;
-use bitcoin_30::ScriptBuf;
+use bitcoin_30::{secp256k1::SECP256K1 as SECP256K1_30, taproot::TaprootBuilder, ScriptBuf};
 use bitcoin_blockchain::locks::SeqNo;
 use bitcoin_scripts::PubkeyScript;
-use bp::dbc::tapret::TapretCommitment;
-use bp::TapScript;
-use commit_verify::mpc::Commitment;
-use commit_verify::CommitVerify;
-
+use bp::{dbc::tapret::TapretCommitment, TapScript};
+use commit_verify::{mpc::Commitment, CommitVerify};
 use miniscript_crate::Descriptor;
 use psbt::{ProprietaryKey, ProprietaryKeyType};
-use rgb::psbt::{
-    DbcPsbtError, TapretKeyError, PSBT_OUT_TAPRET_COMMITMENT, PSBT_OUT_TAPRET_HOST,
-    PSBT_TAPRET_PREFIX,
+use rgb::{
+    psbt::{
+        DbcPsbtError, TapretKeyError, PSBT_OUT_TAPRET_COMMITMENT, PSBT_OUT_TAPRET_HOST,
+        PSBT_TAPRET_PREFIX,
+    },
+    Resolver, RgbDescr, RgbWallet, TerminalPath,
 };
-use rgb::{Resolver, RgbDescr, RgbWallet, TerminalPath};
-use wallet::descriptors::derive::DeriveDescriptor;
-use wallet::hd::DerivationSubpath;
-use wallet::psbt::Psbt;
 use wallet::{
-    descriptors::InputDescriptor,
-    hd::{DerivationAccount, UnhardenedIndex},
+    descriptors::{derive::DeriveDescriptor, InputDescriptor},
+    hd::{DerivationAccount, DerivationSubpath, UnhardenedIndex},
     onchain::ResolveTx,
-    psbt::{ProprietaryKeyDescriptor, ProprietaryKeyError, ProprietaryKeyLocation},
+    psbt::{ProprietaryKeyDescriptor, ProprietaryKeyError, ProprietaryKeyLocation, Psbt},
 };
 
-use crate::rgb::{constants::RGB_PSBT_TAPRET, structs::AddressAmount};
-use crate::structs::SecretString;
+use crate::{
+    rgb::{constants::RGB_PSBT_TAPRET, structs::AddressAmount},
+    structs::SecretString,
+};
 
 #[allow(clippy::too_many_arguments)]
 pub fn create_psbt(

@@ -1,10 +1,10 @@
 #![allow(unused_imports)]
 #![allow(unused_variables)]
+
 use amplify::{
     confinement::Confined,
     hex::{FromHex, ToHex},
 };
-
 use bdk::blockchain::EsploraBlockchain;
 use bech32::{decode, FromBase32};
 use bitcoin::{OutPoint, Script, Txid};
