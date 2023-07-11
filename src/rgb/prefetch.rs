@@ -1,6 +1,7 @@
 #![allow(unused_imports)]
 #![allow(unused_variables)]
-
+use crate::rgb::resolvers::ExplorerResolver;
+use crate::structs::AssetType;
 use amplify::{
     confinement::Confined,
     hex::{FromHex, ToHex},
@@ -20,10 +21,16 @@ use std::{collections::BTreeMap, str::FromStr};
 use strict_encoding::StrictDeserialize;
 use wallet::onchain::ResolveTx;
 
-use crate::rgb::resolvers::ExplorerResolver;
-
 #[cfg(not(target_arch = "wasm32"))]
 pub async fn prefetch_resolver_rgb(contract: &str, explorer: &mut ExplorerResolver) {}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub async fn prefetch_resolver_import_rgb(
+    contract: &str,
+    asset_type: AssetType,
+    explorer: &mut ExplorerResolver,
+) {
+}
 
 #[cfg(not(target_arch = "wasm32"))]
 pub async fn prefetch_resolver_psbt(asset_utxo: &str, explorer: &mut ExplorerResolver) {}
@@ -82,6 +89,78 @@ pub async fn prefetch_resolver_rgb(contract: &str, explorer: &mut ExplorerResolv
         .expect("invalid strict serialized data");
     let contract = Contract::from_strict_serialized::<{ usize::MAX }>(confined)
         .expect("invalid strict contract data");
+    let contract = contract.validate(explorer).expect("invalid contract state");
+
+    for anchor_bundle in contract.bundles {
+        let transaction_id = &bitcoin::Txid::from_str(&anchor_bundle.anchor.txid.to_hex())
+            .expect("invalid transaction ID");
+
+        let tx_raw = esplora_client
+            .get_tx(transaction_id)
+            .await
+            .expect("service unavaliable");
+
+        if let Some(tx) = tx_raw {
+            let new_tx = Tx {
+                version: TxVer::from_consensus_i32(tx.clone().version),
+                inputs: VarIntArray::try_from_iter(tx.clone().input.into_iter().map(|txin| {
+                    TxIn {
+                        prev_output: Outpoint::new(
+                            BpTxid::from_str(&txin.previous_output.txid.to_hex())
+                                .expect("invalid transaction ID"),
+                            txin.previous_output.vout,
+                        ),
+                        sig_script: txin.script_sig.to_bytes().into(),
+                        sequence: SeqNo::from_consensus_u32(txin.sequence.to_consensus_u32()),
+                        witness: Witness::from_consensus_stack(txin.witness.to_vec()),
+                    }
+                }))
+                .expect("consensus-invalid transaction"),
+                outputs: VarIntArray::try_from_iter(tx.clone().output.into_iter().map(|txout| {
+                    TxOut {
+                        value: txout.value.into(),
+                        script_pubkey: txout.script_pubkey.to_bytes().into(),
+                    }
+                }))
+                .expect("consensus-invalid transaction"),
+                lock_time: LockTime::from_consensus_u32(tx.lock_time.0),
+            };
+
+            explorer.txs.insert(tx.txid(), tx);
+            explorer.bp_txs.insert(anchor_bundle.anchor.txid, new_tx);
+        }
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+pub async fn prefetch_resolver_import_rgb(
+    contract: &str,
+    asset_type: AssetType,
+    explorer: &mut ExplorerResolver,
+) {
+    use crate::rgb::import::contract_from_genesis;
+    use rgbstd::contract::Genesis;
+
+    let esplora_client: EsploraBlockchain =
+        EsploraBlockchain::new(&explorer.explorer_url, 100).with_concurrency(6);
+    let serialized = if contract.starts_with("rgb1") {
+        let (_, serialized, _) =
+            decode(contract).expect("invalid serialized contract (bech32m format)");
+        Vec::<u8>::from_base32(&serialized).expect("invalid hexadecimal contract (bech32m format)")
+    } else {
+        Vec::<u8>::from_hex(contract).expect("invalid hexadecimal contract (baid58 format)")
+    };
+
+    let confined: Confined<Vec<u8>, 0, { usize::MAX }> =
+        Confined::try_from_iter(serialized.iter().copied())
+            .expect("invalid strict serialized data");
+
+    let contract = match Genesis::from_strict_serialized::<{ usize::MAX }>(confined.clone()) {
+        Ok(genesis) => contract_from_genesis(genesis, asset_type),
+        Err(_) => Contract::from_strict_serialized::<{ usize::MAX }>(confined)
+            .expect("invalid strict contract data"),
+    };
+
     let contract = contract.validate(explorer).expect("invalid contract state");
 
     for anchor_bundle in contract.bundles {

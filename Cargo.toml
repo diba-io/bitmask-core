@@ -37,9 +37,9 @@ bitcoin = { version = "0.29.2", features = ["base64"] }
 bitcoin_hashes = "0.12.0"
 bitcoin_scripts = "0.10.0-alpha.2"
 bitcoin_blockchain = "0.10.0-alpha.2"
-bp-core = { version = "0.10.4", features = ["stl"] }
-bp-seals = "0.10.4"
-commit_verify = { version = "0.10.3", features = ["stl"] }
+bp-core = { version = "~0.10.4", features = ["stl"] }
+bp-seals = "~0.10.4"
+commit_verify = { version = "~0.10.3", features = ["stl"] }
 carbonado = "0.3.1"
 console_error_panic_hook = "0.1.7"
 descriptor-wallet = { version = "0.10.0-alpha.2", features = [
@@ -81,8 +81,8 @@ rgb-wallet = { version = "0.10.2" }
 serde = "1.0.152"
 serde_json = "1.0.91"
 serde-encrypt = "0.7.0"
-strict_encoding = "2.4.1"
-strict_types = "1.4.1"
+strict_encoding = "~2.4.2"
+strict_types = "~1.4.2"
 tokio = { version = "1.28.2", features = ["macros", "sync"] }
 zeroize = "1.6.0"
 
@@ -121,15 +121,17 @@ tokio = { version = "1.28.2", features = ["full"] }
 wasm-bindgen-test = "0.3.36"
 
 [patch.crates-io]
-# TODO: Remove this after merge and release fixies
+# TODO: Remove this after support amplify 4.x (custom)
 bitcoin_scripts = { git = "https://github.com/crisdut/bp-foundation", branch = "release/0.10.0-alpha.2" }
 bitcoin_blockchain = { git = "https://github.com/crisdut/bp-foundation", branch = "release/0.10.0-alpha.2" }
-# TODO: Remove this after propose a universal tweak in descriptor-wallet
-descriptor-wallet = { git = "https://github.com/crisdut/descriptor-wallet", branch = "exp/tapret-transfers" }
+# TODO: Remove this after support tapret transfers (custom)
 psbt = { git = "https://github.com/crisdut/descriptor-wallet", branch = "exp/tapret-transfers" }
-# TODO: Remove this after merge and release fixies
+descriptor-wallet = { git = "https://github.com/crisdut/descriptor-wallet", branch = "exp/tapret-transfers" }
+# TODO: Remove this after expose blockchain resolvers (custom)
 rgb-contracts = { git = "https://github.com/crisdut/rgb", branch = "release/bmc-v0.6" }
-rgb-schemata = { git = "https://github.com/crisdut/rgbsc", branch = "release/bmc-v0.6" }
+# TODO: Remove this after propouse new velocity check (custom)
 rgb-wallet = { git = "https://github.com/crisdut/rgb-wallet", branch = "release/bmc-v0.6" }
 rgb-std = { git = "https://github.com/crisdut/rgb-wallet", branch = "release/bmc-v0.6" }
-rgb-core = { git = "https://github.com/crisdut/rgb-core" }
+# TODO: Remove after official releases (lnpbp)
+rgb-schemata = { git = "https://github.com/crisdut/rgbsc", branch = "master" }
+rgb-core = { git = "https://github.com/crisdut/rgb-core", branch = "master" }
