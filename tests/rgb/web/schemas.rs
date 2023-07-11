@@ -1,5 +1,4 @@
 #![cfg(target_arch = "wasm32")]
-use bitmask_core::info;
 use bitmask_core::web::set_panic_hook;
 use wasm_bindgen_test::*;
 
