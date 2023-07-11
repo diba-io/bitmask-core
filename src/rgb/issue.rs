@@ -1,24 +1,28 @@
-use amplify::confinement::SmallBlob;
-use amplify::Wrapper;
-use bp::seals::txout::ExplicitSeal;
-use bp::{Chain, Txid};
-use rgb_schemata::{nia_rgb20, nia_schema, uda_rgb21, uda_schema};
-use rgbstd::contract::GenesisSeal;
-use rgbstd::interface::rgb21::{Allocation, EmbeddedMedia, OwnedFraction, TokenData, TokenIndex};
-use rgbstd::resolvers::ResolveHeight;
-use rgbstd::stl::{
-    DivisibleAssetSpec, MediaType, Name, Precision, RicardianContract, Ticker, Timestamp,
-};
-use rgbstd::validation::ResolveTx;
 use std::str::FromStr;
+use std::time::{SystemTime, UNIX_EPOCH};
 
-use rgbstd::containers::Contract;
-use rgbstd::interface::{rgb20, rgb21, BuilderError, ContractBuilder};
-use rgbstd::persistence::{Inventory, Stash, Stock};
+use amplify::{confinement::SmallBlob, Wrapper};
+use bp::{seals::txout::ExplicitSeal, Chain, Txid};
+use rgb_schemata::{nia_rgb20, nia_schema, uda_rgb21, uda_schema};
+use rgbstd::{
+    containers::Contract,
+    contract::GenesisSeal,
+    interface::{
+        rgb20, rgb21,
+        rgb21::{Allocation, EmbeddedMedia, OwnedFraction, TokenData, TokenIndex},
+        BuilderError, ContractBuilder,
+    },
+    persistence::{Inventory, Stash, Stock},
+    resolvers::ResolveHeight,
+    stl::{
+        Amount, ContractData, DivisibleAssetSpec, MediaType, Name, Precision, RicardianContract,
+        Ticker, Timestamp,
+    },
+    validation::ResolveTx,
+};
+use strict_types::encoding::TypeName;
 
 use crate::structs::{IssueMetaRequest, IssueMetadata};
-// use seals::txout::ExplicitSeal;
-use strict_types::encoding::TypeName;
 
 #[derive(Clone, Eq, PartialEq, Debug, Display, Error, From)]
 #[display(doc_comments)]
@@ -48,16 +52,12 @@ where
     T: ResolveHeight + ResolveTx,
     T::Error: 'static,
 {
-    let iface_name = match TypeName::from_str(iface) {
-        Ok(name) => name,
-        _ => return Err(IssueError::Forge(BuilderError::InterfaceMismatch)),
-    };
+    let iface_name = TypeName::from_str(iface)
+        .map_err(|_| IssueError::Forge(BuilderError::InterfaceMismatch))?;
 
-    let binding = stock.to_owned();
-    let iface = match binding.iface_by_name(&iface_name) {
-        Ok(name) => name,
-        _ => return Err(IssueError::Forge(BuilderError::InterfaceMismatch)),
-    };
+    let iface = stock
+        .iface_by_name(&iface_name)
+        .map_err(|_| IssueError::Forge(BuilderError::InterfaceMismatch))?;
 
     if ticker.len() < 3 || ticker.len() > 8 || ticker.chars().any(|c| c < 'A' && c > 'Z') {
         return Err(IssueError::InvalidTicker("Ticker must be between 3 and 8 chars, contain no spaces and consist only of capital letters".to_string()));
@@ -80,21 +80,16 @@ where
         _ => return Err(IssueError::ContractNotfound(iface.name.to_string())),
     };
 
-    let resp = match contract_issued {
-        Ok(resp) => resp,
-        Err(err) => return Err(IssueError::Forge(err)),
-    };
+    let resp = contract_issued.map_err(IssueError::Forge)?;
+    let contract_id = resp.contract_id().to_string();
 
-    let resp = match resp.clone().validate(resolver) {
-        Ok(resp) => resp,
-        Err(_err) => return Err(IssueError::ContractInvalid(resp.contract_id().to_string())),
-    };
+    let resp = resp
+        .validate(resolver)
+        .map_err(|_| IssueError::ContractInvalid(contract_id.clone()))?;
 
     stock
         .import_contract(resp.clone(), resolver)
-        .or(Err(IssueError::ImportContract(
-            resp.contract_id().to_string(),
-        )))?;
+        .or(Err(IssueError::ImportContract(contract_id)))?;
 
     Ok(resp)
 }
@@ -118,7 +113,8 @@ fn issue_fungible_asset(
     let description: &'static str = Box::leak(description.to_string().into_boxed_str());
     let precision = Precision::try_from(precision).expect("invalid precision");
     let spec = DivisibleAssetSpec::new(ticker, name, precision);
-    let terms = RicardianContract::new(description);
+    let terms = RicardianContract::from_str(description).expect("invalid terms");
+    let contract_data = ContractData { terms, media: None };
     let created = Timestamp::default();
     // Issuer State
     let seal = ExplicitSeal::<Txid>::from_str(seal).expect("invalid seal definition");
@@ -131,9 +127,11 @@ fn issue_fungible_asset(
         .expect("invalid spec")
         .add_global_state("created", created)
         .expect("invalid created")
-        .add_global_state("terms", terms)
+        .add_global_state("data", contract_data)
         .expect("invalid contract text")
-        .add_fungible_state("beneficiary", seal, supply)
+        .add_global_state("issuedSupply", Amount::from(supply))
+        .expect("invalid issued supply")
+        .add_fungible_state("assetOwner", seal, supply)
         .expect("invalid asset amount")
         .issue_contract()
         .expect("contract doesn't fit schema requirements");
@@ -161,8 +159,11 @@ fn issue_uda_asset(
     let description: &'static str = Box::leak(description.to_string().into_boxed_str());
     let precision = Precision::try_from(precision).expect("invalid precision");
     let spec = DivisibleAssetSpec::new(ticker, name, precision);
-    let terms = RicardianContract::new(description);
-    let created = Timestamp::default();
+    let terms = RicardianContract::from_str(description).expect("invalid terms");
+    let start = SystemTime::now();
+    let since_the_epoch = start.duration_since(UNIX_EPOCH).expect("invalid");
+    let created =
+        Timestamp::from_str(&since_the_epoch.as_secs_f32().to_string()).expect("invalid timestamp");
     let fraction = OwnedFraction::from_inner(supply);
 
     let mut tokens_data = vec![];
@@ -242,7 +243,7 @@ fn issue_uda_asset(
 
     for allocation in allocations {
         contract = contract
-            .add_data_state("beneficiary", seal, allocation)
+            .add_data_state("assetOwner", seal, allocation)
             .expect("invalid asset blob");
     }
 

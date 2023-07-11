@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 #![cfg(not(target_arch = "wasm32"))]
 use std::{collections::HashMap, env, process::Stdio};
 
@@ -11,8 +12,8 @@ use bitmask_core::{
     structs::{
         AllocationDetail, AssetType, ContractResponse, DecryptedWalletData, ImportRequest,
         InvoiceRequest, InvoiceResponse, IssueMetaRequest, IssueMetadata, IssueRequest,
-        IssueResponse, MediaInfo, NewCollectible, PsbtRequest, PsbtResponse, RgbTransferRequest,
-        RgbTransferResponse, SecretString, WatcherRequest,
+        IssueResponse, MediaInfo, NewCollectible, PsbtInputRequest, PsbtRequest, PsbtResponse,
+        RgbTransferRequest, RgbTransferResponse, SecretString, WatcherRequest,
     },
 };
 use tokio::process::Command;
@@ -20,9 +21,11 @@ use tokio::process::Command;
 pub const ISSUER_MNEMONIC: &str =
     "ordinary crucial edit settle pencil lion appear unlock left fly century license";
 
-#[allow(dead_code)]
 pub const OWNER_MNEMONIC: &str =
     "apology pull visa moon retreat spell elite extend secret region fly diary";
+
+pub const ANOTHER_OWNER_MNEMONIC: &str =
+    "circle hold drift unable own laptop age relax degree next alone stage";
 
 #[allow(dead_code)]
 pub async fn start_node() {
@@ -223,15 +226,14 @@ pub async fn import_new_contract(
 }
 
 pub async fn create_new_invoice(
-    issuer_resp: IssueResponse,
+    contract_id: &str,
+    iface: &str,
+    amount: u64,
+    owner_keys: DecryptedWalletData,
     params: Option<HashMap<String, String>>,
+    contract: Option<String>,
 ) -> Result<InvoiceResponse, anyhow::Error> {
-    let owner_keys = save_mnemonic(
-        &SecretString(OWNER_MNEMONIC.to_string()),
-        &SecretString("".to_string()),
-    )
-    .await?;
-    let descriptor_pub = match issuer_resp.iface.as_str() {
+    let descriptor_pub = match iface {
         "RGB20" => owner_keys.public.rgb_assets_descriptor_xpub.clone(),
         "RGB21" => owner_keys.public.rgb_udas_descriptor_xpub.clone(),
         _ => owner_keys.public.rgb_assets_descriptor_xpub.clone(),
@@ -240,21 +242,22 @@ pub async fn create_new_invoice(
 
     // Create Watcher
     let sk = owner_keys.private.nostr_prv.clone();
-    let contract_type = match issuer_resp.iface.as_str() {
+    let contract_type = match iface {
         "RGB20" => AssetType::RGB20,
         "RGB21" => AssetType::RGB21,
         _ => AssetType::Contract,
     };
 
-    // Import Contract
-    let import_req = ImportRequest {
-        import: contract_type,
-        data: issuer_resp.contract.legacy,
-    };
+    if let Some(contract) = contract {
+        // Import Contract
+        let import_req = ImportRequest {
+            import: contract_type,
+            data: contract,
+        };
 
-    let resp = import(&sk, import_req).await;
-    assert!(resp.is_ok());
-
+        let resp = import(&sk, import_req).await;
+        assert!(resp.is_ok());
+    }
     // Create Invoice
     let owner_address = &owner_vault
         .lock()
@@ -273,9 +276,9 @@ pub async fn create_new_invoice(
 
     let params = params.unwrap_or_default();
     let invoice_req = InvoiceRequest {
-        contract_id: issuer_resp.contract_id,
-        iface: issuer_resp.iface,
-        amount: 1,
+        contract_id: contract_id.to_owned(),
+        iface: iface.to_owned(),
+        amount,
         seal,
         params,
     };
@@ -284,69 +287,148 @@ pub async fn create_new_invoice(
 }
 
 pub async fn create_new_psbt(
-    issuer_keys: DecryptedWalletData,
-    issuer_resp: IssueResponse,
+    contract_id: &str,
+    iface: &str,
+    owner_utxos: Vec<String>,
+    owner_keys: DecryptedWalletData,
 ) -> Result<PsbtResponse, anyhow::Error> {
     // Get Allocations
     let watcher_name = "default";
-    let sk = issuer_keys.private.nostr_prv.clone();
+    let sk = owner_keys.private.nostr_prv.clone();
     let resp = watcher_details(&sk, watcher_name).await;
     assert!(resp.is_ok());
 
-    let mut asset_utxo = String::new();
-    let mut asset_utxo_terminal = String::new();
+    let mut inputs = vec![];
     let watcher_details = resp?;
     for contract_allocations in watcher_details
         .contracts
         .into_iter()
-        .filter(|x| x.contract_id == issuer_resp.contract_id)
+        .filter(|x| x.contract_id == contract_id)
     {
         let allocations: Vec<AllocationDetail> = contract_allocations
             .allocations
             .into_iter()
-            .filter(|a| a.is_mine && a.utxo == issuer_resp.issue_utxo)
+            .filter(|a| a.is_mine && !a.is_spent && owner_utxos.contains(&a.utxo))
             .collect();
 
         if let Some(allocation) = allocations.into_iter().next() {
-            asset_utxo = allocation.utxo.to_owned();
-            asset_utxo_terminal = allocation.derivation;
-            break;
+            inputs.push(PsbtInputRequest {
+                asset_utxo: allocation.utxo.to_owned(),
+                asset_utxo_terminal: allocation.derivation,
+                tapret: None,
+            })
         }
     }
 
-    let descriptor_pub = match issuer_resp.iface.as_str() {
-        "RGB20" => issuer_keys.public.rgb_assets_descriptor_xpub.clone(),
-        "RGB21" => issuer_keys.public.rgb_udas_descriptor_xpub.clone(),
-        _ => issuer_keys.public.rgb_assets_descriptor_xpub.clone(),
+    let descriptor_pub = match iface {
+        "RGB20" => owner_keys.public.rgb_assets_descriptor_xpub.clone(),
+        "RGB21" => owner_keys.public.rgb_udas_descriptor_xpub.clone(),
+        _ => owner_keys.public.rgb_assets_descriptor_xpub.clone(),
     };
 
-    assert_eq!(asset_utxo, issuer_resp.issue_utxo);
     let req = PsbtRequest {
         descriptor_pub: SecretString(descriptor_pub),
-        asset_utxo: asset_utxo.to_string(),
-        asset_utxo_terminal: asset_utxo_terminal.to_string(),
+        inputs,
         change_index: None,
         bitcoin_changes: vec![],
         fee: None,
-        input_tweak: None,
+    };
+
+    create_psbt(&sk, req).await
+}
+
+pub async fn create_new_invoice_v2(
+    contract_id: &str,
+    iface: &str,
+    amount: u64,
+    utxo: &str,
+    owner_keys: DecryptedWalletData,
+    params: Option<HashMap<String, String>>,
+    contract: Option<String>,
+) -> Result<InvoiceResponse, anyhow::Error> {
+    // Create Watcher
+    let sk = owner_keys.private.nostr_prv.clone();
+    let contract_type = match iface {
+        "RGB20" => AssetType::RGB20,
+        "RGB21" => AssetType::RGB21,
+        _ => AssetType::Contract,
+    };
+
+    if let Some(contract) = contract {
+        // Import Contract
+        let import_req = ImportRequest {
+            import: contract_type,
+            data: contract,
+        };
+
+        let resp = import(&sk, import_req).await;
+        assert!(resp.is_ok());
+    }
+
+    let seal = format!("tapret1st:{utxo}");
+
+    let params = params.unwrap_or_default();
+    let invoice_req = InvoiceRequest {
+        contract_id: contract_id.to_owned(),
+        iface: iface.to_owned(),
+        amount,
+        seal,
+        params,
+    };
+
+    create_invoice(&sk, invoice_req).await
+}
+
+pub async fn create_new_psbt_v2(
+    iface: &str,
+    owner_utxos: Vec<AllocationDetail>,
+    owner_keys: DecryptedWalletData,
+) -> Result<PsbtResponse, anyhow::Error> {
+    // Get Allocations
+    let watcher_name = "default";
+    let sk = owner_keys.private.nostr_prv.clone();
+    let resp = watcher_details(&sk, watcher_name).await;
+    assert!(resp.is_ok());
+
+    let inputs = owner_utxos
+        .into_iter()
+        .map(|x| PsbtInputRequest {
+            asset_utxo: x.utxo.to_owned(),
+            asset_utxo_terminal: x.derivation,
+            tapret: None,
+        })
+        .collect();
+
+    let descriptor_pub = match iface {
+        "RGB20" => owner_keys.public.rgb_assets_descriptor_xpub.clone(),
+        "RGB21" => owner_keys.public.rgb_udas_descriptor_xpub.clone(),
+        _ => owner_keys.public.rgb_assets_descriptor_xpub.clone(),
+    };
+
+    let req = PsbtRequest {
+        descriptor_pub: SecretString(descriptor_pub),
+        inputs,
+        change_index: None,
+        bitcoin_changes: vec![],
+        fee: None,
     };
 
     create_psbt(&sk, req).await
 }
 
 pub async fn create_new_transfer(
-    issuer_keys: DecryptedWalletData,
-    owner_resp: InvoiceResponse,
+    owner_keys: DecryptedWalletData,
+    invoice_resp: InvoiceResponse,
     psbt_resp: PsbtResponse,
 ) -> Result<RgbTransferResponse, anyhow::Error> {
     // Get Allocations
     let transfer_req = RgbTransferRequest {
         psbt: psbt_resp.psbt,
-        rgb_invoice: owner_resp.invoice,
+        rgb_invoice: invoice_resp.invoice,
         terminal: psbt_resp.terminal,
     };
 
-    let sk = issuer_keys.private.nostr_prv.clone();
+    let sk = owner_keys.private.nostr_prv.clone();
     transfer_asset(&sk, transfer_req).await
 }
 

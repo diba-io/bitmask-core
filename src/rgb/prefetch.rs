@@ -1,10 +1,10 @@
 #![allow(unused_imports)]
 #![allow(unused_variables)]
+
 use amplify::{
     confinement::Confined,
     hex::{FromHex, ToHex},
 };
-
 use bdk::blockchain::EsploraBlockchain;
 use bech32::{decode, FromBase32};
 use bitcoin::{OutPoint, Script, Txid};
@@ -31,7 +31,7 @@ pub async fn prefetch_resolver_psbt(asset_utxo: &str, explorer: &mut ExplorerRes
 #[cfg(not(target_arch = "wasm32"))]
 pub async fn prefetch_resolver_utxo_status(
     iface_index: u32,
-    wallet: RgbWallet,
+    wallet: &mut RgbWallet,
     explorer: &mut ExplorerResolver,
 ) {
 }
@@ -39,8 +39,8 @@ pub async fn prefetch_resolver_utxo_status(
 #[cfg(not(target_arch = "wasm32"))]
 pub async fn prefetch_resolver_utxos(
     iface_index: u32,
-    explorer: &mut ExplorerResolver,
     wallet: &mut RgbWallet,
+    explorer: &mut ExplorerResolver,
 ) {
 }
 
@@ -52,6 +52,7 @@ pub async fn prefetch_resolver_waddress(
     address: &str,
     wallet: &mut RgbWallet,
     explorer: &mut ExplorerResolver,
+    limit: Option<u32>,
 ) {
 }
 
@@ -61,6 +62,7 @@ pub async fn prefetch_resolver_wutxo(
     network: AddressNetwork,
     wallet: &mut RgbWallet,
     explorer: &mut ExplorerResolver,
+    limit: Option<u32>,
 ) {
 }
 
@@ -142,13 +144,14 @@ pub async fn prefetch_resolver_psbt(asset_utxo: &str, explorer: &mut ExplorerRes
 #[cfg(target_arch = "wasm32")]
 pub async fn prefetch_resolver_utxo_status(
     iface_index: u32,
-    wallet: RgbWallet,
+    wallet: &mut RgbWallet,
     explorer: &mut ExplorerResolver,
 ) {
     let esplora_client: EsploraBlockchain =
         EsploraBlockchain::new(&explorer.explorer_url, 100).with_concurrency(6);
     let utxos: Vec<Utxo> = wallet
         .utxos
+        .clone()
         .into_iter()
         .filter(|utxo| {
             utxo.derivation.terminal.app == iface_index && utxo.derivation.tweak.is_none()
@@ -176,8 +179,8 @@ pub async fn prefetch_resolver_utxo_status(
 #[cfg(target_arch = "wasm32")]
 pub async fn prefetch_resolver_utxos(
     iface_index: u32,
-    explorer: &mut ExplorerResolver,
     wallet: &mut RgbWallet,
+    explorer: &mut ExplorerResolver,
 ) {
     let esplora_client: EsploraBlockchain =
         EsploraBlockchain::new(&explorer.explorer_url, 100).with_concurrency(6);
@@ -259,11 +262,15 @@ pub async fn prefetch_resolver_waddress(
     address: &str,
     wallet: &mut RgbWallet,
     explorer: &mut ExplorerResolver,
+    limit: Option<u32>,
 ) {
     let esplora_client: EsploraBlockchain =
         EsploraBlockchain::new(&explorer.explorer_url, 100).with_concurrency(6);
 
-    let step = 100;
+    let mut step = 100;
+    if let Some(limit) = limit {
+        step = limit;
+    }
     let index = 0;
 
     let sc = AddressCompat::from_str(address).expect("invalid address");
@@ -334,6 +341,7 @@ pub async fn prefetch_resolver_wutxo(
     network: AddressNetwork,
     wallet: &mut RgbWallet,
     explorer: &mut ExplorerResolver,
+    limit: Option<u32>,
 ) {
     let esplora_client: EsploraBlockchain =
         EsploraBlockchain::new(&explorer.explorer_url, 100).with_concurrency(6);
@@ -349,7 +357,7 @@ pub async fn prefetch_resolver_wutxo(
             let sc = Script::from_str(&vout.script_pubkey.to_hex()).expect("invalid script");
             let pub_script = PubkeyScript::from(sc);
             if let Some(address) = AddressCompat::from_script(&pub_script, network) {
-                prefetch_resolver_waddress(&address.to_string(), wallet, explorer).await;
+                prefetch_resolver_waddress(&address.to_string(), wallet, explorer, limit).await;
             }
         }
     }

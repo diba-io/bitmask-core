@@ -134,6 +134,13 @@ pub struct SelfIssueRequest {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
+pub struct ReIssueRequest {
+    /// previous contracts
+    pub contracts: Vec<ContractResponse>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct IssueMetaRequest(pub IssueMetadata);
 
 impl IssueMetaRequest {
@@ -232,6 +239,12 @@ pub struct GenesisFormats {
     pub armored: String,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ReIssueResponse {
+    pub contracts: Vec<IssueResponse>,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub enum AssetType {
@@ -272,7 +285,7 @@ pub struct ContractResponse {
     /// Amount of the asset
     pub supply: u64,
     /// Precision of the asset
-    pub precision: u64,
+    pub precision: u8,
     /// The user contract balance
     pub balance: u64,
     /// The contract allocations
@@ -292,6 +305,10 @@ pub struct ContractMeta(ContractMetadata);
 impl ContractMeta {
     pub fn with(metadata: ContractMetadata) -> Self {
         ContractMeta(metadata)
+    }
+
+    pub fn meta(self) -> ContractMetadata {
+        self.0
     }
 }
 
@@ -358,17 +375,24 @@ pub struct PsbtRequest {
     /// Descriptor XPub
     pub descriptor_pub: SecretString,
     /// Asset UTXO
+    pub inputs: Vec<PsbtInputRequest>,
+    /// Bitcoin Change Addresses (format: {address}:{amount})
+    pub bitcoin_changes: Vec<String>,
+    /// Asset Change Index UTXO (default: 1)
+    pub change_index: Option<u16>,
+    /// Bitcoin Fee
+    pub fee: Option<u64>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct PsbtInputRequest {
+    /// Asset UTXO
     pub asset_utxo: String,
     /// Asset UTXO Terminal (ex. /0/0)
     pub asset_utxo_terminal: String,
-    /// Asset Change Index UTXO (default: 1)
-    pub change_index: Option<u16>,
-    /// Bitcoin Change Addresses (format: {address}:{amount})
-    pub bitcoin_changes: Vec<String>,
-    /// Bitcoin Fee
-    pub fee: Option<u64>,
     /// TapTweak used to spend outputs based in tapret commitments
-    pub input_tweak: Option<String>,
+    pub tapret: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -517,7 +541,7 @@ pub struct WatcherDetail {
     pub allocations: Vec<AllocationDetail>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Eq, Ord, PartialEq, PartialOrd, Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct AllocationDetail {
     /// Anchored UTXO
@@ -526,11 +550,14 @@ pub struct AllocationDetail {
     pub value: AllocationValue,
     /// Derivation Path
     pub derivation: String,
-    /// Derivation Path
+    /// My Allocation?
     pub is_mine: bool,
+    /// Allocation spent?
+    #[serde(skip)]
+    pub is_spent: bool,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Display)]
+#[derive(Eq, Ord, PartialEq, PartialOrd, Serialize, Deserialize, Debug, Clone, Display)]
 #[serde(rename_all = "camelCase")]
 pub enum AllocationValue {
     #[display(inner)]
@@ -540,7 +567,9 @@ pub enum AllocationValue {
     UDA(UDAPosition),
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Default, Display)]
+#[derive(
+    Eq, Ord, PartialEq, PartialOrd, Serialize, Deserialize, Debug, Clone, Default, Display,
+)]
 #[serde(rename_all = "camelCase")]
 #[display("{token_index}:{fraction}")]
 pub struct UDAPosition {
@@ -552,6 +581,7 @@ impl UDAPosition {
     pub fn with(uda: AllocationUDA) -> Self {
         UDAPosition {
             token_index: uda
+                .clone()
                 .token_id()
                 .to_string()
                 .parse()
@@ -576,6 +606,12 @@ pub struct NextAddressResponse {
 #[serde(rename_all = "camelCase")]
 pub struct NextUtxoResponse {
     pub utxo: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct NextUtxosResponse {
+    pub utxos: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
@@ -622,4 +658,11 @@ pub struct ExportRequest {
 pub struct ExportRequestMini {
     /// ContractId of the asset to export FROM the node
     pub asset: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct FileMetadata {
+    pub filename: String,
+    pub metadata: [u8; 8],
 }

@@ -1,6 +1,6 @@
 [package]
 name = "bitmask-core"
-version = "0.6.0-rc.2"
+version = "0.6.0-rc.5"
 authors = [
     "Jose Diego Robles <jose@diba.io>",
     "Hunter Trujillo <hunter@diba.io>",
@@ -27,28 +27,21 @@ server = ["tokio/full", "tower-http/cors"]
 
 [dependencies]
 anyhow = "1.0.71"
-aluvm = "0.10.2"
 amplify = "4.0.0"
 argon2 = "0.5.0"
 base64 = { package = "base64-compat", version = "1.0.0" }
 bech32 = "0.9.1"
 bip39 = { version = "2.0.0", features = ["rand"] }
-zeroize = "1.6.0"
 bitcoin_30 = { package = "bitcoin", version = "0.30", features = ["base64"] }
 bitcoin = { version = "0.29.2", features = ["base64"] }
 bitcoin_hashes = "0.12.0"
 bitcoin_scripts = "0.10.0-alpha.2"
 bitcoin_blockchain = "0.10.0-alpha.2"
-bp-core = "0.10.3"
-commit_verify = "0.10.2"
-bp-seals = "0.10.3"
-indexmap = "1.9.3"
-carbonado = "0.3.0-rc.13"
+bp-core = { version = "0.10.4", features = ["stl"] }
+bp-seals = "0.10.4"
+commit_verify = { version = "0.10.3", features = ["stl"] }
+carbonado = "0.3.1"
 console_error_panic_hook = "0.1.7"
-# directories = "4.0.1"
-miniscript_crate = { package = "miniscript", version = "9.0.1", features = [
-    "compiler",
-] }
 descriptor-wallet = { version = "0.10.0-alpha.2", features = [
     "descriptors",
     "serde",
@@ -59,12 +52,17 @@ futures = { version = "0.3.28", features = [
 ], default-features = true }
 getrandom = { version = "0.2.10", features = ["js"] }
 hex = "0.4.3"
+indexmap = "1.9.3"
 lightning-invoice = "0.23.0"
 log = "0.4.17"
+miniscript_crate = { package = "miniscript", version = "9.0.1", features = [
+    "compiler",
+] }
 nostr-sdk = "0.22.0"
 once_cell = "1.17.1"
 payjoin = { version = "0.7.0", features = ["sender"] }
 percent-encoding = "2.2.0"
+postcard = { version = "1.0.4", features = ["alloc"] }
 pretty_env_logger = "0.5.0"
 psbt = { version = "0.10.0-alpha.2", features = [
     "sign",
@@ -73,20 +71,20 @@ psbt = { version = "0.10.0-alpha.2", features = [
     "construct",
 ] }
 regex = "1.7.0"
-reqwest = { version = "0.11.16", features = ["json"] }
-rgb-contracts = { version = "0.10.0", default-features = false, features = [
+reqwest = { version = "0.11.18", features = ["json"] }
+rgb-contracts = { version = "0.10.0-beta.2", default-features = false, features = [
     "log",
 ] }
+rgb-schemata = { version = "0.10.0-beta.1" }
 rgb-std = { version = "0.10.2" }
 rgb-wallet = { version = "0.10.2" }
-rgb-schemata = { version = "0.10.0-beta.1" }
 serde = "1.0.152"
 serde_json = "1.0.91"
-postcard = { version = "1.0.4", features = ["alloc"] }
 serde-encrypt = "0.7.0"
-strict_types = "1.2.0"
-strict_encoding = "2.2.0"
+strict_encoding = "2.4.1"
+strict_types = "1.4.1"
 tokio = { version = "1.28.2", features = ["macros", "sync"] }
+zeroize = "1.6.0"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 bdk = { version = "0.28.0", features = [
@@ -94,7 +92,7 @@ bdk = { version = "0.28.0", features = [
     "async-interface",
 ], default-features = false }
 gloo-console = "0.2.3"
-gloo-net = "0.2.6"
+gloo-net = "0.3.0"
 js-sys = "0.3.63"
 serde-wasm-bindgen = "0.5.0"
 wasm-bindgen = { version = "0.2.86", features = ["serde-serialize"] }
@@ -102,9 +100,6 @@ wasm-bindgen-futures = "0.4.36"
 web-sys = "0.3.63"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-esplora_block = { version = "0.5.0", package = "esplora-client", default-features = false, features = [
-    "blocking",
-] }
 bdk = { version = "0.28.0", features = [
     "use-esplora-async",
     "async-interface",
@@ -113,6 +108,9 @@ bdk = { version = "0.28.0", features = [
 axum = { version = "0.6.17", features = ["headers"] }
 axum-macros = "0.3.0"
 deflate = "1.0.0"
+esplora_block = { version = "0.5.0", package = "esplora-client", default-features = false, features = [
+    "blocking",
+] }
 inflate = "0.4.5"
 tower-http = { version = "0.4.0", features = ["cors"], optional = true }
 
@@ -124,14 +122,14 @@ wasm-bindgen-test = "0.3.36"
 
 [patch.crates-io]
 # TODO: Remove this after merge and release fixies
-rgb-contracts = { git = "https://github.com/crisdut/rgb", branch = "exp/fixies" }
 bitcoin_scripts = { git = "https://github.com/crisdut/bp-foundation", branch = "release/0.10.0-alpha.2" }
 bitcoin_blockchain = { git = "https://github.com/crisdut/bp-foundation", branch = "release/0.10.0-alpha.2" }
-strict_types = { git = "https://github.com/crisdut/strict-types/", branch = "fix/typelib-id" }
 # TODO: Remove this after propose a universal tweak in descriptor-wallet
 descriptor-wallet = { git = "https://github.com/crisdut/descriptor-wallet", branch = "exp/tapret-transfers" }
 psbt = { git = "https://github.com/crisdut/descriptor-wallet", branch = "exp/tapret-transfers" }
 # TODO: Remove this after merge and release fixies
-rgb-schemata = { git = "https://github.com/crisdut/rgbsc", branch = "exp/full-uda" }
-rgb-wallet = { git = "https://github.com/crisdut/rgb-wallet", branch = "exp/full-uda" }
-rgb-std = { git = "https://github.com/crisdut/rgb-wallet", branch = "exp/full-uda" }
+rgb-contracts = { git = "https://github.com/crisdut/rgb", branch = "release/bmc-v0.6" }
+rgb-schemata = { git = "https://github.com/crisdut/rgbsc", branch = "release/bmc-v0.6" }
+rgb-wallet = { git = "https://github.com/crisdut/rgb-wallet", branch = "release/bmc-v0.6" }
+rgb-std = { git = "https://github.com/crisdut/rgb-wallet", branch = "release/bmc-v0.6" }
+rgb-core = { git = "https://github.com/crisdut/rgb-core" }

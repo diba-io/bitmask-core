@@ -3,6 +3,7 @@ use std::{collections::HashMap, str::FromStr};
 use bitcoin::Address;
 use bitcoin_scripts::address::AddressCompat;
 use rgb::{RgbWallet, TerminalPath};
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug, Display)]

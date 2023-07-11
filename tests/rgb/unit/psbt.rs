@@ -24,8 +24,11 @@ async fn allow_create_psbt_file() -> anyhow::Result<()> {
 
     let psbt = create_psbt(
         desc.to_string(),
-        asset_utxo.to_string(),
-        asset_utxo_terminal.to_string(),
+        vec![(
+            asset_utxo.to_string(),
+            asset_utxo_terminal.to_string(),
+            None,
+        )],
         Some(0),
         vec![],
         fee,

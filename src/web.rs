@@ -1,6 +1,6 @@
 use crate::structs::{
-    AcceptRequest, ImportRequest, InvoiceRequest, IssueRequest, PsbtRequest, RgbTransferRequest,
-    SecretString, SignPsbtRequest, WatcherRequest,
+    AcceptRequest, ImportRequest, InvoiceRequest, IssueRequest, PsbtRequest, ReIssueRequest,
+    RgbTransferRequest, SecretString, SignPsbtRequest, WatcherRequest,
 };
 // use crate::{carbonado, lightning, rgb};
 
@@ -312,6 +312,22 @@ pub mod rgb {
         future_to_promise(async move {
             let req: IssueRequest = serde_wasm_bindgen::from_value(request).unwrap();
             match crate::rgb::issue_contract(&nostr_hex_sk, req).await {
+                Ok(result) => Ok(JsValue::from_string(
+                    serde_json::to_string(&result).unwrap(),
+                )),
+                Err(err) => Err(JsValue::from_string(err.to_string())),
+            }
+        })
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    #[wasm_bindgen]
+    pub fn reissue_contract(nostr_hex_sk: String, request: JsValue) -> Promise {
+        set_panic_hook();
+
+        future_to_promise(async move {
+            let req: ReIssueRequest = serde_wasm_bindgen::from_value(request).unwrap();
+            match crate::rgb::reissue_contract(&nostr_hex_sk, req).await {
                 Ok(result) => Ok(JsValue::from_string(
                     serde_json::to_string(&result).unwrap(),
                 )),
@@ -658,11 +674,17 @@ pub mod carbonado {
     use super::*;
 
     #[wasm_bindgen]
-    pub fn store(secret_key: String, name: String, data: Vec<u8>) -> Promise {
+    pub fn store(
+        secret_key: String,
+        name: String,
+        data: Vec<u8>,
+        force: bool,
+        metadata: Option<Vec<u8>>,
+    ) -> Promise {
         set_panic_hook();
 
         future_to_promise(async move {
-            match crate::carbonado::store(&secret_key, &name, &data).await {
+            match crate::carbonado::store(&secret_key, &name, &data, force, metadata).await {
                 Ok(result) => Ok(JsValue::from_string(
                     serde_json::to_string(&result).unwrap(),
                 )),
@@ -679,11 +701,25 @@ pub mod carbonado {
 
         future_to_promise(async move {
             match crate::carbonado::retrieve(&secret_key, &name).await {
-                Ok(result) => {
+                Ok((result, _)) => {
                     let array = Uint8Array::new_with_length(result.len() as u32);
                     array.copy_from(&result);
                     Ok(JsValue::from(array))
                 }
+                Err(err) => Err(JsValue::from_string(err.to_string())),
+            }
+        })
+    }
+
+    #[wasm_bindgen]
+    pub fn retrieve_metadata(secret_key: String, name: String) -> Promise {
+        set_panic_hook();
+
+        future_to_promise(async move {
+            match crate::carbonado::retrieve_metadata(&secret_key, &name).await {
+                Ok(result) => Ok(JsValue::from_string(
+                    serde_json::to_string(&result).unwrap(),
+                )),
                 Err(err) => Err(JsValue::from_string(err.to_string())),
             }
         })
