@@ -5,10 +5,10 @@ use bdk::{wallet::tx_builder::TxOrdering, FeeRate, TransactionDetails};
 use bitcoin::{
     consensus::serialize,
     psbt::{Input, Psbt},
-    TxIn,
+    Amount, TxIn,
 };
 
-use payjoin::{PjUri, PjUriExt};
+use payjoin::{send::Configuration, PjUri, PjUriExt};
 
 use crate::{
     bitcoin::{
@@ -49,23 +49,56 @@ pub async fn create_payjoin(
     fee_rate: Option<FeeRate>,
     pj_uri: PjUri<'_>, // TODO specify Uri<PayJoinParams>
 ) -> Result<TransactionDetails> {
+    let enacted_fee_rate = fee_rate.unwrap_or_default();
     let (psbt, details) = {
         let locked_wallet = wallet.lock().await;
         let mut builder = locked_wallet.build_tx();
-        for invoice in invoices {
+        for invoice in &invoices {
             builder.add_recipient(invoice.address.script_pubkey(), invoice.amount);
         }
-        builder.enable_rbf().fee_rate(fee_rate.unwrap_or_default());
+        builder.enable_rbf().fee_rate(enacted_fee_rate);
         builder.finish()?
     };
 
     debug!(format!("Request PayJoin transaction: {details:#?}"));
     debug!("Unsigned Original PSBT:", base64::encode(&serialize(&psbt)));
-    let original_psbt = sign_original_psbt(wallet, psbt).await?;
+    let original_psbt = sign_original_psbt(wallet, psbt.clone()).await?;
     info!("Original PSBT successfully signed");
 
-    // TODO use fee_rate
-    let pj_params = payjoin::send::Configuration::non_incentivizing();
+    let additional_fee_index = psbt
+        .outputs
+        .clone()
+        .into_iter()
+        .enumerate()
+        .find(|(_, output)| {
+            invoices.iter().all(|invoice| {
+                output.redeem_script != Some(invoice.address.script_pubkey())
+                    && output.witness_script != Some(invoice.address.script_pubkey())
+            })
+        })
+        .map(|(i, _)| i);
+
+    let pj_params = match additional_fee_index {
+        Some(index) => {
+            let amount_available = psbt
+                .clone()
+                .unsigned_tx
+                .output
+                .get(index)
+                .map(|o| Amount::from_sat(o.value))
+                .unwrap_or_default();
+            const P2TR_INPUT_WEIGHT: usize = 58; // bitmask is taproot only
+            let recommended_fee = Amount::from_sat(enacted_fee_rate.fee_wu(P2TR_INPUT_WEIGHT));
+            let max_additional_fee = std::cmp::min(
+                recommended_fee,
+                amount_available, // offer amount available if recommendation is not
+            );
+
+            Configuration::with_fee_contribution(max_additional_fee, Some(index))
+        }
+        None => Configuration::non_incentivizing(),
+    };
+
     let (req, ctx) = pj_uri.create_pj_request(original_psbt.clone(), pj_params)?;
     info!("Built PayJoin request");
     let response = reqwest::Client::new()
