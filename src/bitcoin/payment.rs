@@ -1,10 +1,8 @@
 use anyhow::{anyhow, Result};
 
-use bdk::{
-    database::AnyDatabase, wallet::tx_builder::TxOrdering, FeeRate, TransactionDetails, Wallet,
-};
+use bdk::{wallet::tx_builder::TxOrdering, FeeRate, TransactionDetails};
 
-use bitcoin::consensus::{
+use bitcoin::{
     consensus::serialize,
     psbt::{Input, Psbt},
     TxIn,
@@ -67,7 +65,7 @@ pub async fn create_payjoin(
     info!("Original PSBT successfully signed");
 
     // TODO use fee_rate
-    let pj_params = payjoin::sender::Configuration::non_incentivizing();
+    let pj_params = payjoin::send::Configuration::non_incentivizing();
     let (req, ctx) = pj_uri.create_pj_request(original_psbt.clone(), pj_params)?;
     info!("Built PayJoin request");
     let response = reqwest::Client::new()
@@ -85,7 +83,7 @@ pub async fn create_payjoin(
         return Err(anyhow!("Error performing payjoin: {res}"));
     }
 
-    let payjoin_psbt = ctx.process_response(res.as_bytes())?;
+    let payjoin_psbt = ctx.process_response(&mut res.as_bytes())?;
     let payjoin_psbt = add_back_original_input(&original_psbt, payjoin_psbt);
 
     debug!(

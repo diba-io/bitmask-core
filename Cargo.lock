@@ -2262,9 +2262,9 @@ checksum = "b4b27ab7be369122c218afc2079489cdcb4b517c0a3fc386ff11e1fedfcc2b35"
 
 [[package]]
 name = "payjoin"
-version = "0.7.0"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3c5770c48c69af29fc8fa9f9ccddd9aee7daf2616ba196651913939671fdcf1f"
+checksum = "e076c820f8780985db6a2b1f6c0914350becc79aa3e071872bcd4bc17e7e0f06"
 dependencies = [
  "base64 0.13.1",
  "bip21",
