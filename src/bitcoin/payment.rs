@@ -1,6 +1,15 @@
 use anyhow::{anyhow, Result};
-use bdk::{wallet::tx_builder::TxOrdering, FeeRate, TransactionDetails};
-use bitcoin::consensus::serialize;
+
+use bdk::{
+    database::AnyDatabase, wallet::tx_builder::TxOrdering, FeeRate, TransactionDetails, Wallet,
+};
+
+use bitcoin::consensus::{
+    consensus::serialize,
+    psbt::{Input, Psbt},
+    TxIn,
+};
+
 use payjoin::{PjUri, PjUriExt};
 
 use crate::{
@@ -59,7 +68,7 @@ pub async fn create_payjoin(
 
     // TODO use fee_rate
     let pj_params = payjoin::sender::Configuration::non_incentivizing();
-    let (req, ctx) = pj_uri.create_pj_request(original_psbt, pj_params)?;
+    let (req, ctx) = pj_uri.create_pj_request(original_psbt.clone(), pj_params)?;
     info!("Built PayJoin request");
     let response = reqwest::Client::new()
         .post(req.url)
@@ -77,6 +86,7 @@ pub async fn create_payjoin(
     }
 
     let payjoin_psbt = ctx.process_response(res.as_bytes())?;
+    let payjoin_psbt = add_back_original_input(&original_psbt, payjoin_psbt);
 
     debug!(
         "Proposed PayJoin PSBT:",
@@ -86,4 +96,35 @@ pub async fn create_payjoin(
     let tx = sign_psbt(wallet, payjoin_psbt).await?;
 
     Ok(tx)
+}
+
+/// Unlike Bitcoin Core's walletprocesspsbt RPC, BDK's finalize_psbt only checks
+/// if the script in the PSBT input map matches the descriptor and does not
+/// check whether it has control of the OutPoint specified in the unsigned_tx's
+/// TxIn. So the original_psbt input data needs to be added back into
+/// payjoin_psbt without overwriting receiver input.
+fn add_back_original_input(original_psbt: &Psbt, payjoin_psbt: Psbt) -> Psbt {
+    // input_pairs is only used here. It may be added to payjoin, rust-bitcoin, or BDK in time.
+    fn input_pairs(psbt: &Psbt) -> Box<dyn Iterator<Item = (TxIn, Input)> + '_> {
+        Box::new(
+            psbt.unsigned_tx
+                .input
+                .iter()
+                .cloned() // Clone each TxIn for better ergonomics than &muts
+                .zip(psbt.inputs.iter().cloned()), // Clone each Input too
+        )
+    }
+
+    let mut original_inputs = input_pairs(&original_psbt).peekable();
+
+    for (proposed_txin, mut proposed_psbtin) in input_pairs(&payjoin_psbt) {
+        if let Some((original_txin, original_psbtin)) = original_inputs.peek() {
+            if proposed_txin.previous_output == original_txin.previous_output {
+                proposed_psbtin.witness_utxo = original_psbtin.witness_utxo.clone();
+                proposed_psbtin.non_witness_utxo = original_psbtin.non_witness_utxo.clone();
+            }
+            original_inputs.next();
+        }
+    }
+    payjoin_psbt
 }
