@@ -146,7 +146,7 @@ fn add_back_original_input(original_psbt: &Psbt, payjoin_psbt: Psbt) -> Psbt {
         )
     }
 
-    let mut original_inputs = input_pairs(&original_psbt).peekable();
+    let mut original_inputs = input_pairs(original_psbt).peekable();
 
     for (proposed_txin, mut proposed_psbtin) in input_pairs(&payjoin_psbt) {
         if let Some((original_txin, original_psbtin)) = original_inputs.peek() {
