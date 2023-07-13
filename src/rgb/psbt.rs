@@ -1,4 +1,3 @@
-use std::collections::BTreeMap;
 use std::str::FromStr;
 
 use amplify::hex::ToHex;
@@ -32,39 +31,41 @@ use wallet::{
 
 use crate::{
     rgb::{constants::RGB_PSBT_TAPRET, structs::AddressAmount},
-    structs::SecretString,
+    structs::{PsbtInputRequest, SecretString},
 };
 
 #[allow(clippy::too_many_arguments)]
 pub fn create_psbt(
-    descriptor_pub: String,
-    asset_utxos: Vec<(String, String, Option<String>)>,
-    bitcoin_change_index: Option<u16>,
-    bitcoin_changes: Vec<String>,
+    psbt_inputs: Vec<PsbtInputRequest>,
+    psbt_outputs: Vec<String>,
+    asset_terminal_change: String,
     bitcoin_fee: u64,
     wallet: Option<RgbWallet>,
     tx_resolver: &impl ResolveTx,
 ) -> Result<(Psbt, String), ProprietaryKeyError> {
     let mut inputs = vec![];
 
-    // Define Descriptor
-    let (_, terminal, _) = asset_utxos.first().unwrap();
-    let terminal: DerivationSubpath<UnhardenedIndex> =
-        terminal.parse().expect("invalid terminal path parse");
+    // Define "Universal" Descriptor
+    let psbt_input = psbt_inputs[0].clone();
+    let input_terminal: DerivationSubpath<UnhardenedIndex> = psbt_input
+        .utxo_terminal
+        .parse()
+        .expect("invalid terminal path parse");
 
-    let contract_index = terminal.first().expect("first derivation index");
+    let contract_index = input_terminal.first().expect("first derivation index");
     let terminal_step = format!("/{contract_index}/*");
 
-    let descriptor_pub = descriptor_pub.replace(&terminal_step, "/*/*");
-    let descriptor: &Descriptor<DerivationAccount> =
+    let descriptor_pub = psbt_input.descriptor.0.replace(&terminal_step, "/*/*");
+    let global_descriptor: &Descriptor<DerivationAccount> =
         &Descriptor::from_str(&descriptor_pub).expect("invalid descriptor parse");
 
     // Define Input Descriptors
-    for (asset_utxo, asset_utxo_terminal, tapret) in asset_utxos {
-        let outpoint: OutPoint = asset_utxo.parse().expect("invalid outpoint parse");
+    for psbt_input in psbt_inputs {
+        let outpoint: OutPoint = psbt_input.utxo.parse().expect("invalid outpoint parse");
         let mut input = InputDescriptor {
             outpoint,
-            terminal: asset_utxo_terminal
+            terminal: psbt_input
+                .utxo_terminal
                 .parse()
                 .expect("invalid terminal path parse"),
             seq_no: SeqNo::default(),
@@ -73,13 +74,13 @@ pub fn create_psbt(
         };
 
         // Verify TapTweak (User Input or Watcher inspect)
-        if let Some(tapret) = tapret {
+        if let Some(tapret) = psbt_input.tapret {
             input.tweak = Some((
                 Fingerprint::default(),
                 tapret.parse().expect("invalid hash"),
             ))
         } else if let Some(tweak) = complete_input_desc(
-            descriptor.clone(),
+            global_descriptor.clone(),
             input.clone(),
             wallet.clone(),
             tx_resolver,
@@ -92,7 +93,7 @@ pub fn create_psbt(
         inputs.push(input);
     }
 
-    let bitcoin_addresses: Vec<AddressAmount> = bitcoin_changes
+    let bitcoin_addresses: Vec<AddressAmount> = psbt_outputs
         .into_iter()
         .map(|btc| AddressAmount::from_str(btc.as_str()).expect("invalid AddressFormat parse"))
         .collect();
@@ -114,21 +115,14 @@ pub fn create_psbt(
     }];
 
     // Change Terminal Derivation
-    let mut change_derivation = vec![terminal[0]];
-    let change_index = match bitcoin_change_index {
-        Some(index) => {
-            UnhardenedIndex::from_str(&index.to_string()).expect("invalid change_index parse")
-        }
-        _ => UnhardenedIndex::default(),
-    };
-    change_derivation.insert(1, change_index);
-    let change_terminal = format!("/{contract_index}/{change_index}");
-
+    let change_derivation: DerivationSubpath<UnhardenedIndex> = asset_terminal_change
+        .parse()
+        .expect("invalid terminal change");
     let mut psbt = Psbt::construct(
-        descriptor,
+        global_descriptor,
         &inputs,
         &outputs,
-        change_derivation,
+        change_derivation.to_vec(),
         bitcoin_fee,
         tx_resolver,
     )
@@ -166,7 +160,7 @@ pub fn create_psbt(
         }
     }
 
-    Ok((psbt, change_terminal))
+    Ok((psbt, asset_terminal_change))
 }
 
 fn complete_input_desc(
@@ -298,28 +292,30 @@ pub fn save_commit(terminal: &str, commit: Vec<u8>, wallet: &mut RgbWallet) {
 }
 
 // TODO: [Experimental] Review with Diba Team
-pub fn estimate_fee_tx<T>(
-    descriptor_pub: &SecretString,
-    bitcoin_inputs: BTreeMap<String, String>,
+pub fn fee_estimate<T>(
+    assets_inputs: Vec<PsbtInputRequest>,
+    asset_descriptor_change: SecretString,
+    asset_terminal_change: String,
+    bitcoin_inputs: Vec<PsbtInputRequest>,
     bitcoin_changes: Vec<String>,
-    bitcoin_change_index: Option<u16>,
+    fee_rate: f32,
     resolver: &mut T,
 ) -> u64
 where
     T: ResolveTx + Resolver,
 {
     let mut vout_value = 0;
-    let mut bitcoin_terminal = String::new();
+    let fee_rate = FeeRate::from_sat_per_vb(fee_rate);
 
-    for (utxo, terminal) in bitcoin_inputs {
-        let outpoint = OutPoint::from_str(&utxo).expect("invalid outpoint");
+    // Total Stats
+    let mut all_inputs = assets_inputs;
+    all_inputs.extend(bitcoin_inputs);
+
+    for item in all_inputs {
+        let outpoint = OutPoint::from_str(&item.utxo).expect("invalid outpoint");
         if let Ok(tx) = resolver.resolve_tx(outpoint.txid) {
             if let Some(vout) = tx.output.to_vec().get(outpoint.vout as usize) {
                 vout_value = vout.value;
-            }
-
-            if bitcoin_terminal.is_empty() {
-                bitcoin_terminal = terminal;
             }
         }
     }
@@ -332,19 +328,11 @@ where
         total_spent += recipient.amount;
     }
 
-    let bitcoin_change_index = match bitcoin_change_index {
-        Some(index) => index.into(),
-        _ => UnhardenedIndex::default(),
-    };
-
     // Main Recipient
     total_spent = vout_value - total_spent;
-    let target_script =
-        get_recipient_script(descriptor_pub, &bitcoin_terminal, bitcoin_change_index)
-            .expect("invalid derivation");
+    let target_script = get_recipient_script(&asset_descriptor_change, &asset_terminal_change)
+        .expect("invalid derivation");
 
-    // TODO: Provide way to get fee rate estimate
-    let fee_rate = FeeRate::from_sat_per_vb(5.0);
     let excess = decide_change(total_spent, fee_rate, &target_script);
     match excess {
         Excess::Change { amount: _, fee } => fee,
@@ -356,29 +344,21 @@ where
     }
 }
 
-fn get_recipient_script(
-    descriptor_pub: &SecretString,
-    bitcoin_terminal: &str,
-    change_index: UnhardenedIndex,
-) -> Option<Script> {
-    let bitcoin_terminal: DerivationSubpath<UnhardenedIndex> = bitcoin_terminal
+fn get_recipient_script(descriptor_pub: &SecretString, bitcoin_terminal: &str) -> Option<Script> {
+    let terminal_step: DerivationSubpath<UnhardenedIndex> = bitcoin_terminal
         .parse()
         .expect("invalid terminal path parse");
 
-    let contract_index = bitcoin_terminal.first().expect("first derivation index");
-    let terminal_step = format!("/{contract_index}/*");
-
-    let descriptor_pub = descriptor_pub.0.replace(&terminal_step, "/*/*");
+    let descriptor_pub = descriptor_pub.0.replace(bitcoin_terminal, "/*/*");
     let descriptor: &Descriptor<DerivationAccount> =
         &Descriptor::from_str(&descriptor_pub).expect("invalid descriptor parse");
 
-    let change_derivation = [*contract_index, change_index];
     match descriptor {
         Descriptor::Tr(_) => {
             let change_descriptor = DeriveDescriptor::<XOnlyPublicKey>::derive_descriptor(
                 descriptor,
                 SECP256K1,
-                change_derivation,
+                terminal_step,
             )
             .expect("Derivation mismatch");
             let change_descriptor = match change_descriptor {

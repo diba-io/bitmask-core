@@ -12,8 +12,8 @@ use bitmask_core::{
     structs::{
         AllocationDetail, AssetType, ContractResponse, DecryptedWalletData, ImportRequest,
         InvoiceRequest, InvoiceResponse, IssueMetaRequest, IssueMetadata, IssueRequest,
-        IssueResponse, MediaInfo, NewCollectible, PsbtInputRequest, PsbtRequest, PsbtResponse,
-        RgbTransferRequest, RgbTransferResponse, SecretString, WatcherRequest,
+        IssueResponse, MediaInfo, NewCollectible, PsbtFeeRequest, PsbtInputRequest, PsbtRequest,
+        PsbtResponse, RgbTransferRequest, RgbTransferResponse, SecretString, WatcherRequest,
     },
 };
 use tokio::process::Command;
@@ -298,6 +298,18 @@ pub async fn create_new_psbt(
     let resp = watcher_details(&sk, watcher_name).await;
     assert!(resp.is_ok());
 
+    let descriptor_pub = match iface {
+        "RGB20" => owner_keys.public.rgb_assets_descriptor_xpub.clone(),
+        "RGB21" => owner_keys.public.rgb_udas_descriptor_xpub.clone(),
+        _ => owner_keys.public.rgb_assets_descriptor_xpub.clone(),
+    };
+
+    let terminal_change = match iface {
+        "RGB20" => "/20/1",
+        "RGB21" => "/21/1",
+        _ => "/20/1",
+    };
+
     let mut inputs = vec![];
     let watcher_details = resp?;
     for contract_allocations in watcher_details
@@ -313,28 +325,84 @@ pub async fn create_new_psbt(
 
         if let Some(allocation) = allocations.into_iter().next() {
             inputs.push(PsbtInputRequest {
-                asset_utxo: allocation.utxo.to_owned(),
-                asset_utxo_terminal: allocation.derivation,
+                descriptor: SecretString(descriptor_pub.clone()),
+                utxo: allocation.utxo.to_owned(),
+                utxo_terminal: allocation.derivation,
                 tapret: None,
             })
         }
     }
 
-    let descriptor_pub = match iface {
-        "RGB20" => owner_keys.public.rgb_assets_descriptor_xpub.clone(),
-        "RGB21" => owner_keys.public.rgb_udas_descriptor_xpub.clone(),
-        _ => owner_keys.public.rgb_assets_descriptor_xpub.clone(),
-    };
-
     let req = PsbtRequest {
-        descriptor_pub: SecretString(descriptor_pub),
-        inputs,
-        change_index: None,
+        asset_descriptor_change: SecretString(descriptor_pub.clone()),
+        asset_terminal_change: terminal_change.to_owned(),
+        asset_inputs: inputs,
+        bitcoin_inputs: vec![],
         bitcoin_changes: vec![],
-        fee: Some(1000),
+        fee: PsbtFeeRequest::Value(1000),
     };
 
     create_psbt(&sk, req).await
+}
+
+pub async fn issuer_issue_contract_v2(
+    number_of_contracts: u8,
+    iface: &str,
+    supply: u64,
+    force: bool,
+    send_coins: bool,
+    meta: Option<IssueMetaRequest>,
+) -> Result<Vec<IssueResponse>, anyhow::Error> {
+    setup_regtest(force, None).await;
+    let issuer_keys = save_mnemonic(
+        &SecretString(ISSUER_MNEMONIC.to_string()),
+        &SecretString("".to_string()),
+    )
+    .await?;
+    let watcher_name = "default";
+
+    // Create Watcher
+    let sk = &issuer_keys.private.nostr_prv;
+    let create_watch_req = WatcherRequest {
+        name: watcher_name.to_string(),
+        xpub: issuer_keys.public.watcher_xpub.clone(),
+        force: send_coins,
+    };
+
+    create_watcher(sk, create_watch_req.clone()).await?;
+
+    if send_coins {
+        let next_address = watcher_next_address(sk, watcher_name, iface).await?;
+        send_some_coins(&next_address.address, "0.1").await;
+    }
+
+    let mut next_utxo = watcher_next_utxo(sk, watcher_name, iface).await?;
+    if next_utxo.utxo.is_empty() {
+        let next_address = watcher_next_address(sk, watcher_name, iface).await?;
+        send_some_coins(&next_address.address, "0.1").await;
+
+        next_utxo = watcher_next_utxo(sk, watcher_name, iface).await?;
+    }
+
+    let mut contracts = vec![];
+    for _ in 0..number_of_contracts {
+        let issue_utxo = next_utxo.clone().utxo;
+        let issue_seal = format!("tapret1st:{issue_utxo}");
+        let request = IssueRequest {
+            ticker: "DIBA".to_string(),
+            name: "DIBA".to_string(),
+            description: "DIBA".to_string(),
+            precision: 2,
+            supply,
+            seal: issue_seal.to_owned(),
+            iface: iface.to_string(),
+            meta: meta.clone(),
+        };
+        let contract = issue_contract(sk, request).await?;
+        contracts.push(contract);
+    }
+
+    Ok(contracts)
 }
 
 pub async fn create_new_invoice_v2(
@@ -390,27 +458,35 @@ pub async fn create_new_psbt_v2(
     let resp = watcher_details(&sk, watcher_name).await;
     assert!(resp.is_ok());
 
-    let inputs = owner_utxos
-        .into_iter()
-        .map(|x| PsbtInputRequest {
-            asset_utxo: x.utxo.to_owned(),
-            asset_utxo_terminal: x.derivation,
-            tapret: None,
-        })
-        .collect();
-
     let descriptor_pub = match iface {
         "RGB20" => owner_keys.public.rgb_assets_descriptor_xpub.clone(),
         "RGB21" => owner_keys.public.rgb_udas_descriptor_xpub.clone(),
         _ => owner_keys.public.rgb_assets_descriptor_xpub.clone(),
     };
 
+    let terminal_change = match iface {
+        "RGB20" => "/20/1",
+        "RGB21" => "/21/1",
+        _ => "/20/1",
+    };
+
+    let inputs = owner_utxos
+        .into_iter()
+        .map(|x| PsbtInputRequest {
+            descriptor: SecretString(descriptor_pub.clone()),
+            utxo: x.utxo.to_owned(),
+            utxo_terminal: x.derivation,
+            tapret: None,
+        })
+        .collect();
+
     let req = PsbtRequest {
-        descriptor_pub: SecretString(descriptor_pub),
-        inputs,
-        change_index: None,
+        asset_descriptor_change: SecretString(descriptor_pub.clone()),
+        asset_terminal_change: terminal_change.to_owned(),
+        asset_inputs: inputs,
+        bitcoin_inputs: vec![],
         bitcoin_changes: vec![],
-        fee: None,
+        fee: PsbtFeeRequest::Value(1000),
     };
 
     create_psbt(&sk, req).await

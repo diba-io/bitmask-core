@@ -38,7 +38,7 @@ pub async fn prefetch_resolver_import_rgb(
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-pub async fn prefetch_resolver_psbt(asset_utxo: &str, explorer: &mut ExplorerResolver) {}
+pub async fn prefetch_resolver_psbt(input_utxo: &str, explorer: &mut ExplorerResolver) {}
 
 #[cfg(not(target_arch = "wasm32"))]
 pub async fn prefetch_resolver_utxo_status(
@@ -233,11 +233,11 @@ pub async fn prefetch_resolver_import_rgb(
 }
 
 #[cfg(target_arch = "wasm32")]
-pub async fn prefetch_resolver_psbt(asset_utxo: &str, explorer: &mut ExplorerResolver) {
+pub async fn prefetch_resolver_psbt(input_utxo: &str, explorer: &mut ExplorerResolver) {
     let esplora_client: EsploraBlockchain =
         EsploraBlockchain::new(&explorer.explorer_url, 100).with_concurrency(6);
 
-    let outpoint: OutPoint = asset_utxo.parse().expect("invalid outpoint format");
+    let outpoint: OutPoint = input_utxo.parse().expect("invalid outpoint format");
     let txid = outpoint.txid;
     if let Some(tx) = esplora_client
         .get_tx(&txid)

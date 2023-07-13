@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use ::psbt::serialize::Serialize;
 use amplify::{confinement::U16, hex::ToHex};
 use anyhow::{anyhow, Result};
@@ -10,7 +12,6 @@ use rgbstd::{
     contract::ContractId,
     persistence::{Stash, Stock},
 };
-use std::{collections::BTreeMap, str::FromStr};
 use strict_encoding::StrictSerialize;
 
 pub mod accept;
@@ -48,10 +49,10 @@ use crate::{
         AcceptRequest, AcceptResponse, AssetType, ContractMetadata, ContractResponse,
         ContractsResponse, ImportRequest, InterfaceDetail, InterfacesResponse, InvoiceRequest,
         InvoiceResponse, IssueMetaRequest, IssueMetadata, IssueRequest, IssueResponse,
-        NewCollectible, NextAddressResponse, NextUtxoResponse, NextUtxosResponse, PsbtRequest,
-        PsbtResponse, ReIssueRequest, ReIssueResponse, RgbTransferRequest, RgbTransferResponse,
-        SchemaDetail, SchemasResponse, UDADetail, WatcherDetailResponse, WatcherRequest,
-        WatcherResponse, WatcherUtxoResponse,
+        NewCollectible, NextAddressResponse, NextUtxoResponse, NextUtxosResponse, PsbtFeeRequest,
+        PsbtRequest, PsbtResponse, ReIssueRequest, ReIssueResponse, RgbTransferRequest,
+        RgbTransferResponse, SchemaDetail, SchemasResponse, UDADetail, WatcherDetailResponse,
+        WatcherRequest, WatcherResponse, WatcherUtxoResponse,
     },
 };
 
@@ -65,7 +66,7 @@ use self::{
         prefetch_resolver_utxo_status, prefetch_resolver_utxos, prefetch_resolver_waddress,
         prefetch_resolver_wutxo,
     },
-    psbt::{estimate_fee_tx, save_commit},
+    psbt::{fee_estimate, save_commit},
     wallet::{
         create_wallet, next_address, next_utxo, next_utxos, register_address, register_utxo,
         sync_wallet,
@@ -336,53 +337,48 @@ pub async fn create_invoice(sk: &str, request: InvoiceRequest) -> Result<Invoice
 
 pub async fn create_psbt(sk: &str, request: PsbtRequest) -> Result<PsbtResponse> {
     let PsbtRequest {
-        descriptor_pub,
-        inputs,
+        asset_inputs,
+        asset_descriptor_change,
+        asset_terminal_change,
+        bitcoin_inputs,
         bitcoin_changes,
-        change_index,
         fee,
     } = request;
 
     let stock = retrieve_stock(sk, ASSETS_STOCK).await?;
     let rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await?;
 
+    let mut all_inputs = asset_inputs.clone();
+    all_inputs.extend(bitcoin_inputs.clone());
+
     // Prefetch
     let mut resolver = ExplorerResolver {
         explorer_url: BITCOIN_EXPLORER_API.read().await.to_string(),
         ..Default::default()
     };
-    for asset_utxo in inputs.clone() {
-        prefetch_resolver_psbt(&asset_utxo.asset_utxo, &mut resolver).await;
+    for input_utxo in all_inputs.clone() {
+        prefetch_resolver_psbt(&input_utxo.utxo, &mut resolver).await;
     }
 
-    let bitcoin_inputs: BTreeMap<String, String> = inputs
-        .clone()
-        .into_iter()
-        .map(|input| (input.asset_utxo, input.asset_utxo_terminal))
-        .collect();
     // Retrieve transaction fee
     let fee = match fee {
-        Some(fee) => fee,
-        _ => estimate_fee_tx(
-            &descriptor_pub,
+        PsbtFeeRequest::Value(fee) => fee,
+        PsbtFeeRequest::FeeRate(fee_rate) => fee_estimate(
+            asset_inputs,
+            asset_descriptor_change,
+            asset_terminal_change.clone(),
             bitcoin_inputs,
             bitcoin_changes.clone(),
-            change_index,
+            fee_rate,
             &mut resolver,
         ),
     };
 
-    let asset_inputs: Vec<(String, String, Option<String>)> = inputs
-        .into_iter()
-        .map(|input| (input.asset_utxo, input.asset_utxo_terminal, input.tapret))
-        .collect();
-
     let wallet = rgb_account.wallets.get("default");
     let (psbt_file, change_terminal) = create_rgb_psbt(
-        descriptor_pub.0.to_string(),
-        asset_inputs,
-        change_index,
+        all_inputs,
         bitcoin_changes,
+        asset_terminal_change,
         fee,
         wallet.cloned(),
         &resolver,

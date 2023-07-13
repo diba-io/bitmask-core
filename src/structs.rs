@@ -27,7 +27,7 @@ pub struct WalletTransaction {
     pub confirmation_time: Option<BlockTime>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Zeroize, ZeroizeOnDrop, Display)]
+#[derive(Serialize, Deserialize, Clone, Debug, Zeroize, ZeroizeOnDrop, Display, Default)]
 #[display(inner)]
 pub struct SecretString(pub String);
 
@@ -378,27 +378,38 @@ pub struct InvoiceResponse {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct PsbtRequest {
-    /// Descriptor XPub
-    pub descriptor_pub: SecretString,
-    /// Asset UTXO
-    pub inputs: Vec<PsbtInputRequest>,
+    /// Asset UTXOs
+    pub asset_inputs: Vec<PsbtInputRequest>,
+    /// Asset Descriptor Change
+    pub asset_descriptor_change: SecretString,
+    /// Asset Terminal Change (default: /10/0)
+    pub asset_terminal_change: String,
+    /// Bitcoin UTXOs
+    pub bitcoin_inputs: Vec<PsbtInputRequest>,
     /// Bitcoin Change Addresses (format: {address}:{amount})
     pub bitcoin_changes: Vec<String>,
-    /// Asset Change Index UTXO (default: 1)
-    pub change_index: Option<u16>,
     /// Bitcoin Fee
-    pub fee: Option<u64>,
+    pub fee: PsbtFeeRequest,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct PsbtInputRequest {
-    /// Asset UTXO
-    pub asset_utxo: String,
-    /// Asset UTXO Terminal (ex. /0/0)
-    pub asset_utxo_terminal: String,
-    /// TapTweak used to spend outputs based in tapret commitments
+    /// Asset or Bitcoin Descriptor
+    pub descriptor: SecretString,
+    /// Asset or Bitcoin UTXO
+    pub utxo: String,
+    /// Asset or Bitcoin UTXO Terminal (ex. /0/0)
+    pub utxo_terminal: String,
+    /// Asset or Bitcoin Tweak
     pub tapret: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub enum PsbtFeeRequest {
+    Value(u64),
+    FeeRate(f32),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
