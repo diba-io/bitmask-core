@@ -4,7 +4,7 @@ mod rgb {
         mod invoice;
         mod issue;
         mod psbt;
-        mod schemas;
+        mod stl;
         mod stock;
         pub mod utils;
     }
@@ -28,12 +28,12 @@ mod rgb {
     mod web {
         mod contracts;
         mod imports;
-        mod schemas;
-        mod std;
+        mod stl_ids;
+        mod stl_load;
     }
 
     mod sre {
-        mod st140;
-        mod st140_web;
+        mod st150;
+        mod st150_web;
     }
 }

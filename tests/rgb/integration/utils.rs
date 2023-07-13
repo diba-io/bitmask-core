@@ -331,7 +331,7 @@ pub async fn create_new_psbt(
         inputs,
         change_index: None,
         bitcoin_changes: vec![],
-        fee: None,
+        fee: Some(1000),
     };
 
     create_psbt(&sk, req).await

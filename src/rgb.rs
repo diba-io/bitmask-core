@@ -446,7 +446,7 @@ pub async fn accept_transfer(sk: &str, request: AcceptRequest) -> Result<AcceptR
         explorer_url: BITCOIN_EXPLORER_API.read().await.to_string(),
         ..Default::default()
     };
-    prefetch_resolver_rgb(&consignment, &mut resolver).await;
+    prefetch_resolver_rgb(&consignment, &mut resolver, None).await;
 
     let resp = match accept_rgb_transfer(consignment, force, &mut resolver, &mut stock) {
         Ok(transfer) => AcceptResponse {

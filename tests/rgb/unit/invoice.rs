@@ -1,7 +1,7 @@
 #![cfg(not(target_arch = "wasm32"))]
 use std::collections::HashMap;
 
-use amplify::hex::ToHex;
+use amplify::{confinement::U32, hex::ToHex};
 use bitmask_core::{
     rgb::transfer::{accept_transfer, create_invoice, pay_invoice},
     util::init_logging,
@@ -78,10 +78,7 @@ async fn allow_accept_invoice() -> anyhow::Result<()> {
 
     let (_, transfer) = result.unwrap();
 
-    let transfer_hex = transfer
-        .to_strict_serialized::<0xFFFFFF>()
-        .unwrap()
-        .to_hex();
+    let transfer_hex = transfer.to_strict_serialized::<U32>().unwrap().to_hex();
 
     let pay_status = accept_transfer(transfer_hex, true, &mut resolver, &mut stock);
     assert!(pay_status.is_ok());

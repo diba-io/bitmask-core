@@ -1,10 +1,13 @@
-use amplify::{confinement::Confined, hex::FromHex};
+use amplify::{
+    confinement::{Confined, U32},
+    hex::FromHex,
+};
 use bech32::{decode, FromBase32};
 use rgb_schemata::{nia_schema, uda_schema};
 use rgbstd::{
     containers::Contract,
     contract::Genesis,
-    persistence::{Inventory, Stock},
+    persistence::{Inventory, Stash, Stock},
     resolvers::ResolveHeight,
     validation::ResolveTx,
 };
@@ -35,19 +38,28 @@ where
         Vec::<u8>::from_hex(contract).expect("invalid hexadecimal contract (baid58 format)")
     };
 
-    let confined: Confined<Vec<u8>, 0, { usize::MAX }> =
+    let confined: Confined<Vec<u8>, 0, { U32 }> =
         Confined::try_from_iter(serialized.iter().copied())
             .expect("invalid strict serialized data");
 
-    let contract = match Genesis::from_strict_serialized::<{ usize::MAX }>(confined.clone()) {
+    let contract = match Genesis::from_strict_serialized::<{ U32 }>(confined.clone()) {
         Ok(genesis) => contract_from_genesis(genesis, asset_type),
-        Err(_) => Contract::from_strict_serialized::<{ usize::MAX }>(confined)
+        Err(_) => Contract::from_strict_serialized::<{ U32 }>(confined)
             .expect("invalid strict contract data"),
     };
+
+    let contract_id = contract.contract_id();
     let contract = contract.validate(resolver).expect("invalid contract state");
-    stock
-        .import_contract(contract.clone(), resolver)
-        .expect("import contract failed");
+
+    if !stock
+        .contract_ids()
+        .expect("contract_ids from stock")
+        .contains(&contract_id)
+    {
+        stock
+            .import_contract(contract.clone(), resolver)
+            .expect("import contract failed");
+    };
 
     Ok(contract)
 }

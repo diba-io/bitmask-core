@@ -22,7 +22,12 @@ use strict_encoding::StrictDeserialize;
 use wallet::onchain::ResolveTx;
 
 #[cfg(not(target_arch = "wasm32"))]
-pub async fn prefetch_resolver_rgb(contract: &str, explorer: &mut ExplorerResolver) {}
+pub async fn prefetch_resolver_rgb(
+    contract: &str,
+    explorer: &mut ExplorerResolver,
+    asset_type: Option<AssetType>,
+) {
+}
 
 #[cfg(not(target_arch = "wasm32"))]
 pub async fn prefetch_resolver_import_rgb(
@@ -73,8 +78,20 @@ pub async fn prefetch_resolver_wutxo(
 ) {
 }
 
+#[cfg(not(target_arch = "wasm32"))]
+pub async fn prefetch_resolver_tx_height(txid: bp::Txid, explorer: &mut ExplorerResolver) {}
+
 #[cfg(target_arch = "wasm32")]
-pub async fn prefetch_resolver_rgb(contract: &str, explorer: &mut ExplorerResolver) {
+pub async fn prefetch_resolver_rgb(
+    contract: &str,
+    explorer: &mut ExplorerResolver,
+    asset_type: Option<AssetType>,
+) {
+    use amplify::confinement::U32;
+    use rgbstd::contract::Genesis;
+
+    use crate::rgb::import::contract_from_genesis;
+
     let esplora_client: EsploraBlockchain =
         EsploraBlockchain::new(&explorer.explorer_url, 100).with_concurrency(6);
     let serialized = if contract.starts_with("rgb1") {
@@ -85,11 +102,19 @@ pub async fn prefetch_resolver_rgb(contract: &str, explorer: &mut ExplorerResolv
         Vec::<u8>::from_hex(contract).expect("invalid hexadecimal contract (baid58 format)")
     };
 
-    let confined = Confined::try_from_iter(serialized.iter().copied())
-        .expect("invalid strict serialized data");
-    let contract = Contract::from_strict_serialized::<{ usize::MAX }>(confined)
-        .expect("invalid strict contract data");
-    let contract = contract.validate(explorer).expect("invalid contract state");
+    let confined: Confined<Vec<u8>, 0, { U32 }> =
+        Confined::try_from_iter(serialized.iter().copied())
+            .expect("invalid strict serialized data");
+
+    let contract = match asset_type {
+        Some(asset_type) => match Genesis::from_strict_serialized::<{ U32 }>(confined.clone()) {
+            Ok(genesis) => contract_from_genesis(genesis, asset_type),
+            Err(_) => Contract::from_strict_serialized::<{ U32 }>(confined)
+                .expect("invalid strict contract data"),
+        },
+        _ => Contract::from_strict_serialized::<{ U32 }>(confined)
+            .expect("invalid strict contract data"),
+    };
 
     for anchor_bundle in contract.bundles {
         let transaction_id = &bitcoin::Txid::from_str(&anchor_bundle.anchor.txid.to_hex())
@@ -101,6 +126,9 @@ pub async fn prefetch_resolver_rgb(contract: &str, explorer: &mut ExplorerResolv
             .expect("service unavaliable");
 
         if let Some(tx) = tx_raw {
+            let txid =
+                rgbstd::Txid::from_hex(&transaction_id.to_hex()).expect("invalid transaction id");
+            prefetch_resolver_tx_height(txid, explorer).await;
             let new_tx = Tx {
                 version: TxVer::from_consensus_i32(tx.clone().version),
                 inputs: VarIntArray::try_from_iter(tx.clone().input.into_iter().map(|txin| {
@@ -439,5 +467,31 @@ pub async fn prefetch_resolver_wutxo(
                 prefetch_resolver_waddress(&address.to_string(), wallet, explorer, limit).await;
             }
         }
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+pub async fn prefetch_resolver_tx_height(txid: rgbstd::Txid, explorer: &mut ExplorerResolver) {
+    use rgbstd::contract::{WitnessHeight, WitnessOrd};
+
+    let esplora_client: EsploraBlockchain =
+        EsploraBlockchain::new(&explorer.explorer_url, 100).with_concurrency(6);
+
+    let transaction_id =
+        &bitcoin::Txid::from_str(&txid.to_hex()).expect("invalid transaction id parse");
+
+    let tx = esplora_client
+        .get_tx_status(transaction_id)
+        .await
+        .expect("service unavaliable");
+
+    if let Some(tx) = tx {
+        let status = match tx.block_height {
+            Some(height) => WitnessOrd::OnChain(WitnessHeight::new(height).unwrap()),
+            _ => WitnessOrd::OffChain,
+        };
+        explorer.tx_height.insert(txid, status);
+    } else {
+        explorer.tx_height.insert(txid, WitnessOrd::OffChain);
     }
 }

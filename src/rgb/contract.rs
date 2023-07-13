@@ -1,6 +1,9 @@
 use std::str::FromStr;
 
-use amplify::{confinement::Confined, hex::ToHex};
+use amplify::{
+    confinement::{Confined, U32},
+    hex::ToHex,
+};
 use bech32::{encode, ToBase32};
 use rgb::{Resolver, RgbWallet};
 use rgbstd::{
@@ -49,13 +52,13 @@ where
     let contract_legacy = encode(
         "rgb",
         contract_bindle
-            .to_strict_serialized::<0xFFFFFF>()
+            .to_strict_serialized::<U32>()
             .expect("invalid contract data")
             .to_base32(),
         bech32::Variant::Bech32m,
     )?;
 
-    let contract_strict = contract_bindle.to_strict_serialized::<0xFFFFFF>()?.to_hex();
+    let contract_strict = contract_bindle.to_strict_serialized::<U32>()?.to_hex();
 
     let contract_iface = stock
         .contract_iface(contract_bindle.contract_id(), iface_id.to_owned())
@@ -154,11 +157,11 @@ where
     }
 
     let genesis = contract_genesis.genesis.clone();
-    let genesis_strict = genesis.to_strict_serialized::<0xFFFFFF>()?.to_hex();
+    let genesis_strict = genesis.to_strict_serialized::<U32>()?.to_hex();
 
     let genesis_legacy = encode(
         "rgb",
-        genesis.to_strict_serialized::<0xFFFFFF>()?.to_base32(),
+        genesis.to_strict_serialized::<U32>()?.to_base32(),
         bech32::Variant::Bech32m,
     )?;
 
