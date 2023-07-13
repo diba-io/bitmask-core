@@ -11,7 +11,11 @@ use amplify::hex::ToHex;
 use bitcoin::Script;
 use bp::{LockTime, Outpoint, SeqNo, Tx, TxIn, TxOut, TxVer, Txid, VarIntArray, Witness};
 use rgb::{prelude::DeriveInfo, MiningStatus, TerminalPath, Utxo};
-use rgbstd::{resolvers::ResolveHeight, validation::ResolveTx as ResolveCommiment};
+use rgbstd::{
+    contract::{WitnessHeight, WitnessOrd},
+    resolvers::ResolveHeight,
+    validation::ResolveTx as ResolveCommiment,
+};
 use wallet::onchain::{ResolveTx, TxResolverError};
 
 #[derive(Default)]
@@ -22,6 +26,7 @@ pub struct ExplorerResolver {
     pub utxos_spent: Vec<String>,
     pub txs: HashMap<bitcoin::Txid, bitcoin::Transaction>,
     pub bp_txs: HashMap<Txid, Tx>,
+    pub tx_height: HashMap<Txid, WitnessOrd>,
 }
 
 impl rgb::Resolver for ExplorerResolver {
@@ -116,10 +121,29 @@ impl ResolveTx for ExplorerResolver {
 }
 
 impl ResolveHeight for ExplorerResolver {
-    type Error = Infallible;
+    type Error = TxResolverError;
+    #[cfg(not(target_arch = "wasm32"))]
+    fn resolve_height(&mut self, txid: Txid) -> Result<WitnessOrd, Self::Error> {
+        let esplora_client = esplora_block::Builder::new(&self.explorer_url)
+            .build_blocking()
+            .expect("service unavaliable");
+        let transaction_id =
+            &bitcoin::Txid::from_str(&txid.to_hex()).expect("invalid transaction id parse");
+        let tx = esplora_client
+            .get_tx_status(transaction_id)
+            .expect("service unavaliable");
 
-    fn resolve_height(&mut self, _txid: bp::Txid) -> Result<u32, Self::Error> {
-        Ok(0)
+        let status = match tx.block_height {
+            Some(height) => WitnessOrd::OnChain(WitnessHeight::new(height).unwrap()),
+            _ => WitnessOrd::OffChain,
+        };
+
+        Ok(status)
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    fn resolve_height(&mut self, txid: Txid) -> Result<WitnessOrd, Self::Error> {
+        Ok(WitnessOrd::OffChain)
     }
 }
 

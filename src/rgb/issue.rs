@@ -1,6 +1,3 @@
-use std::str::FromStr;
-use std::time::{SystemTime, UNIX_EPOCH};
-
 use amplify::{confinement::SmallBlob, Wrapper};
 use bp::{seals::txout::ExplicitSeal, Chain, Txid};
 use rgb_schemata::{nia_rgb20, nia_schema, uda_rgb21, uda_schema};
@@ -20,6 +17,7 @@ use rgbstd::{
     },
     validation::ResolveTx,
 };
+use std::str::FromStr;
 use strict_types::encoding::TypeName;
 
 use crate::structs::{IssueMetaRequest, IssueMetadata};
@@ -160,10 +158,7 @@ fn issue_uda_asset(
     let precision = Precision::try_from(precision).expect("invalid precision");
     let spec = DivisibleAssetSpec::new(ticker, name, precision);
     let terms = RicardianContract::from_str(description).expect("invalid terms");
-    let start = SystemTime::now();
-    let since_the_epoch = start.duration_since(UNIX_EPOCH).expect("invalid");
-    let created =
-        Timestamp::from_str(&since_the_epoch.as_secs_f32().to_string()).expect("invalid timestamp");
+    let created = Timestamp::default();
     let fraction = OwnedFraction::from_inner(supply);
 
     let mut tokens_data = vec![];

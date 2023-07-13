@@ -61,8 +61,9 @@ use self::{
     contract::extract_contract_by_id,
     import::import_contract,
     prefetch::{
-        prefetch_resolver_psbt, prefetch_resolver_rgb, prefetch_resolver_utxo_status,
-        prefetch_resolver_utxos, prefetch_resolver_waddress, prefetch_resolver_wutxo,
+        prefetch_resolver_import_rgb, prefetch_resolver_psbt, prefetch_resolver_rgb,
+        prefetch_resolver_utxo_status, prefetch_resolver_utxos, prefetch_resolver_waddress,
+        prefetch_resolver_wutxo,
     },
     psbt::{estimate_fee_tx, save_commit},
     wallet::{
@@ -445,7 +446,7 @@ pub async fn accept_transfer(sk: &str, request: AcceptRequest) -> Result<AcceptR
         explorer_url: BITCOIN_EXPLORER_API.read().await.to_string(),
         ..Default::default()
     };
-    prefetch_resolver_rgb(&consignment, &mut resolver).await;
+    prefetch_resolver_rgb(&consignment, &mut resolver, None).await;
 
     let resp = match accept_rgb_transfer(consignment, force, &mut resolver, &mut stock) {
         Ok(transfer) => AcceptResponse {
@@ -592,19 +593,19 @@ pub async fn import(sk: &str, request: ImportRequest) -> Result<ContractResponse
         explorer_url: BITCOIN_EXPLORER_API.read().await.to_string(),
         ..Default::default()
     };
-    prefetch_resolver_rgb(&data, &mut resolver).await;
+    prefetch_resolver_import_rgb(&data, import.clone(), &mut resolver).await;
 
     let wallet = rgb_account.wallets.get("default");
     let mut wallet = match wallet {
         Some(wallet) => {
             let mut fetch_wallet = wallet.to_owned();
-            prefetch_resolver_utxos(import as u32, &mut fetch_wallet, &mut resolver).await;
+            prefetch_resolver_utxos(import.clone() as u32, &mut fetch_wallet, &mut resolver).await;
             Some(fetch_wallet)
         }
         _ => None,
     };
 
-    let contract = import_contract(&data, &mut stock, &mut resolver)?;
+    let contract = import_contract(&data, import, &mut stock, &mut resolver)?;
     let resp = extract_contract_by_id(
         contract.contract_id(),
         &mut stock,

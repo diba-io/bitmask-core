@@ -9,7 +9,10 @@ use bp::{
 };
 use psbt::{serialize::Deserialize, Psbt};
 use rgbstd::{
-    containers::BindleContent, contract::ContractId, persistence::Stock, resolvers::ResolveHeight,
+    containers::BindleContent,
+    contract::{ContractId, WitnessOrd},
+    persistence::Stock,
+    resolvers::ResolveHeight,
     validation::ResolveTx as RgbResolveTx,
 };
 use rgbwallet::RgbInvoice;
@@ -20,8 +23,8 @@ pub struct DumbResolve {}
 
 impl ResolveHeight for DumbResolve {
     type Error = Infallible;
-    fn resolve_height(&mut self, _txid: Txid) -> std::result::Result<u32, Self::Error> {
-        Ok(0)
+    fn resolve_height(&mut self, _txid: Txid) -> std::result::Result<WitnessOrd, Self::Error> {
+        Ok(WitnessOrd::OffChain)
     }
 }
 impl ResolveTx for DumbResolve {

@@ -158,4 +158,5 @@ jobs:
         run: wasm-pack test --headless --chrome
         env:
           TEST_WALLET_SEED: ${{ secrets.TEST_WALLET_SEED }}
+          WASM_BINDGEN_TEST_TIMEOUT: 60
           RUST_BACKTRACE: 1

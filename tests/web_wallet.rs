@@ -1,4 +1,4 @@
-#![cfg(all(target_arch = "wasm32"))]
+#![cfg(target_arch = "wasm32")]
 use bitmask_core::{
     debug, info,
     structs::{DecryptedWalletData, SecretString, TransactionDetails, WalletData},
