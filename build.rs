@@ -3,7 +3,7 @@ use std::{collections::BTreeMap, fs};
 use anyhow::Result;
 use rgbstd::{
     interface::{LIB_ID_RGB20, LIB_ID_RGB21, LIB_ID_RGB25},
-    stl::{LIB_ID_RGB_CONTRACT, LIB_ID_RGB_STD},
+    stl::{LIB_ID_RGB, LIB_ID_RGB_CONTRACT, LIB_ID_RGB_STD},
 };
 use serde::{Deserialize, Serialize};
 
@@ -12,6 +12,7 @@ type IdVersionMap = BTreeMap<String, String>;
 #[allow(non_snake_case)]
 #[derive(Deserialize, Serialize)]
 struct LibIds {
+    LIB_ID_RGB: IdVersionMap,
     LIB_ID_RGB20: IdVersionMap,
     LIB_ID_RGB21: IdVersionMap,
     LIB_ID_RGB25: IdVersionMap,
@@ -28,6 +29,11 @@ fn main() -> Result<()> {
 
     let lib_ids_file = fs::read_to_string(LIB_IDS_FILE)?;
     let mut lib_ids: LibIds = toml::from_str(&lib_ids_file)?;
+
+    lib_ids
+        .LIB_ID_RGB
+        .entry(LIB_ID_RGB.to_owned())
+        .or_insert(BMC_VERSION.to_owned());
 
     lib_ids
         .LIB_ID_RGB20
