@@ -633,6 +633,7 @@ dependencies = [
  "strict_encoding",
  "strict_types",
  "tokio",
+ "toml 0.7.6",
  "tower-http",
  "wasm-bindgen",
  "wasm-bindgen-futures",
@@ -3516,6 +3517,7 @@ version = "0.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c17e963a819c331dcacd7ab957d80bc2b9a9c1e71c804826d2f283dd65306542"
 dependencies = [
+ "indexmap 2.0.0",
  "serde",
  "serde_spanned",
  "toml_datetime",

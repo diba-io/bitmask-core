@@ -120,6 +120,12 @@ tokio = { version = "1.28.2", features = ["full"] }
 [dev-dependencies]
 wasm-bindgen-test = "0.3.36"
 
+[build-dependencies]
+anyhow = "1.0.71"
+rgb-std = { version = "0.10.2" }
+serde = "1.0.164"
+toml = { version = "0.7.5", features = ["preserve_order"] }
+
 [patch.crates-io]
 # TODO: Remove this after support amplify 4.x (custom)
 bitcoin_scripts = { git = "https://github.com/crisdut/bp-foundation", branch = "release/0.10.0-alpha.2" }
