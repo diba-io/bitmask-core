@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Result};
 use bdk::{wallet::tx_builder::TxOrdering, FeeRate, TransactionDetails};
 use bitcoin::consensus::serialize;
+use payjoin::send::Configuration;
 use payjoin::{PjUri, PjUriExt};
 
 use crate::{
@@ -58,7 +59,7 @@ pub async fn create_payjoin(
     info!("Original PSBT successfully signed");
 
     // TODO use fee_rate
-    let pj_params = payjoin::sender::Configuration::non_incentivizing();
+    let pj_params = Configuration::non_incentivizing();
     let (req, ctx) = pj_uri.create_pj_request(original_psbt, pj_params)?;
     info!("Built PayJoin request");
     let response = reqwest::Client::new()

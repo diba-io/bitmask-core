@@ -1,5 +1,8 @@
 # Auto-generated semantic IDs for RGB consensus-critical libraries and their corresponding versions of bitmask-core.
 
+[LIB_ID_RGB]
+memphis_asia_crash_4fGZWR5mH5zZzRZ1r7CSRe776zm3hLBUngfXc4s3vm3V = "0.6.0-rc.6"
+
 [LIB_ID_RGB20]
 dragon_table_game_GVz4mvYE94aQ9q2HPtV9VuoppcDdduP54BMKffF7YoFH = "0.6.0-rc.6"
 
