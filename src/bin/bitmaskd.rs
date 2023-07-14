@@ -447,10 +447,12 @@ async fn co_metadata(
     Ok((StatusCode::OK, Json(metadata)))
 }
 
+const BMC_VERSION: &str = env!("CARGO_PKG_VERSION");
+
 async fn status() -> Result<impl IntoResponse, AppError> {
     let cc = CacheControl::new().with_no_cache();
 
-    Ok((StatusCode::OK, TypedHeader(cc), "OK".to_string()))
+    Ok((StatusCode::OK, TypedHeader(cc), BMC_VERSION.to_string()))
 }
 
 async fn key(Path(pk): Path<String>) -> Result<impl IntoResponse, AppError> {
