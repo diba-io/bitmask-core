@@ -91,10 +91,11 @@ pub async fn create_payjoin(
             let recommended_fee = Amount::from_sat(enacted_fee_rate.fee_wu(P2TR_INPUT_WEIGHT));
             let max_additional_fee = std::cmp::min(
                 recommended_fee,
-                amount_available, // offer amount available if recommendation is not
+                amount_available, // "clamp" to amount available if recommendation is not
             );
 
             Configuration::with_fee_contribution(max_additional_fee, Some(index))
+                .clamp_fee_contribution(true);
         }
         None => Configuration::non_incentivizing(),
     };
