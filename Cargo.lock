@@ -633,6 +633,7 @@ dependencies = [
  "strict_encoding",
  "strict_types",
  "tokio",
+ "toml 0.7.6",
  "tower-http",
  "wasm-bindgen",
  "wasm-bindgen-futures",
@@ -2263,9 +2264,9 @@ checksum = "b4b27ab7be369122c218afc2079489cdcb4b517c0a3fc386ff11e1fedfcc2b35"
 
 [[package]]
 name = "payjoin"
-version = "0.7.0"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3c5770c48c69af29fc8fa9f9ccddd9aee7daf2616ba196651913939671fdcf1f"
+checksum = "e076c820f8780985db6a2b1f6c0914350becc79aa3e071872bcd4bc17e7e0f06"
 dependencies = [
  "base64 0.13.1",
  "bip21",
@@ -2555,7 +2556,7 @@ dependencies = [
 [[package]]
 name = "rgb-contracts"
 version = "0.10.0-beta.2"
-source = "git+https://github.com/crisdut/rgb?branch=release/bmc-v0.6-rc6#04b7a3cce360489f2b2915d2e7bb3e645cae30eb"
+source = "git+https://github.com/crisdut/rgb?branch=release/bmc-v0.6-rc6#2f196efaa3f32bca6ee129ddb7be722c78975d2c"
 dependencies = [
  "amplify",
  "baid58",
@@ -2575,7 +2576,7 @@ dependencies = [
 [[package]]
 name = "rgb-core"
 version = "0.10.4"
-source = "git+https://github.com/crisdut/rgb-core?branch=release/bmc-v0.6-rc6#7d983e19fabe01261d866a379cde91ac02ae2782"
+source = "git+https://github.com/crisdut/rgb-core?branch=release/bmc-v0.6-rc6#5fa9b746b30706986eb75f5b86f1ee5bc5ff3971"
 dependencies = [
  "aluvm",
  "amplify",
@@ -2621,7 +2622,7 @@ dependencies = [
 [[package]]
 name = "rgb-std"
 version = "0.10.2"
-source = "git+https://github.com/crisdut/rgb-wallet?branch=release/bmc-v0.6-rc6#868e287531f4f2d8870acf029f6b3a4a6df82c57"
+source = "git+https://github.com/crisdut/rgb-wallet?branch=release/bmc-v0.6-rc6#0484bb6d0932830e05b87840422552927104b497"
 dependencies = [
  "amplify",
  "baid58",
@@ -2639,7 +2640,7 @@ dependencies = [
 [[package]]
 name = "rgb-wallet"
 version = "0.10.2"
-source = "git+https://github.com/crisdut/rgb-wallet?branch=release/bmc-v0.6-rc6#868e287531f4f2d8870acf029f6b3a4a6df82c57"
+source = "git+https://github.com/crisdut/rgb-wallet?branch=release/bmc-v0.6-rc6#0484bb6d0932830e05b87840422552927104b497"
 dependencies = [
  "amplify",
  "baid58",
@@ -3516,6 +3517,7 @@ version = "0.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c17e963a819c331dcacd7ab957d80bc2b9a9c1e71c804826d2f283dd65306542"
 dependencies = [
+ "indexmap 2.0.0",
  "serde",
  "serde_spanned",
  "toml_datetime",

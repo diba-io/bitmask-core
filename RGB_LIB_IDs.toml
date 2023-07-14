@@ -1,0 +1,19 @@
+# Auto-generated semantic IDs for RGB consensus-critical libraries and their corresponding versions of bitmask-core.
+
+[LIB_ID_RGB]
+memphis_asia_crash_4fGZWR5mH5zZzRZ1r7CSRe776zm3hLBUngfXc4s3vm3V = "0.6.0-rc.6"
+
+[LIB_ID_RGB20]
+dragon_table_game_GVz4mvYE94aQ9q2HPtV9VuoppcDdduP54BMKffF7YoFH = "0.6.0-rc.6"
+
+[LIB_ID_RGB21]
+benny_horse_salad_E3AsDKsHSqAPQLvJke3DcPrkErbS2Jxf8pQ8jYBQYJPA = "0.6.0-rc.6"
+
+[LIB_ID_RGB25]
+ritual_mask_next_4JmGrg7oTgwuCQtyC4ezC38ToHMzgMCVS5kMSDPwo2ee = "0.6.0-rc.6"
+
+[LIB_ID_RGB_CONTRACT]
+price_canvas_oliver_9Te5P6nq3oaDHMgttLEbkojbeQPTqqZLhjxZ3my1F8aJ = "0.6.0-rc.6"
+
+[LIB_ID_RGB_STD]
+patent_iris_torch_Firwvn75qng8cm4n7iHXXiFDsG1V476vYGqdfwwFRT1b = "0.6.0-rc.6"
