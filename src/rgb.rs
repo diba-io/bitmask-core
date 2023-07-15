@@ -51,15 +51,15 @@ use crate::{
         InvoiceResponse, IssueMetaRequest, IssueMetadata, IssueRequest, IssueResponse,
         NewCollectible, NextAddressResponse, NextUtxoResponse, NextUtxosResponse, PsbtFeeRequest,
         PsbtRequest, PsbtResponse, ReIssueRequest, ReIssueResponse, RgbTransferRequest,
-        RgbTransferResponse, SchemaDetail, SchemasResponse, UDADetail, WatcherDetailResponse,
-        WatcherRequest, WatcherResponse, WatcherUtxoResponse,
+        RgbTransferResponse, SchemaDetail, SchemasResponse, UDADetail, UtxoResponse,
+        WatcherDetailResponse, WatcherRequest, WatcherResponse, WatcherUtxoResponse,
     },
 };
 
 use self::{
     carbonado::{retrieve_wallets, store_wallets},
     constants::RGB_DEFAULT_NAME,
-    contract::extract_contract_by_id,
+    contract::extract_contract,
     import::import_contract,
     prefetch::{
         prefetch_resolver_import_rgb, prefetch_resolver_psbt, prefetch_resolver_rgb,
@@ -138,7 +138,7 @@ pub async fn issue_contract(sk: &str, request: IssueRequest) -> Result<IssueResp
         contract,
         genesis,
         meta,
-    } = extract_contract_by_id(
+    } = extract_contract(
         contract.contract_id(),
         &mut stock,
         &mut resolver,
@@ -279,7 +279,7 @@ pub async fn reissue_contract(sk: &str, request: ReIssueRequest) -> Result<ReIss
             contract,
             genesis,
             meta,
-        } = extract_contract_by_id(
+        } = extract_contract(
             contract.contract_id(),
             &mut stock,
             &mut resolver,
@@ -486,7 +486,7 @@ pub async fn get_contract(sk: &str, contract_id: &str) -> Result<ContractRespons
     };
 
     let contract_id = ContractId::from_str(contract_id)?;
-    let contract = extract_contract_by_id(contract_id, &mut stock, &mut resolver, &mut wallet)?;
+    let contract = extract_contract(contract_id, &mut stock, &mut resolver, &mut wallet)?;
 
     if let Some(wallet) = wallet {
         rgb_account
@@ -524,7 +524,7 @@ pub async fn list_contracts(sk: &str) -> Result<ContractsResponse> {
     let mut contracts = vec![];
 
     for contract_id in stock.contract_ids()? {
-        let resp = extract_contract_by_id(contract_id, &mut stock, &mut resolver, &mut wallet)?;
+        let resp = extract_contract(contract_id, &mut stock, &mut resolver, &mut wallet)?;
         contracts.push(resp);
     }
 
@@ -602,7 +602,7 @@ pub async fn import(sk: &str, request: ImportRequest) -> Result<ContractResponse
     };
 
     let contract = import_contract(&data, import, &mut stock, &mut resolver)?;
-    let resp = extract_contract_by_id(
+    let resp = extract_contract(
         contract.contract_id(),
         &mut stock,
         &mut resolver,
@@ -769,7 +769,7 @@ pub async fn watcher_next_address(
     let iface_index = match iface {
         "RGB20" => 20,
         "RGB21" => 21,
-        _ => 9,
+        _ => 10,
     };
 
     let wallet = wallet?;
@@ -792,7 +792,7 @@ pub async fn watcher_next_utxo(sk: &str, name: &str, iface: &str) -> Result<Next
     let iface_index = match iface {
         "RGB20" => 20,
         "RGB21" => 21,
-        _ => 9,
+        _ => 10,
     };
 
     let mut wallet = wallet?;
@@ -808,8 +808,11 @@ pub async fn watcher_next_utxo(sk: &str, name: &str, iface: &str) -> Result<Next
 
     sync_wallet(iface_index, &mut wallet, &mut resolver);
     let utxo = match next_utxo(iface_index, wallet.clone(), &mut resolver)? {
-        Some(next_utxo) => next_utxo.outpoint.to_string(),
-        _ => String::new(),
+        Some(next_utxo) => Some(UtxoResponse {
+            outpoint: next_utxo.outpoint.to_string(),
+            amount: next_utxo.amount,
+        }),
+        _ => None,
     };
 
     rgb_account
@@ -820,7 +823,7 @@ pub async fn watcher_next_utxo(sk: &str, name: &str, iface: &str) -> Result<Next
     Ok(NextUtxoResponse { utxo })
 }
 
-pub async fn watcher_unspent_utxo(sk: &str, name: &str, iface: &str) -> Result<NextUtxosResponse> {
+pub async fn watcher_unspent_utxos(sk: &str, name: &str, iface: &str) -> Result<NextUtxosResponse> {
     let mut rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await?;
     let wallet = match rgb_account.wallets.get(name) {
         Some(wallet) => Ok(wallet.to_owned()),
@@ -847,7 +850,10 @@ pub async fn watcher_unspent_utxo(sk: &str, name: &str, iface: &str) -> Result<N
     sync_wallet(iface_index, &mut wallet, &mut resolver);
     let utxos = next_utxos(iface_index, wallet.clone(), &mut resolver)?
         .into_iter()
-        .map(|x| x.outpoint.to_string())
+        .map(|x| UtxoResponse {
+            outpoint: x.outpoint.to_string(),
+            amount: x.amount,
+        })
         .collect();
 
     rgb_account

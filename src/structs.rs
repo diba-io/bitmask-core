@@ -426,8 +426,8 @@ pub struct PsbtResponse {
 pub struct SignPsbtRequest {
     /// PSBT encoded in Base64
     pub psbt: String,
-    /// Descriptor to Sign
-    pub descriptor: SecretString,
+    /// Descriptors to Sign
+    pub descriptors: Vec<SecretString>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -622,13 +622,20 @@ pub struct NextAddressResponse {
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct NextUtxoResponse {
-    pub utxo: String,
+    pub utxo: Option<UtxoResponse>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct NextUtxosResponse {
-    pub utxos: Vec<String>,
+    pub utxos: Vec<UtxoResponse>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct UtxoResponse {
+    pub outpoint: String,
+    pub amount: u64,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]

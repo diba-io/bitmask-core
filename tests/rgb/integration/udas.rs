@@ -44,7 +44,10 @@ async fn allow_beneficiary_accept_transfer() -> anyhow::Result<()> {
     let sk = issuer_keys.private.nostr_prv.to_string();
     let request = SignPsbtRequest {
         psbt: transfer_resp.psbt,
-        descriptor: SecretString(issuer_keys.private.rgb_udas_descriptor_xprv.clone()),
+        descriptors: vec![SecretString(
+            issuer_keys.private.rgb_udas_descriptor_xprv.clone(),
+        )]
+        .to_vec(),
     };
     let resp = sign_psbt_file(request).await;
     assert!(resp.is_ok());

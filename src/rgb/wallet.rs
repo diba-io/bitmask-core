@@ -391,7 +391,7 @@ where
     Ok(details)
 }
 
-pub fn allocations_by_contract<T>(
+pub fn contract_allocations<T>(
     contract_id: ContractId,
     iface_index: u32,
     wallet: &mut RgbWallet,

@@ -80,7 +80,10 @@ async fn allow_get_fungible_contract_state_by_accept_cosign() -> anyhow::Result<
     let owner_sk = owner_keys.clone().private.nostr_prv.to_string();
     let request = SignPsbtRequest {
         psbt: transfer_resp.psbt.clone(),
-        descriptor: SecretString(issuer_keys.private.rgb_assets_descriptor_xprv.clone()),
+        descriptors: vec![SecretString(
+            issuer_keys.private.rgb_assets_descriptor_xprv.clone(),
+        )]
+        .to_vec(),
     };
     let resp = sign_psbt_file(request).await;
     assert!(resp.is_ok());
@@ -166,7 +169,10 @@ async fn allow_get_uda_contract_state_by_accept_cosign() -> anyhow::Result<()> {
     let owner_sk = owner_keys.clone().private.nostr_prv.to_string();
     let request = SignPsbtRequest {
         psbt: transfer_resp.psbt.clone(),
-        descriptor: SecretString(issuer_keys.private.rgb_udas_descriptor_xprv.clone()),
+        descriptors: vec![SecretString(
+            issuer_keys.private.rgb_udas_descriptor_xprv.clone(),
+        )]
+        .to_vec(),
     };
     let resp = sign_psbt_file(request).await;
     assert!(resp.is_ok());

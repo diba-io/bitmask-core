@@ -14,14 +14,14 @@ use rgbstd::{
 use strict_encoding::{FieldName, StrictDeserialize, StrictSerialize};
 use strict_types::StrictVal;
 
-use crate::rgb::{resolvers::ResolveSpent, wallet::allocations_by_contract};
+use crate::rgb::{resolvers::ResolveSpent, wallet::contract_allocations};
 use crate::structs::{
     AllocationValue, ContractFormats, ContractMeta, ContractMetadata, ContractResponse,
     GenesisFormats, MediaInfo, UDADetail,
 };
 
 // TODO: Create one extractor by contract interface
-pub fn extract_contract_by_id<T>(
+pub fn extract_contract<T>(
     contract_id: ContractId,
     stock: &mut Stock,
     resolver: &mut T,
@@ -121,7 +121,7 @@ where
     let mut allocations = vec![];
     let contract_id = ContractId::from_str(&contract_id)?;
     if let Some(wallet) = wallet {
-        let watcher = allocations_by_contract(contract_id, iface_index, wallet, stock, resolver)
+        let watcher = contract_allocations(contract_id, iface_index, wallet, stock, resolver)
             .expect("invalid allocation states");
 
         allocations = watcher.allocations;

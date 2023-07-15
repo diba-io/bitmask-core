@@ -7,7 +7,7 @@ use bitmask_core::{
     bitcoin::{get_wallet, get_wallet_data, save_mnemonic, sync_wallet},
     rgb::{
         create_invoice, create_psbt, create_watcher, import, issue_contract, transfer_asset,
-        watcher_details, watcher_next_address, watcher_next_utxo,
+        watcher_details, watcher_next_address, watcher_next_utxo, watcher_unspent_utxos,
     },
     structs::{
         AllocationDetail, AssetType, ContractResponse, DecryptedWalletData, ImportRequest,
@@ -26,6 +26,11 @@ pub const OWNER_MNEMONIC: &str =
 
 pub const ANOTHER_OWNER_MNEMONIC: &str =
     "circle hold drift unable own laptop age relax degree next alone stage";
+
+pub struct UtxoFilter {
+    pub outpoint_equal: Option<String>,
+    pub amount_less_than: Option<u64>,
+}
 
 #[allow(dead_code)]
 pub async fn start_node() {
@@ -165,15 +170,15 @@ pub async fn issuer_issue_contract(
     }
 
     let mut next_utxo = watcher_next_utxo(sk, watcher_name, iface).await?;
-    if next_utxo.utxo.is_empty() {
+    if next_utxo.utxo.is_none() {
         let next_address = watcher_next_address(sk, watcher_name, iface).await?;
         send_some_coins(&next_address.address, "0.01").await;
 
         next_utxo = watcher_next_utxo(sk, watcher_name, iface).await?;
     }
 
-    let issue_utxo = next_utxo.utxo;
-    let issue_seal = format!("tapret1st:{issue_utxo}");
+    let issue_utxo = next_utxo.utxo.unwrap();
+    let issue_seal = format!("tapret1st:{}", issue_utxo.outpoint);
     let request = IssueRequest {
         ticker: "DIBA".to_string(),
         name: "DIBA".to_string(),
@@ -240,7 +245,6 @@ pub async fn create_new_invoice(
     };
     let owner_vault = get_wallet(&SecretString(descriptor_pub), None).await?;
 
-    // Create Watcher
     let sk = owner_keys.private.nostr_prv.clone();
     let contract_type = match iface {
         "RGB20" => AssetType::RGB20,
@@ -262,7 +266,7 @@ pub async fn create_new_invoice(
     let owner_address = &owner_vault
         .lock()
         .await
-        .get_address(AddressIndex::LastUnused)?
+        .get_address(AddressIndex::Peek(0))?
         .address
         .to_string();
 
@@ -345,6 +349,7 @@ pub async fn create_new_psbt(
     create_psbt(&sk, req).await
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn issuer_issue_contract_v2(
     number_of_contracts: u8,
     iface: &str,
@@ -352,6 +357,8 @@ pub async fn issuer_issue_contract_v2(
     force: bool,
     send_coins: bool,
     meta: Option<IssueMetaRequest>,
+    initial_sats: Option<String>,
+    filter_utxo: Option<UtxoFilter>,
 ) -> Result<Vec<IssueResponse>, anyhow::Error> {
     setup_regtest(force, None).await;
     let issuer_keys = save_mnemonic(
@@ -371,22 +378,45 @@ pub async fn issuer_issue_contract_v2(
 
     create_watcher(sk, create_watch_req.clone()).await?;
 
+    let default_coins = initial_sats.unwrap_or("0.1".to_string());
     if send_coins {
         let next_address = watcher_next_address(sk, watcher_name, iface).await?;
-        send_some_coins(&next_address.address, "0.1").await;
+        send_some_coins(&next_address.address, &default_coins).await;
     }
 
-    let mut next_utxo = watcher_next_utxo(sk, watcher_name, iface).await?;
-    if next_utxo.utxo.is_empty() {
-        let next_address = watcher_next_address(sk, watcher_name, iface).await?;
-        send_some_coins(&next_address.address, "0.1").await;
+    let mut next_utxo = String::new();
+    if let Some(filter) = filter_utxo {
+        let mut unspent_utxos = watcher_unspent_utxos(sk, watcher_name, iface).await?.utxos;
 
-        next_utxo = watcher_next_utxo(sk, watcher_name, iface).await?;
+        if let Some(amount) = filter.amount_less_than {
+            unspent_utxos.retain(|x| x.amount <= amount);
+        }
+
+        if let Some(outpoint) = filter.outpoint_equal {
+            unspent_utxos.retain(|x| x.outpoint == outpoint);
+        }
+
+        if let Some(utxo) = unspent_utxos.first() {
+            next_utxo = utxo.outpoint.to_string();
+        }
+    } else {
+        let next_watcher_utxo = watcher_next_utxo(sk, watcher_name, iface).await?;
+        if next_watcher_utxo.utxo.is_none() {
+            let next_address = watcher_next_address(sk, watcher_name, iface).await?;
+            send_some_coins(&next_address.address, &default_coins).await;
+            next_utxo = watcher_next_utxo(sk, watcher_name, iface)
+                .await?
+                .utxo
+                .unwrap()
+                .outpoint;
+        } else {
+            next_utxo = next_watcher_utxo.utxo.unwrap().outpoint;
+        }
     }
 
     let mut contracts = vec![];
     for _ in 0..number_of_contracts {
-        let issue_utxo = next_utxo.clone().utxo;
+        let issue_utxo = next_utxo.clone();
         let issue_seal = format!("tapret1st:{issue_utxo}");
         let request = IssueRequest {
             ticker: "DIBA".to_string(),
@@ -449,8 +479,11 @@ pub async fn create_new_invoice_v2(
 
 pub async fn create_new_psbt_v2(
     iface: &str,
-    owner_utxos: Vec<AllocationDetail>,
+    owner_asset_utxos: Vec<AllocationDetail>,
     owner_keys: DecryptedWalletData,
+    owner_bitcoin_inputs: Vec<PsbtInputRequest>,
+    bitcoin_changes: Vec<String>,
+    fee_strategy: Option<PsbtFeeRequest>,
 ) -> Result<PsbtResponse, anyhow::Error> {
     // Get Allocations
     let watcher_name = "default";
@@ -470,7 +503,7 @@ pub async fn create_new_psbt_v2(
         _ => "/20/1",
     };
 
-    let inputs = owner_utxos
+    let inputs = owner_asset_utxos
         .into_iter()
         .map(|x| PsbtInputRequest {
             descriptor: SecretString(descriptor_pub.clone()),
@@ -480,13 +513,14 @@ pub async fn create_new_psbt_v2(
         })
         .collect();
 
+    let default_fee = fee_strategy.unwrap_or(PsbtFeeRequest::Value(1000));
     let req = PsbtRequest {
         asset_descriptor_change: SecretString(descriptor_pub.clone()),
         asset_terminal_change: terminal_change.to_owned(),
         asset_inputs: inputs,
-        bitcoin_inputs: vec![],
-        bitcoin_changes: vec![],
-        fee: PsbtFeeRequest::Value(1000),
+        bitcoin_inputs: owner_bitcoin_inputs,
+        bitcoin_changes,
+        fee: default_fee,
     };
 
     create_psbt(&sk, req).await
