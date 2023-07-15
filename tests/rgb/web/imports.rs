@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
 #![allow(unused_variables)]
-#![cfg(all(target_arch = "wasm32"))]
+#![cfg(target_arch = "wasm32")]
 use std::{assert_eq, str::FromStr, vec};
 
 use bdk::blockchain::EsploraBlockchain;

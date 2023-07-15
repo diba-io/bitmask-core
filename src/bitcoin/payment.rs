@@ -1,7 +1,14 @@
 use anyhow::{anyhow, Result};
+
 use bdk::{wallet::tx_builder::TxOrdering, FeeRate, TransactionDetails};
-use bitcoin::consensus::serialize;
-use payjoin::{PjUri, PjUriExt};
+
+use bitcoin::{
+    consensus::serialize,
+    psbt::{Input, Psbt},
+    Amount, TxIn,
+};
+
+use payjoin::{send::Configuration, PjUri, PjUriExt};
 
 use crate::{
     bitcoin::{
@@ -42,24 +49,57 @@ pub async fn create_payjoin(
     fee_rate: Option<FeeRate>,
     pj_uri: PjUri<'_>, // TODO specify Uri<PayJoinParams>
 ) -> Result<TransactionDetails> {
+    let enacted_fee_rate = fee_rate.unwrap_or_default();
     let (psbt, details) = {
         let locked_wallet = wallet.lock().await;
         let mut builder = locked_wallet.build_tx();
-        for invoice in invoices {
+        for invoice in &invoices {
             builder.add_recipient(invoice.address.script_pubkey(), invoice.amount);
         }
-        builder.enable_rbf().fee_rate(fee_rate.unwrap_or_default());
+        builder.enable_rbf().fee_rate(enacted_fee_rate);
         builder.finish()?
     };
 
     debug!(format!("Request PayJoin transaction: {details:#?}"));
     debug!("Unsigned Original PSBT:", base64::encode(&serialize(&psbt)));
-    let original_psbt = sign_original_psbt(wallet, psbt).await?;
+    let original_psbt = sign_original_psbt(wallet, psbt.clone()).await?;
     info!("Original PSBT successfully signed");
 
-    // TODO use fee_rate
-    let pj_params = payjoin::sender::Configuration::non_incentivizing();
-    let (req, ctx) = pj_uri.create_pj_request(original_psbt, pj_params)?;
+    let additional_fee_index = psbt
+        .outputs
+        .clone()
+        .into_iter()
+        .enumerate()
+        .find(|(_, output)| {
+            invoices.iter().all(|invoice| {
+                output.redeem_script != Some(invoice.address.script_pubkey())
+                    && output.witness_script != Some(invoice.address.script_pubkey())
+            })
+        })
+        .map(|(i, _)| i);
+
+    let pj_params = match additional_fee_index {
+        Some(index) => {
+            let amount_available = psbt
+                .clone()
+                .unsigned_tx
+                .output
+                .get(index)
+                .map(|o| Amount::from_sat(o.value))
+                .unwrap_or_default();
+            const P2TR_INPUT_WEIGHT: usize = 58; // bitmask is taproot only
+            let recommended_fee = Amount::from_sat(enacted_fee_rate.fee_wu(P2TR_INPUT_WEIGHT));
+            let max_additional_fee = std::cmp::min(
+                recommended_fee,
+                amount_available, // offer amount available if recommendation is not
+            );
+
+            Configuration::with_fee_contribution(max_additional_fee, Some(index))
+        }
+        None => Configuration::non_incentivizing(),
+    };
+
+    let (req, ctx) = pj_uri.create_pj_request(original_psbt.clone(), pj_params)?;
     info!("Built PayJoin request");
     let response = reqwest::Client::new()
         .post(req.url)
@@ -76,7 +116,8 @@ pub async fn create_payjoin(
         return Err(anyhow!("Error performing payjoin: {res}"));
     }
 
-    let payjoin_psbt = ctx.process_response(res.as_bytes())?;
+    let payjoin_psbt = ctx.process_response(&mut res.as_bytes())?;
+    let payjoin_psbt = add_back_original_input(&original_psbt, payjoin_psbt);
 
     debug!(
         "Proposed PayJoin PSBT:",
@@ -86,4 +127,35 @@ pub async fn create_payjoin(
     let tx = sign_psbt(wallet, payjoin_psbt).await?;
 
     Ok(tx)
+}
+
+/// Unlike Bitcoin Core's walletprocesspsbt RPC, BDK's finalize_psbt only checks
+/// if the script in the PSBT input map matches the descriptor and does not
+/// check whether it has control of the OutPoint specified in the unsigned_tx's
+/// TxIn. So the original_psbt input data needs to be added back into
+/// payjoin_psbt without overwriting receiver input.
+fn add_back_original_input(original_psbt: &Psbt, payjoin_psbt: Psbt) -> Psbt {
+    // input_pairs is only used here. It may be added to payjoin, rust-bitcoin, or BDK in time.
+    fn input_pairs(psbt: &Psbt) -> Box<dyn Iterator<Item = (TxIn, Input)> + '_> {
+        Box::new(
+            psbt.unsigned_tx
+                .input
+                .iter()
+                .cloned() // Clone each TxIn for better ergonomics than &muts
+                .zip(psbt.inputs.iter().cloned()), // Clone each Input too
+        )
+    }
+
+    let mut original_inputs = input_pairs(original_psbt).peekable();
+
+    for (proposed_txin, mut proposed_psbtin) in input_pairs(&payjoin_psbt) {
+        if let Some((original_txin, original_psbtin)) = original_inputs.peek() {
+            if proposed_txin.previous_output == original_txin.previous_output {
+                proposed_psbtin.witness_utxo = original_psbtin.witness_utxo.clone();
+                proposed_psbtin.non_witness_utxo = original_psbtin.non_witness_utxo.clone();
+            }
+            original_inputs.next();
+        }
+    }
+    payjoin_psbt
 }
