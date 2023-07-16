@@ -23,7 +23,6 @@ pub mod issue;
 pub mod prefetch;
 pub mod psbt;
 pub mod resolvers;
-pub mod schemas;
 pub mod structs;
 pub mod transfer;
 pub mod wallet;
@@ -36,7 +35,8 @@ use crate::{
     },
     rgb::{
         carbonado::{force_store_stock, retrieve_stock, store_stock},
-        issue::issue_contract as create_contract,
+        constants::WALLET_UNAVALIABLE,
+        issue::{issue_contract as create_contract, IssuerError},
         psbt::{create_psbt as create_rgb_psbt, extract_commit},
         resolvers::ExplorerResolver,
         transfer::{
@@ -58,8 +58,8 @@ use crate::{
 
 use self::{
     carbonado::{retrieve_wallets, store_wallets},
-    constants::RGB_DEFAULT_NAME,
-    contract::extract_contract,
+    constants::{CARBONADO_UNAVALIABLE, RGB_DEFAULT_NAME, STOCK_UNAVALIABLE},
+    contract::{export_contract, ExportContractError},
     import::import_contract,
     prefetch::{
         prefetch_resolver_import_rgb, prefetch_resolver_psbt, prefetch_resolver_rgb,
@@ -73,11 +73,25 @@ use self::{
     },
 };
 
+#[derive(Debug, Clone, Eq, PartialEq, Display, From)]
+#[display(doc_comments)]
+pub enum IssuerOperationError {
+    // Some request data is missing. {0}
+    Validation(String),
+    /// Retrieve I/O or connectivity error. {1} in {0}
+    Retrive(String, String),
+    /// Write I/O or connectivity error. {1} in {0}
+    Write(String, String),
+    // Watcher is required for this operation.
+    Watcher,
+    // Occurs an error in issue step. {0}
+    Issue(IssuerError),
+    // Occurs an error in export step. {0}
+    Export(ExportContractError),
+}
+
 /// RGB Operations
 pub async fn issue_contract(sk: &str, request: IssueRequest) -> Result<IssueResponse> {
-    let mut stock = retrieve_stock(sk, ASSETS_STOCK).await?;
-    let mut rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await?;
-
     let IssueRequest {
         ticker,
         name,
@@ -89,7 +103,25 @@ pub async fn issue_contract(sk: &str, request: IssueRequest) -> Result<IssueResp
         meta,
     } = request;
 
-    // Prefetch
+    let mut stock = match retrieve_stock(sk, ASSETS_STOCK).await {
+        Ok(stock) => stock,
+        _ => {
+            return Err(anyhow!(IssuerOperationError::Retrive(
+                CARBONADO_UNAVALIABLE.to_string(),
+                STOCK_UNAVALIABLE.to_string(),
+            )))
+        }
+    };
+    let mut rgb_account = match retrieve_wallets(sk, ASSETS_WALLETS).await {
+        Ok(rgb_account) => rgb_account,
+        _ => {
+            return Err(anyhow!(IssuerOperationError::Retrive(
+                CARBONADO_UNAVALIABLE.to_string(),
+                WALLET_UNAVALIABLE.to_string(),
+            )))
+        }
+    };
+
     let mut resolver = ExplorerResolver {
         explorer_url: BITCOIN_EXPLORER_API.read().await.to_string(),
         ..Default::default()
@@ -110,7 +142,7 @@ pub async fn issue_contract(sk: &str, request: IssueRequest) -> Result<IssueResp
         _ => None,
     };
 
-    let contract = create_contract(
+    let contract = match create_contract(
         &ticker,
         &name,
         &description,
@@ -122,7 +154,10 @@ pub async fn issue_contract(sk: &str, request: IssueRequest) -> Result<IssueResp
         meta,
         &mut resolver,
         &mut stock,
-    )?;
+    ) {
+        Ok(new_contract) => new_contract,
+        Err(err) => return Err(anyhow!(IssuerOperationError::Issue(err))),
+    };
 
     let ContractResponse {
         contract_id,
@@ -138,12 +173,15 @@ pub async fn issue_contract(sk: &str, request: IssueRequest) -> Result<IssueResp
         contract,
         genesis,
         meta,
-    } = extract_contract(
+    } = match export_contract(
         contract.contract_id(),
         &mut stock,
         &mut resolver,
         &mut wallet,
-    )?;
+    ) {
+        Ok(contract) => contract,
+        Err(err) => return Err(anyhow!(IssuerOperationError::Export(err))),
+    };
 
     if let Some(wallet) = wallet {
         rgb_account
@@ -151,8 +189,21 @@ pub async fn issue_contract(sk: &str, request: IssueRequest) -> Result<IssueResp
             .insert(RGB_DEFAULT_NAME.to_string(), wallet);
     };
 
-    store_stock(sk, ASSETS_STOCK, &stock).await?;
-    store_wallets(sk, ASSETS_WALLETS, &rgb_account).await?;
+    if store_stock(sk, ASSETS_STOCK, &stock).await.is_err() {
+        return Err(anyhow!(IssuerOperationError::Write(
+            CARBONADO_UNAVALIABLE.to_string(),
+            STOCK_UNAVALIABLE.to_string()
+        )));
+    }
+    if store_wallets(sk, ASSETS_WALLETS, &rgb_account)
+        .await
+        .is_err()
+    {
+        return Err(anyhow!(IssuerOperationError::Write(
+            CARBONADO_UNAVALIABLE.to_string(),
+            WALLET_UNAVALIABLE.to_string()
+        )));
+    }
 
     Ok(IssueResponse {
         contract_id,
@@ -165,6 +216,7 @@ pub async fn issue_contract(sk: &str, request: IssueRequest) -> Result<IssueResp
         precision,
         contract,
         genesis,
+        issue_method: "tapret1st".to_string(),
         issue_utxo: seal.replace("tapret1st:", ""),
         meta,
     })
@@ -279,7 +331,7 @@ pub async fn reissue_contract(sk: &str, request: ReIssueRequest) -> Result<ReIss
             contract,
             genesis,
             meta,
-        } = extract_contract(
+        } = export_contract(
             contract.contract_id(),
             &mut stock,
             &mut resolver,
@@ -303,6 +355,7 @@ pub async fn reissue_contract(sk: &str, request: ReIssueRequest) -> Result<ReIss
             precision,
             contract,
             genesis,
+            issue_method: "tapret1st".to_string(),
             issue_utxo: seal.replace("tapret1st:", ""),
             meta,
         });
@@ -486,7 +539,7 @@ pub async fn get_contract(sk: &str, contract_id: &str) -> Result<ContractRespons
     };
 
     let contract_id = ContractId::from_str(contract_id)?;
-    let contract = extract_contract(contract_id, &mut stock, &mut resolver, &mut wallet)?;
+    let contract = export_contract(contract_id, &mut stock, &mut resolver, &mut wallet)?;
 
     if let Some(wallet) = wallet {
         rgb_account
@@ -524,7 +577,7 @@ pub async fn list_contracts(sk: &str) -> Result<ContractsResponse> {
     let mut contracts = vec![];
 
     for contract_id in stock.contract_ids()? {
-        let resp = extract_contract(contract_id, &mut stock, &mut resolver, &mut wallet)?;
+        let resp = export_contract(contract_id, &mut stock, &mut resolver, &mut wallet)?;
         contracts.push(resp);
     }
 
@@ -602,7 +655,7 @@ pub async fn import(sk: &str, request: ImportRequest) -> Result<ContractResponse
     };
 
     let contract = import_contract(&data, import, &mut stock, &mut resolver)?;
-    let resp = extract_contract(
+    let resp = export_contract(
         contract.contract_id(),
         &mut stock,
         &mut resolver,

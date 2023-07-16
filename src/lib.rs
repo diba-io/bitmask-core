@@ -9,5 +9,6 @@ pub mod nostr;
 pub mod rgb;
 pub mod structs;
 pub mod util;
+pub mod validators;
 #[cfg(target_arch = "wasm32")]
 pub mod web;

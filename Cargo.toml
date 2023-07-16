@@ -50,6 +50,7 @@ descriptor-wallet = { version = "0.10.0-alpha.2", features = [
 futures = { version = "0.3.28", features = [
     "executor",
 ], default-features = true }
+garde = { version = "0.11.2", features = ["derive"], default-features = false }
 getrandom = { version = "0.2.10", features = ["js"] }
 hex = "0.4.3"
 indexmap = "1.9.3"

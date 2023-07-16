@@ -1,11 +1,13 @@
+use garde::Validate;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 pub use bdk::{Balance, BlockTime, TransactionDetails};
 pub use bitcoin::{util::address::Address, Txid};
-
 use rgbstd::interface::rgb21::Allocation as AllocationUDA;
+
+use crate::validators::{has_media_types, is_tapret_seal, RGBContext};
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -100,35 +102,58 @@ pub struct IssueAssetRequest {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
+#[derive(Validate)]
+#[garde(context(RGBContext))]
 pub struct IssueRequest {
     /// The ticker of the asset
+    #[garde(ascii)]
+    #[garde(length(min = 1, max = 8))]
     pub ticker: String,
     /// Name of the asset
+    #[garde(ascii)]
+    #[garde(length(min = 1, max = 40))]
     pub name: String,
     /// Description of the asset
+    #[garde(ascii)]
+    #[garde(length(min = 1, max = u8::MAX))]
     pub description: String,
     /// Amount of the asset
+    #[garde(range(min = u64::MIN, max = u64::MAX))]
     pub supply: u64,
     /// Precision of the asset
+    #[garde(range(min = u8::MIN, max = u8::MAX))]
     pub precision: u8,
     /// Seal of the initial owner
+    #[garde(ascii)]
+    #[garde(custom(is_tapret_seal))]
     pub seal: String,
     /// The name of the iface (ex: RGB20)
+    #[garde(alphanumeric)]
     pub iface: String,
     /// contract metadata (only RGB21/UDA)
+    #[garde(custom(has_media_types))]
     pub meta: Option<IssueMetaRequest>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
+#[derive(Validate)]
+#[garde(context(RGBContext))]
 pub struct SelfIssueRequest {
     /// The ticker of the asset
+    #[garde(ascii)]
+    #[garde(length(min = 1, max = 8))]
     pub ticker: String,
     /// Name of the asset
+    #[garde(ascii)]
+    #[garde(length(min = 1, max = 40))]
     pub name: String,
     /// Description of the asset
+    #[garde(ascii)]
+    #[garde(length(min = 1, max = u8::MAX))]
     pub description: String,
     /// contract metadata (only RGB21/UDA)
+    #[garde(custom(has_media_types))]
     pub meta: Option<IssueMetaRequest>,
 }
 
@@ -152,10 +177,8 @@ impl IssueMetaRequest {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub enum IssueMetadata {
-    #[serde(rename = "uda")]
     UDA(Vec<MediaInfo>),
 
-    #[serde(rename = "collectible")]
     Collectible(Vec<NewCollectible>),
 }
 
@@ -167,24 +190,39 @@ impl Default for IssueMetadata {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
+#[derive(Validate)]
+#[garde(context(RGBContext))]
 pub struct NewCollectible {
     /// The ticker of the asset
+    #[garde(ascii)]
+    #[garde(length(min = 1, max = 8))]
     pub ticker: String,
     /// Name of the asset
+    #[garde(ascii)]
+    #[garde(length(min = 1, max = 40))]
     pub name: String,
     /// Description of the asset
+    #[garde(ascii)]
+    #[garde(length(min = 1, max = u8::MAX))]
     pub description: String,
     /// attachments and media
+    #[garde(length(min = 1, max = u8::MAX))]
     pub media: Vec<MediaInfo>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
+#[derive(Validate)]
+#[garde(context(RGBContext))]
 pub struct MediaInfo {
     /// Mime Type of the media
     #[serde(rename = "type")]
+    #[garde(ascii)]
+    #[garde(length(min = 1, max = 64))]
     pub ty: String,
     /// Source (aka. hyperlink) of the media
+    #[garde(ascii)]
+    #[garde(length(min = 0, max = u16::MAX))]
     pub source: String,
 }
 
@@ -197,6 +235,8 @@ pub struct IssueResponse {
     pub iimpl_id: String,
     /// The contract interface
     pub iface: String,
+    /// The Issue Close Method
+    pub issue_method: String,
     /// The Issue Utxo
     pub issue_utxo: String,
     /// The ticker of the asset
