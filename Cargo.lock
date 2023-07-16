@@ -634,6 +634,7 @@ dependencies = [
  "serde_json",
  "strict_encoding",
  "strict_types",
+ "thiserror",
  "tokio",
  "toml 0.7.6",
  "tower-http",

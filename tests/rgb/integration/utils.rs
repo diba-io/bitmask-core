@@ -145,7 +145,7 @@ pub async fn issuer_issue_contract(
     force: bool,
     send_coins: bool,
     meta: Option<IssueMetaRequest>,
-) -> Result<IssueResponse, anyhow::Error> {
+) -> anyhow::Result<IssueResponse> {
     setup_regtest(force, None).await;
     let issuer_keys = save_mnemonic(
         &SecretString(ISSUER_MNEMONIC.to_string()),
@@ -165,16 +165,20 @@ pub async fn issuer_issue_contract(
     create_watcher(sk, create_watch_req.clone()).await?;
 
     if send_coins {
-        let next_address = watcher_next_address(sk, watcher_name, iface).await?;
+        let next_address = watcher_next_address(sk, watcher_name, iface)
+            .await
+            .expect("");
         send_some_coins(&next_address.address, "0.01").await;
     }
 
-    let mut next_utxo = watcher_next_utxo(sk, watcher_name, iface).await?;
+    let mut next_utxo = watcher_next_utxo(sk, watcher_name, iface).await.expect("");
     if next_utxo.utxo.is_none() {
-        let next_address = watcher_next_address(sk, watcher_name, iface).await?;
+        let next_address = watcher_next_address(sk, watcher_name, iface)
+            .await
+            .expect("");
         send_some_coins(&next_address.address, "0.01").await;
 
-        next_utxo = watcher_next_utxo(sk, watcher_name, iface).await?;
+        next_utxo = watcher_next_utxo(sk, watcher_name, iface).await.expect("");
     }
 
     let issue_utxo = next_utxo.utxo.unwrap();
@@ -190,7 +194,8 @@ pub async fn issuer_issue_contract(
         meta,
     };
 
-    issue_contract(sk, request).await
+    let resp = issue_contract(sk, request).await?;
+    Ok(resp)
 }
 
 pub async fn import_new_contract(

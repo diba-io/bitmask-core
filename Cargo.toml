@@ -84,6 +84,7 @@ serde_json = "1.0.91"
 serde-encrypt = "0.7.0"
 strict_encoding = "~2.5"
 strict_types = "~1.5"
+thiserror = "1.0"
 tokio = { version = "1.28.2", features = ["macros", "sync"] }
 zeroize = "1.6.0"
 

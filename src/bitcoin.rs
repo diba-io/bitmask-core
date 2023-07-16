@@ -20,7 +20,7 @@ mod wallet;
 
 pub use crate::bitcoin::{
     assets::dust_tx,
-    keys::{new_mnemonic, save_mnemonic},
+    keys::{new_mnemonic, save_mnemonic, BitcoinKeysError},
     payment::{create_payjoin, create_transaction},
     psbt::{sign_psbt, sign_psbt_with_multiple_wallets},
     wallet::{get_blockchain, get_wallet, sync_wallet, sync_wallets, MemoryWallet},
