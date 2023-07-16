@@ -40,7 +40,7 @@ bitcoin_blockchain = "0.10.0-alpha.2"
 bp-core = { version = "~0.10.5", features = ["stl"] }
 bp-seals = "~0.10.4"
 commit_verify = { version = "~0.10.4", features = ["stl"] }
-carbonado = "0.3.1"
+carbonado = "0.3.3"
 console_error_panic_hook = "0.1.7"
 descriptor-wallet = { version = "0.10.0-alpha.2", features = [
     "descriptors",
