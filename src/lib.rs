@@ -4,6 +4,7 @@ extern crate amplify;
 pub mod bitcoin;
 pub mod carbonado;
 pub mod constants;
+pub mod error;
 pub mod lightning;
 pub mod nostr;
 pub mod rgb;

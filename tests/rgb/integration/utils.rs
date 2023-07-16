@@ -5,6 +5,7 @@ use std::{collections::HashMap, env, process::Stdio};
 use bdk::wallet::AddressIndex;
 use bitmask_core::{
     bitcoin::{get_wallet, get_wallet_data, save_mnemonic, sync_wallet},
+    error::BitMaskCoreError,
     rgb::{
         create_invoice, create_psbt, create_watcher, import, issue_contract, transfer_asset,
         watcher_details, watcher_next_address, watcher_next_utxo, watcher_unspent_utxos,
@@ -145,7 +146,7 @@ pub async fn issuer_issue_contract(
     force: bool,
     send_coins: bool,
     meta: Option<IssueMetaRequest>,
-) -> Result<IssueResponse, anyhow::Error> {
+) -> Result<IssueResponse, BitMaskCoreError> {
     setup_regtest(force, None).await;
     let issuer_keys = save_mnemonic(
         &SecretString(ISSUER_MNEMONIC.to_string()),
