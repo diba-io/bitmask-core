@@ -232,7 +232,7 @@ pub async fn import_new_contract(
 
     let resp = import(&sk, import_req).await;
     assert!(resp.is_ok());
-    resp
+    Ok(resp?)
 }
 
 pub async fn create_new_invoice(
@@ -292,7 +292,8 @@ pub async fn create_new_invoice(
         params,
     };
 
-    create_invoice(&sk, invoice_req).await
+    let resp = create_invoice(&sk, invoice_req).await?;
+    Ok(resp)
 }
 
 pub async fn create_new_psbt(
@@ -351,7 +352,8 @@ pub async fn create_new_psbt(
         fee: PsbtFeeRequest::Value(1000),
     };
 
-    create_psbt(&sk, req).await
+    let resp = create_psbt(&sk, req).await?;
+    Ok(resp)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -479,7 +481,8 @@ pub async fn create_new_invoice_v2(
         params,
     };
 
-    create_invoice(&sk, invoice_req).await
+    let resp = create_invoice(&sk, invoice_req).await?;
+    Ok(resp)
 }
 
 pub async fn create_new_psbt_v2(
@@ -528,7 +531,8 @@ pub async fn create_new_psbt_v2(
         fee: default_fee,
     };
 
-    create_psbt(&sk, req).await
+    let resp = create_psbt(&sk, req).await?;
+    Ok(resp)
 }
 
 pub async fn create_new_transfer(
@@ -544,7 +548,8 @@ pub async fn create_new_transfer(
     };
 
     let sk = owner_keys.private.nostr_prv.clone();
-    transfer_asset(&sk, transfer_req).await
+    let resp = transfer_asset(&sk, transfer_req).await?;
+    Ok(resp)
 }
 
 pub fn get_uda_data() -> IssueMetaRequest {
