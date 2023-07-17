@@ -145,36 +145,39 @@ pub async fn issuer_issue_contract(
     force: bool,
     send_coins: bool,
     meta: Option<IssueMetaRequest>,
-) -> Result<IssueResponse, anyhow::Error> {
-    setup_regtest(force, None).await;
+) -> anyhow::Result<IssueResponse> {
+    // Create Watcher
     let issuer_keys = save_mnemonic(
         &SecretString(ISSUER_MNEMONIC.to_string()),
         &SecretString("".to_string()),
     )
     .await?;
     let watcher_name = "default";
-
-    // Create Watcher
     let sk = &issuer_keys.private.nostr_prv;
     let create_watch_req = WatcherRequest {
         name: watcher_name.to_string(),
         xpub: issuer_keys.public.watcher_xpub.clone(),
         force: send_coins,
     };
-
     create_watcher(sk, create_watch_req.clone()).await?;
 
+    setup_regtest(force, None).await;
+
     if send_coins {
-        let next_address = watcher_next_address(sk, watcher_name, iface).await?;
+        let next_address = watcher_next_address(sk, watcher_name, iface)
+            .await
+            .expect("");
         send_some_coins(&next_address.address, "0.01").await;
     }
 
-    let mut next_utxo = watcher_next_utxo(sk, watcher_name, iface).await?;
+    let mut next_utxo = watcher_next_utxo(sk, watcher_name, iface).await.expect("");
     if next_utxo.utxo.is_none() {
-        let next_address = watcher_next_address(sk, watcher_name, iface).await?;
+        let next_address = watcher_next_address(sk, watcher_name, iface)
+            .await
+            .expect("");
         send_some_coins(&next_address.address, "0.01").await;
 
-        next_utxo = watcher_next_utxo(sk, watcher_name, iface).await?;
+        next_utxo = watcher_next_utxo(sk, watcher_name, iface).await.expect("");
     }
 
     let issue_utxo = next_utxo.utxo.unwrap();
@@ -190,7 +193,8 @@ pub async fn issuer_issue_contract(
         meta,
     };
 
-    issue_contract(sk, request).await
+    let resp = issue_contract(sk, request).await?;
+    Ok(resp)
 }
 
 pub async fn import_new_contract(
@@ -227,7 +231,7 @@ pub async fn import_new_contract(
 
     let resp = import(&sk, import_req).await;
     assert!(resp.is_ok());
-    resp
+    Ok(resp?)
 }
 
 pub async fn create_new_invoice(
@@ -267,14 +271,13 @@ pub async fn create_new_invoice(
         .lock()
         .await
         .get_address(AddressIndex::Peek(0))?
-        .address
-        .to_string();
+        .address;
 
-    send_some_coins(owner_address, "0.1").await;
+    send_some_coins(&owner_address.to_string(), "0.1").await;
     sync_wallet(&owner_vault).await?;
 
-    let beneficiary_utxo = owner_vault.lock().await.list_unspent()?;
-    let beneficiary_utxo = beneficiary_utxo.first().unwrap();
+    let beneficiary_utxos = owner_vault.lock().await.list_unspent()?;
+    let beneficiary_utxo = beneficiary_utxos.last().unwrap();
     let seal = beneficiary_utxo.outpoint.to_string();
     let seal = format!("tapret1st:{seal}");
 
@@ -287,7 +290,8 @@ pub async fn create_new_invoice(
         params,
     };
 
-    create_invoice(&sk, invoice_req).await
+    let resp = create_invoice(&sk, invoice_req).await?;
+    Ok(resp)
 }
 
 pub async fn create_new_psbt(
@@ -346,7 +350,9 @@ pub async fn create_new_psbt(
         fee: PsbtFeeRequest::Value(1000),
     };
 
-    create_psbt(&sk, req).await
+    let resp = create_psbt(&sk, req).await;
+    let resp = resp?;
+    Ok(resp)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -474,7 +480,8 @@ pub async fn create_new_invoice_v2(
         params,
     };
 
-    create_invoice(&sk, invoice_req).await
+    let resp = create_invoice(&sk, invoice_req).await?;
+    Ok(resp)
 }
 
 pub async fn create_new_psbt_v2(
@@ -523,7 +530,8 @@ pub async fn create_new_psbt_v2(
         fee: default_fee,
     };
 
-    create_psbt(&sk, req).await
+    let resp = create_psbt(&sk, req).await?;
+    Ok(resp)
 }
 
 pub async fn create_new_transfer(
@@ -539,7 +547,8 @@ pub async fn create_new_transfer(
     };
 
     let sk = owner_keys.private.nostr_prv.clone();
-    transfer_asset(&sk, transfer_req).await
+    let resp = transfer_asset(&sk, transfer_req).await?;
+    Ok(resp)
 }
 
 pub fn get_uda_data() -> IssueMetaRequest {

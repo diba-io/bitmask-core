@@ -1,11 +1,15 @@
+use garde::Validate;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 pub use bdk::{Balance, BlockTime, TransactionDetails};
 pub use bitcoin::{util::address::Address, Txid};
-
 use rgbstd::interface::rgb21::Allocation as AllocationUDA;
+
+use crate::validators::{
+    has_media_types, is_descriptor, is_tapret_seal, is_terminal_path, RGBContext,
+};
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -100,42 +104,68 @@ pub struct IssueAssetRequest {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
+#[derive(Validate)]
+#[garde(context(RGBContext))]
 pub struct IssueRequest {
     /// The ticker of the asset
+    #[garde(ascii)]
+    #[garde(length(min = 1, max = 8))]
     pub ticker: String,
     /// Name of the asset
+    #[garde(ascii)]
+    #[garde(length(min = 1, max = 40))]
     pub name: String,
     /// Description of the asset
+    #[garde(ascii)]
+    #[garde(length(min = 1, max = U8))]
     pub description: String,
     /// Amount of the asset
+    #[garde(range(min = u64::MIN, max = u64::MAX))]
     pub supply: u64,
     /// Precision of the asset
+    #[garde(range(min = u8::MIN, max = u8::MAX))]
     pub precision: u8,
     /// Seal of the initial owner
+    #[garde(ascii)]
+    #[garde(custom(is_tapret_seal))]
     pub seal: String,
     /// The name of the iface (ex: RGB20)
+    #[garde(alphanumeric)]
     pub iface: String,
     /// contract metadata (only RGB21/UDA)
+    #[garde(custom(has_media_types))]
     pub meta: Option<IssueMetaRequest>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
+#[derive(Validate)]
+#[garde(context(RGBContext))]
 pub struct SelfIssueRequest {
     /// The ticker of the asset
+    #[garde(ascii)]
+    #[garde(length(min = 1, max = 8))]
     pub ticker: String,
     /// Name of the asset
+    #[garde(ascii)]
+    #[garde(length(min = 1, max = 40))]
     pub name: String,
     /// Description of the asset
+    #[garde(ascii)]
+    #[garde(length(min = 1, max = u8::MAX))]
     pub description: String,
     /// contract metadata (only RGB21/UDA)
+    #[garde(custom(has_media_types))]
     pub meta: Option<IssueMetaRequest>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
+#[derive(Validate)]
+#[garde(context(RGBContext))]
 pub struct ReIssueRequest {
     /// previous contracts
+    #[garde(skip)]
     pub contracts: Vec<ContractResponse>,
 }
 
@@ -152,10 +182,8 @@ impl IssueMetaRequest {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub enum IssueMetadata {
-    #[serde(rename = "uda")]
     UDA(Vec<MediaInfo>),
 
-    #[serde(rename = "collectible")]
     Collectible(Vec<NewCollectible>),
 }
 
@@ -167,24 +195,39 @@ impl Default for IssueMetadata {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
+#[derive(Validate)]
+#[garde(context(RGBContext))]
 pub struct NewCollectible {
     /// The ticker of the asset
+    #[garde(ascii)]
+    #[garde(length(min = 1, max = 8))]
     pub ticker: String,
     /// Name of the asset
+    #[garde(ascii)]
+    #[garde(length(min = 1, max = 40))]
     pub name: String,
     /// Description of the asset
+    #[garde(ascii)]
+    #[garde(length(min = 1, max = u8::MAX))]
     pub description: String,
     /// attachments and media
+    #[garde(length(min = 1, max = u8::MAX))]
     pub media: Vec<MediaInfo>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
+#[derive(Validate)]
+#[garde(context(RGBContext))]
 pub struct MediaInfo {
     /// Mime Type of the media
     #[serde(rename = "type")]
+    #[garde(ascii)]
+    #[garde(length(min = 1, max = 64))]
     pub ty: String,
     /// Source (aka. hyperlink) of the media
+    #[garde(ascii)]
+    #[garde(length(min = 0, max = u16::MAX))]
     pub source: String,
 }
 
@@ -197,6 +240,8 @@ pub struct IssueResponse {
     pub iimpl_id: String,
     /// The contract interface
     pub iface: String,
+    /// The Issue Close Method
+    pub issue_method: String,
     /// The Issue Utxo
     pub issue_utxo: String,
     /// The ticker of the asset
@@ -266,10 +311,15 @@ impl std::fmt::Display for AssetType {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
+#[derive(Validate)]
+#[garde(context(RGBContext))]
 pub struct ImportRequest {
     /// The type data
+    #[garde(skip)]
     pub import: AssetType,
     /// The payload data (in hexadecimal)
+    #[garde(ascii)]
+    #[garde(length(min = 0, max = U64))]
     pub data: String,
 }
 
@@ -355,16 +405,26 @@ pub struct UDADetail {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
+#[derive(Validate)]
+#[garde(context(RGBContext))]
 pub struct InvoiceRequest {
     /// The contract id
+    #[garde(ascii)]
+    #[garde(length(min = 0, max = 100))]
     pub contract_id: String,
     /// The contract interface
+    #[garde(ascii)]
+    #[garde(length(min = 0, max = 32))]
     pub iface: String,
     /// Amount of the asset
+    #[garde(range(min = 0, max = u64::MAX))]
     pub amount: u64,
-    /// UTXO or Blinded UTXO
+    /// Blinded UTXO
+    #[garde(ascii)]
+    #[garde(custom(is_tapret_seal))]
     pub seal: String,
     /// Query parameters
+    #[garde(skip)]
     pub params: HashMap<String, String>,
 }
 
@@ -377,43 +437,62 @@ pub struct InvoiceResponse {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
+#[derive(Validate)]
+#[garde(context(RGBContext))]
 pub struct PsbtRequest {
     /// Asset UTXOs
+    #[garde(dive)]
+    #[garde(length(min = 0, max = 999))]
     pub asset_inputs: Vec<PsbtInputRequest>,
     /// Asset Descriptor Change
+    #[garde(custom(is_descriptor))]
     pub asset_descriptor_change: SecretString,
     /// Asset Terminal Change (default: /10/0)
+    #[garde(custom(is_terminal_path))]
     pub asset_terminal_change: String,
     /// Bitcoin UTXOs
+    #[garde(dive)]
+    #[garde(length(min = 0, max = 999))]
     pub bitcoin_inputs: Vec<PsbtInputRequest>,
     /// Bitcoin Change Addresses (format: {address}:{amount})
+    #[garde(length(min = 0, max = 999))]
     pub bitcoin_changes: Vec<String>,
     /// Bitcoin Fee
+    #[garde(dive)]
     pub fee: PsbtFeeRequest,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
+#[derive(Validate)]
+#[garde(context(RGBContext))]
 pub struct PsbtInputRequest {
     /// Asset or Bitcoin Descriptor
+    #[garde(custom(is_descriptor))]
     pub descriptor: SecretString,
     /// Asset or Bitcoin UTXO
+    #[garde(ascii)]
     pub utxo: String,
     /// Asset or Bitcoin UTXO Terminal (ex. /0/0)
+    #[garde(custom(is_terminal_path))]
     pub utxo_terminal: String,
     /// Asset or Bitcoin Tweak
+    #[garde(skip)]
     pub tapret: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
+#[derive(Validate)]
+#[garde(context(RGBContext))]
 pub enum PsbtFeeRequest {
-    Value(u64),
-    FeeRate(f32),
+    Value(#[garde(range(min = 0, max = u64::MAX))] u64),
+    FeeRate(#[garde(skip)] f32),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
+
 pub struct PsbtResponse {
     /// PSBT encoded in Base64
     pub psbt: String,
@@ -423,10 +502,15 @@ pub struct PsbtResponse {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
+#[derive(Validate)]
+#[garde(context(RGBContext))]
 pub struct SignPsbtRequest {
     /// PSBT encoded in Base64
+    #[garde(length(min = 0, max = u64::MAX))]
     pub psbt: String,
     /// Descriptors to Sign
+    // TODO: Check secure way to validate xpriv desc
+    #[garde(skip)]
     pub descriptors: Vec<SecretString>,
 }
 
@@ -441,12 +525,19 @@ pub struct SignPsbtResponse {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
+#[derive(Validate)]
+#[garde(context(RGBContext))]
 pub struct RgbTransferRequest {
     /// RGB Invoice
+    #[garde(ascii)]
+    #[garde(length(min = 0, max = 512))]
     pub rgb_invoice: String,
     /// PSBT File Information
+    #[garde(ascii)]
+    #[garde(length(min = 0, max = U64))]
     pub psbt: String,
     /// Asset UTXO Terminal (ex. /0/0)
+    #[garde(custom(is_terminal_path))]
     pub terminal: String,
 }
 
@@ -465,10 +556,15 @@ pub struct RgbTransferResponse {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
+#[derive(Validate)]
+#[garde(context(RGBContext))]
 pub struct AcceptRequest {
     /// Consignment encoded in hexadecimal
+    #[garde(ascii)]
+    #[garde(length(min = 0, max = U64))]
     pub consignment: String,
     /// Force Consignment accept
+    #[garde(skip)]
     pub force: bool,
 }
 
@@ -526,12 +622,19 @@ pub struct SchemaDetail {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
+#[derive(Validate)]
+#[garde(context(RGBContext))]
 pub struct WatcherRequest {
     /// The watcher name
+    #[garde(ascii)]
+    #[garde(length(min = 1, max = 32))]
     pub name: String,
     /// The xpub will be watch
+    #[garde(ascii)]
+    #[garde(length(min = 1, max = 64))]
     pub xpub: String,
     /// Force recreate
+    #[garde(skip)]
     pub force: bool,
 }
 

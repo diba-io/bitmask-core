@@ -2,7 +2,11 @@ use std::{collections::HashMap, convert::Infallible, str::FromStr};
 
 use amplify::hex::{FromHex, ToHex};
 use bitcoin::Transaction;
-use bitmask_core::{rgb::issue::issue_contract, rgb::transfer::create_invoice};
+use bitmask_core::{
+    rgb::issue::issue_contract,
+    rgb::transfer::create_invoice,
+    structs::{IssueMetaRequest, IssueMetadata, MediaInfo},
+};
 use bp::{
     LockTime, Outpoint, Sats, ScriptPubkey, SeqNo, Tx, TxIn, TxOut, TxVer, Txid, VarIntArray,
     Witness,
@@ -128,4 +132,12 @@ pub fn create_fake_invoice(contract_id: ContractId, seal: &str, stock: &mut Stoc
     let params = HashMap::new();
     create_invoice(&contract_id.to_string(), iface, amount, seal, params, stock)
         .expect("create_invoice failed")
+}
+
+#[allow(dead_code)]
+pub fn get_uda_data() -> IssueMetaRequest {
+    IssueMetaRequest::with(IssueMetadata::UDA(vec![MediaInfo {
+        ty: "image/png".to_string(),
+        source: "https://carbonado.io/diba.png".to_string(),
+    }]))
 }

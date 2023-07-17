@@ -15,7 +15,7 @@ use rgbstd::{
         Amount, ContractData, DivisibleAssetSpec, MediaType, Name, Precision, RicardianContract,
         Ticker, Timestamp,
     },
-    validation::ResolveTx,
+    validation::{Failure, ResolveTx},
 };
 use std::str::FromStr;
 use strict_types::encoding::TypeName;
@@ -24,12 +24,14 @@ use crate::structs::{IssueMetaRequest, IssueMetadata};
 
 #[derive(Clone, Eq, PartialEq, Debug, Display, Error, From)]
 #[display(doc_comments)]
-pub enum IssueError {
+pub enum IssueContractError {
     Forge(BuilderError),
-    ContractNotfound(String),
-    ImportContract(String),
-    ContractInvalid(String),
-    InvalidTicker(String),
+    // The contract interface {0} is not supported in issuer operation
+    NoContractSupport(String),
+    // The contract {0} contains failures {1}
+    ContractInvalid(String, Vec<Failure>),
+    // The contract {0} cannot be imported (reason: {1})
+    NoImport(String, String),
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -45,21 +47,17 @@ pub fn issue_contract<T>(
     meta: Option<IssueMetaRequest>,
     resolver: &mut T,
     stock: &mut Stock,
-) -> Result<Contract, IssueError>
+) -> Result<Contract, IssueContractError>
 where
     T: ResolveHeight + ResolveTx,
     T::Error: 'static,
 {
     let iface_name = TypeName::from_str(iface)
-        .map_err(|_| IssueError::Forge(BuilderError::InterfaceMismatch))?;
+        .map_err(|_| IssueContractError::Forge(BuilderError::InterfaceMismatch))?;
 
     let iface = stock
         .iface_by_name(&iface_name)
-        .map_err(|_| IssueError::Forge(BuilderError::InterfaceMismatch))?;
-
-    if ticker.len() < 3 || ticker.len() > 8 || ticker.chars().any(|c| c < 'A' && c > 'Z') {
-        return Err(IssueError::InvalidTicker("Ticker must be between 3 and 8 chars, contain no spaces and consist only of capital letters".to_string()));
-    }
+        .map_err(|_| IssueContractError::Forge(BuilderError::InterfaceMismatch))?;
 
     let contract_issued = match iface.name.as_str() {
         "RGB20" => {
@@ -75,19 +73,25 @@ where
             network,
             meta,
         ),
-        _ => return Err(IssueError::ContractNotfound(iface.name.to_string())),
+        _ => {
+            return Err(IssueContractError::NoContractSupport(
+                iface.name.to_string(),
+            ))
+        }
     };
 
-    let resp = contract_issued.map_err(IssueError::Forge)?;
+    let resp = contract_issued.map_err(IssueContractError::Forge)?;
     let contract_id = resp.contract_id().to_string();
-
-    let resp = resp
-        .validate(resolver)
-        .map_err(|_| IssueError::ContractInvalid(contract_id.clone()))?;
+    let resp = resp.validate(resolver).map_err(|consig| {
+        IssueContractError::ContractInvalid(
+            contract_id.clone(),
+            consig.into_validation_status().unwrap_or_default().failures,
+        )
+    })?;
 
     stock
         .import_contract(resp.clone(), resolver)
-        .or(Err(IssueError::ImportContract(contract_id)))?;
+        .map_err(|err| IssueContractError::NoImport(contract_id, err.to_string()))?;
 
     Ok(resp)
 }
@@ -109,11 +113,13 @@ fn issue_fungible_asset(
     let ticker: &'static str = Box::leak(ticker.to_string().into_boxed_str());
     let name: &'static str = Box::leak(name.to_string().into_boxed_str());
     let description: &'static str = Box::leak(description.to_string().into_boxed_str());
+    let created = Timestamp::default();
+
     let precision = Precision::try_from(precision).expect("invalid precision");
     let spec = DivisibleAssetSpec::new(ticker, name, precision);
-    let terms = RicardianContract::from_str(description).expect("invalid terms");
+    let terms = RicardianContract::from_str(description).expect("invalid contract text");
     let contract_data = ContractData { terms, media: None };
-    let created = Timestamp::default();
+
     // Issuer State
     let seal = ExplicitSeal::<Txid>::from_str(seal).expect("invalid seal definition");
     let seal = GenesisSeal::from(seal);
