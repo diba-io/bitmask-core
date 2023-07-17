@@ -1,5 +1,3 @@
-use std::path::PathBuf;
-
 #[cfg(feature = "server")]
 use crate::info;
 #[cfg(feature = "server")]
@@ -9,7 +7,9 @@ use amplify::hex::ToHex;
 use bitcoin_30::secp256k1::{PublicKey, SecretKey};
 #[cfg(not(feature = "server"))]
 use percent_encoding::utf8_percent_encode;
-
+use std::io::{Error, ErrorKind};
+#[cfg(feature = "server")]
+use std::path::PathBuf;
 pub mod constants;
 pub mod error;
 
@@ -25,7 +25,7 @@ pub async fn store(
     input: &[u8],
     force: bool,
     metadata: Option<Vec<u8>>,
-) -> Result<()> {
+) -> Result<(), CarbonadoError> {
     let level = 15;
     let sk = hex::decode(sk)?;
     let secret_key = SecretKey::from_slice(&sk)?;
@@ -54,17 +54,26 @@ pub async fn store(
         .header("Cache-Control", "no-cache")
         .send()
         .await
-        .context(format!("Error sending JSON POST request to {url}"))?;
+        .map_err(|op| {
+            CarbonadoError::StdIoError(Error::new(ErrorKind::Interrupted, op.to_string()))
+        })?;
 
     let status_code = response.status().as_u16();
     if status_code != 200 {
-        let response_text = response.text().await.context(format!(
-            "Error in parsing server response for POST JSON request to {url}"
-        ))?;
+        let response_text = response.text().await.map_err(|_| {
+            CarbonadoError::StdIoError(Error::new(
+                ErrorKind::Unsupported,
+                format!("Error in parsing server response for POST JSON request to {url}")
+                    .to_string(),
+            ))
+        })?;
 
-        Err(anyhow!(
-            "Error in storing carbonado file, status: {status_code} error: {response_text}"
-        ))
+        return Err(CarbonadoError::StdIoError(Error::new(
+            ErrorKind::Other,
+            format!(
+                "Error in storing carbonado file, status: {status_code} error: {response_text}"
+            ),
+        )));
     } else {
         Ok(())
     }
@@ -112,20 +121,36 @@ pub async fn retrieve_metadata(sk: &str, name: &str) -> Result<FileMetadata, Car
         .header("Cache-Control", "no-cache")
         .send()
         .await
-        .context(format!("Error sending JSON POST request to {url}"))?;
+        .map_err(|op| {
+            CarbonadoError::StdIoError(Error::new(ErrorKind::Interrupted, op.to_string()))
+        })?;
 
     let status_code = response.status().as_u16();
 
     if status_code != 200 {
-        let response_text = response.text().await.context(format!(
-            "Error in parsing server response for POST JSON request to {url}"
-        ))?;
-        return Err(anyhow!(
-            "Error in retrieving carbonado file, status: {status_code} error: {response_text}"
-        ));
+        let response_text = response.text().await.map_err(|_| {
+            CarbonadoError::StdIoError(Error::new(
+                ErrorKind::Unsupported,
+                format!("Error in parsing server response for POST JSON request to {url}")
+                    .to_string(),
+            ))
+        })?;
+
+        return Err(CarbonadoError::StdIoError(Error::new(
+            ErrorKind::Other,
+            format!(
+                "Error in storing carbonado file, status: {status_code} error: {response_text}"
+            ),
+        )));
     }
 
-    let result = response.json::<FileMetadata>().await?;
+    let result = response.json::<FileMetadata>().await.map_err(|_| {
+        CarbonadoError::StdIoError(Error::new(
+            ErrorKind::Unsupported,
+            format!("Error in parsing server response for POST JSON request to {url}").to_string(),
+        ))
+    })?;
+
     Ok(result)
 }
 
@@ -173,20 +198,36 @@ pub async fn retrieve(sk: &str, name: &str) -> Result<(Vec<u8>, Option<Vec<u8>>)
         .header("Cache-Control", "no-cache")
         .send()
         .await
-        .context(format!("Error sending JSON POST request to {url}"))?;
+        .map_err(|op| {
+            CarbonadoError::StdIoError(Error::new(ErrorKind::Interrupted, op.to_string()))
+        })?;
 
     let status_code = response.status().as_u16();
 
     if status_code != 200 {
-        let response_text = response.text().await.context(format!(
-            "Error in parsing server response for POST JSON request to {url}"
-        ))?;
-        return Err(anyhow!(
-            "Error in retrieving carbonado file, status: {status_code} error: {response_text}"
-        ));
+        let response_text = response.text().await.map_err(|_| {
+            CarbonadoError::StdIoError(Error::new(
+                ErrorKind::Unsupported,
+                format!("Error in parsing server response for POST JSON request to {url}")
+                    .to_string(),
+            ))
+        })?;
+
+        return Err(CarbonadoError::StdIoError(Error::new(
+            ErrorKind::Other,
+            format!(
+                "Error in storing carbonado file, status: {status_code} error: {response_text}"
+            ),
+        )));
     }
 
-    let encoded = response.bytes().await?;
+    let encoded = response.bytes().await.map_err(|_| {
+        CarbonadoError::StdIoError(Error::new(
+            ErrorKind::Unsupported,
+            format!("Error in parsing server response for POST JSON request to {url}").to_string(),
+        ))
+    })?;
+
     if encoded.is_empty() {
         Ok((Vec::new(), None))
     } else {
@@ -234,7 +275,12 @@ pub async fn handle_file(pk: &str, name: &str, bytes: usize) -> Result<PathBuf, 
     .join(pk);
 
     let filepath = directory.join(final_name);
-    fs::create_dir_all(directory).await?;
+    fs::create_dir_all(directory).await.map_err(|_| {
+        CarbonadoError::StdIoError(Error::new(
+            ErrorKind::NotFound,
+            format!("Cannot create filepath to carbonado file {name}").to_string(),
+        ))
+    })?;
     if bytes == 0 {
         info!(format!("read {}", filepath.to_string_lossy()));
     } else {

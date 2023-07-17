@@ -7,7 +7,7 @@ use rgbstd::{
     persistence::{Inventory, InventoryInconsistency, StashInconsistency, Stock},
     stl::{ContractData, DivisibleAssetSpec},
 };
-use strict_encoding::{FieldName, StrictDeserialize, StrictDumb, StrictSerialize};
+use strict_encoding::{FieldName, StrictDeserialize, StrictSerialize};
 
 use crate::rgb::{resolvers::ResolveSpent, wallet::contract_allocations};
 use crate::structs::{
@@ -132,12 +132,19 @@ where
         }
     };
 
-    // TODO: Review that (rgb20 and rgb21)!
-    let ty: FieldName = FieldName::from("data");
-    let _contract_text = match contract_iface.global(ty) {
-        Ok(values) => ContractData::from_strict_val_unchecked(&values[0]),
-        Err(_) => ContractData::strict_dumb(),
+    let mut description = String::new();
+    let ty_data: FieldName = FieldName::from("data");
+    if let Ok(values) = contract_iface.global(ty_data) {
+        let contract = ContractData::from_strict_val_unchecked(&values[0]);
+        description = contract.terms.to_string();
     };
+
+    // TODO: Review that (rgb21)!
+    // let ty_terms: FieldName = FieldName::from("terms");
+    // if let Ok(values) = contract_iface.global(ty_terms) {
+    //     let contract = RicardianContract::from_strict_val_unchecked(&values[0]);
+    //     description = contract.to_string();
+    // };
 
     let iface_index = match iface.name.as_str() {
         "RGB20" => 20,
@@ -314,7 +321,7 @@ where
         iface: iface.name.to_string(),
         ticker: specs.ticker().into(),
         name: specs.name().into(),
-        description: String::new(),
+        description: description,
         precision: 0,
         supply,
         balance,

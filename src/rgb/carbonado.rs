@@ -1,7 +1,7 @@
 use amplify::confinement::{Confined, U32};
 use anyhow::Result;
 use postcard::{from_bytes, to_allocvec};
-use rgbstd::persistence::Stock;
+use rgbstd::{persistence::Stock, stl::LIB_ID_RGB};
 use strict_encoding::{StrictDeserialize, StrictSerialize};
 
 use crate::{
@@ -29,7 +29,7 @@ pub async fn store_stock(sk: &str, name: &str, stock: &Stock) -> Result<(), Stor
 
     store(
         sk,
-        name,
+        &format!("{LIB_ID_RGB}-{name}"),
         &data,
         false,
         Some(RGB_STRICT_TYPE_VERSION.to_vec()),
@@ -45,7 +45,7 @@ pub async fn force_store_stock(sk: &str, name: &str, stock: &Stock) -> Result<()
 
     store(
         sk,
-        name,
+        &format!("{LIB_ID_RGB}-{name}"),
         &data,
         true,
         Some(RGB_STRICT_TYPE_VERSION.to_vec()),
@@ -55,7 +55,7 @@ pub async fn force_store_stock(sk: &str, name: &str, stock: &Stock) -> Result<()
 }
 
 pub async fn retrieve_stock(sk: &str, name: &str) -> Result<Stock, StorageError> {
-    let (data, _) = retrieve(sk, name)
+    let (data, _) = retrieve(sk, &format!("{LIB_ID_RGB}-{name}"))
         .await
         .map_err(|op| StorageError::CarbonadoRetrive(name.to_string(), op.to_string()))
         .unwrap_or_default();
@@ -82,7 +82,7 @@ pub async fn store_wallets(
 
     store(
         sk,
-        name,
+        &format!("{LIB_ID_RGB}-{name}"),
         &data,
         false,
         Some(RGB_STRICT_TYPE_VERSION.to_vec()),
@@ -92,7 +92,7 @@ pub async fn store_wallets(
 }
 
 pub async fn retrieve_wallets(sk: &str, name: &str) -> Result<RgbAccount, StorageError> {
-    let (data, _) = retrieve(sk, name)
+    let (data, _) = retrieve(sk, &format!("{LIB_ID_RGB}-{name}"))
         .await
         .map_err(|op| StorageError::CarbonadoRetrive(name.to_string(), op.to_string()))
         .unwrap_or_default();

@@ -918,12 +918,28 @@ pub async fn import(sk: &str, request: ImportRequest) -> Result<ContractResponse
     Ok(resp)
 }
 
+#[derive(Debug, Clone, Eq, PartialEq, Display, From, Error)]
+#[display(doc_comments)]
+pub enum WatcherError {
+    // Some request data is missing. {0}
+    Validation(String),
+    /// Retrieve I/O or connectivity error. {1} in {0}
+    Retrive(String, String),
+    /// Write I/O or connectivity error. {1} in {0}
+    Write(String, String),
+}
+
 pub async fn create_watcher(
     sk: &str,
     request: WatcherRequest,
-) -> Result<WatcherResponse, IssueError> {
+) -> Result<WatcherResponse, WatcherError> {
     let WatcherRequest { name, xpub, force } = request;
-    let mut rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await.expect("");
+    let mut rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await.map_err(|_| {
+        WatcherError::Retrive(
+            CARBONADO_UNAVALIABLE.to_string(),
+            WALLET_UNAVALIABLE.to_string(),
+        )
+    })?;
 
     if rgb_account.wallets.contains_key(&name) && force {
         rgb_account.wallets.remove(&name);
@@ -940,7 +956,12 @@ pub async fn create_watcher(
 
     store_wallets(sk, ASSETS_WALLETS, &rgb_account)
         .await
-        .expect("");
+        .map_err(|_| {
+            WatcherError::Write(
+                CARBONADO_UNAVALIABLE.to_string(),
+                WALLET_UNAVALIABLE.to_string(),
+            )
+        })?;
     Ok(WatcherResponse { name })
 }
 
