@@ -63,17 +63,16 @@ pub async fn store(
         let response_text = response.text().await.map_err(|_| {
             CarbonadoError::StdIoError(Error::new(
                 ErrorKind::Unsupported,
-                format!("Error in parsing server response for POST JSON request to {url}")
-                    .to_string(),
+                format!("Error in parsing server response for POST JSON request to {url}"),
             ))
         })?;
 
-        return Err(CarbonadoError::StdIoError(Error::new(
+        Err(CarbonadoError::StdIoError(Error::new(
             ErrorKind::Other,
             format!(
                 "Error in storing carbonado file, status: {status_code} error: {response_text}"
             ),
-        )));
+        )))
     } else {
         Ok(())
     }
@@ -131,8 +130,7 @@ pub async fn retrieve_metadata(sk: &str, name: &str) -> Result<FileMetadata, Car
         let response_text = response.text().await.map_err(|_| {
             CarbonadoError::StdIoError(Error::new(
                 ErrorKind::Unsupported,
-                format!("Error in parsing server response for POST JSON request to {url}")
-                    .to_string(),
+                format!("Error in parsing server response for POST JSON request to {url}"),
             ))
         })?;
 
@@ -147,7 +145,7 @@ pub async fn retrieve_metadata(sk: &str, name: &str) -> Result<FileMetadata, Car
     let result = response.json::<FileMetadata>().await.map_err(|_| {
         CarbonadoError::StdIoError(Error::new(
             ErrorKind::Unsupported,
-            format!("Error in parsing server response for POST JSON request to {url}").to_string(),
+            format!("Error in parsing server response for POST JSON request to {url}"),
         ))
     })?;
 
@@ -208,8 +206,7 @@ pub async fn retrieve(sk: &str, name: &str) -> Result<(Vec<u8>, Option<Vec<u8>>)
         let response_text = response.text().await.map_err(|_| {
             CarbonadoError::StdIoError(Error::new(
                 ErrorKind::Unsupported,
-                format!("Error in parsing server response for POST JSON request to {url}")
-                    .to_string(),
+                format!("Error in parsing server response for POST JSON request to {url}"),
             ))
         })?;
 
@@ -224,7 +221,7 @@ pub async fn retrieve(sk: &str, name: &str) -> Result<(Vec<u8>, Option<Vec<u8>>)
     let encoded = response.bytes().await.map_err(|_| {
         CarbonadoError::StdIoError(Error::new(
             ErrorKind::Unsupported,
-            format!("Error in parsing server response for POST JSON request to {url}").to_string(),
+            format!("Error in parsing server response for POST JSON request to {url}"),
         ))
     })?;
 
@@ -278,7 +275,7 @@ pub async fn handle_file(pk: &str, name: &str, bytes: usize) -> Result<PathBuf, 
     fs::create_dir_all(directory).await.map_err(|_| {
         CarbonadoError::StdIoError(Error::new(
             ErrorKind::NotFound,
-            format!("Cannot create filepath to carbonado file {name}").to_string(),
+            format!("Cannot create filepath to carbonado file {name}"),
         ))
     })?;
     if bytes == 0 {

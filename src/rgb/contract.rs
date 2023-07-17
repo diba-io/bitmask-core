@@ -321,7 +321,7 @@ where
         iface: iface.name.to_string(),
         ticker: specs.ticker().into(),
         name: specs.name().into(),
-        description: description,
+        description,
         precision: 0,
         supply,
         balance,
