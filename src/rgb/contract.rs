@@ -7,7 +7,7 @@ use rgbstd::{
     persistence::{Inventory, InventoryInconsistency, StashInconsistency, Stock},
     stl::{ContractData, DivisibleAssetSpec},
 };
-use strict_encoding::{FieldName, StrictDeserialize, StrictSerialize};
+use strict_encoding::{FieldName, StrictDeserialize, StrictDumb, StrictSerialize};
 
 use crate::rgb::{resolvers::ResolveSpent, wallet::contract_allocations};
 use crate::structs::{
@@ -132,16 +132,11 @@ where
         }
     };
 
+    // TODO: Review that (rgb20 and rgb21)!
     let ty: FieldName = FieldName::from("data");
-    // TODO: Review that!
     let _contract_text = match contract_iface.global(ty) {
         Ok(values) => ContractData::from_strict_val_unchecked(&values[0]),
-        Err(err) => {
-            return Err(ExportContractError::StrictInconsistency(
-                contract_id,
-                err.to_string(),
-            ))
-        }
+        Err(_) => ContractData::strict_dumb(),
     };
 
     let iface_index = match iface.name.as_str() {

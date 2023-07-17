@@ -35,25 +35,46 @@ impl rgb::Resolver for ExplorerResolver {
         &mut self,
         scripts: BTreeMap<DeriveInfo, bitcoin_30::ScriptBuf>,
     ) -> Result<BTreeSet<rgb::prelude::Utxo>, String> {
+        use std::collections::HashSet;
+
         let mut utxos = bset![];
         let explorer_client = esplora_block::Builder::new(&self.explorer_url)
             .build_blocking()
             .expect("service unavaliable");
         // TODO: Remove that after bitcoin v.30 full compatibility
-        let script_list = scripts.into_iter().map(|(d, sc)| {
-            (
-                d,
-                Script::from_str(&sc.to_hex_string()).expect("invalid script"),
-            )
-        });
+        let script_list = scripts
+            .into_iter()
+            .map(|(d, sc)| {
+                (
+                    d,
+                    Script::from_str(&sc.to_hex_string()).expect("invalid script"),
+                )
+            })
+            .collect::<HashSet<_>>()
+            .into_iter();
 
         for (derive, script) in script_list {
-            let txs = match explorer_client.scripthash_txs(&script, none!()) {
-                Ok(txs) => txs,
-                _ => vec![],
-            };
+            let mut related_txs = explorer_client
+                .scripthash_txs(&script, None)
+                .expect("Service unavaliable");
+            let n_confirmed = related_txs.iter().filter(|tx| tx.status.confirmed).count();
+            // esplora pages on 25 confirmed transactions. If there are 25 or more we
+            // keep requesting to see if there's more.
+            if n_confirmed >= 25 {
+                loop {
+                    let new_related_txs = explorer_client
+                        .scripthash_txs(&script, Some(related_txs.last().unwrap().txid))
+                        .expect("Service unavaliable");
+                    let n = new_related_txs.len();
+                    related_txs.extend(new_related_txs);
+                    // we've reached the end
+                    if n < 25 {
+                        break;
+                    }
+                }
+            }
 
-            txs.into_iter().for_each(|tx| {
+            related_txs.into_iter().for_each(|tx| {
                 let index = tx
                     .vout
                     .clone()
@@ -79,7 +100,6 @@ impl rgb::Resolver for ExplorerResolver {
                 }
             });
         }
-
         Ok(utxos)
     }
 

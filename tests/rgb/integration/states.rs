@@ -43,7 +43,7 @@ async fn allow_import_uda_contract() -> anyhow::Result<()> {
 // }
 
 #[tokio::test]
-async fn allow_get_fungible_contract_state_by_accept_cosign() -> anyhow::Result<()> {
+async fn check_fungible_state_after_accept_consig() -> anyhow::Result<()> {
     // 1. Issue and Generate Trasnfer (Issuer side)
     let issuer_keys: DecryptedWalletData = save_mnemonic(
         &SecretString(ISSUER_MNEMONIC.to_string()),
@@ -131,7 +131,7 @@ async fn allow_get_fungible_contract_state_by_accept_cosign() -> anyhow::Result<
 }
 
 #[tokio::test]
-async fn allow_get_uda_contract_state_by_accept_cosign() -> anyhow::Result<()> {
+async fn check_uda_state_after_accept_consig() -> anyhow::Result<()> {
     // 1. Issue and Generate Trasnfer (Issuer side)
     let single = Some(get_uda_data());
     let issuer_keys: DecryptedWalletData = save_mnemonic(

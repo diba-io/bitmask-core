@@ -24,7 +24,7 @@ use crate::structs::{IssueMetaRequest, IssueMetadata};
 
 #[derive(Clone, Eq, PartialEq, Debug, Display, Error, From)]
 #[display(doc_comments)]
-pub enum IssuerError {
+pub enum IssueContractError {
     Forge(BuilderError),
     // The contract interface {0} is not supported in issuer operation
     NoContractSupport(String),
@@ -47,17 +47,17 @@ pub fn issue_contract<T>(
     meta: Option<IssueMetaRequest>,
     resolver: &mut T,
     stock: &mut Stock,
-) -> Result<Contract, IssuerError>
+) -> Result<Contract, IssueContractError>
 where
     T: ResolveHeight + ResolveTx,
     T::Error: 'static,
 {
     let iface_name = TypeName::from_str(iface)
-        .map_err(|_| IssuerError::Forge(BuilderError::InterfaceMismatch))?;
+        .map_err(|_| IssueContractError::Forge(BuilderError::InterfaceMismatch))?;
 
     let iface = stock
         .iface_by_name(&iface_name)
-        .map_err(|_| IssuerError::Forge(BuilderError::InterfaceMismatch))?;
+        .map_err(|_| IssueContractError::Forge(BuilderError::InterfaceMismatch))?;
 
     let contract_issued = match iface.name.as_str() {
         "RGB20" => {
@@ -73,13 +73,17 @@ where
             network,
             meta,
         ),
-        _ => return Err(IssuerError::NoContractSupport(iface.name.to_string())),
+        _ => {
+            return Err(IssueContractError::NoContractSupport(
+                iface.name.to_string(),
+            ))
+        }
     };
 
-    let resp = contract_issued.map_err(IssuerError::Forge)?;
+    let resp = contract_issued.map_err(IssueContractError::Forge)?;
     let contract_id = resp.contract_id().to_string();
     let resp = resp.validate(resolver).map_err(|consig| {
-        IssuerError::ContractInvalid(
+        IssueContractError::ContractInvalid(
             contract_id.clone(),
             consig.into_validation_status().unwrap_or_default().failures,
         )
@@ -87,7 +91,7 @@ where
 
     stock
         .import_contract(resp.clone(), resolver)
-        .map_err(|err| IssuerError::NoImport(contract_id, err.to_string()))?;
+        .map_err(|err| IssueContractError::NoImport(contract_id, err.to_string()))?;
 
     Ok(resp)
 }
