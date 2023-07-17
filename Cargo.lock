@@ -788,11 +788,10 @@ checksum = "89b2fd2a0dcf38d7971e2194b6b6eebab45ae01067456a7fd93d5547a61b70be"
 
 [[package]]
 name = "carbonado"
-version = "0.3.1"
+version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b1da1a8984d0f5b6dc0f52fce094b537c3f004248992ac1ab829d3f36059a071"
+checksum = "de8605d0137ffe3e83f6aeac67011eb68740ca945204d091a2343aa351b06f86"
 dependencies = [
- "anyhow",
  "bao",
  "bech32",
  "bitmask-enum",
@@ -805,6 +804,7 @@ dependencies = [
  "secp256k1 0.27.0",
  "serde",
  "snap",
+ "thiserror",
  "zfec-rs",
 ]
 

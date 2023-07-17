@@ -1,24 +1,22 @@
+use std::path::PathBuf;
+
 #[cfg(feature = "server")]
 use crate::info;
 #[cfg(feature = "server")]
 use tokio::fs;
 
 use amplify::hex::ToHex;
-use anyhow::Result;
-#[cfg(not(feature = "server"))]
-use anyhow::{anyhow, Context};
 use bitcoin_30::secp256k1::{PublicKey, SecretKey};
 #[cfg(not(feature = "server"))]
 use percent_encoding::utf8_percent_encode;
 
 pub mod constants;
+pub mod error;
 
-use crate::structs::FileMetadata;
+use crate::{carbonado::error::CarbonadoError, constants::NETWORK, structs::FileMetadata};
+
 #[cfg(not(feature = "server"))]
-use crate::{
-    carbonado::constants::FORM,
-    constants::{CARBONADO_ENDPOINT, NETWORK},
-};
+use crate::{carbonado::constants::FORM, constants::CARBONADO_ENDPOINT};
 
 #[cfg(not(feature = "server"))]
 pub async fn store(
@@ -79,7 +77,7 @@ pub async fn store(
     input: &[u8],
     _force: bool,
     metadata: Option<Vec<u8>>,
-) -> Result<()> {
+) -> Result<(), CarbonadoError> {
     let level = 15;
     let sk = hex::decode(sk)?;
     let secret_key = SecretKey::from_slice(&sk)?;
@@ -97,7 +95,7 @@ pub async fn store(
 }
 
 #[cfg(not(feature = "server"))]
-pub async fn retrieve_metadata(sk: &str, name: &str) -> Result<FileMetadata> {
+pub async fn retrieve_metadata(sk: &str, name: &str) -> Result<FileMetadata, CarbonadoError> {
     let sk = hex::decode(sk)?;
     let secret_key = SecretKey::from_slice(&sk)?;
     let public_key = PublicKey::from_secret_key_global(&secret_key);
@@ -132,9 +130,7 @@ pub async fn retrieve_metadata(sk: &str, name: &str) -> Result<FileMetadata> {
 }
 
 #[cfg(feature = "server")]
-pub async fn retrieve_metadata(sk: &str, name: &str) -> Result<FileMetadata> {
-    use crate::constants::NETWORK;
-
+pub async fn retrieve_metadata(sk: &str, name: &str) -> Result<FileMetadata, CarbonadoError> {
     let sk = hex::decode(sk)?;
     let secret_key = SecretKey::from_slice(&sk)?;
     let public_key = PublicKey::from_secret_key_global(&secret_key);
@@ -160,7 +156,7 @@ pub async fn retrieve_metadata(sk: &str, name: &str) -> Result<FileMetadata> {
 }
 
 #[cfg(not(feature = "server"))]
-pub async fn retrieve(sk: &str, name: &str) -> Result<(Vec<u8>, Option<Vec<u8>>)> {
+pub async fn retrieve(sk: &str, name: &str) -> Result<(Vec<u8>, Option<Vec<u8>>), CarbonadoError> {
     let sk = hex::decode(sk)?;
     let secret_key = SecretKey::from_slice(&sk)?;
     let public_key = PublicKey::from_secret_key_global(&secret_key);
@@ -200,9 +196,7 @@ pub async fn retrieve(sk: &str, name: &str) -> Result<(Vec<u8>, Option<Vec<u8>>)
 }
 
 #[cfg(feature = "server")]
-pub async fn retrieve(sk: &str, name: &str) -> Result<(Vec<u8>, Option<Vec<u8>>)> {
-    use crate::constants::NETWORK;
-
+pub async fn retrieve(sk: &str, name: &str) -> Result<(Vec<u8>, Option<Vec<u8>>), CarbonadoError> {
     let sk = hex::decode(sk)?;
     let secret_key = SecretKey::from_slice(&sk)?;
     let public_key = PublicKey::from_secret_key_global(&secret_key);
@@ -227,9 +221,7 @@ pub async fn retrieve(sk: &str, name: &str) -> Result<(Vec<u8>, Option<Vec<u8>>)
 }
 
 #[cfg(feature = "server")]
-pub async fn handle_file(pk: &str, name: &str, bytes: usize) -> Result<std::path::PathBuf> {
-    use crate::constants::NETWORK;
-
+pub async fn handle_file(pk: &str, name: &str, bytes: usize) -> Result<PathBuf, CarbonadoError> {
     let network = NETWORK.read().await.to_string();
     let mut final_name = name.to_string();
     if !name.contains(&network) {
@@ -264,10 +256,10 @@ pub fn encode_base64(bytes: &[u8]) -> String {
     base64::encode(bytes)
 }
 
-pub fn decode_hex(string: &str) -> Result<Vec<u8>> {
+pub fn decode_hex(string: &str) -> Result<Vec<u8>, CarbonadoError> {
     Ok(hex::decode(string)?)
 }
 
-pub fn decode_base64(string: &str) -> Result<Vec<u8>> {
+pub fn decode_base64(string: &str) -> Result<Vec<u8>, CarbonadoError> {
     Ok(base64::decode(string)?)
 }
