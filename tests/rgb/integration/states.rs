@@ -109,11 +109,8 @@ async fn check_fungible_state_after_accept_consig() -> anyhow::Result<()> {
     // 5. Retrieve Contract (Issuer Side)
     let contract_id = &issuer_resp.contract_id;
     let resp = get_contract(&issuer_sk, contract_id).await;
-
-    let resp = resp?;
-    // assert!(resp.is_ok());
-    // assert_eq!(4, resp?.balance);
-    println!("Issuer Allocations {:#?}", resp.allocations);
+    assert!(resp.is_ok());
+    assert_eq!(4, resp?.balance);
 
     // 6. Create Watcher (Owner Side)
     let watcher_name = "default";

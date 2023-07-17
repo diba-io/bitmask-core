@@ -146,23 +146,22 @@ pub async fn issuer_issue_contract(
     send_coins: bool,
     meta: Option<IssueMetaRequest>,
 ) -> anyhow::Result<IssueResponse> {
-    setup_regtest(force, None).await;
+    // Create Watcher
     let issuer_keys = save_mnemonic(
         &SecretString(ISSUER_MNEMONIC.to_string()),
         &SecretString("".to_string()),
     )
     .await?;
     let watcher_name = "default";
-
-    // Create Watcher
     let sk = &issuer_keys.private.nostr_prv;
     let create_watch_req = WatcherRequest {
         name: watcher_name.to_string(),
         xpub: issuer_keys.public.watcher_xpub.clone(),
         force: send_coins,
     };
-
     create_watcher(sk, create_watch_req.clone()).await?;
+
+    setup_regtest(force, None).await;
 
     if send_coins {
         let next_address = watcher_next_address(sk, watcher_name, iface)
@@ -272,14 +271,13 @@ pub async fn create_new_invoice(
         .lock()
         .await
         .get_address(AddressIndex::Peek(0))?
-        .address
-        .to_string();
+        .address;
 
-    send_some_coins(owner_address, "0.1").await;
+    send_some_coins(&owner_address.to_string(), "0.1").await;
     sync_wallet(&owner_vault).await?;
 
-    let beneficiary_utxo = owner_vault.lock().await.list_unspent()?;
-    let beneficiary_utxo = beneficiary_utxo.first().unwrap();
+    let beneficiary_utxos = owner_vault.lock().await.list_unspent()?;
+    let beneficiary_utxo = beneficiary_utxos.last().unwrap();
     let seal = beneficiary_utxo.outpoint.to_string();
     let seal = format!("tapret1st:{seal}");
 
@@ -352,7 +350,8 @@ pub async fn create_new_psbt(
         fee: PsbtFeeRequest::Value(1000),
     };
 
-    let resp = create_psbt(&sk, req).await?;
+    let resp = create_psbt(&sk, req).await;
+    let resp = resp?;
     Ok(resp)
 }
 

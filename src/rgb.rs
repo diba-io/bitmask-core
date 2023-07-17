@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{collections::BTreeMap, str::FromStr};
 
 use ::psbt::serialize::Serialize;
 use amplify::hex::ToHex;
@@ -6,6 +6,7 @@ use anyhow::{anyhow, Result};
 use bitcoin::Network;
 use bitcoin_30::bip32::ExtendedPubKey;
 use bitcoin_scripts::address::AddressNetwork;
+use garde::Validate;
 use miniscript_crate::DescriptorPublicKey;
 use rgbstd::{
     containers::BindleContent,
@@ -56,6 +57,7 @@ use crate::{
         RgbTransferResponse, SchemaDetail, SchemasResponse, UDADetail, UtxoResponse,
         WatcherDetailResponse, WatcherRequest, WatcherResponse, WatcherUtxoResponse,
     },
+    validators::RGBContext,
 };
 
 use self::{
@@ -80,7 +82,7 @@ use self::{
 #[display(doc_comments)]
 pub enum IssueError {
     // Some request data is missing. {0}
-    Validation(String),
+    Validation(BTreeMap<String, String>),
     /// Retrieve I/O or connectivity error. {1} in {0}
     Retrive(String, String),
     /// Write I/O or connectivity error. {1} in {0}
@@ -95,6 +97,15 @@ pub enum IssueError {
 
 /// RGB Operations
 pub async fn issue_contract(sk: &str, request: IssueRequest) -> Result<IssueResponse, IssueError> {
+    if let Err(err) = request.validate(&RGBContext::default()) {
+        let errors = err
+            .flatten()
+            .into_iter()
+            .map(|(f, e)| (f, e.to_string()))
+            .collect();
+        return Err(IssueError::Validation(errors));
+    }
+
     let IssueRequest {
         ticker,
         name,
@@ -220,6 +231,15 @@ pub async fn reissue_contract(
     sk: &str,
     request: ReIssueRequest,
 ) -> Result<ReIssueResponse, IssueError> {
+    if let Err(err) = request.validate(&RGBContext::default()) {
+        let errors = err
+            .flatten()
+            .into_iter()
+            .map(|(f, e)| (f, e.to_string()))
+            .collect();
+        return Err(IssueError::Validation(errors));
+    }
+
     let mut stock = retrieve_stock(sk, ASSETS_STOCK).await.map_err(|_| {
         IssueError::Retrive(
             CARBONADO_UNAVALIABLE.to_string(),
@@ -399,7 +419,7 @@ pub async fn reissue_contract(
 #[display(doc_comments)]
 pub enum InvoiceError {
     // Some request data is missing. {0}
-    Validation(String),
+    Validation(BTreeMap<String, String>),
     /// Retrieve I/O or connectivity error. {1} in {0}
     Retrive(String, String),
     /// Write I/O or connectivity error. {1} in {0}
@@ -412,6 +432,16 @@ pub async fn create_invoice(
     sk: &str,
     request: InvoiceRequest,
 ) -> Result<InvoiceResponse, InvoiceError> {
+    if let Err(err) = request.validate(&RGBContext::default()) {
+        let errors = err
+            .flatten()
+            .into_iter()
+            .map(|(f, e)| (f, e.to_string()))
+            .collect();
+        println!("{:#?}", errors);
+        return Err(InvoiceError::Validation(errors));
+    }
+
     let InvoiceRequest {
         contract_id,
         iface,
@@ -446,7 +476,7 @@ pub async fn create_invoice(
 #[display(doc_comments)]
 pub enum TransferError {
     // Some request data is missing. {0}
-    Validation(String),
+    Validation(BTreeMap<String, String>),
     /// Retrieve I/O or connectivity error. {1} in {0}
     Retrive(String, String),
     /// Write I/O or connectivity error. {1} in {0}
@@ -466,6 +496,16 @@ pub enum TransferError {
 }
 
 pub async fn create_psbt(sk: &str, request: PsbtRequest) -> Result<PsbtResponse, TransferError> {
+    if let Err(err) = request.validate(&RGBContext::default()) {
+        let errors = err
+            .flatten()
+            .into_iter()
+            .map(|(f, e)| (f, e.to_string()))
+            .collect();
+        println!("{:#?}", errors);
+        return Err(TransferError::Validation(errors));
+    }
+
     let PsbtRequest {
         asset_inputs,
         asset_descriptor_change,
@@ -549,6 +589,16 @@ pub async fn transfer_asset(
     sk: &str,
     request: RgbTransferRequest,
 ) -> Result<RgbTransferResponse, TransferError> {
+    if let Err(err) = request.validate(&RGBContext::default()) {
+        let errors = err
+            .flatten()
+            .into_iter()
+            .map(|(f, e)| (f, e.to_string()))
+            .collect();
+        println!("{:#?}", errors);
+        return Err(TransferError::Validation(errors));
+    }
+
     let mut stock = retrieve_stock(sk, ASSETS_STOCK).await.map_err(|_| {
         TransferError::Retrive(
             CARBONADO_UNAVALIABLE.to_string(),
@@ -624,6 +674,16 @@ pub async fn accept_transfer(
     sk: &str,
     request: AcceptRequest,
 ) -> Result<AcceptResponse, TransferError> {
+    if let Err(err) = request.validate(&RGBContext::default()) {
+        let errors = err
+            .flatten()
+            .into_iter()
+            .map(|(f, e)| (f, e.to_string()))
+            .collect();
+        println!("{:#?}", errors);
+        return Err(TransferError::Validation(errors));
+    }
+
     let AcceptRequest { consignment, force } = request;
     let mut stock = retrieve_stock(sk, ASSETS_STOCK).await.map_err(|_| {
         TransferError::Retrive(

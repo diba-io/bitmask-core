@@ -1,9 +1,11 @@
 use std::str::FromStr;
 
 use bp::Txid;
+use miniscript_crate::Descriptor;
 use seals::txout::ExplicitSeal;
+use wallet::hd::{DerivationAccount, DerivationSubpath, UnhardenedIndex};
 
-use crate::structs::{IssueMetaRequest, IssueMetadata};
+use crate::structs::{IssueMetaRequest, IssueMetadata, SecretString};
 
 /// Errors happening during checking of requests to RGB operations
 #[derive(Clone, PartialEq, Eq, Debug, Display, Error, From)]
@@ -17,6 +19,14 @@ pub enum RGBParamsError {
     /// the {0} need At least {1} media information to create RGB21 contracts
     #[display(doc_comments)]
     NoMediaType(String, u8),
+
+    /// '{0}' is invalid terminal path (ex: /0/0)
+    #[display(doc_comments)]
+    WrongTerminal(String),
+
+    /// '{0}' is invalid descriptor. {1}
+    #[display(doc_comments)]
+    WrongDescriptor(String, String),
 }
 
 #[derive(Debug, Display)]
@@ -45,6 +55,29 @@ pub fn is_tapret_seal(value: &str, context: &RGBContext) -> garde::Result {
         ));
     }
     ExplicitSeal::<Txid>::from_str(value).map_err(|op| garde::Error::new(op.to_string()))?;
+    Ok(())
+}
+
+pub fn is_terminal_path(value: &str, _context: &RGBContext) -> garde::Result {
+    let resp = value
+        .parse::<DerivationSubpath<UnhardenedIndex>>()
+        .map_err(|op| RGBParamsError::WrongTerminal(op.to_string()));
+
+    if resp.is_err() {
+        return Err(garde::Error::new(resp.err().unwrap().to_string()));
+    }
+
+    Ok(())
+}
+
+pub fn is_descriptor(value: &SecretString, _context: &RGBContext) -> garde::Result {
+    let resp: Result<Descriptor<DerivationAccount>, _> = Descriptor::from_str(&value.to_string())
+        .map_err(|op| RGBParamsError::WrongDescriptor(value.to_string(), op.to_string()));
+
+    if resp.is_err() {
+        return Err(garde::Error::new(resp.err().unwrap().to_string()));
+    }
+
     Ok(())
 }
 
