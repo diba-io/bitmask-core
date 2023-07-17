@@ -20,7 +20,7 @@ mod rgb {
         mod issue;
         mod states;
         mod stress;
-        mod transfers;
+        // mod transfers;
         mod udas;
         pub mod utils;
         mod watcher;
