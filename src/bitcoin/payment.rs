@@ -95,7 +95,7 @@ pub async fn create_payjoin(
             );
 
             Configuration::with_fee_contribution(max_additional_fee, Some(index))
-                .clamp_fee_contribution(true);
+                .clamp_fee_contribution(true)
         }
         None => Configuration::non_incentivizing(),
     };
