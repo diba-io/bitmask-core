@@ -20,9 +20,9 @@ mod wallet;
 
 pub use crate::bitcoin::{
     assets::dust_tx,
-    keys::{new_mnemonic, save_mnemonic},
+    keys::{new_mnemonic, save_mnemonic, BitcoinKeysError},
     payment::{create_payjoin, create_transaction},
-    psbt::sign_psbt,
+    psbt::{sign_psbt, sign_psbt_with_multiple_wallets},
     wallet::{get_blockchain, get_wallet, sync_wallet, sync_wallets, MemoryWallet},
 };
 
@@ -389,13 +389,18 @@ pub async fn get_assets_vault(
 }
 
 pub async fn sign_psbt_file(request: SignPsbtRequest) -> Result<SignPsbtResponse> {
-    let SignPsbtRequest { psbt, descriptor } = request;
+    let SignPsbtRequest { psbt, descriptors } = request;
 
     let original_psbt = Psbt::from_str(&psbt)?;
     let final_psbt = PartiallySignedTransaction::from(original_psbt);
 
-    let wallet = get_wallet(&descriptor, None).await?;
-    let sign = sign_psbt(&wallet, final_psbt).await?;
+    let mut wallets = vec![];
+    for descriptor in descriptors {
+        let wallet = get_wallet(&descriptor, None).await?;
+        wallets.push(wallet);
+    }
+
+    let sign = sign_psbt_with_multiple_wallets(wallets, final_psbt).await?;
     let resp = match sign.transaction {
         Some(tx) => SignPsbtResponse {
             sign: true,

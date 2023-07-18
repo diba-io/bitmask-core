@@ -86,11 +86,12 @@ async fn allow_issue_and_list_contracts() {
     ))
     .await;
     let next_utxo: NextUtxoResponse = json_parse(&next_address);
-    info!(format!("Show Utxo {}", next_utxo.utxo));
+    let next_utxo = next_utxo.utxo.unwrap().outpoint;
+    info!(format!("Show Utxo {}", next_utxo));
 
     info!("Generate Issue");
     let supply = 5;
-    let issue_utxo = next_utxo.utxo;
+    let issue_utxo = next_utxo;
     let issue_seal = format!("tapret1st:{issue_utxo}");
     let issue_req = IssueRequest {
         ticker: "DIBA".to_string(),

@@ -7,6 +7,7 @@ use bitmask_core::{
         psbt::{create_psbt, extract_commit},
         transfer::pay_invoice,
     },
+    structs::{PsbtInputRequest, SecretString},
     util::init_logging,
 };
 use rgb::persistence::Stock;
@@ -23,14 +24,14 @@ async fn allow_create_psbt_file() -> anyhow::Result<()> {
     let tx_resolver = DumbResolve {};
 
     let psbt = create_psbt(
-        desc.to_string(),
-        vec![(
-            asset_utxo.to_string(),
-            asset_utxo_terminal.to_string(),
-            None,
-        )],
-        Some(0),
+        vec![PsbtInputRequest {
+            descriptor: SecretString(desc.to_string()),
+            utxo: asset_utxo.to_string(),
+            utxo_terminal: asset_utxo_terminal.to_string(),
+            tapret: None,
+        }],
         vec![],
+        "/0/1".to_string(),
         fee,
         None,
         &tx_resolver,

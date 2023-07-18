@@ -18,14 +18,14 @@ use crate::structs::AssetType;
 #[derive(Clone, Eq, PartialEq, Debug, Display, Error, From)]
 #[display(doc_comments)]
 // TODO: Complete errors
-pub enum ImportError {}
+pub enum ImportContractError {}
 
 pub fn import_contract<R>(
     contract: &str,
     asset_type: AssetType,
     stock: &mut Stock,
     resolver: &mut R,
-) -> Result<Contract, ImportError>
+) -> Result<Contract, ImportContractError>
 where
     R: ResolveHeight + ResolveTx,
     R::Error: 'static,

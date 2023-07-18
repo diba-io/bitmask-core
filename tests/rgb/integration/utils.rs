@@ -7,13 +7,13 @@ use bitmask_core::{
     bitcoin::{get_wallet, get_wallet_data, save_mnemonic, sync_wallet},
     rgb::{
         create_invoice, create_psbt, create_watcher, import, issue_contract, transfer_asset,
-        watcher_details, watcher_next_address, watcher_next_utxo,
+        watcher_details, watcher_next_address, watcher_next_utxo, watcher_unspent_utxos,
     },
     structs::{
         AllocationDetail, AssetType, ContractResponse, DecryptedWalletData, ImportRequest,
         InvoiceRequest, InvoiceResponse, IssueMetaRequest, IssueMetadata, IssueRequest,
-        IssueResponse, MediaInfo, NewCollectible, PsbtInputRequest, PsbtRequest, PsbtResponse,
-        RgbTransferRequest, RgbTransferResponse, SecretString, WatcherRequest,
+        IssueResponse, MediaInfo, NewCollectible, PsbtFeeRequest, PsbtInputRequest, PsbtRequest,
+        PsbtResponse, RgbTransferRequest, RgbTransferResponse, SecretString, WatcherRequest,
     },
 };
 use tokio::process::Command;
@@ -26,6 +26,11 @@ pub const OWNER_MNEMONIC: &str =
 
 pub const ANOTHER_OWNER_MNEMONIC: &str =
     "circle hold drift unable own laptop age relax degree next alone stage";
+
+pub struct UtxoFilter {
+    pub outpoint_equal: Option<String>,
+    pub amount_less_than: Option<u64>,
+}
 
 #[allow(dead_code)]
 pub async fn start_node() {
@@ -140,40 +145,43 @@ pub async fn issuer_issue_contract(
     force: bool,
     send_coins: bool,
     meta: Option<IssueMetaRequest>,
-) -> Result<IssueResponse, anyhow::Error> {
-    setup_regtest(force, None).await;
+) -> anyhow::Result<IssueResponse> {
+    // Create Watcher
     let issuer_keys = save_mnemonic(
         &SecretString(ISSUER_MNEMONIC.to_string()),
         &SecretString("".to_string()),
     )
     .await?;
     let watcher_name = "default";
-
-    // Create Watcher
     let sk = &issuer_keys.private.nostr_prv;
     let create_watch_req = WatcherRequest {
         name: watcher_name.to_string(),
         xpub: issuer_keys.public.watcher_xpub.clone(),
         force: send_coins,
     };
-
     create_watcher(sk, create_watch_req.clone()).await?;
 
+    setup_regtest(force, None).await;
+
     if send_coins {
-        let next_address = watcher_next_address(sk, watcher_name, iface).await?;
+        let next_address = watcher_next_address(sk, watcher_name, iface)
+            .await
+            .expect("");
         send_some_coins(&next_address.address, "0.01").await;
     }
 
-    let mut next_utxo = watcher_next_utxo(sk, watcher_name, iface).await?;
-    if next_utxo.utxo.is_empty() {
-        let next_address = watcher_next_address(sk, watcher_name, iface).await?;
+    let mut next_utxo = watcher_next_utxo(sk, watcher_name, iface).await.expect("");
+    if next_utxo.utxo.is_none() {
+        let next_address = watcher_next_address(sk, watcher_name, iface)
+            .await
+            .expect("");
         send_some_coins(&next_address.address, "0.01").await;
 
-        next_utxo = watcher_next_utxo(sk, watcher_name, iface).await?;
+        next_utxo = watcher_next_utxo(sk, watcher_name, iface).await.expect("");
     }
 
-    let issue_utxo = next_utxo.utxo;
-    let issue_seal = format!("tapret1st:{issue_utxo}");
+    let issue_utxo = next_utxo.utxo.unwrap();
+    let issue_seal = format!("tapret1st:{}", issue_utxo.outpoint);
     let request = IssueRequest {
         ticker: "DIBA".to_string(),
         name: "DIBA".to_string(),
@@ -185,7 +193,8 @@ pub async fn issuer_issue_contract(
         meta,
     };
 
-    issue_contract(sk, request).await
+    let resp = issue_contract(sk, request).await?;
+    Ok(resp)
 }
 
 pub async fn import_new_contract(
@@ -222,7 +231,7 @@ pub async fn import_new_contract(
 
     let resp = import(&sk, import_req).await;
     assert!(resp.is_ok());
-    resp
+    Ok(resp?)
 }
 
 pub async fn create_new_invoice(
@@ -240,7 +249,6 @@ pub async fn create_new_invoice(
     };
     let owner_vault = get_wallet(&SecretString(descriptor_pub), None).await?;
 
-    // Create Watcher
     let sk = owner_keys.private.nostr_prv.clone();
     let contract_type = match iface {
         "RGB20" => AssetType::RGB20,
@@ -262,15 +270,14 @@ pub async fn create_new_invoice(
     let owner_address = &owner_vault
         .lock()
         .await
-        .get_address(AddressIndex::LastUnused)?
-        .address
-        .to_string();
+        .get_address(AddressIndex::Peek(0))?
+        .address;
 
-    send_some_coins(owner_address, "0.1").await;
+    send_some_coins(&owner_address.to_string(), "0.1").await;
     sync_wallet(&owner_vault).await?;
 
-    let beneficiary_utxo = owner_vault.lock().await.list_unspent()?;
-    let beneficiary_utxo = beneficiary_utxo.first().unwrap();
+    let beneficiary_utxos = owner_vault.lock().await.list_unspent()?;
+    let beneficiary_utxo = beneficiary_utxos.last().unwrap();
     let seal = beneficiary_utxo.outpoint.to_string();
     let seal = format!("tapret1st:{seal}");
 
@@ -283,7 +290,8 @@ pub async fn create_new_invoice(
         params,
     };
 
-    create_invoice(&sk, invoice_req).await
+    let resp = create_invoice(&sk, invoice_req).await?;
+    Ok(resp)
 }
 
 pub async fn create_new_psbt(
@@ -297,6 +305,18 @@ pub async fn create_new_psbt(
     let sk = owner_keys.private.nostr_prv.clone();
     let resp = watcher_details(&sk, watcher_name).await;
     assert!(resp.is_ok());
+
+    let descriptor_pub = match iface {
+        "RGB20" => owner_keys.public.rgb_assets_descriptor_xpub.clone(),
+        "RGB21" => owner_keys.public.rgb_udas_descriptor_xpub.clone(),
+        _ => owner_keys.public.rgb_assets_descriptor_xpub.clone(),
+    };
+
+    let terminal_change = match iface {
+        "RGB20" => "/20/1",
+        "RGB21" => "/21/1",
+        _ => "/20/1",
+    };
 
     let mut inputs = vec![];
     let watcher_details = resp?;
@@ -313,28 +333,112 @@ pub async fn create_new_psbt(
 
         if let Some(allocation) = allocations.into_iter().next() {
             inputs.push(PsbtInputRequest {
-                asset_utxo: allocation.utxo.to_owned(),
-                asset_utxo_terminal: allocation.derivation,
+                descriptor: SecretString(descriptor_pub.clone()),
+                utxo: allocation.utxo.to_owned(),
+                utxo_terminal: allocation.derivation,
                 tapret: None,
             })
         }
     }
 
-    let descriptor_pub = match iface {
-        "RGB20" => owner_keys.public.rgb_assets_descriptor_xpub.clone(),
-        "RGB21" => owner_keys.public.rgb_udas_descriptor_xpub.clone(),
-        _ => owner_keys.public.rgb_assets_descriptor_xpub.clone(),
-    };
-
     let req = PsbtRequest {
-        descriptor_pub: SecretString(descriptor_pub),
-        inputs,
-        change_index: None,
+        asset_descriptor_change: SecretString(descriptor_pub.clone()),
+        asset_terminal_change: terminal_change.to_owned(),
+        asset_inputs: inputs,
+        bitcoin_inputs: vec![],
         bitcoin_changes: vec![],
-        fee: Some(1000),
+        fee: PsbtFeeRequest::Value(1000),
     };
 
-    create_psbt(&sk, req).await
+    let resp = create_psbt(&sk, req).await;
+    let resp = resp?;
+    Ok(resp)
+}
+
+#[allow(clippy::too_many_arguments)]
+pub async fn issuer_issue_contract_v2(
+    number_of_contracts: u8,
+    iface: &str,
+    supply: u64,
+    force: bool,
+    send_coins: bool,
+    meta: Option<IssueMetaRequest>,
+    initial_sats: Option<String>,
+    filter_utxo: Option<UtxoFilter>,
+) -> Result<Vec<IssueResponse>, anyhow::Error> {
+    setup_regtest(force, None).await;
+    let issuer_keys = save_mnemonic(
+        &SecretString(ISSUER_MNEMONIC.to_string()),
+        &SecretString("".to_string()),
+    )
+    .await?;
+    let watcher_name = "default";
+
+    // Create Watcher
+    let sk = &issuer_keys.private.nostr_prv;
+    let create_watch_req = WatcherRequest {
+        name: watcher_name.to_string(),
+        xpub: issuer_keys.public.watcher_xpub.clone(),
+        force: send_coins,
+    };
+
+    create_watcher(sk, create_watch_req.clone()).await?;
+
+    let default_coins = initial_sats.unwrap_or("0.1".to_string());
+    if send_coins {
+        let next_address = watcher_next_address(sk, watcher_name, iface).await?;
+        send_some_coins(&next_address.address, &default_coins).await;
+    }
+
+    let mut next_utxo = String::new();
+    if let Some(filter) = filter_utxo {
+        let mut unspent_utxos = watcher_unspent_utxos(sk, watcher_name, iface).await?.utxos;
+
+        if let Some(amount) = filter.amount_less_than {
+            unspent_utxos.retain(|x| x.amount <= amount);
+        }
+
+        if let Some(outpoint) = filter.outpoint_equal {
+            unspent_utxos.retain(|x| x.outpoint == outpoint);
+        }
+
+        if let Some(utxo) = unspent_utxos.first() {
+            next_utxo = utxo.outpoint.to_string();
+        }
+    } else {
+        let next_watcher_utxo = watcher_next_utxo(sk, watcher_name, iface).await?;
+        if next_watcher_utxo.utxo.is_none() {
+            let next_address = watcher_next_address(sk, watcher_name, iface).await?;
+            send_some_coins(&next_address.address, &default_coins).await;
+            next_utxo = watcher_next_utxo(sk, watcher_name, iface)
+                .await?
+                .utxo
+                .unwrap()
+                .outpoint;
+        } else {
+            next_utxo = next_watcher_utxo.utxo.unwrap().outpoint;
+        }
+    }
+
+    let mut contracts = vec![];
+    for _ in 0..number_of_contracts {
+        let issue_utxo = next_utxo.clone();
+        let issue_seal = format!("tapret1st:{issue_utxo}");
+        let request = IssueRequest {
+            ticker: "DIBA".to_string(),
+            name: "DIBA".to_string(),
+            description: "DIBA".to_string(),
+            precision: 2,
+            supply,
+            seal: issue_seal.to_owned(),
+            iface: iface.to_string(),
+            meta: meta.clone(),
+        };
+        let contract = issue_contract(sk, request).await?;
+        contracts.push(contract);
+    }
+
+    Ok(contracts)
 }
 
 pub async fn create_new_invoice_v2(
@@ -376,13 +480,17 @@ pub async fn create_new_invoice_v2(
         params,
     };
 
-    create_invoice(&sk, invoice_req).await
+    let resp = create_invoice(&sk, invoice_req).await?;
+    Ok(resp)
 }
 
 pub async fn create_new_psbt_v2(
     iface: &str,
-    owner_utxos: Vec<AllocationDetail>,
+    owner_asset_utxos: Vec<AllocationDetail>,
     owner_keys: DecryptedWalletData,
+    owner_bitcoin_inputs: Vec<PsbtInputRequest>,
+    bitcoin_changes: Vec<String>,
+    fee_strategy: Option<PsbtFeeRequest>,
 ) -> Result<PsbtResponse, anyhow::Error> {
     // Get Allocations
     let watcher_name = "default";
@@ -390,30 +498,40 @@ pub async fn create_new_psbt_v2(
     let resp = watcher_details(&sk, watcher_name).await;
     assert!(resp.is_ok());
 
-    let inputs = owner_utxos
-        .into_iter()
-        .map(|x| PsbtInputRequest {
-            asset_utxo: x.utxo.to_owned(),
-            asset_utxo_terminal: x.derivation,
-            tapret: None,
-        })
-        .collect();
-
     let descriptor_pub = match iface {
         "RGB20" => owner_keys.public.rgb_assets_descriptor_xpub.clone(),
         "RGB21" => owner_keys.public.rgb_udas_descriptor_xpub.clone(),
         _ => owner_keys.public.rgb_assets_descriptor_xpub.clone(),
     };
 
-    let req = PsbtRequest {
-        descriptor_pub: SecretString(descriptor_pub),
-        inputs,
-        change_index: None,
-        bitcoin_changes: vec![],
-        fee: None,
+    let terminal_change = match iface {
+        "RGB20" => "/20/1",
+        "RGB21" => "/21/1",
+        _ => "/20/1",
     };
 
-    create_psbt(&sk, req).await
+    let inputs = owner_asset_utxos
+        .into_iter()
+        .map(|x| PsbtInputRequest {
+            descriptor: SecretString(descriptor_pub.clone()),
+            utxo: x.utxo.to_owned(),
+            utxo_terminal: x.derivation,
+            tapret: None,
+        })
+        .collect();
+
+    let default_fee = fee_strategy.unwrap_or(PsbtFeeRequest::Value(1000));
+    let req = PsbtRequest {
+        asset_descriptor_change: SecretString(descriptor_pub.clone()),
+        asset_terminal_change: terminal_change.to_owned(),
+        asset_inputs: inputs,
+        bitcoin_inputs: owner_bitcoin_inputs,
+        bitcoin_changes,
+        fee: default_fee,
+    };
+
+    let resp = create_psbt(&sk, req).await?;
+    Ok(resp)
 }
 
 pub async fn create_new_transfer(
@@ -429,7 +547,8 @@ pub async fn create_new_transfer(
     };
 
     let sk = owner_keys.private.nostr_prv.clone();
-    transfer_asset(&sk, transfer_req).await
+    let resp = transfer_asset(&sk, transfer_req).await?;
+    Ok(resp)
 }
 
 pub fn get_uda_data() -> IssueMetaRequest {

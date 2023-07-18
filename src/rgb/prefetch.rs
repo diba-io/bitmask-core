@@ -38,7 +38,7 @@ pub async fn prefetch_resolver_import_rgb(
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-pub async fn prefetch_resolver_psbt(asset_utxo: &str, explorer: &mut ExplorerResolver) {}
+pub async fn prefetch_resolver_psbt(input_utxo: &str, explorer: &mut ExplorerResolver) {}
 
 #[cfg(not(target_arch = "wasm32"))]
 pub async fn prefetch_resolver_utxo_status(
@@ -233,11 +233,11 @@ pub async fn prefetch_resolver_import_rgb(
 }
 
 #[cfg(target_arch = "wasm32")]
-pub async fn prefetch_resolver_psbt(asset_utxo: &str, explorer: &mut ExplorerResolver) {
+pub async fn prefetch_resolver_psbt(input_utxo: &str, explorer: &mut ExplorerResolver) {
     let esplora_client: EsploraBlockchain =
         EsploraBlockchain::new(&explorer.explorer_url, 100).with_concurrency(6);
 
-    let outpoint: OutPoint = asset_utxo.parse().expect("invalid outpoint format");
+    let outpoint: OutPoint = input_utxo.parse().expect("invalid outpoint format");
     let txid = outpoint.txid;
     if let Some(tx) = esplora_client
         .get_tx(&txid)
@@ -289,6 +289,8 @@ pub async fn prefetch_resolver_utxos(
     wallet: &mut RgbWallet,
     explorer: &mut ExplorerResolver,
 ) {
+    use std::collections::HashSet;
+
     let esplora_client: EsploraBlockchain =
         EsploraBlockchain::new(&explorer.explorer_url, 100).with_concurrency(6);
 
@@ -301,20 +303,41 @@ pub async fn prefetch_resolver_utxos(
         scripts.into_iter().map(|(d, sc)| (d, sc)).collect();
 
     let mut utxos = bset![];
-    let script_list = new_scripts.into_iter().map(|(d, sc)| {
-        (
-            d,
-            Script::from_str(&sc.to_hex_string()).expect("invalid script"),
-        )
-    });
+    let script_list = new_scripts
+        .into_iter()
+        .map(|(d, sc)| {
+            (
+                d,
+                Script::from_str(&sc.to_hex_string()).expect("invalid script"),
+            )
+        })
+        .collect::<HashSet<_>>()
+        .into_iter();
 
     for (derive, script) in script_list {
-        let txs = match esplora_client.scripthash_txs(&script, none!()).await {
-            Ok(txs) => txs,
-            _ => vec![],
-        };
+        let mut related_txs = esplora_client
+            .scripthash_txs(&script, None)
+            .await
+            .expect("Service unavaliable");
+        let n_confirmed = related_txs.iter().filter(|tx| tx.status.confirmed).count();
+        // esplora pages on 25 confirmed transactions. If there are 25 or more we
+        // keep requesting to see if there's more.
+        if n_confirmed >= 25 {
+            loop {
+                let new_related_txs = esplora_client
+                    .scripthash_txs(&script, Some(related_txs.last().unwrap().txid))
+                    .await
+                    .expect("Service unavaliable");
+                let n = new_related_txs.len();
+                related_txs.extend(new_related_txs);
+                // we've reached the end
+                if n < 25 {
+                    break;
+                }
+            }
+        }
 
-        txs.into_iter().for_each(|tx| {
+        related_txs.into_iter().for_each(|tx| {
             let index = tx
                 .vout
                 .clone()
@@ -328,7 +351,7 @@ pub async fn prefetch_resolver_utxos(
                     _ => MiningStatus::Mempool,
                 };
                 let outpoint = Outpoint::new(
-                    bp::Txid::from_str(&tx.txid.to_hex()).expect("invalid transactionID parse"),
+                    rgbstd::Txid::from_str(&tx.txid.to_hex()).expect("invalid transactionID parse"),
                     index as u32,
                 );
                 let new_utxo = Utxo {

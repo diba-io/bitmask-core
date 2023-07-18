@@ -1,18 +1,18 @@
 use std::str::FromStr;
 
-use anyhow::{anyhow, Result};
 use bdk::{
     bitcoin::{
         secp256k1::Secp256k1,
         util::bip32::{ChildNumber, DerivationPath, ExtendedPrivKey, ExtendedPubKey, KeySource},
     },
     keys::{DerivableKey, DescriptorKey, DescriptorKey::Secret as SecretDesc, DescriptorSecretKey},
-    miniscript::Tap,
+    miniscript::{descriptor::DescriptorKeyParseError, Tap},
 };
 use bip39::{Language, Mnemonic};
 use bitcoin_hashes::{sha256, Hash};
 use miniscript_crate::DescriptorPublicKey;
 use nostr_sdk::prelude::{FromSkStr, ToBech32};
+use thiserror::Error;
 use zeroize::Zeroize;
 
 use crate::{
@@ -20,9 +20,38 @@ use crate::{
     structs::{DecryptedWalletData, PrivateWalletData, PublicWalletData, SecretString},
 };
 
-fn get_descriptor(xprv: &ExtendedPrivKey, path: &str, change: u32) -> Result<DescriptorSecretKey> {
+#[derive(Error, Debug, Display)]
+#[display(doc_comments)]
+pub enum BitcoinKeysError {
+    /// Unexpected key variant in get_descriptor
+    UnexpectedKey,
+    /// Unexpected xpub descriptor
+    UnexpectedWatcherXpubDescriptor,
+    /// Unexpected key variant in nostr_keypair
+    UnexpectedKeyVariantInNostrKeypair,
+    /// BIP-32 error
+    Bip32Error(#[from] bitcoin::util::bip32::Error),
+    /// BIP-39 error
+    Bip39Error(#[from] bip39::Error),
+    /// BDK key error
+    BdkKeyError(#[from] bdk::keys::KeyError),
+    /// Miniscript descriptor key parse error
+    MiniscriptDescriptorKeyParseError(#[from] DescriptorKeyParseError),
+    /// getrandom error
+    GetRandomError(#[from] getrandom::Error),
+    /// Nostr SDK key error
+    NostrKeyError(#[from] nostr_sdk::key::Error),
+    /// Nostr SDK key error
+    NostrNip19Error(#[from] nostr_sdk::nips::nip19::Error),
+}
+
+fn get_descriptor(
+    xprv: &ExtendedPrivKey,
+    path: &str,
+    change: u32,
+) -> Result<DescriptorSecretKey, BitcoinKeysError> {
     let secp = Secp256k1::new();
-    let deriv_descriptor: DerivationPath = DerivationPath::from_str(path)?;
+    let deriv_descriptor = DerivationPath::from_str(path)?;
     let derived_xprv = &xprv.derive_priv(&secp, &deriv_descriptor)?;
     let origin: KeySource = (xprv.fingerprint(&secp), deriv_descriptor);
     let derived_xprv_desc_key: DescriptorKey<Tap> = derived_xprv.into_descriptor_key(
@@ -33,17 +62,17 @@ fn get_descriptor(xprv: &ExtendedPrivKey, path: &str, change: u32) -> Result<Des
     if let SecretDesc(desc_seckey, _, _) = derived_xprv_desc_key {
         Ok(desc_seckey)
     } else {
-        Err(anyhow!("Unexpected key variant in get_descriptor"))
+        Err(BitcoinKeysError::UnexpectedKey)
     }
 }
 
-fn xprv_desc(xprv: &ExtendedPrivKey, path: &str, change: u32) -> Result<String> {
+fn xprv_desc(xprv: &ExtendedPrivKey, path: &str, change: u32) -> Result<String, BitcoinKeysError> {
     let xprv = get_descriptor(xprv, path, change)?;
 
     Ok(format!("tr({xprv})"))
 }
 
-fn xpub_desc(xprv: &ExtendedPrivKey, path: &str, change: u32) -> Result<String> {
+fn xpub_desc(xprv: &ExtendedPrivKey, path: &str, change: u32) -> Result<String, BitcoinKeysError> {
     let secp = Secp256k1::new();
     let xprv = get_descriptor(xprv, path, change)?;
     let xpub = xprv.to_public(&secp)?;
@@ -51,7 +80,11 @@ fn xpub_desc(xprv: &ExtendedPrivKey, path: &str, change: u32) -> Result<String> 
     Ok(format!("tr({xpub})"))
 }
 
-fn watcher_xpub(xprv: &ExtendedPrivKey, path: &str, change: u32) -> Result<String> {
+fn watcher_xpub(
+    xprv: &ExtendedPrivKey,
+    path: &str,
+    change: u32,
+) -> Result<String, BitcoinKeysError> {
     let secp = Secp256k1::new();
     let xprv = get_descriptor(xprv, path, change)?;
     let xpub = xprv.to_public(&secp)?;
@@ -59,11 +92,15 @@ fn watcher_xpub(xprv: &ExtendedPrivKey, path: &str, change: u32) -> Result<Strin
     if let DescriptorPublicKey::XPub(desc) = xpub {
         Ok(desc.xkey.to_string())
     } else {
-        Err(anyhow!("Unexpected xpub descriptor"))
+        Err(BitcoinKeysError::UnexpectedWatcherXpubDescriptor)
     }
 }
 
-fn nostr_keypair(xprv: &ExtendedPrivKey, path: &str, change: u32) -> Result<(String, String)> {
+fn nostr_keypair(
+    xprv: &ExtendedPrivKey,
+    path: &str,
+    change: u32,
+) -> Result<(String, String), BitcoinKeysError> {
     let secp = Secp256k1::new();
     let xprv = get_descriptor(xprv, path, change)?;
 
@@ -78,11 +115,13 @@ fn nostr_keypair(xprv: &ExtendedPrivKey, path: &str, change: u32) -> Result<(Str
             hex::encode(first_keypair.x_only_public_key().0.serialize()),
         ))
     } else {
-        Err(anyhow!("Unexpected key variant in nostr_keypair"))
+        Err(BitcoinKeysError::UnexpectedKeyVariantInNostrKeypair)
     }
 }
 
-pub async fn new_mnemonic(seed_password: &SecretString) -> Result<DecryptedWalletData> {
+pub async fn new_mnemonic(
+    seed_password: &SecretString,
+) -> Result<DecryptedWalletData, BitcoinKeysError> {
     let mut entropy = [0u8; 32];
     getrandom::getrandom(&mut entropy)?;
     let mnemonic = Mnemonic::from_entropy_in(Language::English, &entropy)?;
@@ -94,7 +133,7 @@ pub async fn new_mnemonic(seed_password: &SecretString) -> Result<DecryptedWalle
 pub async fn save_mnemonic(
     mnemonic_phrase: &SecretString,
     seed_password: &SecretString,
-) -> Result<DecryptedWalletData> {
+) -> Result<DecryptedWalletData, BitcoinKeysError> {
     let mnemonic = Mnemonic::from_str(&mnemonic_phrase.0)?;
 
     get_mnemonic(mnemonic, seed_password).await
@@ -103,7 +142,7 @@ pub async fn save_mnemonic(
 pub async fn get_mnemonic(
     mnemonic_phrase: Mnemonic,
     seed_password: &SecretString,
-) -> Result<DecryptedWalletData> {
+) -> Result<DecryptedWalletData, BitcoinKeysError> {
     let seed = mnemonic_phrase.to_seed_normalized(&seed_password.0);
 
     let network = NETWORK.read().await;

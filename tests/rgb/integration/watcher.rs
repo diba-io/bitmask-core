@@ -151,7 +151,7 @@ async fn allow_monitoring_valid_utxo() -> anyhow::Result<()> {
     create_watcher(&sk, create_watch_req.clone()).await?;
 
     // Register Utxo (Watcher)
-    let resp = watcher_utxo(&sk, watcher_name, &next_utxo.utxo).await;
+    let resp = watcher_utxo(&sk, watcher_name, &next_utxo.utxo.unwrap().outpoint).await;
     assert!(resp.is_ok());
     assert!(!resp?.utxos.is_empty());
     Ok(())
