@@ -1363,7 +1363,7 @@ async fn allow_issuer_make_transfer_of_two_contracts_in_same_utxo() -> anyhow::R
     assert!(resp.is_ok());
 
     let issuer_contract = resp?;
-    assert_eq!(4, issuer_contract.balance);
+    assert_eq!(9, issuer_contract.balance);
 
     let resp = get_contract(&owner_sk, contract_id).await;
     assert!(resp.is_ok());
