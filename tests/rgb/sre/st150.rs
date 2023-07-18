@@ -75,7 +75,7 @@ async fn allow_re_issue_rgb_contracts() -> anyhow::Result<()> {
         assert!(reissue_resp.is_ok());
 
         // 3. Get File Information
-        let (_, header) = retrieve(issuer_sk, &file_name).await?;
+        let (_, header) = retrieve(issuer_sk, &file_name, vec![]).await?;
         let header = header.unwrap();
         assert!(!header.is_empty());
         assert_eq!(RGB_STRICT_TYPE_VERSION.to_vec(), header);

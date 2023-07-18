@@ -7,6 +7,7 @@ use rgb_schemata::{nia_schema, uda_schema};
 use rgbstd::{
     containers::Contract,
     contract::Genesis,
+    interface::{rgb20, rgb21},
     persistence::{Inventory, Stash, Stock},
     resolvers::ResolveHeight,
     validation::ResolveTx,
@@ -43,7 +44,7 @@ where
             .expect("invalid strict serialized data");
 
     let contract = match Genesis::from_strict_serialized::<{ U32 }>(confined.clone()) {
-        Ok(genesis) => contract_from_genesis(genesis, asset_type),
+        Ok(genesis) => contract_from_genesis(genesis, asset_type, Some(stock)),
         Err(_) => Contract::from_strict_serialized::<{ U32 }>(confined)
             .expect("invalid strict contract data"),
     };
@@ -64,12 +65,24 @@ where
     Ok(contract)
 }
 
-pub fn contract_from_genesis(genesis: Genesis, asset_type: AssetType) -> Contract {
+pub fn contract_from_genesis(
+    genesis: Genesis,
+    asset_type: AssetType,
+    stock: Option<&mut Stock>,
+) -> Contract {
     let schema = match asset_type {
         AssetType::RGB20 => nia_schema(),
         AssetType::RGB21 => uda_schema(),
         _ => nia_schema(),
     };
 
+    if let Some(stock) = stock {
+        match asset_type {
+            AssetType::RGB20 => stock.import_iface(rgb20()),
+            AssetType::RGB21 => stock.import_iface(rgb21()),
+            _ => stock.import_iface(rgb20()),
+        }
+        .expect("import iface failed");
+    }
     Contract::new(schema, genesis)
 }

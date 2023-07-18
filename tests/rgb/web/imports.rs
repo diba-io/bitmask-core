@@ -51,7 +51,7 @@ async fn import_fungible_from_genesis() {
     let vault_str: JsValue = resolve(decrypt_wallet(hash, mnemonic_data.0.clone())).await;
     let wallet_data: DecryptedWalletData = json_parse(&vault_str);
 
-    info!("Import Contract");
+    info!("Import Genesis (Fungible)");
     let sk = &wallet_data.private.nostr_prv;
     let contract_import = ImportRequest {
         import: AssetType::RGB20,
@@ -93,7 +93,7 @@ async fn import_uda_from_genesis() {
     let vault_str: JsValue = resolve(decrypt_wallet(hash, mnemonic_data.0.clone())).await;
     let wallet_data: DecryptedWalletData = json_parse(&vault_str);
 
-    info!("Import Contract");
+    info!("Import Genesis (UDA)");
     let sk = &wallet_data.private.nostr_prv;
     let contract_import = ImportRequest {
         import: AssetType::RGB21,
