@@ -93,7 +93,7 @@ pub async fn prefetch_resolver_rgb(
     use crate::rgb::import::contract_from_genesis;
 
     let esplora_client: EsploraBlockchain =
-        EsploraBlockchain::new(&explorer.explorer_url, 100).with_concurrency(6);
+        EsploraBlockchain::new(&explorer.explorer_url, 1).with_concurrency(6);
     let serialized = if contract.starts_with("rgb1") {
         let (_, serialized, _) =
             decode(contract).expect("invalid serialized contract (bech32m format)");
@@ -170,7 +170,7 @@ pub async fn prefetch_resolver_import_rgb(
     use rgbstd::contract::Genesis;
 
     let esplora_client: EsploraBlockchain =
-        EsploraBlockchain::new(&explorer.explorer_url, 100).with_concurrency(6);
+        EsploraBlockchain::new(&explorer.explorer_url, 1).with_concurrency(6);
     let serialized = if contract.starts_with("rgb1") {
         let (_, serialized, _) =
             decode(contract).expect("invalid serialized contract (bech32m format)");
@@ -235,7 +235,7 @@ pub async fn prefetch_resolver_import_rgb(
 #[cfg(target_arch = "wasm32")]
 pub async fn prefetch_resolver_psbt(input_utxo: &str, explorer: &mut ExplorerResolver) {
     let esplora_client: EsploraBlockchain =
-        EsploraBlockchain::new(&explorer.explorer_url, 100).with_concurrency(6);
+        EsploraBlockchain::new(&explorer.explorer_url, 1).with_concurrency(6);
 
     let outpoint: OutPoint = input_utxo.parse().expect("invalid outpoint format");
     let txid = outpoint.txid;
@@ -255,7 +255,7 @@ pub async fn prefetch_resolver_utxo_status(
     explorer: &mut ExplorerResolver,
 ) {
     let esplora_client: EsploraBlockchain =
-        EsploraBlockchain::new(&explorer.explorer_url, 100).with_concurrency(6);
+        EsploraBlockchain::new(&explorer.explorer_url, 1).with_concurrency(6);
     let utxos: Vec<Utxo> = wallet
         .utxos
         .clone()
@@ -292,7 +292,7 @@ pub async fn prefetch_resolver_utxos(
     use std::collections::HashSet;
 
     let esplora_client: EsploraBlockchain =
-        EsploraBlockchain::new(&explorer.explorer_url, 100).with_concurrency(6);
+        EsploraBlockchain::new(&explorer.explorer_url, 1).with_concurrency(6);
 
     let step = 100;
     let index = 0;
@@ -375,7 +375,7 @@ pub async fn prefetch_resolver_utxos(
 
 #[cfg(target_arch = "wasm32")]
 pub async fn prefetch_resolver_txs(txids: Vec<Txid>, explorer: &mut ExplorerResolver) {
-    let esplora_client = EsploraBlockchain::new(&explorer.explorer_url, 100).with_concurrency(6);
+    let esplora_client = EsploraBlockchain::new(&explorer.explorer_url, 1).with_concurrency(6);
     for txid in txids {
         if let Some(tx) = esplora_client
             .get_tx(&txid)
@@ -395,7 +395,7 @@ pub async fn prefetch_resolver_waddress(
     limit: Option<u32>,
 ) {
     let esplora_client: EsploraBlockchain =
-        EsploraBlockchain::new(&explorer.explorer_url, 100).with_concurrency(6);
+        EsploraBlockchain::new(&explorer.explorer_url, 1).with_concurrency(6);
 
     let mut step = 100;
     if let Some(limit) = limit {
@@ -474,7 +474,7 @@ pub async fn prefetch_resolver_wutxo(
     limit: Option<u32>,
 ) {
     let esplora_client: EsploraBlockchain =
-        EsploraBlockchain::new(&explorer.explorer_url, 100).with_concurrency(6);
+        EsploraBlockchain::new(&explorer.explorer_url, 1).with_concurrency(6);
 
     let outpoint = OutPoint::from_str(utxo).expect("invalid outpoint");
 
@@ -498,7 +498,7 @@ pub async fn prefetch_resolver_tx_height(txid: rgbstd::Txid, explorer: &mut Expl
     use rgbstd::contract::{WitnessHeight, WitnessOrd};
 
     let esplora_client: EsploraBlockchain =
-        EsploraBlockchain::new(&explorer.explorer_url, 100).with_concurrency(6);
+        EsploraBlockchain::new(&explorer.explorer_url, 1).with_concurrency(6);
 
     let transaction_id =
         &bitcoin::Txid::from_str(&txid.to_hex()).expect("invalid transaction id parse");
