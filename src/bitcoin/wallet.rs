@@ -107,7 +107,7 @@ pub async fn get_wallet(
 
 pub async fn get_blockchain() -> EsploraBlockchain {
     debug!("Getting blockchain");
-    EsploraBlockchain::new(&BITCOIN_EXPLORER_API.read().await, 100)
+    EsploraBlockchain::new(&BITCOIN_EXPLORER_API.read().await, 1)
 }
 
 pub async fn sync_wallet(wallet: &MemoryWallet) -> Result<()> {
