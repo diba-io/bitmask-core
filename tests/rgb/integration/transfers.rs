@@ -1328,7 +1328,7 @@ async fn allow_issuer_make_transfer_of_two_contracts_in_same_utxo() -> anyhow::R
         issuer_keys.clone(),
         vec![],
         vec![],
-        None,
+        Some(bitmask_core::structs::PsbtFeeRequest::Value(10000)),
     )
     .await?;
     let transfer_resp =
@@ -1345,7 +1345,7 @@ async fn allow_issuer_make_transfer_of_two_contracts_in_same_utxo() -> anyhow::R
     // 7. Accept Consig (Both Side)
     let request = AcceptRequest {
         consignment: transfer_resp.clone().consig,
-        force: false,
+        force: true,
     };
     let resp = accept_transfer(&issuer_sk, request.clone()).await;
     assert!(resp.is_ok());
@@ -1356,6 +1356,7 @@ async fn allow_issuer_make_transfer_of_two_contracts_in_same_utxo() -> anyhow::R
     assert!(resp?.valid);
 
     // 8. Check Contract Balance (Both Sides)
+    send_some_coins(&owner_address.address, "0.1").await;
     let contract_id = &issue_contract_b_resp.contract_id;
     let resp = get_contract(&issuer_sk, contract_id).await;
     assert!(resp.is_ok());

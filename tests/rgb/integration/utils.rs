@@ -384,7 +384,7 @@ pub async fn issuer_issue_contract_v2(
 
     create_watcher(sk, create_watch_req.clone()).await?;
 
-    let default_coins = initial_sats.unwrap_or("0.1".to_string());
+    let default_coins = initial_sats.unwrap_or("1".to_string());
     if send_coins {
         let next_address = watcher_next_address(sk, watcher_name, iface).await?;
         send_some_coins(&next_address.address, &default_coins).await;
