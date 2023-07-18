@@ -1,5 +1,6 @@
 #![allow(unused_imports)]
 #![allow(unused_variables)]
+use crate::debug;
 use crate::rgb::resolvers::ExplorerResolver;
 use crate::structs::AssetType;
 use amplify::{
@@ -87,10 +88,9 @@ pub async fn prefetch_resolver_rgb(
     explorer: &mut ExplorerResolver,
     asset_type: Option<AssetType>,
 ) {
+    use crate::rgb::import::contract_from_genesis;
     use amplify::confinement::U32;
     use rgbstd::contract::Genesis;
-
-    use crate::rgb::import::contract_from_genesis;
 
     let esplora_client: EsploraBlockchain =
         EsploraBlockchain::new(&explorer.explorer_url, 1).with_concurrency(6);
@@ -108,7 +108,7 @@ pub async fn prefetch_resolver_rgb(
 
     let contract = match asset_type {
         Some(asset_type) => match Genesis::from_strict_serialized::<{ U32 }>(confined.clone()) {
-            Ok(genesis) => contract_from_genesis(genesis, asset_type),
+            Ok(genesis) => contract_from_genesis(genesis, asset_type, None),
             Err(_) => Contract::from_strict_serialized::<{ U32 }>(confined)
                 .expect("invalid strict contract data"),
         },
@@ -167,6 +167,7 @@ pub async fn prefetch_resolver_import_rgb(
     explorer: &mut ExplorerResolver,
 ) {
     use crate::rgb::import::contract_from_genesis;
+    use amplify::confinement::U32;
     use rgbstd::contract::Genesis;
 
     let esplora_client: EsploraBlockchain =
@@ -179,13 +180,13 @@ pub async fn prefetch_resolver_import_rgb(
         Vec::<u8>::from_hex(contract).expect("invalid hexadecimal contract (baid58 format)")
     };
 
-    let confined: Confined<Vec<u8>, 0, { usize::MAX }> =
+    let confined: Confined<Vec<u8>, 0, { U32 }> =
         Confined::try_from_iter(serialized.iter().copied())
             .expect("invalid strict serialized data");
 
-    let contract = match Genesis::from_strict_serialized::<{ usize::MAX }>(confined.clone()) {
-        Ok(genesis) => contract_from_genesis(genesis, asset_type),
-        Err(_) => Contract::from_strict_serialized::<{ usize::MAX }>(confined)
+    let contract = match Genesis::from_strict_serialized::<{ U32 }>(confined.clone()) {
+        Ok(genesis) => contract_from_genesis(genesis, asset_type, None),
+        Err(_) => Contract::from_strict_serialized::<{ U32 }>(confined)
             .expect("invalid strict contract data"),
     };
 
@@ -296,13 +297,12 @@ pub async fn prefetch_resolver_utxos(
 
     let step = 100;
     let index = 0;
+    let mut utxos = bset![];
 
-    // loop {
     let scripts = wallet.descr.derive(iface_index, index..step);
     let new_scripts: BTreeMap<DeriveInfo, ScriptBuf> =
         scripts.into_iter().map(|(d, sc)| (d, sc)).collect();
 
-    let mut utxos = bset![];
     let script_list = new_scripts
         .into_iter()
         .map(|(d, sc)| {
@@ -368,9 +368,6 @@ pub async fn prefetch_resolver_utxos(
     if !utxos.is_empty() {
         wallet.utxos.append(&mut utxos);
     }
-
-    // index += step;
-    // }
 }
 
 #[cfg(target_arch = "wasm32")]

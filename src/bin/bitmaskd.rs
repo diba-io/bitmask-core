@@ -503,8 +503,8 @@ async fn main() -> Result<()> {
         .route("/carbonado/status", get(status))
         .route("/carbonado/:pk/:name", post(co_store))
         .route("/carbonado/:pk/:name/force", post(co_force_store))
-        .route("/carbonado/:pk/:name", get(co_retrieve))
         .route("/carbonado/:pk/:name/metadata", get(co_metadata))
+        .route("/carbonado/:pk/:name", get(co_retrieve))
         .layer(CorsLayer::permissive());
 
     let network = get_network().await;
