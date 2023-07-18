@@ -20,28 +20,37 @@ use crate::{
     structs::{DecryptedWalletData, PrivateWalletData, PublicWalletData, SecretString},
 };
 
-#[derive(Error, Debug, Display)]
-#[display(doc_comments)]
+#[derive(Error, Debug)]
 pub enum BitcoinKeysError {
     /// Unexpected key variant in get_descriptor
+    #[error("Unexpected key variant in get_descriptor")]
     UnexpectedKey,
     /// Unexpected xpub descriptor
+    #[error("Unexpected xpub descriptor")]
     UnexpectedWatcherXpubDescriptor,
     /// Unexpected key variant in nostr_keypair
+    #[error("Unexpected key variant in nostr_keypair")]
     UnexpectedKeyVariantInNostrKeypair,
     /// BIP-32 error
+    #[error(transparent)]
     Bip32Error(#[from] bitcoin::util::bip32::Error),
     /// BIP-39 error
+    #[error(transparent)]
     Bip39Error(#[from] bip39::Error),
     /// BDK key error
+    #[error(transparent)]
     BdkKeyError(#[from] bdk::keys::KeyError),
     /// Miniscript descriptor key parse error
+    #[error(transparent)]
     MiniscriptDescriptorKeyParseError(#[from] DescriptorKeyParseError),
     /// getrandom error
+    #[error(transparent)]
     GetRandomError(#[from] getrandom::Error),
     /// Nostr SDK key error
+    #[error(transparent)]
     NostrKeyError(#[from] nostr_sdk::key::Error),
     /// Nostr SDK key error
+    #[error(transparent)]
     NostrNip19Error(#[from] nostr_sdk::nips::nip19::Error),
 }
 

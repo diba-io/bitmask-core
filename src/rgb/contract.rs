@@ -18,17 +18,17 @@ use crate::structs::{
 #[derive(Clone, Eq, PartialEq, Debug, Display, Error, From)]
 #[display(doc_comments)]
 pub enum ExportContractError {
-    // The contract {0} is not found
+    /// The contract {0} is not found
     NoContrat(String),
-    // The contract {0} presents stash inconstency ({1})
+    /// The contract {0} presents stash inconstency ({1})
     StashInconsistency(String, String),
-    // The contract {0} presents strict inconstency ({1})
+    /// The contract {0} presents strict inconstency ({1})
     StrictInconsistency(String, String),
-    // The genesis of the contract {0} presents inconstency ({1})
+    /// The genesis of the contract {0} presents inconstency ({1})
     GenesisInconsistency(String, String),
-    // The contract {0} cannot be converted to {1}
+    /// The contract {0} cannot be converted to {1}
     ContractFormat(String, String),
-    // The the contract {0} cannot have {1} global data
+    /// The the contract {0} cannot have {1} global data
     GlobalNotFound(String, String),
 }
 

@@ -22,17 +22,17 @@ use strict_encoding::{StrictDeserialize, TypeName};
 #[derive(Clone, Eq, PartialEq, Debug, Display, Error, From)]
 #[display(doc_comments)]
 pub enum NewInvoiceError {
-    // '{0}' is an invalid iface name
+    /// '{0}' is an invalid iface name
     WrongIface(String),
-    // '{0}' is an invalid contract id
+    /// '{0}' is an invalid contract id
     WrongContract(String),
-    // '{0}' is an invalid seal definition
+    /// '{0}' is an invalid seal definition
     WrongSeal(String),
-    // {0} is unspecified or wrong contract id
+    /// {0} is unspecified or wrong contract id
     NoContract(String),
-    // There are no contracts defined in Stash
+    /// There are no contracts defined in Stash
     EmptyContracts,
-    // Error saving secret seal: {0}
+    /// Error saving secret seal: {0}
     StoreSeal(String),
 }
 
@@ -41,13 +41,13 @@ pub enum NewInvoiceError {
 // TODO: Complete errors
 pub enum NewPaymentError {
     Invalid,
-    // '{0}' is an invalid invoice format
+    /// '{0}' is an invalid invoice format
     WrongInvoice(InvoiceParseError),
-    // PSBT data have an invalid hexadecimal format.
+    /// PSBT data have an invalid hexadecimal format.
     WrongHex,
-    // PSBT file cannot be decoded. {0}
+    /// PSBT file cannot be decoded. {0}
     WrongPSBT(String),
-    // Consignmnet has not been completed. {0}
+    /// Consignmnet has not been completed. {0}
     NoPay(String),
 }
 
@@ -55,13 +55,13 @@ pub enum NewPaymentError {
 #[display(doc_comments)]
 // TODO: Complete errors
 pub enum AcceptTransferError {
-    // Consignment data have an invalid hexadecimal format.
+    /// Consignment data have an invalid hexadecimal format.
     WrongHex,
-    // Consignment cannot be decoded. {0}
+    /// Consignment cannot be decoded. {0}
     WrongConsig(String),
-    // The Consignment is invalid. Details: {0}
+    /// The Consignment is invalid. Details: {0:?}
     InvalidConsig(Vec<String>),
-    // The Consignment is invalid (Unexpected behavior on validation).
+    /// The Consignment is invalid (Unexpected behavior on validation).
     Inconclusive,
 }
 

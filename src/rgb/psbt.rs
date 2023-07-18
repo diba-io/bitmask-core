@@ -43,23 +43,23 @@ use crate::rgb::structs::AddressFormatParseError;
 #[derive(Clone, Eq, PartialEq, Debug, Display, Error, From)]
 #[display(doc_comments)]
 pub enum CreatePsbtError {
-    // At least 1 input to create PSBT file
+    /// At least 1 input to create PSBT file
     EmptyInputs,
-    // Invalid terminal path. '{0}'
+    /// Invalid terminal path. '{0}'
     WrongTerminal(bip32::Error),
-    // Invalid descriptor. '{0}'
+    /// Invalid descriptor. '{0}'
     WrongDescriptor(String),
-    // Invalid taptweak. '{0}'
+    /// Invalid taptweak. '{0}'
     WrongTapTweak(String),
-    // Invalid input. '{0}'
+    /// Invalid input. '{0}'
     WrongInput(PsbtInputError),
-    // Invalid output address. '{0}'
+    /// Invalid output address. '{0:?}'
     WrongAddress(AddressFormatParseError),
-    // PSBT file cannot be created. '{0}'
+    /// PSBT file cannot be created. '{0}'
     Incomplete(String),
-    // Invalid PSBT proprietry key. '{0}'
+    /// Invalid PSBT proprietry key. '{0}'
     WrongMetadata(ProprietaryKeyError),
-    // The PSBT is invalid (Unexpected behavior).
+    /// The PSBT is invalid (Unexpected behavior).
     Inconclusive,
 }
 
@@ -68,13 +68,13 @@ pub enum CreatePsbtError {
 pub enum PsbtInputError {
     WrongTerminal,
     WrongDerivation(String),
-    // The transaction is invalid: {0}
+    /// The transaction is invalid: {0}
     WrongPrevOut(String),
-    // The tweak is invalid: {0}
+    /// The tweak is invalid: {0}
     WrongTweak(String),
-    // The script is invalid: {0}
+    /// The script is invalid: {0}
     WrongScript(String),
-    // The Input PSBT is invalid (Unexpected behavior).
+    /// The Input PSBT is invalid (Unexpected behavior).
     Inconclusive,
 }
 
