@@ -5,6 +5,8 @@ use thiserror::Error;
 pub enum CarbonadoError {
     /// std io error
     StdIoError(#[from] std::io::Error),
+    /// std str UTF-8 error
+    StdStrUtf8Error(#[from] std::str::Utf8Error),
     /// Error decoding hexadecimal-encoded string
     HexDecodeError(#[from] hex::FromHexError),
     /// Error decoding base64-encoded string
@@ -13,4 +15,6 @@ pub enum CarbonadoError {
     NostrPrivateKey(#[from] nostr_sdk::secp256k1::Error),
     /// General Carbonado error
     CarbonadoError(#[from] carbonado::error::CarbonadoError),
+    /// Provided file name contains characters that have not been encoded. It should be: {0}
+    EncodingError(String),
 }

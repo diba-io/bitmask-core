@@ -321,7 +321,8 @@ pub async fn retrieve(
 
 #[cfg(feature = "server")]
 pub async fn handle_file(pk: &str, name: &str, bytes: usize) -> Result<PathBuf, CarbonadoError> {
-    use percent_encoding::percent_decode;
+    use crate::carbonado::constants::FORM;
+    use percent_encoding::{percent_decode_str, utf8_percent_encode};
 
     let network = NETWORK.read().await.to_string();
     let mut final_name = name.to_string();
@@ -329,20 +330,24 @@ pub async fn handle_file(pk: &str, name: &str, bytes: usize) -> Result<PathBuf, 
         final_name = format!("{network}/{name}");
     }
 
-    let directory = std::path::Path::new(
+    let reencoded = utf8_percent_encode(&percent_decode_str(name).decode_utf8()?, FORM).to_string();
+    if name != reencoded {
+        return Err(CarbonadoError::EncodingError(reencoded));
+    }
+
+    let directory: PathBuf = std::path::Path::new(
         &std::env::var("CARBONADO_DIR").unwrap_or("/tmp/bitmaskd/carbonado".to_owned()),
     )
     .join(pk);
-
-    let final_name = percent_decode(final_name.as_bytes()).decode_utf8().unwrap();
-    let filepath = directory.join(final_name.to_string());
-    let filedir = filepath.parent().unwrap();
-    fs::create_dir_all(filedir).await.map_err(|_| {
+    fs::create_dir_all(&directory).await.map_err(|_| {
         CarbonadoError::StdIoError(Error::new(
             ErrorKind::NotFound,
             format!("Cannot create filepath to carbonado file {name}"),
         ))
     })?;
+
+    let filepath = directory.join(final_name);
+
     if bytes == 0 {
         info!(format!("read {}", filepath.to_string_lossy()));
     } else {
