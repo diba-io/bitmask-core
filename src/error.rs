@@ -6,7 +6,9 @@ use crate::{bitcoin::BitcoinKeysError, rgb::IssueError};
 #[display(doc_comments)]
 pub enum BitMaskCoreError {
     /// Bitcoin Keys Error
+    #[error(transparent)]
     BitcoinKeysError(#[from] BitcoinKeysError),
     /// RGB Issuer Operation Error
+    #[error(transparent)]
     RgbIssueError(#[from] IssueError),
 }

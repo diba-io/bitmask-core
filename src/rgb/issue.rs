@@ -26,11 +26,11 @@ use crate::structs::{IssueMetaRequest, IssueMetadata};
 #[display(doc_comments)]
 pub enum IssueContractError {
     Forge(BuilderError),
-    // The contract interface {0} is not supported in issuer operation
+    /// The contract interface {0} is not supported in issuer operation
     NoContractSupport(String),
-    // The contract {0} contains failures {1}
+    /// The contract {0} contains failures {1}
     ContractInvalid(String, Vec<Failure>),
-    // The contract {0} cannot be imported (reason: {1})
+    /// The contract {0} cannot be imported (reason: {1})
     NoImport(String, String),
 }
 

@@ -81,17 +81,17 @@ use self::{
 #[derive(Debug, Clone, Eq, PartialEq, Display, From, Error)]
 #[display(doc_comments)]
 pub enum IssueError {
-    // Some request data is missing. {0}
+    /// Some request data is missing. {0}
     Validation(BTreeMap<String, String>),
     /// Retrieve I/O or connectivity error. {1} in {0}
     Retrive(String, String),
     /// Write I/O or connectivity error. {1} in {0}
     Write(String, String),
-    // Watcher is required for this operation.
+    /// Watcher is required for this operation.
     Watcher,
-    // Occurs an error in issue step. {0}
+    /// Occurs an error in issue step. {0}
     Issue(IssueContractError),
-    // Occurs an error in export step. {0}
+    /// Occurs an error in export step. {0}
     Export(ExportContractError),
 }
 
@@ -418,13 +418,13 @@ pub async fn reissue_contract(
 #[derive(Debug, Clone, Eq, PartialEq, Display, From, Error)]
 #[display(doc_comments)]
 pub enum InvoiceError {
-    // Some request data is missing. {0}
+    /// Some request data is missing. {0}
     Validation(BTreeMap<String, String>),
     /// Retrieve I/O or connectivity error. {1} in {0}
     Retrive(String, String),
     /// Write I/O or connectivity error. {1} in {0}
     Write(String, String),
-    // Occurs an error in invoice step. {0}
+    /// Occurs an error in invoice step. {0}
     Invoice(NewInvoiceError),
 }
 
@@ -475,23 +475,23 @@ pub async fn create_invoice(
 #[derive(Debug, Clone, Eq, PartialEq, Display, From, Error)]
 #[display(doc_comments)]
 pub enum TransferError {
-    // Some request data is missing. {0}
+    /// Some request data is missing. {0}
     Validation(BTreeMap<String, String>),
     /// Retrieve I/O or connectivity error. {1} in {0}
     Retrive(String, String),
     /// Write I/O or connectivity error. {1} in {0}
     Write(String, String),
-    // Watcher is required in this operation. Please, create watcher.
+    /// Watcher is required in this operation. Please, create watcher.
     NoWatcher,
-    // Occurs an error in create step. {0}
+    /// Occurs an error in create step. {0}
     Create(CreatePsbtError),
-    // Occurs an error in commitment step. {0}
+    /// Occurs an error in commitment step. {0}
     Commitment(DbcPsbtError),
-    // Occurs an error in payment step. {0}
+    /// Occurs an error in payment step. {0}
     Pay(NewPaymentError),
-    // Occurs an error in accept step. {0}
+    /// Occurs an error in accept step. {0}
     Accept(AcceptTransferError),
-    // // Consignment cannot be encoded.
+    /// Consignment cannot be encoded.
     WrongConsig(String),
 }
 
@@ -837,17 +837,17 @@ pub async fn list_schemas(sk: &str) -> Result<SchemasResponse> {
 #[derive(Debug, Clone, Eq, PartialEq, Display, From, Error)]
 #[display(doc_comments)]
 pub enum ImportError {
-    // Some request data is missing. {0}
+    /// Some request data is missing. {0}
     Validation(String),
     /// Retrieve I/O or connectivity error. {1} in {0}
     Retrive(String, String),
     /// Write I/O or connectivity error. {1} in {0}
     Write(String, String),
-    // Watcher is required for this operation.
+    /// Watcher is required for this operation.
     Watcher,
-    // Occurs an error in import step. {0}
+    /// Occurs an error in import step. {0}
     Import(ImportContractError),
-    // Occurs an error in export step. {0}
+    /// Occurs an error in export step. {0}
     Export(ExportContractError),
 }
 
@@ -921,7 +921,7 @@ pub async fn import(sk: &str, request: ImportRequest) -> Result<ContractResponse
 #[derive(Debug, Clone, Eq, PartialEq, Display, From, Error)]
 #[display(doc_comments)]
 pub enum WatcherError {
-    // Some request data is missing. {0}
+    /// Some request data is missing. {0}
     Validation(String),
     /// Retrieve I/O or connectivity error. {1} in {0}
     Retrive(String, String),
