@@ -2,7 +2,7 @@
 use std::collections::{BTreeSet, HashMap};
 
 use bitmask_core::{
-    bitcoin::{save_mnemonic, sign_psbt_file},
+    bitcoin::{save_mnemonic, sign_psbt_file, sync_wallets},
     rgb::{
         accept_transfer, create_invoice, create_watcher, get_contract, import,
         watcher_next_address, watcher_next_utxo, watcher_unspent_utxos,
@@ -1357,6 +1357,7 @@ async fn allow_issuer_make_transfer_of_two_contracts_in_same_utxo() -> anyhow::R
 
     // 8. Check Contract Balance (Both Sides)
     send_some_coins(&owner_address.address, "0.1").await;
+    sync_wallets().await?;
     let contract_id = &issue_contract_b_resp.contract_id;
     let resp = get_contract(&issuer_sk, contract_id).await;
     assert!(resp.is_ok());
