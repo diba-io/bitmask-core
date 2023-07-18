@@ -270,7 +270,7 @@ pub async fn create_new_invoice(
     let owner_address = &owner_vault
         .lock()
         .await
-        .get_address(AddressIndex::Peek(0))?
+        .get_address(AddressIndex::LastUnused)?
         .address;
 
     send_some_coins(&owner_address.to_string(), "0.1").await;

@@ -42,6 +42,7 @@ impl rgb::Resolver for ExplorerResolver {
             .build_blocking()
             .expect("service unavaliable");
         // TODO: Remove that after bitcoin v.30 full compatibility
+
         let script_list = scripts
             .into_iter()
             .map(|(d, sc)| {

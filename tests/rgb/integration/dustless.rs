@@ -65,7 +65,7 @@ async fn allow_multiple_inputs_in_same_psbt() -> anyhow::Result<()> {
     let issuer_address = &issuer_vault
         .lock()
         .await
-        .get_address(AddressIndex::Peek(0))?
+        .get_address(AddressIndex::LastUnused)?
         .address
         .to_string();
 
