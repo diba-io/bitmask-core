@@ -53,7 +53,7 @@ pub enum CreatePsbtError {
     WrongTapTweak(String),
     /// Invalid input. '{0}'
     WrongInput(PsbtInputError),
-    /// Invalid output address. '{0}'
+    /// Invalid output address. '{0:?}'
     WrongAddress(AddressFormatParseError),
     /// PSBT file cannot be created. '{0}'
     Incomplete(String),

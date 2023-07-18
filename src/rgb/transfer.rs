@@ -59,7 +59,7 @@ pub enum AcceptTransferError {
     WrongHex,
     /// Consignment cannot be decoded. {0}
     WrongConsig(String),
-    /// The Consignment is invalid. Details: {0}
+    /// The Consignment is invalid. Details: {0:?}
     InvalidConsig(Vec<String>),
     /// The Consignment is invalid (Unexpected behavior on validation).
     Inconclusive,

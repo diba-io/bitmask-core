@@ -81,7 +81,7 @@ use self::{
 #[derive(Debug, Clone, Eq, PartialEq, Display, From, Error)]
 #[display(doc_comments)]
 pub enum IssueError {
-    /// Some request data is missing. {0}
+    /// Some request data is missing. {0:?}
     Validation(BTreeMap<String, String>),
     /// Retrieve I/O or connectivity error. {1} in {0}
     Retrive(String, String),
@@ -418,7 +418,7 @@ pub async fn reissue_contract(
 #[derive(Debug, Clone, Eq, PartialEq, Display, From, Error)]
 #[display(doc_comments)]
 pub enum InvoiceError {
-    /// Some request data is missing. {0}
+    /// Some request data is missing. {0:?}
     Validation(BTreeMap<String, String>),
     /// Retrieve I/O or connectivity error. {1} in {0}
     Retrive(String, String),
@@ -475,7 +475,7 @@ pub async fn create_invoice(
 #[derive(Debug, Clone, Eq, PartialEq, Display, From, Error)]
 #[display(doc_comments)]
 pub enum TransferError {
-    /// Some request data is missing. {0}
+    /// Some request data is missing. {0:?}
     Validation(BTreeMap<String, String>),
     /// Retrieve I/O or connectivity error. {1} in {0}
     Retrive(String, String),
