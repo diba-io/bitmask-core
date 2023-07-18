@@ -182,8 +182,10 @@ impl IssueMetaRequest {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub enum IssueMetadata {
+    #[serde(rename = "uda")]
     UDA(Vec<MediaInfo>),
 
+    #[serde(rename = "collectible")]
     Collectible(Vec<NewCollectible>),
 }
 
