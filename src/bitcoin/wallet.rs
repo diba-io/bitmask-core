@@ -1,4 +1,7 @@
-use std::{collections::BTreeMap, sync::Arc};
+use std::{
+    collections::BTreeMap,
+    sync::{atomic::AtomicUsize, Arc, Ordering},
+};
 
 use anyhow::Result;
 use bdk::{blockchain::esplora::EsploraBlockchain, database::MemoryDatabase, SyncOptions, Wallet};
@@ -105,18 +108,21 @@ pub async fn get_wallet(
     Ok(new_wallet)
 }
 
-pub async fn get_blockchain() -> EsploraBlockchain {
-    debug!("Getting blockchain");
-    EsploraBlockchain::new(&BITCOIN_EXPLORER_API.read().await, 100)
-}
+// pub async fn get_blockchain() -> EsploraBlockchain {
+//     debug!("Getting blockchain");
+//     EsploraBlockchain::new(&BITCOIN_EXPLORER_API.read().await, 100)
+// }
 
 pub async fn sync_wallet(wallet: &MemoryWallet) -> Result<()> {
-    let blockchain = get_blockchain().await;
-    wallet
-        .lock()
-        .await
-        .sync(&blockchain, SyncOptions::default())
-        .await?;
+    retry_blockchain(|blockchain| async move {
+        wallet
+            .lock()
+            .await
+            .sync(&blockchain, SyncOptions::default())
+            .await?;
+        Ok(())
+    })
+    .await?;
 
     debug!("Wallet synced");
     Ok(())
@@ -142,43 +148,99 @@ pub async fn sync_wallets() -> Result<()> {
 
     match network {
         Network::Bitcoin => {
-            let wallets = BDK.bitcoin.clone();
-            for (_key, wallet) in wallets.write().await.iter_mut() {
-                let blockchain = get_blockchain().await;
-                let wallet = wallet.lock().await;
-                let wallet_sync_fut = wallet.sync(&blockchain, SyncOptions::default());
-                wallet_sync_fut.await?;
-            }
+            retry_blockchain(|blockchain| async move {
+                let wallets = BDK.bitcoin.clone();
+                for (_key, wallet) in wallets.write().await.iter_mut() {
+                    wallet
+                        .lock()
+                        .await
+                        .sync(&blockchain, SyncOptions::default())
+                        .await?;
+                }
+                Ok(())
+            })
+            .await?
         }
         Network::Testnet => {
-            let wallets = BDK.testnet.clone();
-            for (_key, wallet) in wallets.write().await.iter_mut() {
-                let blockchain = get_blockchain().await;
-                let wallet = wallet.lock().await;
-                let wallet_sync_fut = wallet.sync(&blockchain, SyncOptions::default());
-                wallet_sync_fut.await?;
-            }
+            retry_blockchain(|blockchain| async move {
+                let wallets = BDK.testnet.clone();
+                for (_key, wallet) in wallets.write().await.iter_mut() {
+                    wallet
+                        .lock()
+                        .await
+                        .sync(&blockchain, SyncOptions::default())
+                        .await?;
+                }
+                Ok(())
+            })
+            .await?
         }
         Network::Signet => {
-            let wallets = BDK.signet.clone();
-            for (_key, wallet) in wallets.write().await.iter_mut() {
-                let blockchain = get_blockchain().await;
-                let wallet = wallet.lock().await;
-                let wallet_sync_fut = wallet.sync(&blockchain, SyncOptions::default());
-                wallet_sync_fut.await?;
-            }
+            retry_blockchain(|blockchain| async move {
+                let wallets = BDK.signet.clone();
+                for (_key, wallet) in wallets.write().await.iter_mut() {
+                    wallet
+                        .lock()
+                        .await
+                        .sync(&blockchain, SyncOptions::default())
+                        .await?;
+                }
+                Ok(())
+            })
+            .await?
         }
         Network::Regtest => {
-            let wallets = BDK.regtest.clone();
-            for (_key, wallet) in wallets.write().await.iter_mut() {
-                let blockchain = get_blockchain().await;
-                let wallet = wallet.lock().await;
-                let wallet_sync_fut = wallet.sync(&blockchain, SyncOptions::default());
-                wallet_sync_fut.await?;
-            }
+            retry_blockchain(|blockchain| async move {
+                let wallets = BDK.regtest.clone();
+                for (_key, wallet) in wallets.write().await.iter_mut() {
+                    wallet
+                        .lock()
+                        .await
+                        .sync(&blockchain, SyncOptions::default())
+                        .await?;
+                }
+                Ok(())
+            })
+            .await?
         }
     };
 
     debug!("All wallets synced");
     Ok(())
+}
+
+static EXPLORER_INDEX: Lazy<AtomicUsize> = Lazy::new(|| AtomicUsize::new(0));
+
+async fn retry_blockchain<U, F, Fut>(mut f: F) -> Result<()>
+where
+    U: 'static + Send,
+    F: 'static + FnMut(EsploraBlockchain) -> Fut + Send,
+    Fut: 'static + Future<Output = Result<U>> + Send,
+{
+    loop {
+        let explorer_urls = BITCOIN_EXPLORER_API.read().await.split(",");
+        let explorer_count = explorer_urls.count();
+        let explorer_index = EXPLORER_INDEX.load(Ordering::SeqCst);
+        let base_urls: Vec<String> = explorer_urls.map(str::to_string).collect();
+        let base_url = base_urls
+            .get(explorer_index)
+            .expect("Index within bounds of available explorers");
+
+        debug!(format!("Using explorer URL: {}", &base_url));
+        let blockchain = EsploraBlockchain::new(&base_url, 5);
+
+        match f(blockchain).await {
+            Ok(_) => return Ok(()),
+            Err(e) => {
+                if e.to_string().contains("Esplora") {
+                    // Increment explorer_index upon Esplora errors
+                    let explorer_index = EXPLORER_INDEX.load(Ordering::SeqCst);
+                    EXPLORER_INDEX.store((explorer_index + 1) % explorer_count, Ordering::SeqCst);
+                    continue;
+                } else {
+                    return Err(e);
+                }
+            }
+        }
+    }
 }
