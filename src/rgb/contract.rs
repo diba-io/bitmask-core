@@ -5,7 +5,7 @@ use rgbstd::{
     contract::ContractId,
     interface::{rgb21::TokenData, IfaceId, IfacePair},
     persistence::{Inventory, InventoryInconsistency, StashInconsistency, Stock},
-    stl::{ContractData, DivisibleAssetSpec},
+    stl::{ContractData, DivisibleAssetSpec, RicardianContract},
 };
 use strict_encoding::{FieldName, StrictDeserialize, StrictSerialize};
 
@@ -139,12 +139,11 @@ where
         description = contract.terms.to_string();
     };
 
-    // TODO: Review that (rgb21)!
-    // let ty_terms: FieldName = FieldName::from("terms");
-    // if let Ok(values) = contract_iface.global(ty_terms) {
-    //     let contract = RicardianContract::from_strict_val_unchecked(&values[0]);
-    //     description = contract.to_string();
-    // };
+    let ty_terms: FieldName = FieldName::from("terms");
+    if let Ok(values) = contract_iface.global(ty_terms) {
+        let contract = RicardianContract::from_strict_val_unchecked(&values[0]);
+        description = contract.to_string();
+    };
 
     let iface_index = match iface.name.as_str() {
         "RGB20" => 20,
@@ -168,8 +167,7 @@ where
         balance = allocations
             .clone()
             .into_iter()
-            .filter(|a| a.is_mine)
-            .filter(|a| !a.is_spent)
+            .filter(|a| a.is_mine && !a.is_spent)
             .map(|a| match a.value {
                 AllocationValue::Value(value) => value.to_owned(),
                 AllocationValue::UDA(_) => 1,
