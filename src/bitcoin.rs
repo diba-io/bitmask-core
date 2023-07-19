@@ -320,9 +320,12 @@ pub async fn fund_vault(
     .await?;
 
     let asset_txid = asset_tx_details.txid;
+
+    info!(format!("asset txid: {asset_txid}"));
+
     let asset_outputs: Vec<String> = asset_tx_details
         .transaction
-        .expect("asset tx exists")
+        .expect("asset tx should exist but doesn't")
         .output
         .iter()
         .enumerate()

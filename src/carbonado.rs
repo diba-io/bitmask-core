@@ -45,7 +45,7 @@ pub async fn store(
     }
 
     let url = format!("{endpoint}/{pk_hex}/");
-    let param = format!("{network}/{name}");
+    let param = format!("{network}-{name}");
     let query_param = utf8_percent_encode(&param, FORM);
 
     let url = format!("{url}{query_param}{force_write}");
@@ -169,7 +169,7 @@ pub async fn retrieve_metadata(sk: &str, name: &str) -> Result<FileMetadata, Car
     let network = NETWORK.read().await.to_string();
     let mut final_name = name.to_string();
     if !name.contains(&network) {
-        final_name = format!("{network}/{name}");
+        final_name = format!("{network}-{name}");
     }
 
     let final_name = percent_decode(final_name.as_bytes()).decode_utf8().unwrap();
@@ -231,7 +231,7 @@ pub async fn retrieve(
     let network = NETWORK.read().await.to_string();
     let endpoint = CARBONADO_ENDPOINT.read().await.to_string();
     let url = format!("{endpoint}/{pk}/");
-    let param = format!("{network}/{name}");
+    let param = format!("{network}-{name}");
     let query_param = utf8_percent_encode(&param, FORM);
 
     if let Some(encoded) = server_req(format!("{url}{query_param}").as_str())
@@ -292,7 +292,7 @@ pub async fn retrieve(
     let network = NETWORK.read().await.to_string();
     let mut final_name = name.to_string();
     if !name.contains(&network) {
-        final_name = format!("{network}/{name}");
+        final_name = format!("{network}-{name}");
     }
 
     let final_name = percent_decode(final_name.as_bytes()).decode_utf8().unwrap();
@@ -326,7 +326,7 @@ pub async fn handle_file(pk: &str, name: &str, bytes: usize) -> Result<PathBuf, 
     let network = NETWORK.read().await.to_string();
     let mut final_name = name.to_string();
     if !name.contains(&network) {
-        final_name = format!("{network}/{name}");
+        final_name = format!("{network}-{name}");
     }
 
     let directory = std::path::Path::new(
