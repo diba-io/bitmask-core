@@ -63,4 +63,18 @@ services:
     networks:
       bmnet:
         aliases:
-          - bitmaskd
+          - carbonado
+
+  nginx:
+    image: nginx:latest
+    container_name: nginx
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf
+    ports:
+      - "80:80"
+    depends_on:
+      - carbonado
+    networks:
+      bmnet:
+        aliases:
+          - nginx

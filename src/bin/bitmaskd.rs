@@ -467,6 +467,11 @@ async fn key(Path(pk): Path<String>) -> Result<impl IntoResponse, AppError> {
     Ok(ss.to_string())
 }
 
+async fn test(Path(data): Path<String>) -> Result<impl IntoResponse, AppError> {
+    error!("Data >> {data:?}");
+    Ok((StatusCode::OK, data))
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     if env::var("RUST_LOG").is_err() {
@@ -505,6 +510,7 @@ async fn main() -> Result<()> {
         .route("/carbonado/:pk/:name/force", post(co_force_store))
         .route("/carbonado/:pk/:name/metadata", get(co_metadata))
         .route("/carbonado/:pk/:name", get(co_retrieve))
+        .route("/:data", get(test))
         .layer(CorsLayer::permissive());
 
     let network = get_network().await;
