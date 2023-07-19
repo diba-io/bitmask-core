@@ -1242,7 +1242,6 @@ async fn allow_issuer_make_transfer_of_two_contracts_in_same_utxo() -> anyhow::R
     create_watcher(&owner_sk, create_watch_req).await?;
     let owner_address = watcher_next_address(&owner_sk, watcher_name, "RGB20").await?;
     send_some_coins(&owner_address.address, "1").await;
-    send_some_coins(&owner_address.address, "1").await;
 
     let owner_utxos = watcher_unspent_utxos(&owner_sk, watcher_name, "RGB20").await?;
     let owner_resp = &create_new_invoice_v2(
@@ -1291,6 +1290,7 @@ async fn allow_issuer_make_transfer_of_two_contracts_in_same_utxo() -> anyhow::R
     assert!(resp?.valid);
 
     // 4. Check Contract Balance (Both Sides)
+    send_some_coins(&owner_address.address, "1").await;
     let contract_id = &issue_contract_a_resp.contract_id;
     let resp = get_contract(&issuer_sk, contract_id).await;
     assert!(resp.is_ok());
@@ -1308,7 +1308,7 @@ async fn allow_issuer_make_transfer_of_two_contracts_in_same_utxo() -> anyhow::R
     let owner_resp = &create_new_invoice_v2(
         &issue_contract_b_resp.contract_id,
         &issue_contract_b_resp.iface,
-        1,
+        2,
         &owner_utxos.utxos[0].outpoint,
         owner_keys.clone(),
         None,
@@ -1320,7 +1320,7 @@ async fn allow_issuer_make_transfer_of_two_contracts_in_same_utxo() -> anyhow::R
     let new_alloc = issuer_contract
         .allocations
         .into_iter()
-        .find(|x| x.is_mine)
+        .find(|x| x.is_mine && !x.is_spent)
         .unwrap();
     let psbt_resp = create_new_psbt_v2(
         &issue_contract_b_resp.iface,
@@ -1362,13 +1362,13 @@ async fn allow_issuer_make_transfer_of_two_contracts_in_same_utxo() -> anyhow::R
     assert!(resp.is_ok());
 
     let issuer_contract = resp?;
-    assert_eq!(4, issuer_contract.balance);
+    assert_eq!(3, issuer_contract.balance);
 
     let resp = get_contract(&owner_sk, contract_id).await;
     assert!(resp.is_ok());
 
     let owner_contract = resp?;
-    assert_eq!(1, owner_contract.balance);
+    assert_eq!(2, owner_contract.balance);
 
     Ok(())
 }
