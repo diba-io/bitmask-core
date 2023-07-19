@@ -29,7 +29,7 @@ pub async fn store_stock(sk: &str, name: &str, stock: &Stock) -> Result<(), Stor
 
     store(
         sk,
-        &format!("{LIB_ID_RGB}/{name}"),
+        &format!("{LIB_ID_RGB}-{name}"),
         &data,
         false,
         Some(RGB_STRICT_TYPE_VERSION.to_vec()),
@@ -45,7 +45,7 @@ pub async fn force_store_stock(sk: &str, name: &str, stock: &Stock) -> Result<()
 
     store(
         sk,
-        &format!("{LIB_ID_RGB}/{name}"),
+        &format!("{LIB_ID_RGB}-{name}"),
         &data,
         true,
         Some(RGB_STRICT_TYPE_VERSION.to_vec()),
@@ -57,8 +57,8 @@ pub async fn force_store_stock(sk: &str, name: &str, stock: &Stock) -> Result<()
 pub async fn retrieve_stock(sk: &str, name: &str) -> Result<Stock, StorageError> {
     let (data, _) = retrieve(
         sk,
-        &format!("{LIB_ID_RGB}/{name}"),
-        vec![&name.to_string(), &format!("{LIB_ID_RGB}/{name}")],
+        &format!("{LIB_ID_RGB}-{name}"),
+        vec![&name.to_string(), &format!("{LIB_ID_RGB}-{name}")],
     )
     .await
     .map_err(|op| StorageError::CarbonadoRetrive(name.to_string(), op.to_string()))?;
@@ -85,7 +85,7 @@ pub async fn store_wallets(
 
     store(
         sk,
-        &format!("{LIB_ID_RGB}/{name}"),
+        &format!("{LIB_ID_RGB}-{name}"),
         &data,
         false,
         Some(RGB_STRICT_TYPE_VERSION.to_vec()),
@@ -97,7 +97,7 @@ pub async fn store_wallets(
 pub async fn retrieve_wallets(sk: &str, name: &str) -> Result<RgbAccount, StorageError> {
     let (data, _) = retrieve(
         sk,
-        &format!("{LIB_ID_RGB}/{name}"),
+        &format!("{LIB_ID_RGB}-{name}"),
         vec![&name.to_string(), &format!("{LIB_ID_RGB}-{name}")],
     )
     .await

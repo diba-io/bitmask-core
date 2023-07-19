@@ -117,7 +117,7 @@ pub struct IssueRequest {
     pub name: String,
     /// Description of the asset
     #[garde(ascii)]
-    #[garde(length(min = 1, max = U8))]
+    #[garde(length(min = 0, max = u8::MAX))]
     pub description: String,
     /// Amount of the asset
     #[garde(range(min = u64::MIN, max = u64::MAX))]
@@ -152,7 +152,7 @@ pub struct SelfIssueRequest {
     pub name: String,
     /// Description of the asset
     #[garde(ascii)]
-    #[garde(length(min = 1, max = u8::MAX))]
+    #[garde(length(min = 0, max = u8::MAX))]
     pub description: String,
     /// contract metadata (only RGB21/UDA)
     #[garde(custom(has_media_types))]
@@ -210,7 +210,7 @@ pub struct NewCollectible {
     pub name: String,
     /// Description of the asset
     #[garde(ascii)]
-    #[garde(length(min = 1, max = u8::MAX))]
+    #[garde(length(min = 0, max = u8::MAX))]
     pub description: String,
     /// attachments and media
     #[garde(length(min = 1, max = u8::MAX))]
