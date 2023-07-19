@@ -406,8 +406,8 @@ pub async fn issuer_issue_contract_v2(
             next_utxo = utxo.outpoint.to_string();
         }
     } else {
-        let next_watcher_utxo = watcher_next_utxo(sk, watcher_name, iface).await?;
-        if next_watcher_utxo.utxo.is_none() {
+        let next_watcher_utxo = watcher_unspent_utxos(sk, watcher_name, iface).await?;
+        if next_watcher_utxo.utxos.clone().is_empty() {
             let next_address = watcher_next_address(sk, watcher_name, iface).await?;
             send_some_coins(&next_address.address, &default_coins).await;
             next_utxo = watcher_next_utxo(sk, watcher_name, iface)
@@ -416,7 +416,7 @@ pub async fn issuer_issue_contract_v2(
                 .unwrap()
                 .outpoint;
         } else {
-            next_utxo = next_watcher_utxo.utxo.unwrap().outpoint;
+            next_utxo = next_watcher_utxo.utxos.last().unwrap().outpoint.to_string();
         }
     }
 

@@ -999,8 +999,8 @@ pub async fn watcher_details(sk: &str, name: &str) -> Result<WatcherDetailRespon
         let iface_index = contract_type as u32;
         prefetch_resolver_utxos(iface_index, &mut wallet, &mut resolver).await;
         prefetch_resolver_utxo_status(iface_index, &mut wallet, &mut resolver).await;
-        let result = list_allocations(&mut wallet, &mut stock, iface_index, &mut resolver)?;
-        allocations.extend(result);
+        let mut result = list_allocations(&mut wallet, &mut stock, iface_index, &mut resolver)?;
+        allocations.append(&mut result);
     }
 
     let resp = WatcherDetailResponse {

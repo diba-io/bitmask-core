@@ -46,7 +46,7 @@ where
         .export_contract(contract_id)
         .or(Err(ExportContractError::NoContrat(contract_id.to_string())))?;
 
-    let contract_id = contract_id.to_string();
+    let contr_id = contract_id.to_string();
     let ifaces: Vec<IfaceId> = contract_bindle
         .ifaces
         .keys()
@@ -58,7 +58,7 @@ where
         Some(IfacePair { iface, iimpl }) => (iface, iimpl),
         _ => {
             return Err(ExportContractError::StashInconsistency(
-                contract_id,
+                contr_id,
                 InventoryInconsistency::Stash(StashInconsistency::IfaceAbsent(iface_id))
                     .to_string(),
             ))
@@ -66,14 +66,12 @@ where
     };
 
     let iimpl_id = iimpl.impl_id().to_string();
-    let contract_id = contract_bindle.contract_id().to_string();
-
     // Formats
     let contract_serialized = match contract_bindle.to_strict_serialized::<U32>() {
         Ok(serialized) => serialized,
         Err(err) => {
             return Err(ExportContractError::StrictInconsistency(
-                contract_id,
+                contr_id,
                 err.to_string(),
             ))
         }
@@ -87,7 +85,7 @@ where
         Ok(legacy) => legacy,
         _ => {
             return Err(ExportContractError::StrictInconsistency(
-                contract_id,
+                contr_id,
                 "There was a problem converting baid58 to bench32".to_string(),
             ))
         }
@@ -97,7 +95,7 @@ where
         Ok(serialized) => serialized,
         _ => {
             return Err(ExportContractError::ContractFormat(
-                contract_id,
+                contr_id,
                 "bench32".to_string(),
             ))
         }
@@ -111,14 +109,14 @@ where
         Ok(legacy) => legacy,
         _ => {
             return Err(ExportContractError::ContractFormat(
-                contract_id,
+                contr_id,
                 "bench32".to_string(),
             ))
         }
     };
 
     let contract_iface = stock
-        .contract_iface(contract_bindle.contract_id(), iface_id.to_owned())
+        .contract_iface(contract_id, iface_id.to_owned())
         .expect("invalid contracts state");
 
     let ty: FieldName = FieldName::from("spec");
@@ -126,7 +124,7 @@ where
         Ok(values) => DivisibleAssetSpec::from_strict_val_unchecked(&values[0]),
         Err(err) => {
             return Err(ExportContractError::StrictInconsistency(
-                contract_id,
+                contr_id,
                 err.to_string(),
             ))
         }
@@ -154,14 +152,8 @@ where
     let mut balance = 0;
     let mut allocations = vec![];
     if let Some(wallet) = wallet {
-        let watcher = contract_allocations(
-            contract_bindle.contract_id(),
-            iface_index,
-            wallet,
-            stock,
-            resolver,
-        )
-        .expect("invalid allocation states");
+        let watcher = contract_allocations(contract_id, iface_index, wallet, stock, resolver)
+            .expect("invalid allocation states");
 
         allocations = watcher.allocations;
         balance = allocations
@@ -215,7 +207,7 @@ where
                 Ok(tokens_data) => tokens_data,
                 Err(err) => {
                     return Err(ExportContractError::StrictInconsistency(
-                        contract_id,
+                        contr_id,
                         err.to_string(),
                     ))
                 }
@@ -314,7 +306,7 @@ where
     }
 
     let resp = ContractResponse {
-        contract_id,
+        contract_id: contr_id,
         iimpl_id,
         iface: iface.name.to_string(),
         ticker: specs.ticker().into(),
