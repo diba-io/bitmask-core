@@ -166,9 +166,10 @@ pub async fn retrieve_metadata(sk: &str, name: &str) -> Result<FileMetadata, Car
     let public_key = PublicKey::from_secret_key_global(&secret_key);
     let pk = public_key.to_hex();
 
-    let network = NETWORK.read().await.to_string();
     let mut final_name = name.to_string();
-    if !name.contains(&network) {
+    let network = NETWORK.read().await.to_string();
+    let networks = ["bitcoin", "mainnet", "testnet", "signet", "regtest"];
+    if !networks.into_iter().any(|x| name.contains(x)) {
         final_name = format!("{network}-{name}");
     }
 
@@ -289,9 +290,10 @@ pub async fn retrieve(
     let public_key = PublicKey::from_secret_key_global(&secret_key);
     let pk = public_key.to_hex();
 
-    let network = NETWORK.read().await.to_string();
     let mut final_name = name.to_string();
-    if !name.contains(&network) {
+    let network = NETWORK.read().await.to_string();
+    let networks = ["bitcoin", "mainnet", "testnet", "signet", "regtest"];
+    if !networks.into_iter().any(|x| name.contains(x)) {
         final_name = format!("{network}-{name}");
     }
 
@@ -323,9 +325,10 @@ pub async fn retrieve(
 pub async fn handle_file(pk: &str, name: &str, bytes: usize) -> Result<PathBuf, CarbonadoError> {
     use percent_encoding::percent_decode;
 
-    let network = NETWORK.read().await.to_string();
     let mut final_name = name.to_string();
-    if !name.contains(&network) {
+    let network = NETWORK.read().await.to_string();
+    let networks = ["bitcoin", "mainnet", "testnet", "signet", "regtest"];
+    if !networks.into_iter().any(|x| name.contains(x)) {
         final_name = format!("{network}-{name}");
     }
 
