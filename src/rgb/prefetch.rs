@@ -18,7 +18,6 @@ use bitcoin_scripts::{
 use bp::{LockTime, Outpoint, SeqNo, Tx, TxIn, TxOut, TxVer, Txid as BpTxid, VarIntArray, Witness};
 use rgb::{DeriveInfo, MiningStatus, RgbWallet, SpkDescriptor, Utxo};
 use rgbstd::containers::Contract;
-use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::{collections::BTreeMap, str::FromStr};
 use strict_encoding::StrictDeserialize;
@@ -523,27 +522,27 @@ pub async fn prefetch_resolver_images(meta: Option<IssueMetaRequest>) -> BTreeMa
     if let Some(IssueMetaRequest(meta)) = meta {
         match meta {
             crate::structs::IssueMetadata::UDA(items) => {
-                let mut hasher = Sha256::new();
+                let mut hasher = blake3::Hasher::new();
                 let source = items[0].source.clone();
                 if let Some(bytes) = retrieve_data(&source).await {
-                    hasher.update(bytes);
+                    hasher.update(&bytes);
                 } else {
                     hasher.update(source.as_bytes());
                 }
-                let uda_data = hasher.finalize().to_vec();
-                data.insert(source, uda_data);
+                let uda_data = hasher.finalize();
+                data.insert(source, uda_data.as_bytes().to_vec());
             }
             crate::structs::IssueMetadata::Collectible(items) => {
                 for item in items {
-                    let mut hasher = Sha256::new();
-                    let media = item.media[0].clone();
-                    if let Some(bytes) = retrieve_data(&media.source).await {
-                        hasher.update(bytes);
+                    let mut hasher = blake3::Hasher::new();
+                    let source = item.media[0].source.clone();
+                    if let Some(bytes) = retrieve_data(&source).await {
+                        hasher.update(&bytes);
                     } else {
-                        hasher.update(media.source.as_bytes());
+                        hasher.update(source.as_bytes());
                     }
-                    let uda_data: Vec<u8> = hasher.finalize().to_vec();
-                    data.insert(media.source, uda_data);
+                    let uda_data = hasher.finalize();
+                    data.insert(source, uda_data.as_bytes().to_vec());
                 }
             }
         }

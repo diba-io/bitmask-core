@@ -180,9 +180,9 @@ fn issue_uda_asset(
             IssueMetadata::UDA(uda) => {
                 let index = TokenIndex::from_inner(1);
                 let media_ty: &'static str = Box::leak(uda[0].ty.to_string().into_boxed_str());
-                let mut digest: [u8; 32] = [0; 32];
+                let mut hash: [u8; 32] = [0; 32];
                 if let Some(data) = udas_data.get(&uda[0].source) {
-                    digest.copy_from_slice(data);
+                    hash.copy_from_slice(data);
                 }
 
                 let preview = Some(EmbeddedMedia {
@@ -192,7 +192,7 @@ fn issue_uda_asset(
                 });
                 let media = Some(Attachment {
                     ty: MediaType::with(media_ty),
-                    digest,
+                    digest: hash,
                 });
                 let token_data = TokenData {
                     index,

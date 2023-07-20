@@ -85,7 +85,7 @@ strict_types = "~1.5"
 thiserror = "1.0"
 tokio = { version = "1.28.2", features = ["macros", "sync"] }
 zeroize = "1.6.0"
-sha2 = "0.10.7"
+blake3 = "1.4.1"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 bdk = { version = "0.28.0", features = [
