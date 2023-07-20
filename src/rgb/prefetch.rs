@@ -1,8 +1,8 @@
 #![allow(unused_imports)]
 #![allow(unused_variables)]
-use crate::debug;
 use crate::rgb::resolvers::ExplorerResolver;
 use crate::structs::AssetType;
+use crate::{debug, structs::IssueMetaRequest};
 use amplify::{
     confinement::Confined,
     hex::{FromHex, ToHex},
@@ -18,6 +18,7 @@ use bitcoin_scripts::{
 use bp::{LockTime, Outpoint, SeqNo, Tx, TxIn, TxOut, TxVer, Txid as BpTxid, VarIntArray, Witness};
 use rgb::{DeriveInfo, MiningStatus, RgbWallet, SpkDescriptor, Utxo};
 use rgbstd::containers::Contract;
+use std::collections::HashMap;
 use std::{collections::BTreeMap, str::FromStr};
 use strict_encoding::StrictDeserialize;
 use wallet::onchain::ResolveTx;
@@ -514,4 +515,59 @@ pub async fn prefetch_resolver_tx_height(txid: rgbstd::Txid, explorer: &mut Expl
     } else {
         explorer.tx_height.insert(txid, WitnessOrd::OffChain);
     }
+}
+
+pub async fn prefetch_resolver_images(meta: Option<IssueMetaRequest>) -> BTreeMap<String, Vec<u8>> {
+    let mut data = BTreeMap::new();
+    if let Some(IssueMetaRequest(meta)) = meta {
+        match meta {
+            crate::structs::IssueMetadata::UDA(items) => {
+                let mut hasher = blake3::Hasher::new();
+                let source = items[0].source.clone();
+                if let Some(bytes) = retrieve_data(&source).await {
+                    hasher.update(&bytes);
+                } else {
+                    hasher.update(source.as_bytes());
+                }
+                let uda_data = hasher.finalize();
+                data.insert(source, uda_data.as_bytes().to_vec());
+            }
+            crate::structs::IssueMetadata::Collectible(items) => {
+                for item in items {
+                    let mut hasher = blake3::Hasher::new();
+                    let source = item.media[0].source.clone();
+                    if let Some(bytes) = retrieve_data(&source).await {
+                        hasher.update(&bytes);
+                    } else {
+                        hasher.update(source.as_bytes());
+                    }
+                    let uda_data = hasher.finalize();
+                    data.insert(source, uda_data.as_bytes().to_vec());
+                }
+            }
+        }
+    }
+
+    data
+}
+
+async fn retrieve_data(url: &str) -> Option<Vec<u8>> {
+    let client = reqwest::Client::new();
+    let response = client
+        .get(url)
+        .header("Accept", "application/octet-stream")
+        .header("Cache-Control", "no-cache")
+        .send()
+        .await;
+
+    if let Ok(response) = response {
+        let status_code = response.status().as_u16();
+        if status_code == 200 {
+            if let Ok(bytes) = response.bytes().await {
+                return Some(bytes.to_vec());
+            }
+        }
+    }
+
+    None
 }

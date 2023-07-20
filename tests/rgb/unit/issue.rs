@@ -1,4 +1,6 @@
 #![cfg(not(target_arch = "wasm32"))]
+use std::collections::BTreeMap;
+
 use anyhow::Result;
 use bitmask_core::{
     rgb::issue::issue_contract, structs::IssueRequest, util::init_logging, validators::RGBContext,
@@ -76,6 +78,7 @@ async fn issue_contract_test() -> Result<()> {
         seal,
         network,
         None,
+        BTreeMap::new(),
         &mut resolver,
         &mut stock,
     );
