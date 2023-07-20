@@ -81,13 +81,15 @@ pub fn create_invoice(
 
     let contract_id = ContractId::from_str(contract_id)
         .map_err(|_| NewInvoiceError::NoContract(contract_id.to_string()))?;
-    if !stock
-        .contract_ids()
-        .map_err(|_| NewInvoiceError::EmptyContracts)?
-        .contains(&contract_id)
-    {
-        return Err(NewInvoiceError::NoContract(contract_id.to_string()));
-    };
+
+    // Temporary removal
+    // if !stock
+    //     .contract_ids()
+    //     .map_err(|_| NewInvoiceError::EmptyContracts)?
+    //     .contains(&contract_id)
+    // {
+    //     return Err(NewInvoiceError::NoContract(contract_id.to_string()));
+    // };
 
     let seal = ExplicitSeal::<Txid>::from_str(seal)
         .map_err(|_| NewInvoiceError::WrongIface(seal.to_string()))?;
