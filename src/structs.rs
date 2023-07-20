@@ -235,6 +235,22 @@ pub struct MediaInfo {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
+#[derive(Validate)]
+#[garde(context(RGBContext))]
+pub struct AttachInfo {
+    /// Mime Type of the media
+    #[serde(rename = "type")]
+    #[garde(ascii)]
+    #[garde(length(min = 1, max = 64))]
+    pub ty: String,
+    /// Source (aka. hyperlink) of the media
+    #[garde(ascii)]
+    #[garde(length(min = 0, max = u16::MAX))]
+    pub source: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct IssueResponse {
     /// The contract id
     pub contract_id: String,
@@ -401,6 +417,8 @@ pub struct UDADetail {
     pub balance: u64,
     /// Media of the uda
     pub media: Vec<MediaInfo>,
+    /// Attach of the uda
+    pub attach: Option<AttachInfo>,
     /// The contract allocations
     pub allocations: Vec<AllocationDetail>,
 }

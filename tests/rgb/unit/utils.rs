@@ -1,4 +1,8 @@
-use std::{collections::HashMap, convert::Infallible, str::FromStr};
+use std::{
+    collections::{BTreeMap, HashMap},
+    convert::Infallible,
+    str::FromStr,
+};
 
 use amplify::hex::{FromHex, ToHex};
 use bitcoin::Transaction;
@@ -108,6 +112,7 @@ pub fn create_fake_contract(stock: &mut Stock) -> ContractId {
         seal,
         network,
         None,
+        BTreeMap::new(),
         &mut resolver,
         stock,
     )

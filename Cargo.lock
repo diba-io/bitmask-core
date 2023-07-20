@@ -632,6 +632,7 @@ dependencies = [
  "serde-encrypt",
  "serde-wasm-bindgen",
  "serde_json",
+ "sha2 0.10.7",
  "strict_encoding",
  "strict_types",
  "thiserror",
@@ -2647,7 +2648,7 @@ dependencies = [
 [[package]]
 name = "rgb-std"
 version = "0.10.3"
-source = "git+https://github.com/crisdut/rgb-wallet?branch=release/bmc-v0.6-rc7#baa5e60963202bbc11d098b0873075e7d9038fb0"
+source = "git+https://github.com/crisdut/rgb-wallet?branch=release/bmc-v0.6-rc7#063047f9e81cff021bd1e44bb56887c22c0aa939"
 dependencies = [
  "amplify",
  "baid58",
@@ -2665,7 +2666,7 @@ dependencies = [
 [[package]]
 name = "rgb-wallet"
 version = "0.10.3"
-source = "git+https://github.com/crisdut/rgb-wallet?branch=release/bmc-v0.6-rc7#baa5e60963202bbc11d098b0873075e7d9038fb0"
+source = "git+https://github.com/crisdut/rgb-wallet?branch=release/bmc-v0.6-rc7#063047f9e81cff021bd1e44bb56887c22c0aa939"
 dependencies = [
  "amplify",
  "baid58",

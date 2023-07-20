@@ -66,9 +66,9 @@ use self::{
     contract::{export_contract, ExportContractError},
     import::{import_contract, ImportContractError},
     prefetch::{
-        prefetch_resolver_import_rgb, prefetch_resolver_psbt, prefetch_resolver_rgb,
-        prefetch_resolver_utxo_status, prefetch_resolver_utxos, prefetch_resolver_waddress,
-        prefetch_resolver_wutxo,
+        prefetch_resolver_images, prefetch_resolver_import_rgb, prefetch_resolver_psbt,
+        prefetch_resolver_rgb, prefetch_resolver_utxo_status, prefetch_resolver_utxos,
+        prefetch_resolver_waddress, prefetch_resolver_wutxo,
     },
     psbt::{fee_estimate, save_commit, CreatePsbtError},
     transfer::{AcceptTransferError, NewInvoiceError, NewPaymentError},
@@ -151,6 +151,7 @@ pub async fn issue_contract(sk: &str, request: IssueRequest) -> Result<IssueResp
         _ => None,
     };
 
+    let udas_data = prefetch_resolver_images(meta.clone()).await;
     let contract = create_contract(
         &ticker,
         &name,
@@ -161,6 +162,7 @@ pub async fn issue_contract(sk: &str, request: IssueRequest) -> Result<IssueResp
         &seal,
         &network,
         meta,
+        udas_data,
         &mut resolver,
         &mut stock,
     )
@@ -300,6 +302,7 @@ pub async fn reissue_contract(
                             balance: _,
                             media,
                             allocations: _,
+                            attach: _,
                         } = collectible_item;
 
                         let new_item = NewCollectible {
@@ -332,6 +335,7 @@ pub async fn reissue_contract(
             _ => None,
         };
 
+        let udas_data = prefetch_resolver_images(meta.clone()).await;
         let contract = create_contract(
             &ticker,
             &name,
@@ -342,6 +346,7 @@ pub async fn reissue_contract(
             &seal,
             &network,
             meta,
+            udas_data,
             &mut resolver,
             &mut stock,
         )

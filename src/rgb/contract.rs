@@ -9,10 +9,13 @@ use rgbstd::{
 };
 use strict_encoding::{FieldName, StrictDeserialize, StrictSerialize};
 
-use crate::rgb::{resolvers::ResolveSpent, wallet::contract_allocations};
 use crate::structs::{
     AllocationValue, ContractFormats, ContractMeta, ContractMetadata, ContractResponse,
     GenesisFormats, MediaInfo, UDADetail,
+};
+use crate::{
+    rgb::{resolvers::ResolveSpent, wallet::contract_allocations},
+    structs::AttachInfo,
 };
 
 #[derive(Clone, Eq, PartialEq, Debug, Display, Error, From)]
@@ -224,6 +227,14 @@ where
                     };
                 }
 
+                let mut attach = None;
+                if let Some(att) = token_data.media {
+                    attach = Some(AttachInfo {
+                        ty: att.ty.to_string(),
+                        source: att.digest.to_hex(),
+                    });
+                }
+
                 let single = ContractMetadata::UDA(UDADetail {
                     token_index: token_data
                         .index
@@ -235,6 +246,7 @@ where
                     description: specs.details().unwrap_or_default().into(),
                     balance,
                     media: vec![media],
+                    attach,
                     allocations: allocations.clone(),
                 });
 
@@ -293,6 +305,7 @@ where
                             description: token_description,
                             balance,
                             media: vec![media],
+                            attach: None,
                             allocations: token_alloc,
                         }
                     })

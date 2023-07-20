@@ -12,12 +12,12 @@ use rgbstd::{
     persistence::{Inventory, Stash, Stock},
     resolvers::ResolveHeight,
     stl::{
-        Amount, ContractData, DivisibleAssetSpec, MediaType, Name, Precision, RicardianContract,
-        Ticker, Timestamp,
+        Amount, Attachment, ContractData, DivisibleAssetSpec, MediaType, Name, Precision,
+        RicardianContract, Ticker, Timestamp,
     },
     validation::{Failure, ResolveTx},
 };
-use std::str::FromStr;
+use std::{collections::BTreeMap, str::FromStr};
 use strict_types::encoding::TypeName;
 
 use crate::structs::{IssueMetaRequest, IssueMetadata};
@@ -45,6 +45,7 @@ pub fn issue_contract<T>(
     seal: &str,
     network: &str,
     meta: Option<IssueMetaRequest>,
+    udas_data: BTreeMap<String, Vec<u8>>,
     resolver: &mut T,
     stock: &mut Stock,
 ) -> Result<Contract, IssueContractError>
@@ -72,6 +73,7 @@ where
             seal,
             network,
             meta,
+            udas_data,
         ),
         _ => {
             return Err(IssueContractError::NoContractSupport(
@@ -153,6 +155,7 @@ fn issue_uda_asset(
     seal: &str,
     network: &str,
     meta: Option<IssueMetaRequest>,
+    udas_data: BTreeMap<String, Vec<u8>>,
 ) -> Result<Contract, BuilderError> {
     let iface = rgb21();
     let schema = uda_schema();
@@ -177,16 +180,26 @@ fn issue_uda_asset(
             IssueMetadata::UDA(uda) => {
                 let index = TokenIndex::from_inner(1);
                 let media_ty: &'static str = Box::leak(uda[0].ty.to_string().into_boxed_str());
+                let mut digest: [u8; 32] = [0; 32];
+                if let Some(data) = udas_data.get(&uda[0].source) {
+                    digest.copy_from_slice(data);
+                }
+
                 let preview = Some(EmbeddedMedia {
                     ty: MediaType::with(media_ty),
                     data: SmallBlob::try_from_iter(uda[0].source.as_bytes().to_vec())
                         .expect("invalid data"),
+                });
+                let media = Some(Attachment {
+                    ty: MediaType::with(media_ty),
+                    digest,
                 });
                 let token_data = TokenData {
                     index,
                     name: Some(spec.clone().naming.name),
                     ticker: Some(spec.clone().naming.ticker),
                     preview,
+                    media,
                     ..Default::default()
                 };
 
