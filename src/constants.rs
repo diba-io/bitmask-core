@@ -22,6 +22,8 @@ fn dot_env(key: &str) -> String {
     }
 }
 
+pub const BMC_VERSION: &str = env!("CARGO_PKG_VERSION");
+
 pub static ELECTRUM_TIMEOUT: u8 = 4;
 
 static BITCOIN_EXPLORER_API_MAINNET: Lazy<RwLock<String>> =
