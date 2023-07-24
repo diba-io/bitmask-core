@@ -3,21 +3,27 @@
 [LIB_ID_RGB]
 # Consensus-breaking: If changed, assets must be reissued
 memphis_asia_crash_4fGZWR5mH5zZzRZ1r7CSRe776zm3hLBUngfXc4s3vm3V = "0.6.0-rc.7"
+"urn:ubideco:stl:4fGZWR5mH5zZzRZ1r7CSRe776zm3hLBUngfXc4s3vm3V#saturn-flash-emerald" = "0.6.0-rc.17"
 
 [LIB_ID_RGB_CONTRACT]
 # Interface-only: If changed, only a new interface implementation is needed. No reiussance or migration necessary.
 price_canvas_oliver_9Te5P6nq3oaDHMgttLEbkojbeQPTqqZLhjxZ3my1F8aJ = "0.6.0-rc.7"
+"urn:ubideco:stl:6vbr9ZrtsD9aBjo5qRQ36QEZPVucqvRRjKCPqE8yPeJr#choice-little-boxer" = "0.6.0-rc.17"
 
 [LIB_ID_RGB20]
 dragon_table_game_GVz4mvYE94aQ9q2HPtV9VuoppcDdduP54BMKffF7YoFH = "0.6.0-rc.7"
+"urn:ubideco:stl:GVz4mvYE94aQ9q2HPtV9VuoppcDdduP54BMKffF7YoFH#prince-scarlet-ringo" = "0.6.0-rc.17"
 
 [LIB_ID_RGB21]
 benny_horse_salad_E3AsDKsHSqAPQLvJke3DcPrkErbS2Jxf8pQ8jYBQYJPA = "0.6.0-rc.7"
+"urn:ubideco:stl:3miGC5GTW58CeuGJgomApmdjm8N6Yu6YuuURS8N4WVBA#opera-cool-bread" = "0.6.0-rc.17"
 
 [LIB_ID_RGB25]
 ritual_mask_next_4JmGrg7oTgwuCQtyC4ezC38ToHMzgMCVS5kMSDPwo2ee = "0.6.0-rc.7"
+"urn:ubideco:stl:4JmGrg7oTgwuCQtyC4ezC38ToHMzgMCVS5kMSDPwo2ee#camera-betty-bank" = "0.6.0-rc.17"
 
 [LIB_ID_RGB_STD]
 # Not consensus-breaking: If changed, only stash and consignments must be updated. No reiussance or migration necessary.
 parent_maze_jessica_3KXsWZ6hSKRbPjSVwRGbwnwJp3ZNQ2tfe6QUwLJEDG6K = "0.6.0-rc.8"
 patent_iris_torch_Firwvn75qng8cm4n7iHXXiFDsG1V476vYGqdfwwFRT1b = "0.6.0-rc.7"
+"urn:ubideco:stl:3KXsWZ6hSKRbPjSVwRGbwnwJp3ZNQ2tfe6QUwLJEDG6K#twist-paul-carlo" = "0.6.0-rc.17"

@@ -34,7 +34,7 @@ mod rgb {
     }
 
     mod sre {
-        mod st150;
-        mod st150_web;
+        mod st160;
+        mod st160_web;
     }
 }
