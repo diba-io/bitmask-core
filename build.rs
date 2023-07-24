@@ -97,11 +97,11 @@ fn main() -> Result<()> {
         .to_ascii_lowercase();
 
     doc.ASSETS_STOCK
-        .entry(format!("{}-{}", NETWORK, assets_stock_hash))
+        .entry(format!("{NETWORK}-{assets_stock_hash}"))
         .or_insert(assets_stock_name);
 
     doc.ASSETS_WALLETS
-        .entry(format!("{}-{}", NETWORK, assets_wallets_hash))
+        .entry(format!("{NETWORK}-{assets_wallets_hash}"))
         .or_insert(assets_wallets_name);
 
     let toml = toml::to_string(&doc)?;
