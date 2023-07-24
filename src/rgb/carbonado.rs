@@ -6,7 +6,10 @@ use strict_encoding::{StrictDeserialize, StrictSerialize};
 
 use crate::{
     carbonado::{retrieve, store},
-    rgb::{constants::RGB_STRICT_TYPE_VERSION, structs::RgbAccount},
+    rgb::{
+        constants::{OLD_LIB_ID_RGB, RGB_STRICT_TYPE_VERSION},
+        structs::RgbAccount,
+    },
 };
 
 #[derive(Debug, Clone, Eq, PartialEq, Display, From, Error)]
@@ -27,9 +30,13 @@ pub async fn store_stock(sk: &str, name: &str, stock: &Stock) -> Result<(), Stor
         .to_strict_serialized::<U32>()
         .map_err(|op| StorageError::StrictWrite(name.to_string(), op.to_string()))?;
 
+    let hashed_name = blake3::hash(format!("{LIB_ID_RGB}-{name}").as_bytes())
+        .to_hex()
+        .to_lowercase();
+
     store(
         sk,
-        &format!("{LIB_ID_RGB}-{name}"),
+        &format!("{hashed_name}.c15"),
         &data,
         false,
         Some(RGB_STRICT_TYPE_VERSION.to_vec()),
@@ -43,9 +50,13 @@ pub async fn force_store_stock(sk: &str, name: &str, stock: &Stock) -> Result<()
         .to_strict_serialized::<U32>()
         .map_err(|op| StorageError::StrictWrite(name.to_string(), op.to_string()))?;
 
+    let hashed_name = blake3::hash(format!("{LIB_ID_RGB}-{name}").as_bytes())
+        .to_hex()
+        .to_lowercase();
+
     store(
         sk,
-        &format!("{LIB_ID_RGB}-{name}"),
+        &hashed_name,
         &data,
         true,
         Some(RGB_STRICT_TYPE_VERSION.to_vec()),
@@ -55,10 +66,14 @@ pub async fn force_store_stock(sk: &str, name: &str, stock: &Stock) -> Result<()
 }
 
 pub async fn retrieve_stock(sk: &str, name: &str) -> Result<Stock, StorageError> {
+    let hashed_name = blake3::hash(format!("{LIB_ID_RGB}-{name}").as_bytes())
+        .to_hex()
+        .to_lowercase();
+
     let (data, _) = retrieve(
         sk,
-        &format!("{LIB_ID_RGB}-{name}"),
-        vec![&name.to_string(), &format!("{LIB_ID_RGB}-{name}")],
+        &format!("{hashed_name}.c15"),
+        vec![&name.to_string(), &format!("{OLD_LIB_ID_RGB}-{name}")],
     )
     .await
     .map_err(|op| StorageError::CarbonadoRetrive(name.to_string(), op.to_string()))?;
@@ -83,9 +98,13 @@ pub async fn store_wallets(
     let data = to_allocvec(rgb_wallets)
         .map_err(|op| StorageError::StrictWrite(name.to_string(), op.to_string()))?;
 
+    let hashed_name = blake3::hash(format!("{LIB_ID_RGB}-{name}").as_bytes())
+        .to_hex()
+        .to_lowercase();
+
     store(
         sk,
-        &format!("{LIB_ID_RGB}-{name}"),
+        &format!("{hashed_name}.c15"),
         &data,
         false,
         Some(RGB_STRICT_TYPE_VERSION.to_vec()),
@@ -95,10 +114,14 @@ pub async fn store_wallets(
 }
 
 pub async fn retrieve_wallets(sk: &str, name: &str) -> Result<RgbAccount, StorageError> {
+    let hashed_name = blake3::hash(format!("{LIB_ID_RGB}-{name}").as_bytes())
+        .to_hex()
+        .to_lowercase();
+
     let (data, _) = retrieve(
         sk,
-        &format!("{LIB_ID_RGB}-{name}"),
-        vec![&name.to_string(), &format!("{LIB_ID_RGB}-{name}")],
+        &format!("{hashed_name}.c15"),
+        vec![&name.to_string(), &format!("{OLD_LIB_ID_RGB}-{name}")],
     )
     .await
     .map_err(|op| StorageError::CarbonadoRetrive(name.to_string(), op.to_string()))?;

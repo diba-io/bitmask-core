@@ -1,5 +1,5 @@
 [ASSETS_STOCK]
-7e9bb3bc108f2c3a3dc459f44a394db9e4071f0d61de07ece77f6145304b7630 = "bitcoin-urn:ubideco:stl:4fGZWR5mH5zZzRZ1r7CSRe776zm3hLBUngfXc4s3vm3V#saturn-flash-emerald-bitmask-fungible_assets_stock.c15"
+bitcoin-4b1bc93ea7f03c49c4424b56561c9c7437e5f16e5714cece615a48e249264a84 = "urn:ubideco:stl:4fGZWR5mH5zZzRZ1r7CSRe776zm3hLBUngfXc4s3vm3V#saturn-flash-emerald-bitmask-fungible_assets_stock.c15"
 
 [ASSETS_WALLETS]
-09b66ce867c9b9bd8ced2a15b112a83c753be611319c06b764a445e2c490ea15 = "bitcoin-urn:ubideco:stl:4fGZWR5mH5zZzRZ1r7CSRe776zm3hLBUngfXc4s3vm3V#saturn-flash-emerald-bitmask-fungible_assets_wallets.c15"
+bitcoin-6075e9716c984b37840f76ad2b50b3d1b98ed286884e5ceba5bcc8e6b74988d3 = "urn:ubideco:stl:4fGZWR5mH5zZzRZ1r7CSRe776zm3hLBUngfXc4s3vm3V#saturn-flash-emerald-bitmask-fungible_assets_wallets.c15"

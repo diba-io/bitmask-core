@@ -86,8 +86,8 @@ fn main() -> Result<()> {
     let toml = fs::read_to_string(FILE_HASHES_FILE)?;
     let mut doc: FileHashes = toml::from_str(&toml)?;
 
-    let assets_stock_name = format!("{NETWORK}-{LIB_ID_RGB}-{ASSETS_STOCK}");
-    let assets_wallets_name = format!("{NETWORK}-{LIB_ID_RGB}-{ASSETS_WALLETS}");
+    let assets_stock_name = format!("{LIB_ID_RGB}-{ASSETS_STOCK}");
+    let assets_wallets_name = format!("{LIB_ID_RGB}-{ASSETS_WALLETS}");
 
     let assets_stock_hash = blake3::hash(assets_stock_name.as_bytes())
         .to_hex()
@@ -97,11 +97,11 @@ fn main() -> Result<()> {
         .to_ascii_lowercase();
 
     doc.ASSETS_STOCK
-        .entry(assets_stock_hash)
+        .entry(format!("{}-{}", NETWORK, assets_stock_hash))
         .or_insert(assets_stock_name);
 
     doc.ASSETS_WALLETS
-        .entry(assets_wallets_hash)
+        .entry(format!("{}-{}", NETWORK, assets_wallets_hash))
         .or_insert(assets_wallets_name);
 
     let toml = toml::to_string(&doc)?;
