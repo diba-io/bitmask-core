@@ -5,6 +5,8 @@ use thiserror::Error;
 pub enum CarbonadoError {
     /// std io error
     StdIoError(#[from] std::io::Error),
+    /// std io error
+    StdStrUtf8Error(#[from] std::str::Utf8Error),
     /// Error decoding hexadecimal-encoded string
     HexDecodeError(#[from] hex::FromHexError),
     /// Error decoding base64-encoded string

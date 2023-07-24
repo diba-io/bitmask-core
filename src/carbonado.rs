@@ -5,18 +5,16 @@ use tokio::fs;
 
 use amplify::hex::ToHex;
 use bitcoin_30::secp256k1::{PublicKey, SecretKey};
-#[cfg(not(feature = "server"))]
-use percent_encoding::utf8_percent_encode;
 use std::io::{Error, ErrorKind};
 #[cfg(feature = "server")]
 use std::path::PathBuf;
-pub mod constants;
+
 pub mod error;
 
 use crate::{carbonado::error::CarbonadoError, constants::NETWORK, structs::FileMetadata};
 
 #[cfg(not(feature = "server"))]
-use crate::{carbonado::constants::FORM, constants::CARBONADO_ENDPOINT};
+use crate::constants::CARBONADO_ENDPOINT;
 
 #[cfg(not(feature = "server"))]
 pub async fn store(
@@ -36,7 +34,6 @@ pub async fn store(
     let meta: Option<[u8; 8]> = metadata.map(|m| m.try_into().expect("invalid metadata size"));
     let (body, _encode_info) = carbonado::file::encode(&sk, Some(&pk), input, level, meta)?;
     let endpoint = CARBONADO_ENDPOINT.read().await.to_string();
-    let name = utf8_percent_encode(name, FORM);
     let network = NETWORK.read().await.to_string();
 
     let mut force_write = "";
@@ -44,11 +41,10 @@ pub async fn store(
         force_write = "/force";
     }
 
-    let url = format!("{endpoint}/{pk_hex}/");
     let param = format!("{network}-{name}");
-    let query_param = utf8_percent_encode(&param, FORM);
+    let hash = blake3::hash(param.as_bytes()).to_hex().to_ascii_lowercase();
 
-    let url = format!("{url}{query_param}{force_write}");
+    let url = format!("{endpoint}/{pk_hex}/{hash}{force_write}");
     let client = reqwest::Client::new();
     let response = client
         .post(&url)
@@ -89,8 +85,6 @@ pub async fn store(
     _force: bool,
     metadata: Option<Vec<u8>>,
 ) -> Result<(), CarbonadoError> {
-    use percent_encoding::percent_decode;
-
     let level = 15;
     let sk = hex::decode(sk)?;
     let secret_key = SecretKey::from_slice(&sk)?;
@@ -101,8 +95,8 @@ pub async fn store(
     let meta: Option<[u8; 8]> = metadata.map(|m| m.try_into().expect("invalid metadata size"));
 
     let (body, _encode_info) = carbonado::file::encode(&sk, Some(&pk), input, level, meta)?;
-    let final_name = percent_decode(name.as_bytes()).decode_utf8().unwrap();
-    let filepath = handle_file(&pk_hex, &final_name, body.len()).await?;
+    let hash = blake3::hash(name.as_bytes()).to_hex().to_ascii_lowercase();
+    let filepath = handle_file(&pk_hex, &hash, body.len()).await?;
     fs::write(filepath, body).await?;
     Ok(())
 }
@@ -115,9 +109,10 @@ pub async fn retrieve_metadata(sk: &str, name: &str) -> Result<FileMetadata, Car
     let pk = public_key.to_hex();
 
     let endpoint = CARBONADO_ENDPOINT.read().await.to_string();
-    let name = utf8_percent_encode(name, FORM);
     let network = NETWORK.read().await.to_string();
-    let url = format!("{endpoint}/{pk}/{network}-{name}/metadata");
+    let name = format!("{network}-{name}/metadata");
+    let hash = blake3::hash(name.as_bytes()).to_hex().to_ascii_lowercase();
+    let url = format!("{endpoint}/{pk}/{hash}");
     let client = reqwest::Client::new();
     let response = client
         .get(&url)
@@ -159,8 +154,6 @@ pub async fn retrieve_metadata(sk: &str, name: &str) -> Result<FileMetadata, Car
 
 #[cfg(feature = "server")]
 pub async fn retrieve_metadata(sk: &str, name: &str) -> Result<FileMetadata, CarbonadoError> {
-    use percent_encoding::percent_decode;
-
     let sk = hex::decode(sk)?;
     let secret_key = SecretKey::from_slice(&sk)?;
     let public_key = PublicKey::from_secret_key_global(&secret_key);
@@ -173,8 +166,10 @@ pub async fn retrieve_metadata(sk: &str, name: &str) -> Result<FileMetadata, Car
         final_name = format!("{network}-{name}");
     }
 
-    let final_name = percent_decode(final_name.as_bytes()).decode_utf8().unwrap();
-    let filepath = handle_file(&pk, &final_name, 0).await?;
+    let hash = blake3::hash(final_name.as_bytes())
+        .to_hex()
+        .to_ascii_lowercase();
+    let filepath = handle_file(&pk, &hash, 0).await?;
     let bytes = fs::read(filepath).await?;
 
     let (header, _) = carbonado::file::decode(&sk, &bytes)?;
@@ -231,11 +226,10 @@ pub async fn retrieve(
 
     let network = NETWORK.read().await.to_string();
     let endpoint = CARBONADO_ENDPOINT.read().await.to_string();
-    let url = format!("{endpoint}/{pk}/");
     let param = format!("{network}-{name}");
-    let query_param = utf8_percent_encode(&param, FORM);
+    let hash = blake3::hash(param.as_bytes()).to_hex().to_ascii_lowercase();
 
-    if let Some(encoded) = server_req(format!("{url}{query_param}").as_str())
+    if let Some(encoded) = server_req(format!("{endpoint}/{pk}/{hash}").as_str())
         .await
         .map_err(|_| {
             CarbonadoError::StdIoError(Error::new(
@@ -253,10 +247,10 @@ pub async fn retrieve(
     // Check alternative names
     let alt_names = alt_names.into_iter().map(|x| format!("{network}-{x}"));
     for alt_name in alt_names {
-        let url = format!("{endpoint}/{pk}/");
-        let query_param = utf8_percent_encode(&alt_name, FORM);
-
-        if let Some(encoded) = server_req(format!("{url}{query_param}").as_str())
+        let hash = blake3::hash(alt_name.as_bytes())
+            .to_hex()
+            .to_ascii_lowercase();
+        if let Some(encoded) = server_req(format!("{endpoint}/{pk}/{hash}").as_str())
             .await
             .map_err(|_| {
                 CarbonadoError::StdIoError(Error::new(
@@ -281,8 +275,6 @@ pub async fn retrieve(
     name: &str,
     alt_names: Vec<&String>,
 ) -> Result<(Vec<u8>, Option<Vec<u8>>), CarbonadoError> {
-    use percent_encoding::percent_decode;
-
     use crate::rgb::constants::RGB_STRICT_TYPE_VERSION;
 
     let sk = hex::decode(sk)?;
@@ -297,7 +289,6 @@ pub async fn retrieve(
         final_name = format!("{network}-{name}");
     }
 
-    let final_name = percent_decode(final_name.as_bytes()).decode_utf8().unwrap();
     let filepath = handle_file(&pk, &final_name, 0).await?;
     if let Ok(bytes) = fs::read(filepath).await {
         let (header, decoded) = carbonado::file::decode(&sk, &bytes)?;
@@ -323,8 +314,6 @@ pub async fn retrieve(
 
 #[cfg(feature = "server")]
 pub async fn handle_file(pk: &str, name: &str, bytes: usize) -> Result<PathBuf, CarbonadoError> {
-    use percent_encoding::percent_decode;
-
     let mut final_name = name.to_string();
     let network = NETWORK.read().await.to_string();
     let networks = ["bitcoin", "mainnet", "testnet", "signet", "regtest"];
@@ -337,8 +326,7 @@ pub async fn handle_file(pk: &str, name: &str, bytes: usize) -> Result<PathBuf, 
     )
     .join(pk);
 
-    let final_name = percent_decode(final_name.as_bytes()).decode_utf8().unwrap();
-    let filepath = directory.join(final_name.to_string());
+    let filepath = directory.join(final_name);
     let filedir = filepath.parent().unwrap();
     fs::create_dir_all(filedir).await.map_err(|_| {
         CarbonadoError::StdIoError(Error::new(
