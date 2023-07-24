@@ -266,6 +266,8 @@ pub struct IssueResponse {
     pub ticker: String,
     /// Name of the asset
     pub name: String,
+    /// creation date (timestamp)
+    pub created: i64,
     /// Description of the asset
     pub description: String,
     /// Amount of the asset
@@ -354,6 +356,8 @@ pub struct ContractResponse {
     pub ticker: String,
     /// Name of the asset
     pub name: String,
+    /// creation date (timestamp)
+    pub created: i64,
     /// Description of the asset
     pub description: String,
     /// Amount of the asset
