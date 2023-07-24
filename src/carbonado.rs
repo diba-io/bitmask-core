@@ -110,9 +110,9 @@ pub async fn retrieve_metadata(sk: &str, name: &str) -> Result<FileMetadata, Car
 
     let endpoint = CARBONADO_ENDPOINT.read().await.to_string();
     let network = NETWORK.read().await.to_string();
-    let name = format!("{network}-{name}/metadata");
+    let name = format!("{network}-{name}");
     let hash = blake3::hash(name.as_bytes()).to_hex().to_ascii_lowercase();
-    let url = format!("{endpoint}/{pk}/{hash}");
+    let url = format!("{endpoint}/{pk}/{hash}/metadata");
     let client = reqwest::Client::new();
     let response = client
         .get(&url)

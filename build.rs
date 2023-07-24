@@ -30,7 +30,22 @@ const LIB_ID_RGB_CONTRACT_COMMENT: &str =
 const LIB_ID_RGB_STD_COMMENT: &str =
     "[LIB_ID_RGB_STD]\n# Not consensus-breaking: If changed, only stash and consignments must be updated. No reiussance or migration necessary.";
 
+type HashNameMap = BTreeMap<String, String>;
+
+#[allow(non_snake_case)]
+#[derive(Deserialize, Serialize)]
+struct FileHashes {
+    ASSETS_STOCK: HashNameMap,
+    ASSETS_WALLETS: HashNameMap,
+}
+
+const FILE_HASHES_FILE: &str = "file_hashes.toml";
+const ASSETS_STOCK: &str = "bitmask-fungible_assets_stock.c15";
+const ASSETS_WALLETS: &str = "bitmask-fungible_assets_wallets.c15";
+const NETWORK: &str = "bitcoin"; // Only mainnet is tracked, no monetary incentive to upgrade testnet assets
+
 fn main() -> Result<()> {
+    // lib ids
     const BMC_VERSION: &str = env!("CARGO_PKG_VERSION");
 
     let toml = fs::read_to_string(LIB_IDS_FILE)?;
@@ -66,6 +81,32 @@ fn main() -> Result<()> {
     let toml = toml.replace("[LIB_ID_RGB_STD]", LIB_ID_RGB_STD_COMMENT);
 
     fs::write(LIB_IDS_FILE, format!("{FILE_COMMENT}{toml}"))?;
+
+    // file hashes
+    let toml = fs::read_to_string(FILE_HASHES_FILE)?;
+    let mut doc: FileHashes = toml::from_str(&toml)?;
+
+    let assets_stock_name = format!("{NETWORK}-{LIB_ID_RGB}-{ASSETS_STOCK}");
+    let assets_wallets_name = format!("{NETWORK}-{LIB_ID_RGB}-{ASSETS_WALLETS}");
+
+    let assets_stock_hash = blake3::hash(assets_stock_name.as_bytes())
+        .to_hex()
+        .to_ascii_lowercase();
+    let assets_wallets_hash = blake3::hash(assets_wallets_name.as_bytes())
+        .to_hex()
+        .to_ascii_lowercase();
+
+    doc.ASSETS_STOCK
+        .entry(assets_stock_hash)
+        .or_insert(assets_stock_name);
+
+    doc.ASSETS_WALLETS
+        .entry(assets_wallets_hash)
+        .or_insert(assets_wallets_name);
+
+    let toml = toml::to_string(&doc)?;
+
+    fs::write(FILE_HASHES_FILE, toml)?;
 
     Ok(())
 }
