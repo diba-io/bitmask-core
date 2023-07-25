@@ -1,3 +1,5 @@
+#![cfg(not(target_arch = "wasm32"))]
+
 use anyhow::Result;
 use bitmask_core::{
     bitcoin::{get_wallet_data, save_mnemonic},
