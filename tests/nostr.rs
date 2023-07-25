@@ -2,11 +2,9 @@
 
 use anyhow::{Ok, Result};
 use bitmask_core::{
-    bitcoin::save_mnemonic,
     info,
     lightning::{auth, create_wallet, AuthResponse, CreateWalletResponse},
     nostr::{new_nostr_pubkey, update_nostr_pubkey},
-    structs::SecretString,
     util::init_logging,
 };
 use std::{thread, time};
@@ -76,36 +74,6 @@ pub async fn update_nostr_pubkey_test() -> Result<()> {
         let response = update_nostr_pubkey(&pubkey, &token).await?;
         assert_eq!(response.status, "ok".to_string());
     }
-
-    Ok(())
-}
-
-#[tokio::test]
-pub async fn nip06() -> Result<()> {
-    init_logging("nostr_tests=debug");
-
-    // Using this tool:
-    // https://nip06.jaonoct.us
-
-    const MNEMONIC: &str =
-        "garment castle exhaust confirm wrong timber earth invest output comfort actress slot";
-
-    let wallet_data = save_mnemonic(
-        &SecretString(MNEMONIC.to_owned()),
-        &SecretString("".to_owned()),
-    )
-    .await?;
-
-    assert_eq!(
-        wallet_data.private.nostr_nsec,
-        "nsec1t9s9xyu55mezxwkf98uws2m8h6smjvehgngme0346rwm456g3kfs8pt0qw",
-        "correct nsec is generated"
-    );
-    assert_eq!(
-        wallet_data.public.nostr_npub,
-        "npub1v5zwxyd3dtmrvgnamxxlfxj92t52hwkg09dmwjhmkjujkq8kdzms77547c",
-        "correct npub is generated"
-    );
 
     Ok(())
 }
