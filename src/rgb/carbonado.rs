@@ -6,10 +6,7 @@ use strict_encoding::{StrictDeserialize, StrictSerialize};
 
 use crate::{
     carbonado::{retrieve, store},
-    rgb::{
-        constants::{OLD_LIB_ID_RGB, RGB_STRICT_TYPE_VERSION},
-        structs::RgbAccount,
-    },
+    rgb::{constants::RGB_STRICT_TYPE_VERSION, structs::RgbAccount},
 };
 
 #[derive(Debug, Clone, Eq, PartialEq, Display, From, Error)]
@@ -70,13 +67,9 @@ pub async fn retrieve_stock(sk: &str, name: &str) -> Result<Stock, StorageError>
         .to_hex()
         .to_lowercase();
 
-    let (data, _) = retrieve(
-        sk,
-        &format!("{hashed_name}.c15"),
-        vec![&name.to_string(), &format!("{OLD_LIB_ID_RGB}-{name}")],
-    )
-    .await
-    .map_err(|op| StorageError::CarbonadoRetrive(name.to_string(), op.to_string()))?;
+    let (data, _) = retrieve(sk, &format!("{hashed_name}.c15"), vec![])
+        .await
+        .map_err(|op| StorageError::CarbonadoRetrive(name.to_string(), op.to_string()))?;
 
     if data.is_empty() {
         Ok(Stock::default())
@@ -118,13 +111,9 @@ pub async fn retrieve_wallets(sk: &str, name: &str) -> Result<RgbAccount, Storag
         .to_hex()
         .to_lowercase();
 
-    let (data, _) = retrieve(
-        sk,
-        &format!("{hashed_name}.c15"),
-        vec![&name.to_string(), &format!("{OLD_LIB_ID_RGB}-{name}")],
-    )
-    .await
-    .map_err(|op| StorageError::CarbonadoRetrive(name.to_string(), op.to_string()))?;
+    let (data, _) = retrieve(sk, &format!("{hashed_name}.c15"), vec![])
+        .await
+        .map_err(|op| StorageError::CarbonadoRetrive(name.to_string(), op.to_string()))?;
 
     if data.is_empty() {
         Ok(RgbAccount::default())
