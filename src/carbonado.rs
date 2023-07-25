@@ -41,10 +41,8 @@ pub async fn store(
         force_write = "/force";
     }
 
-    let param = format!("{network}-{name}");
-    let hash = blake3::hash(param.as_bytes()).to_hex().to_ascii_lowercase();
-
-    let url = format!("{endpoint}/{pk_hex}/{hash}{force_write}");
+    let name = format!("{network}-{name}");
+    let url = format!("{endpoint}/{pk_hex}/{name}{force_write}");
     let client = reqwest::Client::new();
     let response = client
         .post(&url)
@@ -93,10 +91,8 @@ pub async fn store(
     let pk_hex = hex::encode(pk);
 
     let meta: Option<[u8; 8]> = metadata.map(|m| m.try_into().expect("invalid metadata size"));
-
     let (body, _encode_info) = carbonado::file::encode(&sk, Some(&pk), input, level, meta)?;
-    let hash = blake3::hash(name.as_bytes()).to_hex().to_ascii_lowercase();
-    let filepath = handle_file(&pk_hex, &hash, body.len()).await?;
+    let filepath = handle_file(&pk_hex, name, body.len()).await?;
     fs::write(filepath, body).await?;
     Ok(())
 }
@@ -111,8 +107,7 @@ pub async fn retrieve_metadata(sk: &str, name: &str) -> Result<FileMetadata, Car
     let endpoint = CARBONADO_ENDPOINT.read().await.to_string();
     let network = NETWORK.read().await.to_string();
     let name = format!("{network}-{name}");
-    let hash = blake3::hash(name.as_bytes()).to_hex().to_ascii_lowercase();
-    let url = format!("{endpoint}/{pk}/{hash}/metadata");
+    let url = format!("{endpoint}/{pk}/{name}/metadata");
     let client = reqwest::Client::new();
     let response = client
         .get(&url)
@@ -159,17 +154,15 @@ pub async fn retrieve_metadata(sk: &str, name: &str) -> Result<FileMetadata, Car
     let public_key = PublicKey::from_secret_key_global(&secret_key);
     let pk = public_key.to_hex();
 
-    let mut final_name = name.to_string();
     let network = NETWORK.read().await.to_string();
     let networks = ["bitcoin", "mainnet", "testnet", "signet", "regtest"];
+
+    let mut final_name = name.to_string();
     if !networks.into_iter().any(|x| name.contains(x)) {
         final_name = format!("{network}-{name}");
     }
 
-    let hash = blake3::hash(final_name.as_bytes())
-        .to_hex()
-        .to_ascii_lowercase();
-    let filepath = handle_file(&pk, &hash, 0).await?;
+    let filepath = handle_file(&pk, &final_name, 0).await?;
     let bytes = fs::read(filepath).await?;
 
     let (header, _) = carbonado::file::decode(&sk, &bytes)?;
@@ -226,10 +219,8 @@ pub async fn retrieve(
 
     let network = NETWORK.read().await.to_string();
     let endpoint = CARBONADO_ENDPOINT.read().await.to_string();
-    let param = format!("{network}-{name}");
-    let hash = blake3::hash(param.as_bytes()).to_hex().to_ascii_lowercase();
-
-    if let Some(encoded) = server_req(format!("{endpoint}/{pk}/{hash}").as_str())
+    let name = format!("{network}-{name}");
+    if let Some(encoded) = server_req(format!("{endpoint}/{pk}/{name}").as_str())
         .await
         .map_err(|_| {
             CarbonadoError::StdIoError(Error::new(
@@ -247,10 +238,7 @@ pub async fn retrieve(
     // Check alternative names
     let alt_names = alt_names.into_iter().map(|x| format!("{network}-{x}"));
     for alt_name in alt_names {
-        let hash = blake3::hash(alt_name.as_bytes())
-            .to_hex()
-            .to_ascii_lowercase();
-        if let Some(encoded) = server_req(format!("{endpoint}/{pk}/{hash}").as_str())
+        if let Some(encoded) = server_req(format!("{endpoint}/{pk}/{alt_name}").as_str())
             .await
             .map_err(|_| {
                 CarbonadoError::StdIoError(Error::new(
