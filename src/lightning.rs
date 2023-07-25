@@ -117,13 +117,13 @@ pub struct PayInvoiceResponse {
 }
 
 /// Check payment response
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct CheckPaymentResponse {
     paid: bool,
 }
 
 /// Swap BTC onchain to Lightning response
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct SwapBtcLnResponse {
     pub address: String,
     pub commitment: String,
@@ -148,7 +148,7 @@ pub struct SwapLnBTCRequest {
 }
 
 /// Swap Lightning to BTC onchain response
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct SwapLnBtcResponse {
     pub bolt11_invoice: String,
     pub fee_sats: u32,
