@@ -6,14 +6,13 @@ use bitmask_core::rgb::constants::RGB_STRICT_TYPE_VERSION;
 use bitmask_core::structs::WatcherRequest;
 use bitmask_core::{
     bitcoin::save_mnemonic,
-    carbonado::{constants::FORM, retrieve},
+    carbonado::retrieve,
     constants::{storage_keys::ASSETS_STOCK, BITMASK_ENDPOINT, NETWORK},
     rgb::{constants::RGB_OLDEST_VERSION, reissue_contract},
     structs::{ContractsResponse, ReIssueRequest, SecretString},
 };
 use hex::FromHex;
 use nostr_sdk::key::{PublicKey, SecretKey};
-use percent_encoding::utf8_percent_encode;
 use reqwest::Client;
 
 #[tokio::test]
@@ -98,9 +97,10 @@ async fn store_in_server(
     let pk_hex = hex::encode(pk);
     let (body, _encode_info) = carbonado::file::encode(&sk, Some(&pk), input, level, metadata)?;
     let endpoint = BITMASK_ENDPOINT.read().await.to_string();
-    let name = utf8_percent_encode(name, FORM);
     let network = NETWORK.read().await.to_string();
-    let url = format!("{endpoint}/carbonado/{pk_hex}/{network}-{name}");
+    let name = format!("{network}-{name}");
+    let hash = blake3::hash(name.as_bytes());
+    let url = format!("{endpoint}/carbonado/{pk_hex}/{hash}");
     let client = reqwest::Client::new();
     let response = client
         .post(&url)

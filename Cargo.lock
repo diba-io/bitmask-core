@@ -620,7 +620,6 @@ dependencies = [
  "nostr-sdk",
  "once_cell",
  "payjoin",
- "percent-encoding",
  "postcard 1.0.4",
  "pretty_env_logger",
  "psbt",
