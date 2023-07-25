@@ -9,7 +9,6 @@ use bitmask_core::structs::ReIssueResponse;
 use bitmask_core::structs::WatcherRequest;
 use bitmask_core::{
     bitcoin::save_mnemonic,
-    carbonado::constants::FORM,
     constants::{storage_keys::ASSETS_STOCK, BITMASK_ENDPOINT, NETWORK},
     info,
     rgb::constants::RGB_OLDEST_VERSION,
@@ -23,7 +22,6 @@ use bitmask_core::{
 };
 use hex::FromHex;
 use nostr_sdk::key::{PublicKey, SecretKey};
-use percent_encoding::utf8_percent_encode;
 use reqwest::Client;
 
 use wasm_bindgen::prelude::*;
@@ -32,7 +30,7 @@ use wasm_bindgen_test::*;
 wasm_bindgen_test_configure!(run_in_browser);
 
 // #[wasm_bindgen_test]
-#[ignore = "No longer necessary running always, only to check re-issue operation (strict-type 1.5.x)"]
+#[ignore = "No longer necessary running always, only to check re-issue operation (strict-type 1.6.x)"]
 async fn allow_re_issue_rgb_contracts() -> anyhow::Result<()> {
     set_panic_hook();
     let mnemonic = env!("TEST_WALLET_SEED", "TEST_WALLET_SEED variable not set");
@@ -137,9 +135,10 @@ async fn store_in_server(
     let pk_hex = hex::encode(pk);
     let (body, _encode_info) = carbonado::file::encode(&sk, Some(&pk), input, level, metadata)?;
     let endpoint = BITMASK_ENDPOINT.read().await.to_string();
-    let name = utf8_percent_encode(name, FORM);
     let network = NETWORK.read().await.to_string();
-    let url = format!("{endpoint}/carbonado/{pk_hex}/{network}-{name}");
+    let name = format!("{network}-{name}");
+    let hash = blake3::hash(name.as_bytes());
+    let url = format!("{endpoint}/carbonado/{pk_hex}/{hash}");
     let client = reqwest::Client::new();
     let response = client
         .post(&url)

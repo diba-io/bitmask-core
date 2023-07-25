@@ -115,7 +115,7 @@ fn issue_fungible_asset(
     let ticker: &'static str = Box::leak(ticker.to_string().into_boxed_str());
     let name: &'static str = Box::leak(name.to_string().into_boxed_str());
     let description: &'static str = Box::leak(description.to_string().into_boxed_str());
-    let created = Timestamp::default();
+    let created = Timestamp::now();
 
     let precision = Precision::try_from(precision).expect("invalid precision");
     let spec = DivisibleAssetSpec::new(ticker, name, precision);
@@ -167,7 +167,7 @@ fn issue_uda_asset(
     let precision = Precision::try_from(precision).expect("invalid precision");
     let spec = DivisibleAssetSpec::new(ticker, name, precision);
     let terms = RicardianContract::from_str(description).expect("invalid terms");
-    let created = Timestamp::default();
+    let created = Timestamp::now();
     let fraction = OwnedFraction::from_inner(supply);
 
     let mut tokens_data = vec![];

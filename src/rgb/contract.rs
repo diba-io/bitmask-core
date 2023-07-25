@@ -5,7 +5,7 @@ use rgbstd::{
     contract::ContractId,
     interface::{rgb21::TokenData, IfaceId, IfacePair},
     persistence::{Inventory, InventoryInconsistency, StashInconsistency, Stock},
-    stl::{ContractData, DivisibleAssetSpec, RicardianContract},
+    stl::{ContractData, DivisibleAssetSpec, RicardianContract, Timestamp},
 };
 use strict_encoding::{FieldName, StrictDeserialize, StrictSerialize};
 
@@ -125,6 +125,17 @@ where
     let ty: FieldName = FieldName::from("spec");
     let specs = match contract_iface.global(ty) {
         Ok(values) => DivisibleAssetSpec::from_strict_val_unchecked(&values[0]),
+        Err(err) => {
+            return Err(ExportContractError::StrictInconsistency(
+                contr_id,
+                err.to_string(),
+            ))
+        }
+    };
+
+    let ty: FieldName = FieldName::from("created");
+    let created = match contract_iface.global(ty) {
+        Ok(values) => Timestamp::from_strict_val_unchecked(&values[0]),
         Err(err) => {
             return Err(ExportContractError::StrictInconsistency(
                 contr_id,
@@ -329,6 +340,7 @@ where
         supply,
         balance,
         allocations,
+        created: created.into(),
         contract: ContractFormats {
             legacy: contract_legacy,
             strict: contract_strict,

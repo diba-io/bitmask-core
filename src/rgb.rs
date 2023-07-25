@@ -182,6 +182,7 @@ pub async fn issue_contract(sk: &str, request: IssueRequest) -> Result<IssueResp
         contract,
         genesis,
         meta,
+        created,
     } = export_contract(
         contract.contract_id(),
         &mut stock,
@@ -223,6 +224,7 @@ pub async fn issue_contract(sk: &str, request: IssueRequest) -> Result<IssueResp
         precision,
         contract,
         genesis,
+        created,
         issue_method: "tapret1st".to_string(),
         issue_utxo: seal.replace("tapret1st:", ""),
         meta,
@@ -278,6 +280,7 @@ pub async fn reissue_contract(
             contract: _,
             genesis: _,
             meta: contract_meta,
+            created: _,
         } = contract;
 
         let seals: Vec<String> = allocations
@@ -366,6 +369,7 @@ pub async fn reissue_contract(
             contract,
             genesis,
             meta,
+            created,
         } = export_contract(
             contract.contract_id(),
             &mut stock,
@@ -391,6 +395,7 @@ pub async fn reissue_contract(
             precision,
             contract,
             genesis,
+            created,
             issue_method: "tapret1st".to_string(),
             issue_utxo: seal.replace("tapret1st:", ""),
             meta,
