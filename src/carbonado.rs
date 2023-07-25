@@ -24,6 +24,8 @@ pub async fn store(
     force: bool,
     metadata: Option<Vec<u8>>,
 ) -> Result<(), CarbonadoError> {
+    use std::sync::atomic::{AtomicU8, Ordering};
+
     let level = 15;
     let sk = hex::decode(sk)?;
     let secret_key = SecretKey::from_slice(&sk)?;
@@ -33,7 +35,7 @@ pub async fn store(
 
     let meta: Option<[u8; 8]> = metadata.map(|m| m.try_into().expect("invalid metadata size"));
     let (body, _encode_info) = carbonado::file::encode(&sk, Some(&pk), input, level, meta)?;
-    let endpoint = CARBONADO_ENDPOINT.read().await.to_string();
+
     let network = NETWORK.read().await.to_string();
 
     let mut force_write = "";
@@ -41,34 +43,43 @@ pub async fn store(
         force_write = "/force";
     }
 
-    let name = format!("{network}-{name}");
-    let url = format!("{endpoint}/{pk_hex}/{name}{force_write}");
-    let client = reqwest::Client::new();
-    let response = client
-        .post(&url)
-        .body(body)
-        .header("Content-Type", "application/octet-stream")
-        .header("Cache-Control", "no-cache")
-        .send()
+    let endpoints: Vec<&str> = CARBONADO_ENDPOINT
+        .read()
         .await
-        .map_err(|op| {
-            CarbonadoError::StdIoError(Error::new(ErrorKind::Interrupted, op.to_string()))
-        })?;
+        .to_string()
+        .split(",")
+        .collect();
 
-    let status_code = response.status().as_u16();
-    if status_code != 200 {
-        let response_text = response.text().await.map_err(|_| {
-            CarbonadoError::StdIoError(Error::new(
-                ErrorKind::Unsupported,
-                format!("Error in parsing server response for POST JSON request to {url}"),
-            ))
-        })?;
+    let successes = AtomicU8::new(0);
 
+    for endpoint in endpoints {
+        tokio::spawn(async {
+            let url = format!("{endpoint}/{pk_hex}/{network}-{name}{force_write}");
+            let client = reqwest::Client::new();
+            let response = client
+                .post(&url)
+                .body(body)
+                .header("Content-Type", "application/octet-stream")
+                .header("Cache-Control", "no-cache")
+                .send()
+                .await;
+
+            match response {
+                Ok(response) => {
+                    let status_code = response.status().as_u16();
+                    if status_code == 200 {
+                        successes.fetch_add(1, Ordering::SeqCst);
+                    }
+                }
+                Err(_) => {}
+            }
+        });
+    }
+
+    if successes.load(Ordering::SeqCst) == 0 {
         Err(CarbonadoError::StdIoError(Error::new(
             ErrorKind::Other,
-            format!(
-                "Error in storing carbonado file, status: {status_code} error: {response_text}"
-            ),
+            format!("Error in storing carbonado file; no endpoints were successful"),
         )))
     } else {
         Ok(())
