@@ -696,6 +696,34 @@ pub mod lightning {
             }
         })
     }
+
+    #[wasm_bindgen]
+    pub fn swap_btc_ln(token: String) -> Promise {
+        set_panic_hook();
+
+        future_to_promise(async move {
+            match crate::lightning::swap_btc_ln(&token).await {
+                Ok(result) => Ok(JsValue::from_string(
+                    serde_json::to_string(&result).unwrap(),
+                )),
+                Err(err) => Err(JsValue::from_string(err.to_string())),
+            }
+        })
+    }
+
+    #[wasm_bindgen]
+    pub fn swap_ln_btc(address: String, amount: u64, token: String) -> Promise {
+        set_panic_hook();
+
+        future_to_promise(async move {
+            match crate::lightning::swap_ln_btc(&address, amount, &token).await {
+                Ok(result) => Ok(JsValue::from_string(
+                    serde_json::to_string(&result).unwrap(),
+                )),
+                Err(err) => Err(JsValue::from_string(err.to_string())),
+            }
+        })
+    }
 }
 
 pub mod carbonado {
