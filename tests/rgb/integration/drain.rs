@@ -5,15 +5,11 @@ use bitmask_core::{
     structs::SecretString,
 };
 
-use crate::rgb::integration::utils::{
-    send_some_coins, start_node, ISSUER_MNEMONIC, OWNER_MNEMONIC,
-};
+use crate::rgb::integration::utils::{send_some_coins, ISSUER_MNEMONIC, OWNER_MNEMONIC};
 
 #[tokio::test]
 pub async fn drain() -> Result<()> {
     // 1. Initial Setup
-    start_node().await;
-
     let old_keys = save_mnemonic(
         &SecretString(ISSUER_MNEMONIC.to_string()),
         &SecretString("".to_string()),
@@ -48,9 +44,9 @@ pub async fn drain() -> Result<()> {
     // 2. Drain sats from original wallet to new wallet
     let drain_wallet_details = drain_wallet(
         &new_wallet_data.address,
-        &SecretString(old_keys.public.btc_descriptor_xpub.clone()),
+        &SecretString(old_keys.private.btc_descriptor_xprv.clone()),
         Some(&SecretString(
-            old_keys.public.btc_change_descriptor_xpub.clone(),
+            old_keys.private.btc_change_descriptor_xprv.clone(),
         )),
         Some(2.0),
     )
