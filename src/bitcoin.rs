@@ -418,6 +418,7 @@ pub async fn drain_wallet(
 ) -> Result<TransactionDetails> {
     let destination = Address::from_str(destination)?;
     let wallet = get_wallet(descriptor, change_descriptor).await?;
+    sync_wallet(&wallet).await?;
     let fee_rate = fee_rate.map(FeeRate::from_sat_per_vb);
 
     debug!(format!("Create drain wallet tx to: {destination:#?}"));
