@@ -256,10 +256,12 @@ pub mod bitcoin {
         set_panic_hook();
 
         future_to_promise(async move {
+            let change_descriptor = change_descriptor.map(SecretString);
+
             match crate::bitcoin::drain_wallet(
                 &destination,
                 &SecretString(descriptor),
-                &SecretString(change_descriptor),
+                change_descriptor.as_ref(),
                 fee_rate,
             )
             .await

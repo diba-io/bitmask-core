@@ -5,11 +5,15 @@ use bitmask_core::{
     structs::SecretString,
 };
 
-use crate::rgb::integration::utils::{send_some_coins, ISSUER_MNEMONIC, OWNER_MNEMONIC};
+use crate::rgb::integration::utils::{
+    send_some_coins, start_node, ISSUER_MNEMONIC, OWNER_MNEMONIC,
+};
 
 #[tokio::test]
 pub async fn drain() -> Result<()> {
     // 1. Initial Setup
+    start_node().await;
+
     let old_keys = save_mnemonic(
         &SecretString(ISSUER_MNEMONIC.to_string()),
         &SecretString("".to_string()),
