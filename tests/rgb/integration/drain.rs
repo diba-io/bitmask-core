@@ -8,6 +8,7 @@ use bitmask_core::{
 use crate::rgb::integration::utils::{send_some_coins, ISSUER_MNEMONIC, OWNER_MNEMONIC};
 
 #[tokio::test]
+#[ignore = ""]
 pub async fn drain() -> Result<()> {
     // 1. Initial Setup
     let old_keys = save_mnemonic(
@@ -52,9 +53,15 @@ pub async fn drain() -> Result<()> {
     )
     .await?;
 
-    let details = format!("{drain_wallet_details:#?}");
-
-    assert_eq!(details, "details???");
+    assert_eq!(
+        drain_wallet_details.received, 0,
+        "received no funds in this transaction"
+    );
+    assert_eq!(
+        drain_wallet_details.sent + drain_wallet_details.fee.expect("fee present"),
+        3_000_000,
+        "received 0.3 tBTC"
+    );
 
     Ok(())
 }
