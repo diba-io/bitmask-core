@@ -248,18 +248,18 @@ pub mod bitcoin {
 
     #[wasm_bindgen]
     pub fn drain_wallet(
-        descriptor: String,
-        change_descriptor: String,
         destination: String,
+        descriptor: String,
+        change_descriptor: Option<String>,
         fee_rate: Option<f32>,
     ) -> Promise {
         set_panic_hook();
 
         future_to_promise(async move {
             match crate::bitcoin::drain_wallet(
+                &destination,
                 &SecretString(descriptor),
                 &SecretString(change_descriptor),
-                &destination,
                 fee_rate,
             )
             .await

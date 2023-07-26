@@ -43,11 +43,11 @@ pub async fn drain() -> Result<()> {
 
     // 2. Drain sats from original wallet to new wallet
     let drain_wallet_details = drain_wallet(
+        &new_wallet_data.address,
         &SecretString(old_keys.public.btc_descriptor_xpub.clone()),
         Some(&SecretString(
             old_keys.public.btc_change_descriptor_xpub.clone(),
         )),
-        &new_wallet_data.address,
         Some(2.0),
     )
     .await?;

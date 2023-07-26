@@ -411,9 +411,9 @@ pub async fn sign_psbt_file(request: SignPsbtRequest) -> Result<SignPsbtResponse
 }
 
 pub async fn drain_wallet(
+    destination: &str,
     descriptor: &SecretString,
     change_descriptor: Option<&SecretString>,
-    destination: &str,
     fee_rate: Option<f32>,
 ) -> Result<TransactionDetails> {
     let destination = Address::from_str(destination)?;
