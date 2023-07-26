@@ -10,11 +10,7 @@ use crate::rgb::integration::utils::{send_some_coins, ISSUER_MNEMONIC, OWNER_MNE
 #[tokio::test]
 pub async fn drain() -> Result<()> {
     // 1. Initial Setup
-     let old_keys = new_mnemonic(&SecretString("".to_string())).await?;
-        &SecretString(ISSUER_MNEMONIC.to_string()),
-        &SecretString("".to_string()),
-    )
-    .await?;
+    let old_keys = new_mnemonic(&SecretString("".to_string())).await?;
     let new_keys = save_mnemonic(
         &SecretString(OWNER_MNEMONIC.to_string()),
         &SecretString("".to_string()),
