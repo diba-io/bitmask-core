@@ -117,9 +117,41 @@ pub struct PayInvoiceResponse {
 }
 
 /// Check payment response
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct CheckPaymentResponse {
     paid: bool,
+}
+
+/// Swap BTC onchain to Lightning response
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SwapBtcLnResponse {
+    pub address: String,
+    pub commitment: String,
+    pub signature: String,
+    pub secret_access_key: String,
+}
+
+/// Speed of the onchain transaction
+#[derive(Serialize, Deserialize, Debug)]
+pub enum OnchainSpeed {
+    Fast,
+    Medium,
+    Slow,
+}
+
+/// Swap Lightning to BTC onchain request
+#[derive(Serialize, Deserialize, Debug)]
+pub struct SwapLnBTCRequest {
+    pub amount: u64,
+    pub address: String,
+    pub speed: Option<OnchainSpeed>,
+}
+
+/// Swap Lightning to BTC onchain response
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SwapLnBtcResponse {
+    pub bolt11_invoice: String,
+    pub fee_sats: u32,
 }
 
 /// Creates a new lightning custodial wallet
@@ -219,4 +251,29 @@ pub async fn check_payment(payment_hash: &str) -> Result<bool> {
     let r = serde_json::from_str::<CheckPaymentResponse>(&response)?;
 
     Ok(r.paid)
+}
+
+/// Swap BTC onchain to Lightning
+pub async fn swap_btc_ln(token: &str) -> Result<SwapBtcLnResponse> {
+    let endpoint = LNDHUB_ENDPOINT.read().await;
+    let url = format!("{endpoint}/get_onchain_address");
+    let response = get(&url, Some(token)).await?;
+    let r = serde_json::from_str::<SwapBtcLnResponse>(&response)?;
+
+    Ok(r)
+}
+
+/// Swap Lightning to BTC onchain
+pub async fn swap_ln_btc(address: &str, amount: u64, token: &str) -> Result<SwapLnBtcResponse> {
+    let endpoint = LNDHUB_ENDPOINT.read().await;
+    let url = format!("{endpoint}/make_onchain_swap");
+    let req = SwapLnBTCRequest {
+        address: address.to_string(),
+        amount,
+        speed: Some(OnchainSpeed::Fast),
+    };
+    let response = post_json_auth(&url, &Some(req), Some(token)).await?;
+    let r = serde_json::from_str::<SwapLnBtcResponse>(&response)?;
+
+    Ok(r)
 }
