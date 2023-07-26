@@ -411,13 +411,13 @@ pub async fn sign_psbt_file(request: SignPsbtRequest) -> Result<SignPsbtResponse
 }
 
 pub async fn drain_wallet(
-    destination: &str,
     descriptor: &SecretString,
-    change_descriptor: &SecretString,
+    change_descriptor: Option<&SecretString>,
+    destination: &str,
     fee_rate: Option<f32>,
 ) -> Result<TransactionDetails> {
     let destination = Address::from_str(destination)?;
-    let wallet = get_wallet(descriptor, Some(change_descriptor)).await?;
+    let wallet = get_wallet(descriptor, change_descriptor).await?;
     let fee_rate = fee_rate.map(FeeRate::from_sat_per_vb);
 
     debug!(format!("Create drain wallet tx to: {destination:#?}"));

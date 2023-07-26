@@ -247,6 +247,32 @@ pub mod bitcoin {
     }
 
     #[wasm_bindgen]
+    pub fn drain_wallet(
+        descriptor: String,
+        change_descriptor: String,
+        destination: String,
+        fee_rate: Option<f32>,
+    ) -> Promise {
+        set_panic_hook();
+
+        future_to_promise(async move {
+            match crate::bitcoin::drain_wallet(
+                &SecretString(descriptor),
+                &SecretString(change_descriptor),
+                &destination,
+                fee_rate,
+            )
+            .await
+            {
+                Ok(result) => Ok(JsValue::from_string(
+                    serde_json::to_string(&result).unwrap(),
+                )),
+                Err(err) => Err(JsValue::from_string(err.to_string())),
+            }
+        })
+    }
+
+    #[wasm_bindgen]
     pub fn fund_vault(
         descriptor: String,
         change_descriptor: String,
