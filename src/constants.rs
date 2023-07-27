@@ -191,4 +191,6 @@ pub async fn set_env(key: &str, value: &str) {
 pub mod storage_keys {
     pub const ASSETS_STOCK: &str = "bitmask-fungible_assets_stock.c15";
     pub const ASSETS_WALLETS: &str = "bitmask-fungible_assets_wallets.c15";
+    pub const ASSETS_STOCK_ROLLBACK: &str = "bitmask-fungible_assets_stock_rollback.c15";
+    pub const ASSETS_WALLETS_ROLLBACK: &str = "bitmask-fungible_assets_wallets_rollback.c15";
 }

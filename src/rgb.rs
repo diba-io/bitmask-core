@@ -33,7 +33,9 @@ pub mod wallet;
 use crate::{
     constants::{
         get_network,
-        storage_keys::{ASSETS_STOCK, ASSETS_WALLETS},
+        storage_keys::{
+            ASSETS_STOCK, ASSETS_STOCK_ROLLBACK, ASSETS_WALLETS, ASSETS_WALLETS_ROLLBACK,
+        },
         BITCOIN_EXPLORER_API, NETWORK,
     },
     rgb::{
@@ -71,6 +73,7 @@ use self::{
         prefetch_resolver_waddress, prefetch_resolver_wutxo,
     },
     psbt::{fee_estimate, save_commit, CreatePsbtError},
+    structs::RgbAccount,
     transfer::{AcceptTransferError, NewInvoiceError, NewPaymentError},
     wallet::{
         create_wallet, next_address, next_utxo, next_utxos, register_address, register_utxo,
@@ -680,6 +683,151 @@ pub async fn transfer_asset(
     Ok(resp)
 }
 
+pub async fn transfer_asset_with_rollback(
+    sk: &str,
+    request: RgbTransferRequest,
+) -> Result<RgbTransferResponse, TransferError> {
+    if let Err(err) = request.validate(&RGBContext::default()) {
+        let errors = err
+            .flatten()
+            .into_iter()
+            .map(|(f, e)| (f, e.to_string()))
+            .collect();
+        println!("{:#?}", errors);
+        return Err(TransferError::Validation(errors));
+    }
+
+    let mut stock = retrieve_stock(sk, ASSETS_STOCK).await.map_err(|_| {
+        TransferError::Retrive(
+            CARBONADO_UNAVALIABLE.to_string(),
+            STOCK_UNAVALIABLE.to_string(),
+        )
+    })?;
+
+    store_stock(sk, ASSETS_STOCK_ROLLBACK, &stock)
+        .await
+        .map_err(|_| {
+            TransferError::Write(
+                CARBONADO_UNAVALIABLE.to_string(),
+                STOCK_UNAVALIABLE.to_string(),
+            )
+        })?;
+
+    let mut rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await.map_err(|_| {
+        TransferError::Retrive(
+            CARBONADO_UNAVALIABLE.to_string(),
+            WALLET_UNAVALIABLE.to_string(),
+        )
+    })?;
+
+    store_wallets(sk, ASSETS_WALLETS_ROLLBACK, &rgb_account)
+        .await
+        .map_err(|_| {
+            TransferError::Write(
+                CARBONADO_UNAVALIABLE.to_string(),
+                WALLET_UNAVALIABLE.to_string(),
+            )
+        })?;
+
+    if rgb_account.wallets.get("default").is_none() {
+        return Err(TransferError::NoWatcher);
+    }
+
+    let RgbTransferRequest {
+        rgb_invoice,
+        psbt,
+        terminal,
+    } = request;
+    let (psbt, transfer) =
+        pay_invoice(rgb_invoice, psbt, &mut stock).map_err(TransferError::Pay)?;
+
+    let commit = extract_commit(psbt.clone()).map_err(TransferError::Commitment)?;
+    let wallet = rgb_account.wallets.get("default");
+    if let Some(wallet) = wallet {
+        let mut wallet = wallet.to_owned();
+        save_commit(&terminal, commit.clone(), &mut wallet);
+
+        rgb_account
+            .wallets
+            .insert("default".to_string(), wallet.clone());
+
+        store_wallets(sk, ASSETS_WALLETS, &rgb_account)
+            .await
+            .map_err(|_| {
+                TransferError::Write(
+                    CARBONADO_UNAVALIABLE.to_string(),
+                    WALLET_UNAVALIABLE.to_string(),
+                )
+            })?;
+    };
+
+    let consig = transfer
+        .to_strict_serialized::<{ usize::MAX }>()
+        .map_err(|err| TransferError::WrongConsig(err.to_string()))?
+        .to_hex();
+    let consig_id = transfer.bindle_id().to_string();
+    let commit = commit.to_hex();
+    let psbt = psbt.to_string();
+
+    let resp = RgbTransferResponse {
+        consig_id,
+        consig,
+        psbt,
+        commit,
+    };
+
+    store_stock(sk, ASSETS_STOCK, &stock).await.map_err(|_| {
+        TransferError::Write(
+            CARBONADO_UNAVALIABLE.to_string(),
+            STOCK_UNAVALIABLE.to_string(),
+        )
+    })?;
+
+    Ok(resp)
+}
+
+pub async fn rollback_transfer(sk: &str) -> Result<(), TransferError> {
+    let stock = retrieve_stock(sk, ASSETS_STOCK_ROLLBACK)
+        .await
+        .map_err(|_| {
+            TransferError::Retrive(
+                CARBONADO_UNAVALIABLE.to_string(),
+                STOCK_UNAVALIABLE.to_string(),
+            )
+        })?;
+    clear_stock_by_name(sk, ASSETS_STOCK).await;
+
+    store_stock(sk, ASSETS_STOCK, &stock).await.map_err(|_| {
+        TransferError::Write(
+            CARBONADO_UNAVALIABLE.to_string(),
+            STOCK_UNAVALIABLE.to_string(),
+        )
+    })?;
+    clear_stock_by_name(sk, ASSETS_STOCK_ROLLBACK).await;
+
+    let rgb_account = retrieve_wallets(sk, ASSETS_WALLETS_ROLLBACK)
+        .await
+        .map_err(|_| {
+            TransferError::Retrive(
+                CARBONADO_UNAVALIABLE.to_string(),
+                WALLET_UNAVALIABLE.to_string(),
+            )
+        })?;
+    clear_wallet_by_name(sk, ASSETS_WALLETS).await;
+
+    store_wallets(sk, ASSETS_WALLETS_ROLLBACK, &rgb_account)
+        .await
+        .map_err(|_| {
+            TransferError::Write(
+                CARBONADO_UNAVALIABLE.to_string(),
+                WALLET_UNAVALIABLE.to_string(),
+            )
+        })?;
+    clear_wallet_by_name(sk, ASSETS_WALLETS_ROLLBACK).await;
+
+    Ok(())
+}
+
 pub async fn accept_transfer(
     sk: &str,
     request: AcceptRequest,
@@ -1202,4 +1350,16 @@ pub async fn clear_stock(sk: &str) {
     store_stock(sk, ASSETS_STOCK, &Stock::default())
         .await
         .expect("unable store stock");
+}
+
+pub async fn clear_stock_by_name(sk: &str, name: &str) {
+    store_stock(sk, name, &Stock::default())
+        .await
+        .expect("unable store stock");
+}
+
+pub async fn clear_wallet_by_name(sk: &str, name: &str) {
+    store_wallets(sk, name, &RgbAccount::default())
+        .await
+        .expect("unable store wallets")
 }

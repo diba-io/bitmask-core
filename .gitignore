@@ -4,3 +4,5 @@
 wasm-pack.log
 launch.json
 /build
+/tests/test_alice1.rs
+/tests/testFundVault23-7-14.rs
