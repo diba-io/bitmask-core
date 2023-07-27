@@ -27,7 +27,7 @@ pub use crate::bitcoin::{
 };
 
 use crate::{
-    constants::{DIBA_DESCRIPTOR, DIBA_DESCRIPTOR_VERSION, DIBA_MAGIC_NO},
+    constants::{DIBA_DESCRIPTOR, DIBA_DESCRIPTOR_VERSION, DIBA_MAGIC_NO, NETWORK},
     debug, info,
     structs::{
         DecryptedWalletData, EncryptedWalletDataV04, FundVaultDetails, SatsInvoice, SecretString,
@@ -246,6 +246,14 @@ pub async fn get_new_address(
     Ok(address)
 }
 
+pub async fn validate_address(address: &Address) -> Result<()> {
+    if address.network == *NETWORK.read().await {
+        Err(anyhow!("Address provided is on the wrong network!"))
+    } else {
+        Ok(())
+    }
+}
+
 pub async fn send_sats(
     descriptor: &SecretString,
     change_descriptor: &SecretString,
@@ -261,6 +269,7 @@ pub async fn send_sats(
     let transaction = match payjoin::Uri::try_from(destination) {
         Ok(uri) => {
             let address = uri.address.clone();
+            validate_address(&address).await?;
             if let Ok(pj_uri) = uri.check_pj_supported() {
                 create_payjoin(
                     vec![SatsInvoice { address, amount }],
@@ -275,6 +284,7 @@ pub async fn send_sats(
         }
         _ => {
             let address = Address::from_str(destination)?;
+            validate_address(&address).await?;
             create_transaction(vec![SatsInvoice { address, amount }], &wallet, fee_rate).await?
         }
     };
@@ -416,12 +426,15 @@ pub async fn drain_wallet(
     change_descriptor: Option<&SecretString>,
     fee_rate: Option<f32>,
 ) -> Result<TransactionDetails> {
-    let destination = Address::from_str(destination)?;
+    let address = Address::from_str(destination)?;
+    validate_address(&address).await?;
+    debug!(format!("Create drain wallet tx to: {address:#?}"));
+
     let wallet = get_wallet(descriptor, change_descriptor).await?;
     sync_wallet(&wallet).await?;
+
     let fee_rate = fee_rate.map(FeeRate::from_sat_per_vb);
 
-    debug!(format!("Create drain wallet tx to: {destination:#?}"));
     let (mut psbt, details) = {
         let locked_wallet = wallet.lock().await;
         let mut builder = locked_wallet.build_tx();
@@ -429,7 +442,7 @@ pub async fn drain_wallet(
             builder.fee_rate(fee_rate);
         }
         builder.drain_wallet();
-        builder.drain_to(destination.script_pubkey());
+        builder.drain_to(address.script_pubkey());
         builder.finish()?
     };
 
