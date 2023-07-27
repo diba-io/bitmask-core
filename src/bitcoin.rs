@@ -4,7 +4,7 @@ use ::bitcoin::util::address::Address;
 use ::psbt::Psbt;
 use anyhow::{anyhow, Result};
 use argon2::Argon2;
-use bdk::{wallet::AddressIndex, FeeRate, LocalUtxo, TransactionDetails};
+use bdk::{wallet::AddressIndex, FeeRate, LocalUtxo, SignOptions, TransactionDetails};
 use bitcoin::psbt::PartiallySignedTransaction;
 use serde_encrypt::{
     serialize::impls::BincodeSerializer, shared_key::SharedKey, traits::SerdeEncryptSharedKey,
@@ -408,4 +408,68 @@ pub async fn sign_psbt_file(request: SignPsbtRequest) -> Result<SignPsbtResponse
     };
 
     Ok(resp)
+}
+
+pub async fn drain_wallet(
+    destination: &str,
+    descriptor: &SecretString,
+    change_descriptor: Option<&SecretString>,
+    fee_rate: Option<f32>,
+) -> Result<TransactionDetails> {
+    let destination = Address::from_str(destination)?;
+    let wallet = get_wallet(descriptor, change_descriptor).await?;
+    sync_wallet(&wallet).await?;
+    let fee_rate = fee_rate.map(FeeRate::from_sat_per_vb);
+
+    debug!(format!("Create drain wallet tx to: {destination:#?}"));
+    let (mut psbt, details) = {
+        let locked_wallet = wallet.lock().await;
+        let mut builder = locked_wallet.build_tx();
+        if let Some(fee_rate) = fee_rate {
+            builder.fee_rate(fee_rate);
+        }
+        builder.drain_wallet();
+        builder.drain_to(destination.script_pubkey());
+        builder.finish()?
+    };
+
+    debug!("Signing PSBT...");
+    let finalized = wallet
+        .lock()
+        .await
+        .sign(&mut psbt, SignOptions::default())?;
+
+    if !finalized {
+        return Err(anyhow!("Error in drain wallet x"));
+    }
+    debug!(format!("Finalized: {finalized}"));
+
+    let blockchain = get_blockchain().await;
+    let tx = psbt.extract_tx();
+    blockchain.broadcast(&tx).await?;
+    let tx = blockchain.get_tx(&details.txid).await?;
+
+    if let Some(transaction) = tx.clone() {
+        let sent = transaction
+            .output
+            .iter()
+            .fold(0, |sum, output| output.value + sum);
+
+        let details = TransactionDetails {
+            transaction: tx,
+            txid: transaction.txid(),
+            received: 0,
+            sent,
+            fee: details.fee,
+            confirmation_time: None,
+        };
+
+        info!(format!(
+            "Drain wallet transaction submitted with details: {details:#?}"
+        ));
+
+        Ok(details)
+    } else {
+        Err(anyhow!("Error getting tx details"))
+    }
 }
