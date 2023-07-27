@@ -1,11 +1,11 @@
 #![cfg(not(target_arch = "wasm32"))]
 use anyhow::Result;
 use bitmask_core::{
-    bitcoin::{drain_wallet, get_wallet_data, save_mnemonic},
+    bitcoin::{drain_wallet, get_wallet_data, new_mnemonic, save_mnemonic},
     structs::SecretString,
 };
 
-use crate::rgb::integration::utils::{send_some_coins, ISSUER_MNEMONIC, OWNER_MNEMONIC};
+use crate::rgb::integration::utils::{send_some_coins, OWNER_MNEMONIC};
 
 #[tokio::test]
 pub async fn drain() -> Result<()> {
