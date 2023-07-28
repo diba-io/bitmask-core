@@ -1,11 +1,11 @@
 use std::{collections::BTreeMap, sync::Arc};
 
-use anyhow::Result;
 use bdk::{blockchain::esplora::EsploraBlockchain, database::MemoryDatabase, SyncOptions, Wallet};
 use bitcoin::Network;
 use bitcoin_hashes::{sha256, Hash};
 use futures::Future;
 use once_cell::sync::Lazy;
+use thiserror::Error;
 use tokio::sync::{Mutex, RwLock};
 
 use crate::{
@@ -13,6 +13,16 @@ use crate::{
     debug,
     structs::SecretString,
 };
+
+#[derive(Error, Debug)]
+pub enum BitcoinWalletError {
+    /// Unexpected key variant in get_descriptor
+    #[error("Unexpected key variant in get_descriptor")]
+    UnexpectedKey,
+    /// BDK error
+    #[error(transparent)]
+    BdkError(#[from] bdk::Error),
+}
 
 pub type MemoryWallet = Arc<Mutex<Wallet<MemoryDatabase>>>;
 type Wallets = BTreeMap<(String, Option<String>), MemoryWallet>;
@@ -28,11 +38,14 @@ struct Networks {
 
 static BDK: Lazy<Networks> = Lazy::new(Networks::default);
 
-async fn access_network_wallets<U, F, Fut>(network: Network, mut f: F) -> Result<()>
+async fn access_network_wallets<U, F, Fut>(
+    network: Network,
+    mut f: F,
+) -> Result<(), BitcoinWalletError>
 where
     U: 'static + Send,
     F: 'static + FnMut(NetworkWallet) -> Fut + Send,
-    Fut: 'static + Future<Output = Result<U>> + Send,
+    Fut: 'static + Future<Output = Result<U, BitcoinWalletError>> + Send,
 {
     match network {
         Network::Bitcoin => {
@@ -55,7 +68,7 @@ where
 pub async fn get_wallet(
     descriptor: &SecretString,
     change_descriptor: Option<&SecretString>,
-) -> Result<Arc<Mutex<Wallet<MemoryDatabase>>>> {
+) -> Result<Arc<Mutex<Wallet<MemoryDatabase>>>, BitcoinWalletError> {
     let descriptor_key = format!("{descriptor:?}{change_descriptor:?}");
     let key = sha256::Hash::hash(descriptor_key.as_bytes()).to_string();
 
@@ -110,7 +123,7 @@ pub async fn get_blockchain() -> EsploraBlockchain {
     EsploraBlockchain::new(&BITCOIN_EXPLORER_API.read().await, 1)
 }
 
-pub async fn sync_wallet(wallet: &MemoryWallet) -> Result<()> {
+pub async fn sync_wallet(wallet: &MemoryWallet) -> Result<(), BitcoinWalletError> {
     let blockchain = get_blockchain().await;
     wallet
         .lock()
@@ -122,7 +135,7 @@ pub async fn sync_wallet(wallet: &MemoryWallet) -> Result<()> {
     Ok(())
 }
 
-pub async fn sync_wallets() -> Result<()> {
+pub async fn sync_wallets() -> Result<(), BitcoinWalletError> {
     let network_lock = NETWORK.read().await;
     let network = network_lock.to_owned();
     drop(network_lock);
