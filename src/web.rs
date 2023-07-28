@@ -698,11 +698,11 @@ pub mod lightning {
     }
 
     #[wasm_bindgen]
-    pub fn swap_btc_ln(token: String) -> Promise {
+    pub fn swap_btc_ln(token: String, ln_address: Option<String>) -> Promise {
         set_panic_hook();
 
         future_to_promise(async move {
-            match crate::lightning::swap_btc_ln(&token).await {
+            match crate::lightning::swap_btc_ln(&token, ln_address).await {
                 Ok(result) => Ok(JsValue::from_string(
                     serde_json::to_string(&result).unwrap(),
                 )),
