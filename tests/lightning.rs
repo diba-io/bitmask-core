@@ -34,7 +34,7 @@ pub async fn create_wallet_test() -> Result<()> {
         uname = username;
     }
 
-    assert!(uname.len() == 16);
+    assert_eq!(uname.len(), 16);
 
     Ok(())
 }
