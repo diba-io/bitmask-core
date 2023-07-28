@@ -698,7 +698,7 @@ pub mod lightning {
     }
 
     #[wasm_bindgen]
-    pub fn swap_btc_ln(token: String, ln_address: String) -> Promise {
+    pub fn swap_btc_ln(token: String, ln_address: Option<String>) -> Promise {
         set_panic_hook();
 
         future_to_promise(async move {
