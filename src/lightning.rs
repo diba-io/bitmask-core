@@ -254,9 +254,13 @@ pub async fn check_payment(payment_hash: &str) -> Result<bool> {
 }
 
 /// Swap BTC onchain to Lightning
-pub async fn swap_btc_ln(token: &str) -> Result<SwapBtcLnResponse> {
+pub async fn swap_btc_ln(token: &str, ln_address: Option<String>) -> Result<SwapBtcLnResponse> {
+    let ln_address_query = match ln_address {
+        Some(a) => format!("?lnurl_or_lnaddress={}", a),
+        None => "".to_string(),
+    };
     let endpoint = LNDHUB_ENDPOINT.read().await;
-    let url = format!("{endpoint}/get_onchain_address");
+    let url = format!("{endpoint}/get_onchain_address{ln_address_query}");
     let response = get(&url, Some(token)).await?;
     let r = serde_json::from_str::<SwapBtcLnResponse>(&response)?;
 

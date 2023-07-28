@@ -203,7 +203,7 @@ pub async fn swap_btc_ln_test() -> Result<()> {
     let response = auth(&uname, &uname).await?;
     thread::sleep(time::Duration::from_secs(1));
     if let AuthResponse::Result { refresh: _, token } = response {
-        let response = swap_btc_ln(&token).await?;
+        let response = swap_btc_ln(&token, None).await?;
         assert_eq!(response.secret_access_key.len(), 64);
     } else {
         panic!("Auth failed");
