@@ -136,12 +136,14 @@ async fn get_wallet_balance() -> Result<()> {
 async fn wrong_network() -> Result<()> {
     init_logging("wallet=info");
 
+    switch_network("testnet").await?;
+    let network = get_network().await;
+    info!("Asset test on {network}");
+
     let main_mnemonic = SecretString(env::var("TEST_WALLET_SEED")?);
     let seed_password = SecretString(SEED_PASSWORD.to_owned());
     let hash = hash_password(&SecretString(ENCRYPTION_PASSWORD.to_owned()));
     let encrypted_descriptors = encrypt_wallet(&main_mnemonic, &hash, &seed_password).await?;
-
-    switch_network("testnet").await?;
 
     let main_vault = decrypt_wallet(&hash, &encrypted_descriptors)?;
 
