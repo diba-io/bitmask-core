@@ -1,17 +1,30 @@
-use anyhow::{Error, Result};
 use bdk::{blockchain::Blockchain, psbt::PsbtUtils, SignOptions, TransactionDetails};
 use bitcoin::{consensus::serialize, util::psbt::PartiallySignedTransaction};
+use thiserror::Error;
 
 use crate::{
     bitcoin::{get_blockchain, MemoryWallet},
     debug,
 };
 
+#[derive(Error, Debug)]
+pub enum BitcoinPsbtError {
+    /// Could not finalize when signing PSBT
+    #[error("Could not finalize when signing PSBT")]
+    CouldNotFinalizePsbt,
+    /// BDK error
+    #[error(transparent)]
+    BdkError(#[from] bdk::Error),
+    /// BDK esplora error
+    #[error(transparent)]
+    BdkEsploraError(#[from] bdk::esplora_client::Error),
+}
+
 /// Signs and broadcasts a transaction given a Psbt
 pub async fn sign_psbt(
     wallet: &MemoryWallet,
     mut psbt: PartiallySignedTransaction,
-) -> Result<TransactionDetails> {
+) -> Result<TransactionDetails, BitcoinPsbtError> {
     debug!("Signing PSBT...");
     let finalized = wallet
         .lock()
@@ -48,7 +61,7 @@ pub async fn sign_psbt(
 
         Ok(details)
     } else {
-        Err(Error::msg("Could not finalize when signing PSBT"))
+        Err(BitcoinPsbtError::CouldNotFinalizePsbt)
     }
 }
 
@@ -56,7 +69,7 @@ pub async fn sign_psbt(
 pub async fn sign_original_psbt(
     wallet: &MemoryWallet,
     mut psbt: PartiallySignedTransaction,
-) -> Result<PartiallySignedTransaction> {
+) -> Result<PartiallySignedTransaction, BitcoinPsbtError> {
     debug!("Funding PSBT...");
     let opts = SignOptions {
         remove_partial_sigs: false,
@@ -69,7 +82,7 @@ pub async fn sign_original_psbt(
 pub async fn sign_psbt_with_multiple_wallets(
     wallets: Vec<MemoryWallet>,
     mut psbt: PartiallySignedTransaction,
-) -> Result<TransactionDetails> {
+) -> Result<TransactionDetails, BitcoinPsbtError> {
     let total_wallets = wallets.len();
     debug!(format!(
         "Signing PSBT ({total_wallets}/{total_wallets}) ..."
@@ -118,6 +131,6 @@ pub async fn sign_psbt_with_multiple_wallets(
 
         Ok(details)
     } else {
-        Err(Error::msg("Could not finalize when signing PSBT"))
+        Err(BitcoinPsbtError::CouldNotFinalizePsbt)
     }
 }

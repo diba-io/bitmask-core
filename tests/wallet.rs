@@ -1,10 +1,11 @@
 #![cfg(not(target_arch = "wasm32"))]
 use std::env;
 
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use bitmask_core::{
     bitcoin::{
         decrypt_wallet, encrypt_wallet, get_wallet_data, hash_password, new_wallet, send_sats,
+        BitcoinError,
     },
     constants::{get_network, switch_network},
     structs::SecretString,
@@ -153,11 +154,7 @@ async fn wrong_network() -> Result<()> {
     )
     .await;
 
-    assert_eq!(
-        result,
-        Err(anyhow!("Address provided is on the wrong network!")),
-        "sending testnet funds to a mainnet funds should result in an error"
-    );
+    assert!(matches!(result, Err(BitcoinError::WrongNetwork)));
 
     Ok(())
 }

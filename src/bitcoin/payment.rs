@@ -1,5 +1,3 @@
-use anyhow::{anyhow, Result};
-
 use bdk::{wallet::tx_builder::TxOrdering, FeeRate, TransactionDetails};
 
 use bitcoin::{
@@ -7,23 +5,45 @@ use bitcoin::{
     psbt::{Input, Psbt},
     Amount, TxIn,
 };
-
 use payjoin::{send::Configuration, PjUri, PjUriExt};
+use thiserror::Error;
 
 use crate::{
     bitcoin::{
-        psbt::{sign_original_psbt, sign_psbt},
+        psbt::{sign_original_psbt, sign_psbt, BitcoinPsbtError},
         wallet::MemoryWallet,
     },
     debug, info,
     structs::SatsInvoice,
 };
 
+#[derive(Error, Debug)]
+pub enum BitcoinPaymentError {
+    /// Payjoin error response
+    #[error("Error performing payjoin: {0}")]
+    PayjoinError(String),
+    /// BitMask Core Bitcoin Psbt error
+    #[error(transparent)]
+    BitcoinPsbtError(#[from] BitcoinPsbtError),
+    /// BDK error
+    #[error(transparent)]
+    BdkError(#[from] bdk::Error),
+    /// Payjoin Request error
+    #[error(transparent)]
+    PayjoinGetRequestError(#[from] payjoin::send::CreateRequestError),
+    /// Payjoin Send error
+    #[error(transparent)]
+    PayjoinSendError(#[from] payjoin::send::ValidationError),
+    /// Reqwest error
+    #[error(transparent)]
+    ReqwestError(#[from] reqwest::Error),
+}
+
 pub async fn create_transaction(
     invoices: Vec<SatsInvoice>,
     wallet: &MemoryWallet,
     fee_rate: Option<FeeRate>,
-) -> Result<TransactionDetails> {
+) -> Result<TransactionDetails, BitcoinPaymentError> {
     let (psbt, details) = {
         let locked_wallet = wallet.lock().await;
         let mut builder = locked_wallet.build_tx();
@@ -48,7 +68,7 @@ pub async fn create_payjoin(
     wallet: &MemoryWallet,
     fee_rate: Option<FeeRate>,
     pj_uri: PjUri<'_>, // TODO specify Uri<PayJoinParams>
-) -> Result<TransactionDetails> {
+) -> Result<TransactionDetails, BitcoinPaymentError> {
     let enacted_fee_rate = fee_rate.unwrap_or_default();
     let (psbt, details) = {
         let locked_wallet = wallet.lock().await;
@@ -114,7 +134,7 @@ pub async fn create_payjoin(
     info!(format!("Response: {res}"));
 
     if res.contains("errorCode") {
-        return Err(anyhow!("Error performing payjoin: {res}"));
+        return Err(BitcoinPaymentError::PayjoinError(format!("{res:?}")));
     }
 
     let payjoin_psbt = ctx.process_response(&mut res.as_bytes())?;

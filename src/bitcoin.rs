@@ -2,7 +2,6 @@ use std::str::FromStr;
 
 use ::bitcoin::util::address::Address;
 use ::psbt::Psbt;
-use anyhow::{anyhow, Result};
 use argon2::Argon2;
 use bdk::{wallet::AddressIndex, FeeRate, LocalUtxo, SignOptions, TransactionDetails};
 use bitcoin::psbt::PartiallySignedTransaction;
@@ -10,6 +9,7 @@ use serde_encrypt::{
     serialize::impls::BincodeSerializer, shared_key::SharedKey, traits::SerdeEncryptSharedKey,
     AsSharedKey, EncryptedMessage,
 };
+use thiserror::Error;
 use zeroize::Zeroize;
 
 mod assets;
@@ -21,9 +21,11 @@ mod wallet;
 pub use crate::bitcoin::{
     assets::dust_tx,
     keys::{new_mnemonic, save_mnemonic, BitcoinKeysError},
-    payment::{create_payjoin, create_transaction},
-    psbt::{sign_psbt, sign_psbt_with_multiple_wallets},
-    wallet::{get_blockchain, get_wallet, sync_wallet, sync_wallets, MemoryWallet},
+    payment::{create_payjoin, create_transaction, BitcoinPaymentError},
+    psbt::{sign_psbt, sign_psbt_with_multiple_wallets, BitcoinPsbtError},
+    wallet::{
+        get_blockchain, get_wallet, sync_wallet, sync_wallets, BitcoinWalletError, MemoryWallet,
+    },
 };
 
 use crate::{
@@ -42,6 +44,60 @@ impl SerdeEncryptSharedKey for DecryptedWalletData {
 
 impl SerdeEncryptSharedKey for EncryptedWalletDataV04 {
     type S = BincodeSerializer<Self>;
+}
+
+#[derive(Error, Debug)]
+pub enum BitcoinError {
+    /// Wrong Encrypted Descriptor Format
+    #[error(
+        "Wrong Format: Encrypted descriptor is not prefixed with DIBA magic number. Prefix was: {0}"
+    )]
+    WrongEncryptedDescriptorMagicNo(String),
+    /// Wrong Encrypted Descriptor Version
+    #[error("Wrong Version: Encrypted descriptor is the wrong version. The version byte was: {0}")]
+    WrongEncryptedDescriptorVersion(u8),
+    /// Upgrade unnecessary
+    #[error("Descriptor does not need to be upgraded")]
+    UpgradeUnnecessary,
+    /// Wrong network
+    #[error("Address provided is on the wrong network!")]
+    WrongNetwork,
+    /// Drain wallet unable to finalize PSBT
+    #[error("Drain wallet was unable to finalize PSBT")]
+    DrainWalletUnfinalizedPsbt,
+    /// Drain wallet was unable to find tx details
+    #[error("No wallet transaction details were found when draining wallet")]
+    DrainWalletNoTxDetails,
+    /// BitMask Core Bitcoin Keys error
+    #[error(transparent)]
+    BitcoinKeysError(#[from] BitcoinKeysError),
+    /// BitMask Core Bitcoin Payment error
+    #[error(transparent)]
+    BitcoinPaymentError(#[from] BitcoinPaymentError),
+    /// BitMask Core Bitcoin Psbt error
+    #[error(transparent)]
+    BitcoinPsbtError(#[from] BitcoinPsbtError),
+    /// BitMask Core Bitcoin Wallet error
+    #[error(transparent)]
+    BitcoinWalletError(#[from] BitcoinWalletError),
+    /// hex decode error
+    #[error(transparent)]
+    HexDecodeError(#[from] hex::FromHexError),
+    /// serde encrypt error
+    #[error(transparent)]
+    SerdeEncryptError(#[from] serde_encrypt::Error),
+    /// BDK error
+    #[error(transparent)]
+    BdkError(#[from] bdk::Error),
+    /// BDK esplora error
+    #[error(transparent)]
+    BdkEsploraError(#[from] bdk::esplora_client::Error),
+    /// Bitcoin address error
+    #[error(transparent)]
+    BitcoinAddressError(#[from] bitcoin::util::address::Error),
+    /// PSBT decode error
+    #[error(transparent)]
+    BitcoinPsbtDecodeError(#[from] bitcoin::consensus::encode::Error),
 }
 
 /// Bitcoin Wallet Operations
@@ -67,7 +123,7 @@ pub fn hash_password(password: &SecretString) -> SecretString {
 pub fn decrypt_wallet(
     hash: &SecretString,
     encrypted_descriptors: &SecretString,
-) -> Result<DecryptedWalletData> {
+) -> Result<DecryptedWalletData, BitcoinError> {
     let mut shared_key: [u8; 32] = hex::decode(&hash.0)?
         .try_into()
         .expect("hash is of fixed size");
@@ -75,15 +131,14 @@ pub fn decrypt_wallet(
     let (version_prefix, encrypted_descriptors) = encrypted_descriptors.split_at(5);
 
     if !version_prefix.starts_with(&DIBA_MAGIC_NO) {
-        return Err(anyhow!(
-            "Wrong Format: Encrypted descriptor is not prefixed with DIBA magic number. Prefix was: {version_prefix:?}"
-        ));
+        return Err(BitcoinError::WrongEncryptedDescriptorMagicNo(format!(
+            "{version_prefix:#?}"
+        )));
     }
 
     if version_prefix[4] != DIBA_DESCRIPTOR_VERSION {
-        return Err(anyhow!(
-            "Wrong Version: Encrypted descriptor is the wrong version. The version byte was: {}",
-            version_prefix[4]
+        return Err(BitcoinError::WrongEncryptedDescriptorVersion(
+            version_prefix[4],
         ));
     }
 
@@ -101,7 +156,7 @@ pub async fn upgrade_wallet(
     hash: &SecretString,
     encrypted_descriptors: &SecretString,
     seed_password: &SecretString,
-) -> Result<SecretString> {
+) -> Result<SecretString, BitcoinError> {
     // read hash digest and consume hasher
     let shared_key: [u8; 32] = hex::decode(&hash.0)?
         .try_into()
@@ -111,7 +166,7 @@ pub async fn upgrade_wallet(
 
     match DecryptedWalletData::decrypt_owned(&encrypted_message, &SharedKey::from_array(shared_key))
     {
-        Ok(_data) => Err(anyhow!("Descriptor does not need to be upgraded")),
+        Ok(_data) => Err(BitcoinError::UpgradeUnnecessary),
         Err(_err) => {
             // If there's a deserialization error, attempt to recover just the mnemnonic.
             let recovered_wallet_data = EncryptedWalletDataV04::decrypt_owned(
@@ -146,7 +201,10 @@ pub fn versioned_descriptor(encrypted_message: EncryptedMessage) -> SecretString
     encrypted
 }
 
-pub async fn new_wallet(hash: &SecretString, seed_password: &SecretString) -> Result<SecretString> {
+pub async fn new_wallet(
+    hash: &SecretString,
+    seed_password: &SecretString,
+) -> Result<SecretString, BitcoinError> {
     let mut shared_key: [u8; 32] = hex::decode(&hash.0)?
         .try_into()
         .expect("hash is of fixed size");
@@ -162,7 +220,7 @@ pub async fn encrypt_wallet(
     mnemonic_phrase: &SecretString,
     hash: &SecretString,
     seed_password: &SecretString,
-) -> Result<SecretString> {
+) -> Result<SecretString, BitcoinError> {
     let shared_key: [u8; 32] = hex::decode(&hash.0)?
         .try_into()
         .expect("hash is of fixed size");
@@ -176,7 +234,7 @@ pub async fn encrypt_wallet(
 pub async fn get_wallet_data(
     descriptor: &SecretString,
     change_descriptor: Option<&SecretString>,
-) -> Result<WalletData> {
+) -> Result<WalletData, BitcoinError> {
     info!("get_wallet_data");
 
     let wallet = get_wallet(descriptor, change_descriptor).await?;
@@ -233,7 +291,7 @@ pub async fn get_wallet_data(
 pub async fn get_new_address(
     descriptor: &SecretString,
     change_descriptor: Option<&SecretString>,
-) -> Result<String> {
+) -> Result<String, BitcoinError> {
     info!("get_new_address");
 
     let wallet = get_wallet(descriptor, change_descriptor).await?;
@@ -246,9 +304,9 @@ pub async fn get_new_address(
     Ok(address)
 }
 
-pub async fn validate_address(address: &Address) -> Result<()> {
-    if address.network == *NETWORK.read().await {
-        Err(anyhow!("Address provided is on the wrong network!"))
+pub async fn validate_address(address: &Address) -> Result<(), BitcoinError> {
+    if address.network != *NETWORK.read().await {
+        Err(BitcoinError::WrongNetwork)
     } else {
         Ok(())
     }
@@ -260,7 +318,7 @@ pub async fn send_sats(
     destination: &str, // bip21 uri or address
     amount: u64,
     fee_rate: Option<f32>,
-) -> Result<TransactionDetails> {
+) -> Result<TransactionDetails, BitcoinError> {
     use payjoin::UriExt;
 
     let wallet = get_wallet(descriptor, Some(change_descriptor)).await?;
@@ -300,7 +358,7 @@ pub async fn fund_vault(
     asset_amount: u64,
     uda_amount: u64,
     fee_rate: Option<f32>,
-) -> Result<FundVaultDetails> {
+) -> Result<FundVaultDetails, BitcoinError> {
     let assets_address = Address::from_str(assets_address)?;
     let uda_address = Address::from_str(uda_address)?;
 
@@ -358,7 +416,7 @@ fn utxo_string(utxo: &LocalUtxo) -> String {
 pub async fn get_assets_vault(
     rgb_assets_descriptor_xpub: &SecretString,
     rgb_udas_descriptor_xpub: &SecretString,
-) -> Result<FundVaultDetails> {
+) -> Result<FundVaultDetails, BitcoinError> {
     let assets_wallet = get_wallet(rgb_assets_descriptor_xpub, None).await?;
     let udas_wallet = get_wallet(rgb_udas_descriptor_xpub, None).await?;
 
@@ -393,7 +451,7 @@ pub async fn get_assets_vault(
     })
 }
 
-pub async fn sign_psbt_file(request: SignPsbtRequest) -> Result<SignPsbtResponse> {
+pub async fn sign_psbt_file(request: SignPsbtRequest) -> Result<SignPsbtResponse, BitcoinError> {
     let SignPsbtRequest { psbt, descriptors } = request;
 
     let original_psbt = Psbt::from_str(&psbt)?;
@@ -425,7 +483,7 @@ pub async fn drain_wallet(
     descriptor: &SecretString,
     change_descriptor: Option<&SecretString>,
     fee_rate: Option<f32>,
-) -> Result<TransactionDetails> {
+) -> Result<TransactionDetails, BitcoinError> {
     let address = Address::from_str(destination)?;
     validate_address(&address).await?;
     debug!(format!("Create drain wallet tx to: {address:#?}"));
@@ -453,7 +511,7 @@ pub async fn drain_wallet(
         .sign(&mut psbt, SignOptions::default())?;
 
     if !finalized {
-        return Err(anyhow!("Error in drain wallet x"));
+        return Err(BitcoinError::DrainWalletUnfinalizedPsbt);
     }
     debug!(format!("Finalized: {finalized}"));
 
@@ -483,6 +541,6 @@ pub async fn drain_wallet(
 
         Ok(details)
     } else {
-        Err(anyhow!("Error getting tx details"))
+        Err(BitcoinError::DrainWalletNoTxDetails)
     }
 }
