@@ -702,7 +702,7 @@ pub mod lightning {
         set_panic_hook();
 
         future_to_promise(async move {
-            match crate::lightning::swap_btc_ln(&token, &ln_address).await {
+            match crate::lightning::swap_btc_ln(&token, ln_address).await {
                 Ok(result) => Ok(JsValue::from_string(
                     serde_json::to_string(&result).unwrap(),
                 )),
