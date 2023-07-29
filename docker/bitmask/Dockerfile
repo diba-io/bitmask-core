@@ -17,8 +17,6 @@ FROM rust:1.70-slim-buster AS runtime
 
 ARG BUILDER_DIR=/srv/bitmask
 ARG BIN_DIR=/usr/local/bin
-#ARG BIN_DIR=/app .... this didn;t work bitmaskd not found
-#ARG DATA_DIR=/tmp/bitmaskd/carbonado/
 ARG DATA_DIR=/data
 ARG USER=bitmask
 
