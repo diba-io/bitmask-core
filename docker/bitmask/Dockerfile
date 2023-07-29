@@ -17,7 +17,9 @@ FROM rust:1.70-slim-buster AS runtime
 
 ARG BUILDER_DIR=/srv/bitmask
 ARG BIN_DIR=/usr/local/bin
-ARG DATA_DIR=/tmp/bitmaskd/carbonado/
+#ARG BIN_DIR=/app .... this didn;t work bitmaskd not found
+#ARG DATA_DIR=/tmp/bitmaskd/carbonado/
+ARG DATA_DIR=/data
 ARG USER=bitmask
 
 RUN apt-get update -y && apt-get install -y iputils-ping telnet \
@@ -30,7 +32,9 @@ COPY --from=builder --chown=${USER}:${USER} \
      "${BUILDER_DIR}/bin/" "${BIN_DIR}"
 
 USER ${USER}
-VOLUME ${DATA_DIR}
+RUN chown -R bitmask:bitmask /data
+
+VOLUME /_data
 EXPOSE 7070
 
 WORKDIR ${BIN_DIR}
