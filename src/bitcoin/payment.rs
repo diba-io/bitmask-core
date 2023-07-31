@@ -86,14 +86,14 @@ pub async fn create_payjoin(
     info!("Original PSBT successfully signed");
 
     let additional_fee_index = psbt
-        .outputs
+        .unsigned_tx
+        .output
         .clone()
         .into_iter()
         .enumerate()
-        .find(|(_, output)| {
+        .find(|(_, txo)| {
             invoices.iter().all(|invoice| {
-                output.redeem_script != Some(invoice.address.script_pubkey())
-                    && output.witness_script != Some(invoice.address.script_pubkey())
+                txo.script_pubkey != invoice.address.script_pubkey()
             })
         })
         .map(|(i, _)| i);
