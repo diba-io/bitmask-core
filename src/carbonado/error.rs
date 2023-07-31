@@ -16,6 +16,7 @@ pub enum CarbonadoError {
     /// General Carbonado error
     CarbonadoError(#[from] carbonado::error::CarbonadoError),
     /// JS Error
+    #[cfg(not(feature = "server"))]
     JsError(#[from] gloo_utils::errors::JsError),
     /// All endpoints failed error
     AllEndpointsFailed,
