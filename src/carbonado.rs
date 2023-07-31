@@ -151,14 +151,14 @@ mod server {
     }
 }
 
-#[cfg(not(feature = "server"))]
+#[cfg(target_arch = "wasm32")]
 pub use client::retrieve;
-#[cfg(not(feature = "server"))]
+#[cfg(target_arch = "wasm32")]
 pub use client::retrieve_metadata;
-#[cfg(not(feature = "server"))]
+#[cfg(target_arch = "wasm32")]
 pub use client::store;
 
-#[cfg(not(feature = "server"))]
+#[cfg(target_arch = "wasm32")]
 mod client {
     use super::*;
 
