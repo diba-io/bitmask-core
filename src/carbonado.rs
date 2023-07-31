@@ -1,20 +1,65 @@
-#[cfg(feature = "server")]
-use crate::info;
-#[cfg(feature = "server")]
-use tokio::fs;
-
 use amplify::hex::ToHex;
 use bitcoin_30::secp256k1::{PublicKey, SecretKey};
-use std::io::{Error, ErrorKind};
+#[cfg(not(feature = "server"))]
+use gloo_utils::errors::JsError;
+#[cfg(not(feature = "server"))]
+use js_sys::{Promise, Uint8Array};
 #[cfg(feature = "server")]
 use std::path::PathBuf;
+use std::{
+    io::{Error, ErrorKind},
+    sync::Arc,
+};
+#[cfg(feature = "server")]
+use tokio::fs;
+#[cfg(not(feature = "server"))]
+use wasm_bindgen::JsValue;
 
 pub mod error;
 
-use crate::{carbonado::error::CarbonadoError, constants::NETWORK, structs::FileMetadata};
+use crate::{carbonado::error::CarbonadoError, constants::NETWORK, info, structs::FileMetadata};
 
 #[cfg(not(feature = "server"))]
 use crate::constants::CARBONADO_ENDPOINT;
+
+#[cfg(not(feature = "server"))]
+fn js_to_error(js_value: JsValue) -> CarbonadoError {
+    CarbonadoError::JsError(js_to_js_error(js_value))
+}
+
+#[cfg(not(feature = "server"))]
+fn js_to_js_error(js_value: JsValue) -> JsError {
+    match JsError::try_from(js_value) {
+        Ok(error) => error,
+        Err(_) => unreachable!("JsValue passed is not an Error type -- this is a bug"),
+    }
+}
+
+#[cfg(not(feature = "server"))]
+async fn store_fetch(url: &str, body: Arc<Vec<u8>>) -> Promise {
+    let array = Uint8Array::new_with_length(body.len() as u32);
+    array.copy_from(&body);
+
+    let response = gloo_net::http::Request::post(url)
+        .header("Content-Type", "application/octet-stream")
+        .header("Cache-Control", "no-cache")
+        .body(array)
+        .unwrap()
+        .send()
+        .await;
+
+    match response {
+        Ok(response) => {
+            let status_code = response.status();
+            if status_code == 200 {
+                Promise::resolve(&JsValue::from(status_code))
+            } else {
+                Promise::reject(&JsValue::from(status_code))
+            }
+        }
+        Err(e) => Promise::reject(&JsValue::from(e.to_string())),
+    }
+}
 
 #[cfg(not(feature = "server"))]
 pub async fn store(
@@ -24,7 +69,8 @@ pub async fn store(
     force: bool,
     metadata: Option<Vec<u8>>,
 ) -> Result<(), CarbonadoError> {
-    use std::sync::atomic::{AtomicU8, Ordering};
+    use js_sys::Array;
+    use wasm_bindgen_futures::JsFuture;
 
     let level = 15;
     let sk = hex::decode(sk)?;
@@ -35,7 +81,7 @@ pub async fn store(
 
     let meta: Option<[u8; 8]> = metadata.map(|m| m.try_into().expect("invalid metadata size"));
     let (body, _encode_info) = carbonado::file::encode(&sk, Some(&pk), input, level, meta)?;
-
+    let body = Arc::new(body);
     let network = NETWORK.read().await.to_string();
 
     let mut force_write = "";
@@ -43,46 +89,29 @@ pub async fn store(
         force_write = "/force";
     }
 
-    let endpoints: Vec<&str> = CARBONADO_ENDPOINT
-        .read()
-        .await
-        .to_string()
-        .split(",")
-        .collect();
-
-    let successes = AtomicU8::new(0);
-
+    let endpoints = CARBONADO_ENDPOINT.read().await.to_string();
+    let endpoints: Vec<&str> = endpoints.split(',').collect();
+    let requests = Array::new();
     for endpoint in endpoints {
-        tokio::spawn(async {
-            let url = format!("{endpoint}/{pk_hex}/{network}-{name}{force_write}");
-            let client = reqwest::Client::new();
-            let response = client
-                .post(&url)
-                .body(body)
-                .header("Content-Type", "application/octet-stream")
-                .header("Cache-Control", "no-cache")
-                .send()
-                .await;
-
-            match response {
-                Ok(response) => {
-                    let status_code = response.status().as_u16();
-                    if status_code == 200 {
-                        successes.fetch_add(1, Ordering::SeqCst);
-                    }
-                }
-                Err(_) => {}
-            }
-        });
+        let url = format!("{endpoint}/{pk_hex}/{network}-{name}{force_write}");
+        let fetch_fn = JsValue::from(store_fetch(&url, body.clone()).await);
+        requests.push(&fetch_fn);
     }
 
-    if successes.load(Ordering::SeqCst) == 0 {
-        Err(CarbonadoError::StdIoError(Error::new(
-            ErrorKind::Other,
-            format!("Error in storing carbonado file; no endpoints were successful"),
-        )))
-    } else {
+    let results = JsFuture::from(Promise::all_settled(&JsValue::from(requests)))
+        .await
+        .map_err(js_to_error)?;
+
+    info!(format!("Store results: {results:?}"));
+
+    let success = Array::from(&results)
+        .iter()
+        .any(|status| status.as_f64() == Some(200.0));
+
+    if success {
         Ok(())
+    } else {
+        Err(CarbonadoError::AllEndpointsFailed)
     }
 }
 
@@ -115,10 +144,12 @@ pub async fn retrieve_metadata(sk: &str, name: &str) -> Result<FileMetadata, Car
     let public_key = PublicKey::from_secret_key_global(&secret_key);
     let pk = public_key.to_hex();
 
-    let endpoint = CARBONADO_ENDPOINT.read().await.to_string();
     let network = NETWORK.read().await.to_string();
-    let name = format!("{network}-{name}");
-    let url = format!("{endpoint}/{pk}/{name}/metadata");
+    let endpoints = CARBONADO_ENDPOINT.read().await.to_string();
+    let endpoints: Vec<&str> = endpoints.split(',').collect();
+    let endpoint = endpoints.first().unwrap(); // TODO: use Promise::race();
+
+    let url = format!("{endpoint}/{pk}/{network}-{name}/metadata");
     let client = reqwest::Client::new();
     let response = client
         .get(&url)

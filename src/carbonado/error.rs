@@ -15,4 +15,8 @@ pub enum CarbonadoError {
     NostrPrivateKey(#[from] nostr_sdk::secp256k1::Error),
     /// General Carbonado error
     CarbonadoError(#[from] carbonado::error::CarbonadoError),
+    /// JS Error
+    JsError(#[from] gloo_utils::errors::JsError),
+    /// All endpoints failed error
+    AllEndpointsFailed,
 }
