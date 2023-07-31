@@ -166,6 +166,7 @@ mod client {
 
     use gloo_utils::errors::JsError;
     use js_sys::{Promise, Uint8Array};
+    use serde::Deserialize;
     use wasm_bindgen::JsValue;
 
     use crate::constants::CARBONADO_ENDPOINT;
@@ -179,6 +180,11 @@ mod client {
             Ok(error) => error,
             Err(_) => unreachable!("JsValue passed is not an Error type -- this is a bug"),
         }
+    }
+
+    #[derive(Debug, Deserialize)]
+    struct PromiseResult {
+        value: f64,
     }
 
     async fn store_fetch(url: &str, body: Arc<Vec<u8>>) -> Promise {
@@ -248,10 +254,8 @@ mod client {
 
         info!(format!("Store results: {results:?}"));
 
-        let success = Array::from(&results)
-            .iter()
-            .any(|status| status.as_f64() == Some(200.0));
-
+        let results = serde_wasm_bindgen::from_value::<Vec<PromiseResult>>(results)?;
+        let success = results.iter().any(|result| result.value == 200.0);
         if success {
             Ok(())
         } else {
