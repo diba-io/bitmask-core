@@ -469,11 +469,11 @@ pub struct PsbtRequest {
     #[garde(length(min = 0, max = 999))]
     pub asset_inputs: Vec<PsbtInputRequest>,
     /// Asset Descriptor Change
-    #[garde(custom(is_descriptor))]
-    pub asset_descriptor_change: SecretString,
+    #[garde(skip)]
+    pub asset_descriptor_change: Option<SecretString>,
     /// Asset Terminal Change (default: /10/0)
-    #[garde(custom(is_terminal_path))]
-    pub asset_terminal_change: String,
+    #[garde(skip)]
+    pub asset_terminal_change: Option<String>,
     /// Bitcoin UTXOs
     #[garde(dive)]
     #[garde(length(min = 0, max = 999))]
@@ -512,6 +512,12 @@ pub struct PsbtInputRequest {
 pub enum PsbtFeeRequest {
     Value(#[garde(range(min = 0, max = u64::MAX))] u64),
     FeeRate(#[garde(skip)] f32),
+}
+
+impl Default for PsbtFeeRequest {
+    fn default() -> Self {
+        Self::Value(0)
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

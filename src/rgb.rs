@@ -575,8 +575,8 @@ pub async fn create_psbt(sk: &str, request: PsbtRequest) -> Result<PsbtResponse,
     let (psbt_file, change_terminal) = create_rgb_psbt(
         all_inputs,
         bitcoin_changes,
-        asset_terminal_change,
         fee,
+        asset_terminal_change,
         wallet.cloned(),
         &resolver,
     )
@@ -845,12 +845,12 @@ pub async fn full_transfer_asset(
         }
 
         let psbt_req = PsbtRequest {
-            asset_inputs,
-            asset_descriptor_change: SecretString(String::new()),
-            asset_terminal_change: String::new(),
             bitcoin_inputs,
             bitcoin_changes: vec![],
             fee: request.fee,
+            asset_inputs,
+            asset_descriptor_change: None,
+            asset_terminal_change: None,
         };
 
         let psbt_response = create_psbt(sk, psbt_req).await?;
@@ -1121,6 +1121,7 @@ pub async fn import(sk: &str, request: ImportRequest) -> Result<ContractResponse
     Ok(resp)
 }
 
+// TODO: Extracte all watcher operations to watcher module
 #[derive(Debug, Clone, Eq, PartialEq, Display, From, Error)]
 #[display(doc_comments)]
 pub enum WatcherError {

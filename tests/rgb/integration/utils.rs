@@ -342,8 +342,8 @@ pub async fn create_new_psbt(
     }
 
     let req = PsbtRequest {
-        asset_descriptor_change: SecretString(descriptor_pub.clone()),
-        asset_terminal_change: terminal_change.to_owned(),
+        asset_descriptor_change: Some(SecretString(descriptor_pub.clone())),
+        asset_terminal_change: Some(terminal_change.to_owned()),
         asset_inputs: inputs,
         bitcoin_inputs: vec![],
         bitcoin_changes: vec![],
@@ -522,8 +522,8 @@ pub async fn create_new_psbt_v2(
 
     let default_fee = fee_strategy.unwrap_or(PsbtFeeRequest::Value(1000));
     let req = PsbtRequest {
-        asset_descriptor_change: SecretString(descriptor_pub.clone()),
-        asset_terminal_change: terminal_change.to_owned(),
+        asset_descriptor_change: Some(SecretString(descriptor_pub.clone())),
+        asset_terminal_change: Some(terminal_change.to_owned()),
         asset_inputs: inputs,
         bitcoin_inputs: owner_bitcoin_inputs,
         bitcoin_changes,

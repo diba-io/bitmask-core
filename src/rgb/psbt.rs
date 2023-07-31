@@ -82,8 +82,8 @@ pub enum PsbtInputError {
 pub fn create_psbt(
     psbt_inputs: Vec<PsbtInputRequest>,
     psbt_outputs: Vec<String>,
-    asset_terminal_change: String,
     bitcoin_fee: u64,
+    terminal_change: Option<String>,
     wallet: Option<RgbWallet>,
     tx_resolver: &impl ResolveTx,
 ) -> Result<(Psbt, String), CreatePsbtError> {
@@ -180,14 +180,18 @@ pub fn create_psbt(
     }];
 
     // Change Terminal Derivation
-    let change_derivation = asset_terminal_change
-        .parse::<DerivationSubpath<UnhardenedIndex>>()
-        .map_err(CreatePsbtError::WrongTerminal)?;
+    let mut change_index = DerivationSubpath::new();
+    if let Some(terminal_change) = terminal_change {
+        change_index = terminal_change
+            .parse::<DerivationSubpath<UnhardenedIndex>>()
+            .map_err(CreatePsbtError::WrongTerminal)?;
+    }
+
     let mut psbt = Psbt::construct(
         global_descriptor,
         &inputs,
         &outputs,
-        change_derivation.to_vec(),
+        change_index.to_vec(),
         bitcoin_fee,
         tx_resolver,
     )
@@ -226,7 +230,7 @@ pub fn create_psbt(
         }
     }
 
-    Ok((psbt, asset_terminal_change))
+    Ok((psbt, change_index.to_string()))
 }
 
 fn complete_input_desc(
@@ -372,8 +376,8 @@ pub fn save_commit(terminal: &str, commit: Vec<u8>, wallet: &mut RgbWallet) {
 // TODO: [Experimental] Review with Diba Team
 pub fn fee_estimate<T>(
     assets_inputs: Vec<PsbtInputRequest>,
-    asset_descriptor_change: SecretString,
-    asset_terminal_change: String,
+    asset_descriptor_change: Option<SecretString>,
+    asset_terminal_change: Option<String>,
     bitcoin_inputs: Vec<PsbtInputRequest>,
     bitcoin_changes: Vec<String>,
     fee_rate: f32,
@@ -408,7 +412,7 @@ where
 
     // Main Recipient
     total_spent = vout_value - total_spent;
-    let target_script = get_recipient_script(&asset_descriptor_change, &asset_terminal_change)
+    let target_script = get_recipient_script(asset_descriptor_change, asset_terminal_change)
         .expect("invalid derivation");
 
     let excess = decide_change(total_spent, fee_rate, &target_script);
@@ -422,29 +426,42 @@ where
     }
 }
 
-fn get_recipient_script(descriptor_pub: &SecretString, bitcoin_terminal: &str) -> Option<Script> {
-    let terminal_step: DerivationSubpath<UnhardenedIndex> = bitcoin_terminal
-        .parse()
-        .expect("invalid terminal path parse");
+fn get_recipient_script(
+    descriptor_pub: Option<SecretString>,
+    bitcoin_terminal: Option<String>,
+) -> Option<Script> {
+    let (terminal, terminal_path) = match bitcoin_terminal {
+        Some(bitcoin_terminal) => (
+            bitcoin_terminal.clone(),
+            bitcoin_terminal
+                .parse()
+                .expect("invalid terminal path parse"),
+        ),
+        None => ("/0/1".to_string(), DerivationSubpath::new()),
+    };
 
-    let descriptor_pub = descriptor_pub.0.replace(bitcoin_terminal, "/*/*");
-    let descriptor: &Descriptor<DerivationAccount> =
-        &Descriptor::from_str(&descriptor_pub).expect("invalid descriptor parse");
+    if let Some(descriptor_pub) = descriptor_pub {
+        let descriptor_pub = descriptor_pub.to_string().replace(&terminal, "/*/*");
+        let descriptor: &Descriptor<DerivationAccount> =
+            &Descriptor::from_str(&descriptor_pub).expect("invalid descriptor parse");
 
-    match descriptor {
-        Descriptor::Tr(_) => {
-            let change_descriptor = DeriveDescriptor::<XOnlyPublicKey>::derive_descriptor(
-                descriptor,
-                SECP256K1,
-                terminal_step,
-            )
-            .expect("Derivation mismatch");
-            let change_descriptor = match change_descriptor {
-                Descriptor::Tr(tr) => tr,
-                _ => unreachable!(),
-            };
-            Some(change_descriptor.script_pubkey())
+        match descriptor {
+            Descriptor::Tr(_) => {
+                let change_descriptor = DeriveDescriptor::<XOnlyPublicKey>::derive_descriptor(
+                    descriptor,
+                    SECP256K1,
+                    terminal_path,
+                )
+                .expect("Derivation mismatch");
+                let change_descriptor = match change_descriptor {
+                    Descriptor::Tr(tr) => tr,
+                    _ => unreachable!(),
+                };
+                Some(change_descriptor.script_pubkey())
+            }
+            _ => None,
         }
-        _ => None,
+    } else {
+        None
     }
 }
