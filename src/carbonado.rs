@@ -7,16 +7,16 @@ use crate::{carbonado::error::CarbonadoError, constants::NETWORK, info, structs:
 
 pub mod error;
 
-#[cfg(feature = "server")]
+#[cfg(not(target_arch = "wasm32"))]
 pub use server::handle_file;
-#[cfg(feature = "server")]
+#[cfg(not(target_arch = "wasm32"))]
 pub use server::retrieve;
-#[cfg(feature = "server")]
+#[cfg(not(target_arch = "wasm32"))]
 pub use server::retrieve_metadata;
-#[cfg(feature = "server")]
+#[cfg(not(target_arch = "wasm32"))]
 pub use server::store;
 
-#[cfg(feature = "server")]
+#[cfg(not(target_arch = "wasm32"))]
 mod server {
     use super::*;
 
