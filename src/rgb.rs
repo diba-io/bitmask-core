@@ -753,26 +753,29 @@ pub async fn full_transfer_asset(
         }
     }
 
-    let issuer_btc_desc = &owner_keys.public.btc_descriptor_xpub;
-    let issuer_vault = get_wallet(&SecretString(issuer_btc_desc.to_string()), None).await;
-    let issuer_vault = match issuer_vault {
+    let owner_btc_desc = &owner_keys.public.btc_descriptor_xpub;
+    let owner_vault = get_wallet(&SecretString(owner_btc_desc.to_string()), None).await;
+    let owner_vault = match owner_vault {
         Ok(vault) => vault,
         Err(_err) => return Err(TransferError::Create(CreatePsbtError::Inconclusive)),
     };
 
-    let btc_utxo = issuer_vault.lock().await.list_unspent();
+    let btc_utxo = owner_vault.lock().await.list_unspent();
     let btc_utxo = match btc_utxo {
         Ok(utxo) => utxo,
         Err(_err) => return Err(TransferError::Create(CreatePsbtError::Inconclusive)),
     };
-    let btc_utxo = btc_utxo.first().unwrap();
-    let bitcoin_inputs = [PsbtInputRequest {
-        descriptor: SecretString(issuer_btc_desc.to_owned()),
-        utxo: btc_utxo.outpoint.to_string(),
-        utxo_terminal: terminal_change.to_string(),
-        ..Default::default()
-    }]
-    .to_vec();
+    let btc_utxo = btc_utxo.first();
+    let bitcoin_inputs = match btc_utxo {
+        Some(utxo) => vec![PsbtInputRequest {
+            descriptor: SecretString(owner_btc_desc.to_string()),
+            utxo: utxo.outpoint.to_string(),
+            utxo_terminal: terminal_change.to_string(),
+            ..Default::default()
+        }]
+        .to_vec(),
+        None => vec![],
+    };
 
     let req = PsbtRequest {
         asset_descriptor_change: SecretString(descriptor_pub.clone()),
