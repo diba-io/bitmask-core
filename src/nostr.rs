@@ -40,6 +40,19 @@ fn test_validate_pubkey() -> Result<()> {
     Ok(())
 }
 
+#[test]
+fn test_validate_32bytes_pubkey() -> Result<()> {
+    let result =
+        validate_pubkey("0000066e0359c33a0bed474853a610f744404f265140ecf5171b38483aaea2bb")?;
+
+    assert_eq!(
+        "0000066e0359c33a0bed474853a610f744404f265140ecf5171b38483aaea2bb", result,
+        "32 bytes pubkey"
+    );
+
+    Ok(())
+}
+
 /// Add a new nostr pubkey to a user
 pub async fn new_nostr_pubkey(pubkey: &str, token: &str) -> Result<Response> {
     let pubkey = validate_pubkey(pubkey)?;
