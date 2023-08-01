@@ -164,10 +164,12 @@ mod client {
 
     use std::sync::Arc;
 
+    use gloo_net::http::Request;
     use gloo_utils::errors::JsError;
-    use js_sys::{Promise, Uint8Array};
+    use js_sys::{Array, Promise, Uint8Array};
     use serde::Deserialize;
     use wasm_bindgen::JsValue;
+    use wasm_bindgen_futures::JsFuture;
 
     use crate::constants::CARBONADO_ENDPOINT;
 
@@ -183,21 +185,61 @@ mod client {
     }
 
     #[derive(Debug, Deserialize)]
-    struct PromiseResult {
+    struct PostStorePromiseResult {
         value: f64,
     }
 
-    async fn store_fetch(url: &str, body: Arc<Vec<u8>>) -> Promise {
+    #[derive(Debug, Deserialize)]
+    struct GetMetadataPromiseResult {
+        value: FileMetadata,
+    }
+
+    // #[derive(Debug, Deserialize)]
+    // struct GetRetrievePromiseResult {
+    //     value: JsValue,
+    // }
+
+    async fn fetch_post(url: &str, body: Arc<Vec<u8>>) -> Promise {
         let array = Uint8Array::new_with_length(body.len() as u32);
         array.copy_from(&body);
 
-        let response = gloo_net::http::Request::post(url)
+        let request = Request::post(url)
             .header("Content-Type", "application/octet-stream")
             .header("Cache-Control", "no-cache")
-            .body(array)
-            .unwrap()
-            .send()
-            .await;
+            .body(array);
+
+        let request = match request {
+            Ok(request) => request,
+            Err(e) => return Promise::reject(&JsValue::from(e.to_string())),
+        };
+
+        let response = request.send().await;
+
+        match response {
+            Ok(response) => {
+                let status_code = response.status();
+                if status_code == 200 {
+                    Promise::resolve(&JsValue::from(status_code))
+                } else {
+                    Promise::reject(&JsValue::from(status_code))
+                }
+            }
+            Err(e) => Promise::reject(&JsValue::from(e.to_string())),
+        }
+    }
+
+    async fn fetch_get(url: &str) -> Promise {
+        let request = Request::get(url)
+            .header("Content-Type", "application/octet-stream")
+            .header("Cache-Control", "no-cache")
+            .build();
+
+        let request = match request {
+            Ok(request) => request,
+            Err(e) => return Promise::reject(&JsValue::from(e.to_string())),
+        };
+
+        let response = request.send().await;
 
         match response {
             Ok(response) => {
@@ -219,9 +261,6 @@ mod client {
         force: bool,
         metadata: Option<Vec<u8>>,
     ) -> Result<(), CarbonadoError> {
-        use js_sys::Array;
-        use wasm_bindgen_futures::JsFuture;
-
         let level = 15;
         let sk = hex::decode(sk)?;
         let secret_key = SecretKey::from_slice(&sk)?;
@@ -244,7 +283,7 @@ mod client {
         let requests = Array::new();
         for endpoint in endpoints {
             let url = format!("{endpoint}/{pk_hex}/{network}-{name}{force_write}");
-            let fetch_fn = JsValue::from(store_fetch(&url, body.clone()).await);
+            let fetch_fn = JsValue::from(fetch_post(&url, body.clone()).await); // TODO: try using .value_of();
             requests.push(&fetch_fn);
         }
 
@@ -254,7 +293,7 @@ mod client {
 
         info!(format!("Store results: {results:?}"));
 
-        let results = serde_wasm_bindgen::from_value::<Vec<PromiseResult>>(results)?;
+        let results = serde_wasm_bindgen::from_value::<Vec<PostStorePromiseResult>>(results)?;
         let success = results.iter().any(|result| result.value == 200.0);
         if success {
             Ok(())
@@ -272,46 +311,27 @@ mod client {
         let network = NETWORK.read().await.to_string();
         let endpoints = CARBONADO_ENDPOINT.read().await.to_string();
         let endpoints: Vec<&str> = endpoints.split(',').collect();
-        let endpoint = endpoints.first().unwrap(); // TODO: use Promise::race();
 
-        let url = format!("{endpoint}/{pk}/{network}-{name}/metadata");
-        let client = reqwest::Client::new();
-        let response = client
-            .get(&url)
-            .header("Accept", "application/octet-stream")
-            .header("Cache-Control", "no-cache")
-            .send()
-            .await
-            .map_err(|op| {
-                CarbonadoError::StdIoError(Error::new(ErrorKind::Interrupted, op.to_string()))
-            })?;
-
-        let status_code = response.status().as_u16();
-
-        if status_code != 200 {
-            let response_text = response.text().await.map_err(|_| {
-                CarbonadoError::StdIoError(Error::new(
-                    ErrorKind::Unsupported,
-                    format!("Error in parsing server response for POST JSON request to {url}"),
-                ))
-            })?;
-
-            return Err(CarbonadoError::StdIoError(Error::new(
-                ErrorKind::Other,
-                format!(
-                    "Error in storing carbonado file, status: {status_code} error: {response_text}"
-                ),
-            )));
+        let requests = Array::new();
+        for endpoint in endpoints {
+            let url = format!("{endpoint}/{pk}/{network}-{name}/metadata");
+            let fetch_fn = JsValue::from(fetch_get(&url).await);
+            requests.push(&fetch_fn);
         }
 
-        let result = response.json::<FileMetadata>().await.map_err(|_| {
-            CarbonadoError::StdIoError(Error::new(
-                ErrorKind::Unsupported,
-                format!("Error in parsing server response for POST JSON request to {url}"),
-            ))
-        })?;
+        let results = JsFuture::from(Promise::any(&JsValue::from(requests)))
+            .await
+            .map_err(js_to_error)?;
 
-        Ok(result)
+        info!(format!("Retrieve metadata results: {results:?}"));
+
+        // TODO: This only works if every response is correct. Fix so it works even if all responses fail to parse, but one.
+        let results = serde_wasm_bindgen::from_value::<Vec<GetMetadataPromiseResult>>(results)?;
+        results
+            .first()
+            .map_or(Err(CarbonadoError::AllEndpointsFailed), |result| {
+                Ok(result.value.to_owned())
+            })
     }
 
     async fn server_req(endpoint: &str) -> Result<Option<Vec<u8>>, CarbonadoError> {
