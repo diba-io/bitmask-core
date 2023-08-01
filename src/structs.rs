@@ -570,11 +570,6 @@ pub struct RgbTransferRequest {
 #[derive(Validate)]
 #[garde(context(RGBContext))]
 pub struct FullRgbTransferRequest {
-    /// The mnemonic
-    /// #[garde(ascii)]
-    #[garde(length(min = 0, max = 512))]
-    pub mnemonic: String,
-    /// The contract id
     #[garde(ascii)]
     #[garde(length(min = 0, max = 100))]
     pub contract_id: String,
@@ -589,11 +584,9 @@ pub struct FullRgbTransferRequest {
     /// Asset or Bitcoin Descriptor
     #[garde(custom(is_descriptor))]
     pub descriptor: SecretString,
-    #[garde(skip)]
-    pub tapret: Option<String>,
-    /// Asset UTXO Terminal (ex. /0/0)
-    #[garde(custom(is_terminal_path))]
-    pub terminal: String,
+    /// Bitcoin Fee
+    #[garde(dive)]
+    pub fee: PsbtFeeRequest,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -613,11 +606,6 @@ pub struct SelfFullRgbTransferRequest {
     #[garde(ascii)]
     #[garde(length(min = 0, max = 512))]
     pub rgb_invoice: String,
-    #[garde(skip)]
-    pub tapret: Option<String>,
-    /// Asset UTXO Terminal (ex. /0/0)
-    #[garde(custom(is_terminal_path))]
-    pub terminal: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
