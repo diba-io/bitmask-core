@@ -699,7 +699,6 @@ pub async fn full_transfer_asset(
 
     let watcher_name = "default";
     let resp = watcher_details(sk, watcher_name).await;
-    assert!(resp.is_ok());
 
     let descriptor_pub = match iface {
         "RGB20" => owner_keys.public.rgb_assets_descriptor_xpub.clone(),
