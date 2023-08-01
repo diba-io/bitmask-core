@@ -1,6 +1,6 @@
 use crate::structs::{
-    AcceptRequest, ImportRequest, InvoiceRequest, IssueRequest, PsbtRequest, ReIssueRequest,
-    RgbTransferRequest, SecretString, SignPsbtRequest, WatcherRequest,
+    AcceptRequest, FullRgbTransferRequest, ImportRequest, InvoiceRequest, IssueRequest,
+    PsbtRequest, ReIssueRequest, RgbTransferRequest, SecretString, SignPsbtRequest, WatcherRequest,
 };
 // use crate::{carbonado, lightning, rgb};
 
@@ -416,6 +416,21 @@ pub mod rgb {
         future_to_promise(async move {
             let pay_req: RgbTransferRequest = serde_wasm_bindgen::from_value(request).unwrap();
             match crate::rgb::transfer_asset(&nostr_hex_sk, pay_req).await {
+                Ok(result) => Ok(JsValue::from_string(
+                    serde_json::to_string(&result).unwrap(),
+                )),
+                Err(err) => Err(JsValue::from_string(err.to_string())),
+            }
+        })
+    }
+
+    #[wasm_bindgen]
+    pub fn full_transfer_asset(nostr_hex_sk: String, request: JsValue) -> Promise {
+        set_panic_hook();
+
+        future_to_promise(async move {
+            let pay_req: FullRgbTransferRequest = serde_wasm_bindgen::from_value(request).unwrap();
+            match crate::rgb::full_transfer_asset(&nostr_hex_sk, pay_req).await {
                 Ok(result) => Ok(JsValue::from_string(
                     serde_json::to_string(&result).unwrap(),
                 )),

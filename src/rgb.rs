@@ -31,6 +31,7 @@ pub mod transfer;
 pub mod wallet;
 
 use crate::{
+    bitcoin::save_mnemonic,
     constants::{
         get_network,
         storage_keys::{ASSETS_STOCK, ASSETS_WALLETS},
@@ -49,12 +50,13 @@ use crate::{
         wallet::list_allocations,
     },
     structs::{
-        AcceptRequest, AcceptResponse, AssetType, ContractMetadata, ContractResponse,
-        ContractsResponse, ImportRequest, InterfaceDetail, InterfacesResponse, InvoiceRequest,
-        InvoiceResponse, IssueMetaRequest, IssueMetadata, IssueRequest, IssueResponse,
-        NewCollectible, NextAddressResponse, NextUtxoResponse, NextUtxosResponse, PsbtFeeRequest,
-        PsbtRequest, PsbtResponse, ReIssueRequest, ReIssueResponse, RgbTransferRequest,
-        RgbTransferResponse, SchemaDetail, SchemasResponse, UDADetail, UtxoResponse,
+        AcceptRequest, AcceptResponse, AllocationDetail, AssetType, ContractMetadata,
+        ContractResponse, ContractsResponse, FullRgbTransferRequest, ImportRequest,
+        InterfaceDetail, InterfacesResponse, InvoiceRequest, InvoiceResponse, IssueMetaRequest,
+        IssueMetadata, IssueRequest, IssueResponse, NewCollectible, NextAddressResponse,
+        NextUtxoResponse, NextUtxosResponse, PsbtFeeRequest, PsbtInputRequest, PsbtRequest,
+        PsbtResponse, ReIssueRequest, ReIssueResponse, RgbTransferRequest, RgbTransferResponse,
+        SchemaDetail, SchemasResponse, SecretString, UDADetail, UtxoResponse,
         WatcherDetailResponse, WatcherRequest, WatcherResponse, WatcherUtxoResponse,
     },
     validators::RGBContext,
@@ -678,6 +680,96 @@ pub async fn transfer_asset(
     })?;
 
     Ok(resp)
+}
+
+pub async fn full_transfer_asset(
+    sk: &str,
+    request: FullRgbTransferRequest,
+) -> Result<RgbTransferResponse, TransferError> {
+    let owner_keys = save_mnemonic(
+        &SecretString(request.mnemonic.to_string()),
+        &SecretString("".to_string()),
+    )
+    .await;
+    let owner_keys = match owner_keys {
+        Ok(keys) => keys,
+        Err(_err) => return Err(TransferError::Create(CreatePsbtError::Inconclusive)),
+    };
+    let iface: &str = &request.iface.to_owned()[..];
+
+    let watcher_name = "default";
+    let resp = watcher_details(sk, watcher_name).await;
+    assert!(resp.is_ok());
+
+    let descriptor_pub = match iface {
+        "RGB20" => owner_keys.public.rgb_assets_descriptor_xpub.clone(),
+        "RGB21" => owner_keys.public.rgb_udas_descriptor_xpub.clone(),
+        _ => owner_keys.public.rgb_assets_descriptor_xpub.clone(),
+    };
+
+    let terminal_change = match iface {
+        "RGB20" => "/20/1",
+        "RGB21" => "/21/1",
+        _ => "/20/1",
+    };
+
+    let mut inputs = vec![];
+    let owner_utxos = watcher_unspent_utxos(sk, watcher_name, iface).await;
+    let owner_utxos = match owner_utxos {
+        Ok(utxos) => utxos,
+        Err(_err) => return Err(TransferError::Create(CreatePsbtError::Inconclusive)),
+    };
+    let watcher_details = resp;
+    let watcher_details = match watcher_details {
+        Ok(details) => details,
+        Err(_err) => return Err(TransferError::Create(CreatePsbtError::Inconclusive)),
+    };
+    for contract_allocations in watcher_details
+        .contracts
+        .into_iter()
+        .filter(|x| x.contract_id == request.contract_id)
+    {
+        let allocations: Vec<AllocationDetail> = contract_allocations
+            .allocations
+            .into_iter()
+            .filter(|a| {
+                a.is_mine
+                    && !a.is_spent
+                    && owner_utxos
+                        .utxos
+                        .clone()
+                        .into_iter()
+                        .any(|u| u.outpoint == a.utxo)
+            })
+            .collect();
+
+        if let Some(allocation) = allocations.into_iter().next() {
+            inputs.push(PsbtInputRequest {
+                descriptor: SecretString(descriptor_pub.clone()),
+                utxo: allocation.utxo.to_owned(),
+                utxo_terminal: allocation.derivation,
+                tapret: None,
+            })
+        }
+    }
+    let req = PsbtRequest {
+        asset_descriptor_change: SecretString(descriptor_pub.clone()),
+        asset_terminal_change: terminal_change.to_owned(),
+        asset_inputs: inputs,
+        bitcoin_inputs: vec![],
+        bitcoin_changes: vec![],
+        fee: PsbtFeeRequest::Value(1000),
+    };
+    let psbt_response = create_psbt(sk, req).await?;
+    transfer_asset(
+        sk,
+        RgbTransferRequest {
+            rgb_invoice: request.rgb_invoice,
+            psbt: psbt_response.psbt,
+            terminal: psbt_response.terminal,
+        },
+    )
+    .await
 }
 
 pub async fn accept_transfer(
