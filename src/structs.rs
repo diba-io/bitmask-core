@@ -598,6 +598,30 @@ pub struct FullRgbTransferRequest {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
+#[derive(Validate)]
+#[garde(context(RGBContext))]
+pub struct SelfFullRgbTransferRequest {
+    /// The contract id
+    #[garde(ascii)]
+    #[garde(length(min = 0, max = 100))]
+    pub contract_id: String,
+    /// The contract interface
+    #[garde(ascii)]
+    #[garde(length(min = 0, max = 32))]
+    pub iface: String,
+    /// RGB Invoice
+    #[garde(ascii)]
+    #[garde(length(min = 0, max = 512))]
+    pub rgb_invoice: String,
+    #[garde(skip)]
+    pub tapret: Option<String>,
+    /// Asset UTXO Terminal (ex. /0/0)
+    #[garde(custom(is_terminal_path))]
+    pub terminal: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct RgbTransferResponse {
     /// Consignment ID
     pub consig_id: String,
