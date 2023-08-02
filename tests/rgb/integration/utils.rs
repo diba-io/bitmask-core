@@ -30,6 +30,33 @@ pub const ANOTHER_OWNER_MNEMONIC: &str =
 pub struct UtxoFilter {
     pub outpoint_equal: Option<String>,
     pub amount_less_than: Option<u64>,
+    pub equal_than: Option<u64>,
+}
+
+impl UtxoFilter {
+    pub fn with_outpoint(outpoint: String) -> UtxoFilter {
+        UtxoFilter {
+            outpoint_equal: Some(outpoint),
+            equal_than: None,
+            amount_less_than: None,
+        }
+    }
+
+    pub fn with_amount_equal_than(amount: u64) -> UtxoFilter {
+        UtxoFilter {
+            outpoint_equal: None,
+            equal_than: Some(amount),
+            amount_less_than: None,
+        }
+    }
+
+    pub fn with_amount_less_than(amount: u64) -> UtxoFilter {
+        UtxoFilter {
+            outpoint_equal: None,
+            equal_than: None,
+            amount_less_than: Some(amount),
+        }
+    }
 }
 
 #[allow(dead_code)]
@@ -396,6 +423,10 @@ pub async fn issuer_issue_contract_v2(
 
         if let Some(amount) = filter.amount_less_than {
             unspent_utxos.retain(|x| x.amount <= amount);
+        }
+
+        if let Some(amount) = filter.equal_than {
+            unspent_utxos.retain(|x| x.amount == amount);
         }
 
         if let Some(outpoint) = filter.outpoint_equal {

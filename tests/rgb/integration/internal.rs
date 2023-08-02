@@ -33,10 +33,7 @@ async fn allow_full_transfer_step() -> anyhow::Result<()> {
         true,
         None,
         Some("0.00001".to_string()),
-        Some(UtxoFilter {
-            outpoint_equal: None,
-            amount_less_than: Some(1000),
-        }),
+        Some(UtxoFilter::with_amount_less_than(1000)),
     )
     .await?;
 

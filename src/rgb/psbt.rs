@@ -109,7 +109,11 @@ pub fn create_psbt(
         }
     };
     let terminal_step = format!("/{contract_index}/*");
-    let descriptor_pub = psbt_input.descriptor.0.replace(&terminal_step, "/*/*");
+    let wildcard_terminal = "/*/*";
+    let descriptor_pub = psbt_input
+        .descriptor
+        .to_string()
+        .replace(&terminal_step, wildcard_terminal);
     let global_descriptor: &Descriptor<DerivationAccount> = &Descriptor::from_str(&descriptor_pub)
         .map_err(|op| CreatePsbtError::WrongDescriptor(op.to_string()))?;
 
