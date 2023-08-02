@@ -169,7 +169,7 @@ mod client {
     use js_sys::{Array, Promise, Uint8Array};
     use serde::Deserialize;
     use wasm_bindgen::JsValue;
-    use wasm_bindgen_futures::JsFuture;
+    use wasm_bindgen_futures::{future_to_promise, JsFuture};
 
     use crate::constants::CARBONADO_ENDPOINT;
 
@@ -189,28 +189,23 @@ mod client {
         value: f64,
     }
 
-    #[derive(Debug, Deserialize)]
-    struct GetMetadataPromiseResult {
-        value: FileMetadata,
-    }
-
     // #[derive(Debug, Deserialize)]
     // struct GetRetrievePromiseResult {
-    //     value: JsValue,
+    //     value: Vec<u8>,
     // }
 
-    async fn fetch_post(url: &str, body: Arc<Vec<u8>>) -> Promise {
+    async fn fetch_post(url: String, body: Arc<Vec<u8>>) -> Result<JsValue, JsValue> {
         let array = Uint8Array::new_with_length(body.len() as u32);
         array.copy_from(&body);
 
-        let request = Request::post(url)
+        let request = Request::post(&url)
             .header("Content-Type", "application/octet-stream")
             .header("Cache-Control", "no-cache")
             .body(array);
 
         let request = match request {
             Ok(request) => request,
-            Err(e) => return Promise::reject(&JsValue::from(e.to_string())),
+            Err(e) => return Err(JsValue::from(e.to_string())),
         };
 
         let response = request.send().await;
@@ -219,24 +214,24 @@ mod client {
             Ok(response) => {
                 let status_code = response.status();
                 if status_code == 200 {
-                    Promise::resolve(&JsValue::from(status_code))
+                    Ok(JsValue::from(status_code))
                 } else {
-                    Promise::reject(&JsValue::from(status_code))
+                    Err(JsValue::from(status_code))
                 }
             }
-            Err(e) => Promise::reject(&JsValue::from(e.to_string())),
+            Err(e) => Err(JsValue::from(e.to_string())),
         }
     }
 
-    async fn fetch_get(url: &str) -> Promise {
-        let request = Request::get(url)
+    async fn fetch_get(url: String) -> Result<JsValue, JsValue> {
+        let request = Request::get(&url)
             .header("Content-Type", "application/octet-stream")
             .header("Cache-Control", "no-cache")
             .build();
 
         let request = match request {
             Ok(request) => request,
-            Err(e) => return Promise::reject(&JsValue::from(e.to_string())),
+            Err(e) => return Err(JsValue::from(e.to_string())),
         };
 
         let response = request.send().await;
@@ -245,12 +240,15 @@ mod client {
             Ok(response) => {
                 let status_code = response.status();
                 if status_code == 200 {
-                    Promise::resolve(&JsValue::from(status_code))
+                    match response.text().await {
+                        Ok(text) => Ok(JsValue::from(&text)),
+                        Err(e) => Err(JsValue::from(e.to_string())),
+                    }
                 } else {
-                    Promise::reject(&JsValue::from(status_code))
+                    Err(JsValue::from(status_code))
                 }
             }
-            Err(e) => Promise::reject(&JsValue::from(e.to_string())),
+            Err(e) => Err(JsValue::from(e.to_string())),
         }
     }
 
@@ -283,7 +281,7 @@ mod client {
         let requests = Array::new();
         for endpoint in endpoints {
             let url = format!("{endpoint}/{pk_hex}/{network}-{name}{force_write}");
-            let fetch_fn = JsValue::from(fetch_post(&url, body.clone()).await); // TODO: try using .value_of();
+            let fetch_fn = future_to_promise(fetch_post(url, body.clone())); // TODO: try using .value_of();
             requests.push(&fetch_fn);
         }
 
@@ -315,23 +313,18 @@ mod client {
         let requests = Array::new();
         for endpoint in endpoints {
             let url = format!("{endpoint}/{pk}/{network}-{name}/metadata");
-            let fetch_fn = JsValue::from(fetch_get(&url).await);
+            let fetch_fn = future_to_promise(fetch_get(url));
             requests.push(&fetch_fn);
         }
 
-        let results = JsFuture::from(Promise::any(&JsValue::from(requests)))
+        let result = JsFuture::from(Promise::any(&JsValue::from(requests)))
             .await
             .map_err(js_to_error)?;
 
-        info!(format!("Retrieve metadata results: {results:?}"));
+        info!(format!("Retrieve metadata result: {result:?}"));
 
-        // TODO: This only works if every response is correct. Fix so it works even if all responses fail to parse, but one.
-        let results = serde_wasm_bindgen::from_value::<Vec<GetMetadataPromiseResult>>(results)?;
-        results
-            .first()
-            .map_or(Err(CarbonadoError::AllEndpointsFailed), |result| {
-                Ok(result.value.to_owned())
-            })
+        let result: FileMetadata = serde_json::from_str(&result.as_string().unwrap())?;
+        Ok(result)
     }
 
     async fn server_req(endpoint: &str) -> Result<Option<Vec<u8>>, CarbonadoError> {

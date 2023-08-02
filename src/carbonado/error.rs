@@ -15,6 +15,8 @@ pub enum CarbonadoError {
     NostrPrivateKey(#[from] nostr_sdk::secp256k1::Error),
     /// General Carbonado error: {0}
     CarbonadoError(#[from] carbonado::error::CarbonadoError),
+    /// General Carbonado error: {0}
+    SerdeJsonError(#[from] serde_json::Error),
     /// JS Error: {0}
     #[cfg(target_arch = "wasm32")]
     JsError(#[from] gloo_utils::errors::JsError),
