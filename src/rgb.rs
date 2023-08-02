@@ -8,6 +8,7 @@ use bitcoin_30::bip32::ExtendedPubKey;
 use bitcoin_scripts::address::AddressNetwork;
 use garde::Validate;
 use miniscript_crate::DescriptorPublicKey;
+use rgb::TerminalPath;
 use rgbstd::{
     containers::BindleContent,
     contract::ContractId,
@@ -759,31 +760,44 @@ pub async fn full_transfer_asset(
             return Err(TransferError::Validation(errors));
         }
 
+        let contract_index = match request.iface.as_str() {
+            "RGB20" => 20,
+            "RGB21" => 21,
+            _ => 10,
+        }
+        .to_string();
+
+        let contract_terminal = format!("/{contract_index}/*");
+        let universal_desc = SecretString(
+            request
+                .descriptor
+                .to_string()
+                .replace(&contract_terminal, "/*/*"),
+        );
+
         // Get All Assets UTXOs
         let mut total = 0;
         let mut asset_inputs = vec![];
         for alloc in allocations.into_iter() {
             match alloc.value {
-                AllocationValue::Value(value) => {
-                    if value <= amount {
-                        total += value;
-                        let input = PsbtInputRequest {
-                            descriptor: request.descriptor.clone(),
-                            utxo: alloc.utxo,
-                            utxo_terminal: alloc.derivation,
-                            tapret: None,
-                        };
+                AllocationValue::Value(alloc_value) => {
+                    total += alloc_value;
+                    let input = PsbtInputRequest {
+                        descriptor: universal_desc.clone(),
+                        utxo: alloc.utxo,
+                        utxo_terminal: alloc.derivation,
+                        tapret: None,
+                    };
 
-                        asset_inputs.push(input);
-                    }
+                    asset_inputs.push(input);
 
-                    if total >= amount {
+                    if amount <= total {
                         break;
                     }
                 }
                 AllocationValue::UDA(_) => {
                     let input = PsbtInputRequest {
-                        descriptor: request.descriptor.clone(),
+                        descriptor: universal_desc.clone(),
                         utxo: alloc.utxo,
                         utxo_terminal: alloc.derivation,
                         tapret: None,
@@ -797,22 +811,6 @@ pub async fn full_transfer_asset(
         // Get All Bitcoin UTXOs
         let mut bitcoin_inputs = vec![];
         if let PsbtFeeRequest::Value(fee_amount) = request.fee {
-            let contract_index = match request.iface.as_str() {
-                "RGB20" => 20,
-                "RGB21" => 21,
-                _ => 10,
-            }
-            .to_string();
-
-            let contract_terminal = format!("/{contract_index}/*");
-
-            let bitcoin_desc = SecretString(
-                request
-                    .descriptor
-                    .to_string()
-                    .replace(&contract_terminal, "/0/*"),
-            );
-
             let bitcoin_index = 0;
             let mut wallet = wallet.unwrap();
             prefetch_resolver_utxos(bitcoin_index, &mut wallet, &mut resolver).await;
@@ -828,10 +826,11 @@ pub async fn full_transfer_asset(
             })?;
 
             for utxo in unspent_utxos {
+                let TerminalPath { app, index } = utxo.derivation.terminal;
                 let btc_input = PsbtInputRequest {
-                    descriptor: bitcoin_desc.clone(),
+                    descriptor: universal_desc.clone(),
                     utxo: utxo.outpoint.to_string(),
-                    utxo_terminal: utxo.derivation.terminal.to_string(),
+                    utxo_terminal: format!("/{app}/{index}"),
                     tapret: None,
                 };
                 bitcoin_inputs.push(btc_input);
@@ -850,7 +849,7 @@ pub async fn full_transfer_asset(
             fee: request.fee,
             asset_inputs,
             asset_descriptor_change: None,
-            asset_terminal_change: None,
+            asset_terminal_change: Some(request.change_terminal),
         };
 
         let psbt_response = create_psbt(sk, psbt_req).await?;
@@ -1070,7 +1069,6 @@ pub async fn import(sk: &str, request: ImportRequest) -> Result<ContractResponse
         )
     })?;
 
-    // Prefetch
     let mut resolver = ExplorerResolver {
         explorer_url: BITCOIN_EXPLORER_API.read().await.to_string(),
         ..Default::default()

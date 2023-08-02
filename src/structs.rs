@@ -590,6 +590,9 @@ pub struct FullRgbTransferRequest {
     /// Asset or Bitcoin Descriptor
     #[garde(custom(is_descriptor))]
     pub descriptor: SecretString,
+    /// Bitcoin Terminal Change
+    #[garde(ascii)]
+    pub change_terminal: String,
     /// Bitcoin Fee
     #[garde(dive)]
     pub fee: PsbtFeeRequest,
@@ -612,6 +615,13 @@ pub struct SelfFullRgbTransferRequest {
     #[garde(ascii)]
     #[garde(length(min = 0, max = 512))]
     pub rgb_invoice: String,
+    /// Bitcoin Change Terminal
+    #[garde(ascii)]
+    #[garde(length(min = 4, max = 4))]
+    pub terminal: String,
+    /// Bitcoin Fee
+    #[garde(skip)]
+    pub fee: Option<u64>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

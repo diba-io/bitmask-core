@@ -151,12 +151,17 @@ async fn self_pay(
 
     let sk = issuer_keys.private.nostr_prv.as_ref();
 
+    let fee = self_pay_req
+        .fee
+        .map_or(PsbtFeeRequest::Value(1000), PsbtFeeRequest::Value);
+
     let request = FullRgbTransferRequest {
         contract_id: self_pay_req.contract_id,
         iface: self_pay_req.iface,
         rgb_invoice: self_pay_req.rgb_invoice,
-        descriptor: SecretString(issuer_keys.private.rgb_udas_descriptor_xprv.clone()),
-        fee: PsbtFeeRequest::Value(1000),
+        descriptor: SecretString(issuer_keys.public.rgb_udas_descriptor_xpub.clone()),
+        change_terminal: self_pay_req.terminal,
+        fee,
     };
 
     let transfer_res = full_transfer_asset(sk, request).await?;
