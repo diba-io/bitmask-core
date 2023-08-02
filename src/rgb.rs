@@ -697,15 +697,15 @@ pub async fn full_transfer_asset(
 
     let mut stock = retrieve_stock(sk, ASSETS_STOCK).await.map_err(|_| {
         TransferError::Retrive(
-            CARBONADO_UNAVALIABLE.to_string(),
-            STOCK_UNAVALIABLE.to_string(),
+            CARBONADO_UNAVAILABLE.to_string(),
+            STOCK_UNAVAILABLE.to_string(),
         )
     })?;
 
     let rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await.map_err(|_| {
         TransferError::Retrive(
-            CARBONADO_UNAVALIABLE.to_string(),
-            WALLET_UNAVALIABLE.to_string(),
+            CARBONADO_UNAVAILABLE.to_string(),
+            WALLET_UNAVAILABLE.to_string(),
         )
     })?;
 
