@@ -1,7 +1,7 @@
 #![cfg(not(target_arch = "wasm32"))]
 use crate::rgb::integration::utils::{
-    create_new_invoice, create_new_psbt, create_new_transfer, get_uda_data, issuer_issue_contract,
-    ISSUER_MNEMONIC, OWNER_MNEMONIC,
+    create_new_invoice, create_new_psbt, create_new_transfer, get_uda_data,
+    issuer_issue_contract_v2, UtxoFilter, ISSUER_MNEMONIC, OWNER_MNEMONIC,
 };
 use bitmask_core::{
     bitcoin::{save_mnemonic, sign_psbt_file},
@@ -11,7 +11,6 @@ use bitmask_core::{
 
 #[tokio::test]
 async fn allow_beneficiary_accept_transfer() -> anyhow::Result<()> {
-    let single = Some(get_uda_data());
     let issuer_keys = &save_mnemonic(
         &SecretString(ISSUER_MNEMONIC.to_string()),
         &SecretString("".to_string()),
@@ -22,7 +21,19 @@ async fn allow_beneficiary_accept_transfer() -> anyhow::Result<()> {
         &SecretString("".to_string()),
     )
     .await?;
-    let issuer_resp = &issuer_issue_contract("RGB21", 1, false, true, single).await?;
+    let meta = Some(get_uda_data());
+    let issuer_resp = issuer_issue_contract_v2(
+        1,
+        "RGB21",
+        1,
+        false,
+        true,
+        meta,
+        Some("0.1".to_string()),
+        Some(UtxoFilter::with_amount_equal_than(10000000)),
+    )
+    .await?;
+    let issuer_resp = issuer_resp[0].clone();
     let owner_resp = create_new_invoice(
         &issuer_resp.contract_id,
         &issuer_resp.iface,
