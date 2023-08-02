@@ -811,21 +811,27 @@ pub async fn full_transfer_asset(
         // Get All Bitcoin UTXOs
         let mut bitcoin_inputs = vec![];
         if let PsbtFeeRequest::Value(fee_amount) = request.fee {
-            let bitcoin_index = 0;
+            let bitcoin_indexes = [0, 1];
             let mut wallet = wallet.unwrap();
-            prefetch_resolver_utxos(bitcoin_index, &mut wallet, &mut resolver).await;
-            prefetch_resolver_utxo_status(bitcoin_index, &mut wallet, &mut resolver).await;
+            let mut all_unspents = vec![];
+            for bitcoin_index in bitcoin_indexes {
+                prefetch_resolver_utxos(bitcoin_index, &mut wallet, &mut resolver).await;
+                prefetch_resolver_utxo_status(bitcoin_index, &mut wallet, &mut resolver).await;
 
-            sync_wallet(bitcoin_index, &mut wallet, &mut resolver);
+                sync_wallet(bitcoin_index, &mut wallet, &mut resolver);
 
-            let unspent_utxos = next_utxos(0, wallet, &mut resolver).map_err(|_| {
-                TransferError::Retrive(
-                    "Esplora".to_string(),
-                    "Retrieve Unspent UTXO unavaliable".to_string(),
-                )
-            })?;
+                let mut unspent_utxos =
+                    next_utxos(0, wallet.clone(), &mut resolver).map_err(|_| {
+                        TransferError::Retrive(
+                            "Esplora".to_string(),
+                            "Retrieve Unspent UTXO unavaliable".to_string(),
+                        )
+                    })?;
 
-            for utxo in unspent_utxos {
+                all_unspents.append(&mut unspent_utxos);
+            }
+
+            for utxo in all_unspents {
                 let TerminalPath { app, index } = utxo.derivation.terminal;
                 let btc_input = PsbtInputRequest {
                     descriptor: universal_desc.clone(),
