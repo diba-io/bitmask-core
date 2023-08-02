@@ -20,6 +20,7 @@ async fn static_wallet() -> Result<CreateWalletResponse> {
     Ok(res)
 }
 
+#[ignore = "Introduces junk data on production, and fails quite often"]
 #[tokio::test]
 pub async fn create_wallet_test() -> Result<()> {
     init_logging("lightning=debug");

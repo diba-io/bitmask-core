@@ -800,28 +800,28 @@ pub mod carbonado {
     pub fn encode_hex(bytes: Vec<u8>) -> String {
         set_panic_hook();
 
-        crate::carbonado::encode_hex(&bytes)
+        crate::carbonado::util::encode_hex(&bytes)
     }
 
     #[wasm_bindgen]
     pub fn encode_base64(bytes: Vec<u8>) -> String {
         set_panic_hook();
 
-        crate::carbonado::encode_base64(&bytes)
+        crate::carbonado::util::encode_base64(&bytes)
     }
 
     #[wasm_bindgen]
     pub fn decode_hex(string: String) -> Result<Vec<u8>, JsError> {
         set_panic_hook();
 
-        crate::carbonado::decode_hex(&string).map_err(|err| JsError::new(&err.to_string()))
+        crate::carbonado::util::decode_hex(&string).map_err(|err| JsError::new(&err.to_string()))
     }
 
     #[wasm_bindgen]
     pub fn decode_base64(string: String) -> Result<Vec<u8>, JsError> {
         set_panic_hook();
 
-        crate::carbonado::decode_base64(&string).map_err(|err| JsError::new(&err.to_string()))
+        crate::carbonado::util::decode_base64(&string).map_err(|err| JsError::new(&err.to_string()))
     }
 }
 

@@ -1,9 +1,10 @@
 #![cfg(target_arch = "wasm32")]
 use bitmask_core::{
     info,
+    structs::FileMetadata,
     web::{
-        carbonado::{retrieve, store},
-        resolve, set_panic_hook,
+        carbonado::{retrieve, retrieve_metadata, store},
+        json_parse, resolve, set_panic_hook,
     },
 };
 use js_sys::Uint8Array;
@@ -24,8 +25,13 @@ async fn web_storage() {
     resolve(store(sk.clone(), name.clone(), data.clone(), false, None)).await;
 
     info!("Testing web data retrieve");
-    let result: JsValue = resolve(retrieve(sk, name)).await;
+    let result: JsValue = resolve(retrieve(sk.clone(), name.clone())).await;
     let array = Uint8Array::new(&result);
     let bytes: Vec<u8> = array.to_vec();
     assert_eq!(data, bytes, "Data stored and data retrieved match");
+
+    let metadata: JsValue = resolve(retrieve_metadata(sk, name)).await;
+    let metadata: FileMetadata = json_parse(&metadata);
+    assert!(metadata.filename.ends_with(".c15"));
+    assert_eq!(metadata.metadata, [0; 8]);
 }
