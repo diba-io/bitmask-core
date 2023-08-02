@@ -1,3 +1,4 @@
+use ::bitcoin::hashes::hex::ToHex;
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 
@@ -53,9 +54,33 @@ fn test_validate_32bytes_pubkey() -> Result<()> {
     Ok(())
 }
 
+fn parse_npub(pubkey: &str) -> Result<String> {
+    use nostr_sdk::prelude::*;
+
+    if pubkey.starts_with("npub") {
+        let key = XOnlyPublicKey::from_bech32(pubkey)?;
+        Ok(key.to_hex())
+    } else {
+        Ok(pubkey.to_owned())
+    }
+}
+
+#[test]
+fn test_parse_npub() -> Result<()> {
+    let result = parse_npub("npub1qqqqqqqx2tj99mng5qgc07cgezv5jm95dj636x4qsq7svwkwmwnse3rfkq")?;
+
+    assert_eq!(
+        result,
+        "000000000652e452ee68a01187fb08c899496cb46cb51d1aa0803d063acedba7"
+    );
+
+    Ok(())
+}
+
 /// Add a new nostr pubkey to a user
 pub async fn new_nostr_pubkey(pubkey: &str, token: &str) -> Result<Response> {
-    let pubkey = validate_pubkey(pubkey)?;
+    let pubkey = parse_npub(pubkey)?;
+    let pubkey = validate_pubkey(&pubkey)?;
 
     let endpoint = LNDHUB_ENDPOINT.read().await;
     let pubkey = Nostr {
@@ -71,7 +96,8 @@ pub async fn new_nostr_pubkey(pubkey: &str, token: &str) -> Result<Response> {
 
 /// Update the user nostr pubkey
 pub async fn update_nostr_pubkey(pubkey: &str, token: &str) -> Result<Response> {
-    let pubkey = validate_pubkey(pubkey)?;
+    let pubkey = parse_npub(pubkey)?;
+    let pubkey = validate_pubkey(&pubkey)?;
 
     let endpoint = LNDHUB_ENDPOINT.read().await;
     let pubkey = Nostr {
