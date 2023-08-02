@@ -1284,8 +1284,17 @@ async fn allow_issuer_make_transfer_of_two_contracts_in_same_utxo() -> anyhow::R
         &SecretString("".to_string()),
     )
     .await?;
-    let issue_contracts_resp =
-        &issuer_issue_contract_v2(2, "RGB20", 5, false, true, None, None, None).await?;
+    let issue_contracts_resp = &issuer_issue_contract_v2(
+        2,
+        "RGB20",
+        5,
+        false,
+        true,
+        None,
+        Some("1".to_string()),
+        Some(UtxoFilter::with_amount_equal_than(100000000)),
+    )
+    .await?;
     let issue_contract_a_resp = issue_contracts_resp[0].clone();
     let issue_contract_b_resp = issue_contracts_resp[1].clone();
 
