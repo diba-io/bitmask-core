@@ -38,7 +38,7 @@ use crate::{
     },
     rgb::{
         carbonado::{force_store_stock, retrieve_stock, store_stock},
-        constants::WALLET_UNAVALIABLE,
+        constants::WALLET_UNAVAILABLE,
         issue::{issue_contract as create_contract, IssueContractError},
         psbt::{create_psbt as create_rgb_psbt, extract_commit},
         resolvers::ExplorerResolver,
@@ -62,7 +62,7 @@ use crate::{
 
 use self::{
     carbonado::{retrieve_wallets, store_wallets},
-    constants::{CARBONADO_UNAVALIABLE, RGB_DEFAULT_NAME, STOCK_UNAVALIABLE},
+    constants::{CARBONADO_UNAVAILABLE, RGB_DEFAULT_NAME, STOCK_UNAVAILABLE},
     contract::{export_contract, ExportContractError},
     import::{import_contract, ImportContractError},
     prefetch::{
@@ -84,7 +84,7 @@ pub enum IssueError {
     /// Some request data is missing. {0:?}
     Validation(BTreeMap<String, String>),
     /// Retrieve I/O or connectivity error. {1} in {0}
-    Retrive(String, String),
+    Retrieve(String, String),
     /// Write I/O or connectivity error. {1} in {0}
     Write(String, String),
     /// Watcher is required for this operation.
@@ -118,16 +118,16 @@ pub async fn issue_contract(sk: &str, request: IssueRequest) -> Result<IssueResp
     } = request;
 
     let mut stock = retrieve_stock(sk, ASSETS_STOCK).await.map_err(|_| {
-        IssueError::Retrive(
-            CARBONADO_UNAVALIABLE.to_string(),
-            STOCK_UNAVALIABLE.to_string(),
+        IssueError::Retrieve(
+            CARBONADO_UNAVAILABLE.to_string(),
+            STOCK_UNAVAILABLE.to_string(),
         )
     })?;
 
     let mut rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await.map_err(|_| {
-        IssueError::Retrive(
-            CARBONADO_UNAVALIABLE.to_string(),
-            WALLET_UNAVALIABLE.to_string(),
+        IssueError::Retrieve(
+            CARBONADO_UNAVAILABLE.to_string(),
+            WALLET_UNAVAILABLE.to_string(),
         )
     })?;
 
@@ -199,8 +199,8 @@ pub async fn issue_contract(sk: &str, request: IssueRequest) -> Result<IssueResp
 
     store_stock(sk, ASSETS_STOCK, &stock).await.map_err(|_| {
         IssueError::Write(
-            CARBONADO_UNAVALIABLE.to_string(),
-            STOCK_UNAVALIABLE.to_string(),
+            CARBONADO_UNAVAILABLE.to_string(),
+            STOCK_UNAVAILABLE.to_string(),
         )
     })?;
 
@@ -208,8 +208,8 @@ pub async fn issue_contract(sk: &str, request: IssueRequest) -> Result<IssueResp
         .await
         .map_err(|_| {
             IssueError::Write(
-                CARBONADO_UNAVALIABLE.to_string(),
-                WALLET_UNAVALIABLE.to_string(),
+                CARBONADO_UNAVAILABLE.to_string(),
+                WALLET_UNAVAILABLE.to_string(),
             )
         })?;
 
@@ -245,16 +245,16 @@ pub async fn reissue_contract(
     }
 
     let mut stock = retrieve_stock(sk, ASSETS_STOCK).await.map_err(|_| {
-        IssueError::Retrive(
-            CARBONADO_UNAVALIABLE.to_string(),
-            STOCK_UNAVALIABLE.to_string(),
+        IssueError::Retrieve(
+            CARBONADO_UNAVAILABLE.to_string(),
+            STOCK_UNAVAILABLE.to_string(),
         )
     })?;
 
     let mut rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await.map_err(|_| {
-        IssueError::Retrive(
-            CARBONADO_UNAVALIABLE.to_string(),
-            WALLET_UNAVALIABLE.to_string(),
+        IssueError::Retrieve(
+            CARBONADO_UNAVAILABLE.to_string(),
+            WALLET_UNAVAILABLE.to_string(),
         )
     })?;
 
@@ -406,8 +406,8 @@ pub async fn reissue_contract(
         .await
         .map_err(|_| {
             IssueError::Write(
-                CARBONADO_UNAVALIABLE.to_string(),
-                STOCK_UNAVALIABLE.to_string(),
+                CARBONADO_UNAVAILABLE.to_string(),
+                STOCK_UNAVAILABLE.to_string(),
             )
         })?;
 
@@ -415,8 +415,8 @@ pub async fn reissue_contract(
         .await
         .map_err(|_| {
             IssueError::Write(
-                CARBONADO_UNAVALIABLE.to_string(),
-                WALLET_UNAVALIABLE.to_string(),
+                CARBONADO_UNAVAILABLE.to_string(),
+                WALLET_UNAVAILABLE.to_string(),
             )
         })?;
 
@@ -462,8 +462,8 @@ pub async fn create_invoice(
 
     let mut stock = retrieve_stock(sk, ASSETS_STOCK).await.map_err(|_| {
         InvoiceError::Retrive(
-            CARBONADO_UNAVALIABLE.to_string(),
-            STOCK_UNAVALIABLE.to_string(),
+            CARBONADO_UNAVAILABLE.to_string(),
+            STOCK_UNAVAILABLE.to_string(),
         )
     })?;
 
@@ -472,8 +472,8 @@ pub async fn create_invoice(
 
     store_stock(sk, ASSETS_STOCK, &stock).await.map_err(|_| {
         InvoiceError::Write(
-            CARBONADO_UNAVALIABLE.to_string(),
-            STOCK_UNAVALIABLE.to_string(),
+            CARBONADO_UNAVAILABLE.to_string(),
+            STOCK_UNAVAILABLE.to_string(),
         )
     })?;
 
@@ -533,15 +533,15 @@ pub async fn create_psbt(sk: &str, request: PsbtRequest) -> Result<PsbtResponse,
 
     let stock = retrieve_stock(sk, ASSETS_STOCK).await.map_err(|_| {
         TransferError::Retrive(
-            CARBONADO_UNAVALIABLE.to_string(),
-            STOCK_UNAVALIABLE.to_string(),
+            CARBONADO_UNAVAILABLE.to_string(),
+            STOCK_UNAVAILABLE.to_string(),
         )
     })?;
 
     let rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await.map_err(|_| {
         TransferError::Retrive(
-            CARBONADO_UNAVALIABLE.to_string(),
-            WALLET_UNAVALIABLE.to_string(),
+            CARBONADO_UNAVAILABLE.to_string(),
+            WALLET_UNAVAILABLE.to_string(),
         )
     })?;
 
@@ -582,8 +582,8 @@ pub async fn create_psbt(sk: &str, request: PsbtRequest) -> Result<PsbtResponse,
 
     store_stock(sk, ASSETS_STOCK, &stock).await.map_err(|_| {
         TransferError::Write(
-            CARBONADO_UNAVALIABLE.to_string(),
-            STOCK_UNAVALIABLE.to_string(),
+            CARBONADO_UNAVAILABLE.to_string(),
+            STOCK_UNAVAILABLE.to_string(),
         )
     })?;
 
@@ -611,15 +611,15 @@ pub async fn transfer_asset(
 
     let mut stock = retrieve_stock(sk, ASSETS_STOCK).await.map_err(|_| {
         TransferError::Retrive(
-            CARBONADO_UNAVALIABLE.to_string(),
-            STOCK_UNAVALIABLE.to_string(),
+            CARBONADO_UNAVAILABLE.to_string(),
+            STOCK_UNAVAILABLE.to_string(),
         )
     })?;
 
     let mut rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await.map_err(|_| {
         TransferError::Retrive(
-            CARBONADO_UNAVALIABLE.to_string(),
-            WALLET_UNAVALIABLE.to_string(),
+            CARBONADO_UNAVAILABLE.to_string(),
+            WALLET_UNAVAILABLE.to_string(),
         )
     })?;
 
@@ -649,8 +649,8 @@ pub async fn transfer_asset(
             .await
             .map_err(|_| {
                 TransferError::Write(
-                    CARBONADO_UNAVALIABLE.to_string(),
-                    WALLET_UNAVALIABLE.to_string(),
+                    CARBONADO_UNAVAILABLE.to_string(),
+                    WALLET_UNAVAILABLE.to_string(),
                 )
             })?;
     };
@@ -672,8 +672,8 @@ pub async fn transfer_asset(
 
     store_stock(sk, ASSETS_STOCK, &stock).await.map_err(|_| {
         TransferError::Write(
-            CARBONADO_UNAVALIABLE.to_string(),
-            STOCK_UNAVALIABLE.to_string(),
+            CARBONADO_UNAVAILABLE.to_string(),
+            STOCK_UNAVAILABLE.to_string(),
         )
     })?;
 
@@ -697,8 +697,8 @@ pub async fn accept_transfer(
     let AcceptRequest { consignment, force } = request;
     let mut stock = retrieve_stock(sk, ASSETS_STOCK).await.map_err(|_| {
         TransferError::Retrive(
-            CARBONADO_UNAVALIABLE.to_string(),
-            STOCK_UNAVALIABLE.to_string(),
+            CARBONADO_UNAVAILABLE.to_string(),
+            STOCK_UNAVAILABLE.to_string(),
         )
     })?;
     // Prefetch
@@ -719,8 +719,8 @@ pub async fn accept_transfer(
 
     store_stock(sk, ASSETS_STOCK, &stock).await.map_err(|_| {
         TransferError::Write(
-            CARBONADO_UNAVALIABLE.to_string(),
-            STOCK_UNAVALIABLE.to_string(),
+            CARBONADO_UNAVAILABLE.to_string(),
+            STOCK_UNAVAILABLE.to_string(),
         )
     })?;
 
@@ -865,15 +865,15 @@ pub async fn import(sk: &str, request: ImportRequest) -> Result<ContractResponse
     let ImportRequest { data, import } = request;
     let mut stock = retrieve_stock(sk, ASSETS_STOCK).await.map_err(|_| {
         ImportError::Retrive(
-            CARBONADO_UNAVALIABLE.to_string(),
-            STOCK_UNAVALIABLE.to_string(),
+            CARBONADO_UNAVAILABLE.to_string(),
+            STOCK_UNAVAILABLE.to_string(),
         )
     })?;
 
     let mut rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await.map_err(|_| {
         ImportError::Retrive(
-            CARBONADO_UNAVALIABLE.to_string(),
-            WALLET_UNAVALIABLE.to_string(),
+            CARBONADO_UNAVAILABLE.to_string(),
+            WALLET_UNAVAILABLE.to_string(),
         )
     })?;
 
@@ -906,8 +906,8 @@ pub async fn import(sk: &str, request: ImportRequest) -> Result<ContractResponse
 
     store_stock(sk, ASSETS_STOCK, &stock).await.map_err(|_| {
         ImportError::Write(
-            CARBONADO_UNAVALIABLE.to_string(),
-            STOCK_UNAVALIABLE.to_string(),
+            CARBONADO_UNAVAILABLE.to_string(),
+            STOCK_UNAVAILABLE.to_string(),
         )
     })?;
     if let Some(wallet) = wallet {
@@ -919,8 +919,8 @@ pub async fn import(sk: &str, request: ImportRequest) -> Result<ContractResponse
             .await
             .map_err(|_| {
                 ImportError::Write(
-                    CARBONADO_UNAVALIABLE.to_string(),
-                    WALLET_UNAVALIABLE.to_string(),
+                    CARBONADO_UNAVAILABLE.to_string(),
+                    WALLET_UNAVAILABLE.to_string(),
                 )
             })?;
     };
@@ -946,8 +946,8 @@ pub async fn create_watcher(
     let WatcherRequest { name, xpub, force } = request;
     let mut rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await.map_err(|_| {
         WatcherError::Retrive(
-            CARBONADO_UNAVALIABLE.to_string(),
-            WALLET_UNAVALIABLE.to_string(),
+            CARBONADO_UNAVAILABLE.to_string(),
+            WALLET_UNAVAILABLE.to_string(),
         )
     })?;
 
@@ -968,8 +968,8 @@ pub async fn create_watcher(
         .await
         .map_err(|_| {
             WatcherError::Write(
-                CARBONADO_UNAVALIABLE.to_string(),
-                WALLET_UNAVALIABLE.to_string(),
+                CARBONADO_UNAVAILABLE.to_string(),
+                WALLET_UNAVAILABLE.to_string(),
             )
         })?;
     Ok(WatcherResponse { name })
