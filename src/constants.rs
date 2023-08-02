@@ -71,8 +71,6 @@ pub static BTC_PATH: Lazy<RwLock<String>> = Lazy::new(|| {
         BTC_TESTNET_PATH.to_owned()
     })
 });
-// For NIP-06 Nostr signing and Carbonado encryption key derivation
-pub const NOSTR_PATH: &str = "m/44h/1237h/0h";
 
 // Magic number for versioning descriptors
 pub const DIBA_DESCRIPTOR_VERSION: u8 = 0;

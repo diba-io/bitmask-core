@@ -247,6 +247,34 @@ pub mod bitcoin {
     }
 
     #[wasm_bindgen]
+    pub fn drain_wallet(
+        destination: String,
+        descriptor: String,
+        change_descriptor: Option<String>,
+        fee_rate: Option<f32>,
+    ) -> Promise {
+        set_panic_hook();
+
+        future_to_promise(async move {
+            let change_descriptor = change_descriptor.map(SecretString);
+
+            match crate::bitcoin::drain_wallet(
+                &destination,
+                &SecretString(descriptor),
+                change_descriptor.as_ref(),
+                fee_rate,
+            )
+            .await
+            {
+                Ok(result) => Ok(JsValue::from_string(
+                    serde_json::to_string(&result).unwrap(),
+                )),
+                Err(err) => Err(JsValue::from_string(err.to_string())),
+            }
+        })
+    }
+
+    #[wasm_bindgen]
     pub fn fund_vault(
         descriptor: String,
         change_descriptor: String,
@@ -661,6 +689,34 @@ pub mod lightning {
 
         future_to_promise(async move {
             match crate::lightning::check_payment(&payment_hash).await {
+                Ok(result) => Ok(JsValue::from_string(
+                    serde_json::to_string(&result).unwrap(),
+                )),
+                Err(err) => Err(JsValue::from_string(err.to_string())),
+            }
+        })
+    }
+
+    #[wasm_bindgen]
+    pub fn swap_btc_ln(token: String, ln_address: Option<String>) -> Promise {
+        set_panic_hook();
+
+        future_to_promise(async move {
+            match crate::lightning::swap_btc_ln(&token, ln_address).await {
+                Ok(result) => Ok(JsValue::from_string(
+                    serde_json::to_string(&result).unwrap(),
+                )),
+                Err(err) => Err(JsValue::from_string(err.to_string())),
+            }
+        })
+    }
+
+    #[wasm_bindgen]
+    pub fn swap_ln_btc(address: String, amount: u64, token: String) -> Promise {
+        set_panic_hook();
+
+        future_to_promise(async move {
+            match crate::lightning::swap_ln_btc(&address, amount, &token).await {
                 Ok(result) => Ok(JsValue::from_string(
                     serde_json::to_string(&result).unwrap(),
                 )),

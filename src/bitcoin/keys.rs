@@ -9,6 +9,7 @@ use bdk::{
     miniscript::{descriptor::DescriptorKeyParseError, Tap},
 };
 use bip39::{Language, Mnemonic};
+use bitcoin::KeyPair;
 use bitcoin_hashes::{sha256, Hash};
 use miniscript_crate::DescriptorPublicKey;
 use nostr_sdk::prelude::{FromSkStr, ToBech32};
@@ -16,7 +17,7 @@ use thiserror::Error;
 use zeroize::Zeroize;
 
 use crate::{
-    constants::{BTC_PATH, NETWORK, NOSTR_PATH},
+    constants::{BTC_PATH, NETWORK},
     structs::{DecryptedWalletData, PrivateWalletData, PublicWalletData, SecretString},
 };
 
@@ -31,6 +32,9 @@ pub enum BitcoinKeysError {
     /// Unexpected key variant in nostr_keypair
     #[error("Unexpected key variant in nostr_keypair")]
     UnexpectedKeyVariantInNostrKeypair,
+    /// secp256k1 error
+    #[error(transparent)]
+    Secp256k1Error(#[from] bitcoin::secp256k1::Error),
     /// BIP-32 error
     #[error(transparent)]
     Bip32Error(#[from] bitcoin::util::bip32::Error),
@@ -105,27 +109,19 @@ fn watcher_xpub(
     }
 }
 
-fn nostr_keypair(
-    xprv: &ExtendedPrivKey,
-    path: &str,
-    change: u32,
-) -> Result<(String, String), BitcoinKeysError> {
+// For NIP-06 Nostr signing and Carbonado encryption key derivation
+fn nostr_keypair(xprv: &ExtendedPrivKey) -> Result<(String, String), BitcoinKeysError> {
+    pub const NOSTR_PATH: &str = "m/44'/1237'/0'/0/0";
+    let deriv_descriptor = DerivationPath::from_str(NOSTR_PATH)?;
     let secp = Secp256k1::new();
-    let xprv = get_descriptor(xprv, path, change)?;
+    let nostr_sk = xprv.derive_priv(&secp, &deriv_descriptor)?;
+    let keypair =
+        KeyPair::from_seckey_slice(&secp, nostr_sk.private_key.secret_bytes().as_slice())?;
 
-    if let DescriptorSecretKey::XPrv(desc_xkey) = xprv {
-        let first_keypair = desc_xkey
-            .xkey
-            .ckd_priv(&secp, ChildNumber::from_normal_idx(0)?)?
-            .to_keypair(&secp);
-
-        Ok((
-            hex::encode(first_keypair.secret_bytes()),
-            hex::encode(first_keypair.x_only_public_key().0.serialize()),
-        ))
-    } else {
-        Err(BitcoinKeysError::UnexpectedKeyVariantInNostrKeypair)
-    }
+    Ok((
+        hex::encode(nostr_sk.private_key.secret_bytes()),
+        hex::encode(keypair.x_only_public_key().0.serialize()),
+    ))
 }
 
 pub async fn new_mnemonic(
@@ -175,7 +171,7 @@ pub async fn get_mnemonic(
     let rgb_udas_descriptor_xpub = xpub_desc(&xprv, &btc_path, 21)?;
     let watcher_xpub = watcher_xpub(&xprv, &btc_path, 0)?;
 
-    let (nostr_prv, nostr_pub) = nostr_keypair(&xprv, NOSTR_PATH, 0)?;
+    let (nostr_prv, nostr_pub) = nostr_keypair(&xprv)?;
     let nostr_keys = nostr_sdk::Keys::from_sk_str(&nostr_prv)?;
     let nostr_nsec = nostr_keys.secret_key()?.to_bech32()?;
     let nostr_npub = nostr_keys.public_key().to_bech32()?;
