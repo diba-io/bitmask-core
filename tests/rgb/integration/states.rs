@@ -145,7 +145,6 @@ async fn check_fungible_state_after_accept_consig() -> anyhow::Result<()> {
 #[tokio::test]
 async fn check_uda_state_after_accept_consig() -> anyhow::Result<()> {
     // 1. Issue and Generate Trasnfer (Issuer side)
-    let single = Some(get_uda_data());
     let issuer_keys: DecryptedWalletData = save_mnemonic(
         &SecretString(ISSUER_MNEMONIC.to_string()),
         &SecretString("".to_string()),
@@ -156,7 +155,19 @@ async fn check_uda_state_after_accept_consig() -> anyhow::Result<()> {
         &SecretString("".to_string()),
     )
     .await?;
-    let issuer_resp = issuer_issue_contract("RGB21", 1, false, true, single).await?;
+    let meta = Some(get_uda_data());
+    let issuer_resp = issuer_issue_contract_v2(
+        1,
+        "RGB21",
+        1,
+        false,
+        true,
+        meta,
+        Some("0.1".to_string()),
+        Some(UtxoFilter::with_amount_equal_than(10000000)),
+    )
+    .await?;
+    let issuer_resp = issuer_resp[0].clone();
     let owner_resp = &create_new_invoice(
         &issuer_resp.contract_id,
         &issuer_resp.iface,

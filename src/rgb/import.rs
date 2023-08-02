@@ -3,11 +3,11 @@ use amplify::{
     hex::FromHex,
 };
 use bech32::{decode, FromBase32};
-use rgb_schemata::{nia_schema, uda_schema};
+use rgb_schemata::{nia_rgb20, nia_schema, uda_rgb21, uda_schema};
 use rgbstd::{
     containers::Contract,
     contract::Genesis,
-    interface::{rgb20, rgb21},
+    interface::{rgb20, rgb21, IfacePair},
     persistence::{Inventory, Stash, Stock},
     resolvers::ResolveHeight,
     validation::ResolveTx,
@@ -70,19 +70,22 @@ pub fn contract_from_genesis(
     asset_type: AssetType,
     stock: Option<&mut Stock>,
 ) -> Contract {
-    let schema = match asset_type {
-        AssetType::RGB20 => nia_schema(),
-        AssetType::RGB21 => uda_schema(),
-        _ => nia_schema(),
+    let (schema, iface, iimpl) = match asset_type {
+        AssetType::RGB20 => (nia_schema(), rgb20(), nia_rgb20()),
+        AssetType::RGB21 => (uda_schema(), rgb21(), uda_rgb21()),
+        _ => (nia_schema(), rgb20(), nia_rgb20()),
     };
 
     if let Some(stock) = stock {
-        match asset_type {
-            AssetType::RGB20 => stock.import_iface(rgb20()),
-            AssetType::RGB21 => stock.import_iface(rgb21()),
-            _ => stock.import_iface(rgb20()),
-        }
-        .expect("import iface failed");
+        stock
+            .import_iface(iface.clone())
+            .expect("import iface failed");
     }
-    Contract::new(schema, genesis)
+    let mut contract = Contract::new(schema, genesis);
+    contract
+        .ifaces
+        .insert(iface.iface_id(), IfacePair::with(iface, iimpl))
+        .expect("import iface pair failed");
+
+    contract
 }

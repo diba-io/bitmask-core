@@ -65,7 +65,10 @@ use crate::{
 
 use self::{
     carbonado::{retrieve_wallets, store_wallets},
-    constants::{CARBONADO_UNAVAILABLE, RGB_DEFAULT_NAME, STOCK_UNAVAILABLE},
+    constants::{
+        BITCOIN_DEFAULT_FETCH_LIMIT, CARBONADO_UNAVAILABLE, RGB_DEFAULT_FETCH_LIMIT,
+        RGB_DEFAULT_NAME, STOCK_UNAVAILABLE,
+    },
     contract::{export_contract, ExportContractError},
     import::{import_contract, ImportContractError},
     prefetch::{
@@ -145,8 +148,13 @@ pub async fn issue_contract(sk: &str, request: IssueRequest) -> Result<IssueResp
         Some(wallet) => {
             let mut fetch_wallet = wallet.to_owned();
             for contract_type in [AssetType::RGB20, AssetType::RGB21] {
-                prefetch_resolver_utxos(contract_type as u32, &mut fetch_wallet, &mut resolver)
-                    .await;
+                prefetch_resolver_utxos(
+                    contract_type as u32,
+                    &mut fetch_wallet,
+                    &mut resolver,
+                    Some(RGB_DEFAULT_FETCH_LIMIT),
+                )
+                .await;
             }
 
             Some(fetch_wallet)
@@ -332,8 +340,13 @@ pub async fn reissue_contract(
             Some(wallet) => {
                 let mut fetch_wallet = wallet.to_owned();
                 for contract_type in [AssetType::RGB20, AssetType::RGB21] {
-                    prefetch_resolver_utxos(contract_type as u32, &mut fetch_wallet, &mut resolver)
-                        .await;
+                    prefetch_resolver_utxos(
+                        contract_type as u32,
+                        &mut fetch_wallet,
+                        &mut resolver,
+                        Some(RGB_DEFAULT_FETCH_LIMIT),
+                    )
+                    .await;
                 }
 
                 Some(fetch_wallet)
@@ -816,7 +829,13 @@ pub async fn full_transfer_asset(
             let mut wallet = wallet.unwrap();
             let mut all_unspents = vec![];
             for bitcoin_index in bitcoin_indexes {
-                prefetch_resolver_utxos(bitcoin_index, &mut wallet, &mut resolver).await;
+                prefetch_resolver_utxos(
+                    bitcoin_index,
+                    &mut wallet,
+                    &mut resolver,
+                    Some(BITCOIN_DEFAULT_FETCH_LIMIT),
+                )
+                .await;
                 prefetch_resolver_utxo_status(bitcoin_index, &mut wallet, &mut resolver).await;
 
                 sync_wallet(bitcoin_index, &mut wallet, &mut resolver);
@@ -940,8 +959,13 @@ pub async fn get_contract(sk: &str, contract_id: &str) -> Result<ContractRespons
         Some(wallet) => {
             let mut fetch_wallet = wallet.to_owned();
             for contract_type in [AssetType::RGB20, AssetType::RGB21] {
-                prefetch_resolver_utxos(contract_type as u32, &mut fetch_wallet, &mut resolver)
-                    .await;
+                prefetch_resolver_utxos(
+                    contract_type as u32,
+                    &mut fetch_wallet,
+                    &mut resolver,
+                    Some(RGB_DEFAULT_FETCH_LIMIT),
+                )
+                .await;
             }
 
             Some(fetch_wallet)
@@ -977,8 +1001,13 @@ pub async fn list_contracts(sk: &str) -> Result<ContractsResponse> {
         Some(wallet) => {
             let mut fetch_wallet = wallet.to_owned();
             for contract_type in [AssetType::RGB20, AssetType::RGB21] {
-                prefetch_resolver_utxos(contract_type as u32, &mut fetch_wallet, &mut resolver)
-                    .await;
+                prefetch_resolver_utxos(
+                    contract_type as u32,
+                    &mut fetch_wallet,
+                    &mut resolver,
+                    Some(RGB_DEFAULT_FETCH_LIMIT),
+                )
+                .await;
             }
             Some(fetch_wallet)
         }
@@ -1086,7 +1115,13 @@ pub async fn import(sk: &str, request: ImportRequest) -> Result<ContractResponse
     let mut wallet = match wallet {
         Some(wallet) => {
             let mut fetch_wallet = wallet.to_owned();
-            prefetch_resolver_utxos(import.clone() as u32, &mut fetch_wallet, &mut resolver).await;
+            prefetch_resolver_utxos(
+                import.clone() as u32,
+                &mut fetch_wallet,
+                &mut resolver,
+                Some(RGB_DEFAULT_FETCH_LIMIT),
+            )
+            .await;
             Some(fetch_wallet)
         }
         _ => None,
@@ -1206,7 +1241,13 @@ pub async fn watcher_details(sk: &str, name: &str) -> Result<WatcherDetailRespon
     let mut allocations = vec![];
     for contract_type in [AssetType::RGB20, AssetType::RGB21] {
         let iface_index = contract_type as u32;
-        prefetch_resolver_utxos(iface_index, &mut wallet, &mut resolver).await;
+        prefetch_resolver_utxos(
+            iface_index,
+            &mut wallet,
+            &mut resolver,
+            Some(RGB_DEFAULT_FETCH_LIMIT),
+        )
+        .await;
         prefetch_resolver_utxo_status(iface_index, &mut wallet, &mut resolver).await;
         let mut result = list_allocations(&mut wallet, &mut stock, iface_index, &mut resolver)?;
         allocations.append(&mut result);
@@ -1273,7 +1314,7 @@ pub async fn watcher_utxo(sk: &str, name: &str, utxo: &str) -> Result<WatcherUtx
             asset_indexes,
             &mut wallet,
             &mut resolver,
-            Some(20),
+            Some(RGB_DEFAULT_FETCH_LIMIT),
         )?
         .into_iter()
         .map(|utxo| utxo.outpoint.to_string())
@@ -1336,7 +1377,13 @@ pub async fn watcher_next_utxo(sk: &str, name: &str, iface: &str) -> Result<Next
         ..Default::default()
     };
 
-    prefetch_resolver_utxos(iface_index, &mut wallet, &mut resolver).await;
+    prefetch_resolver_utxos(
+        iface_index,
+        &mut wallet,
+        &mut resolver,
+        Some(RGB_DEFAULT_FETCH_LIMIT),
+    )
+    .await;
     prefetch_resolver_utxo_status(iface_index, &mut wallet, &mut resolver).await;
 
     sync_wallet(iface_index, &mut wallet, &mut resolver);
@@ -1377,7 +1424,13 @@ pub async fn watcher_unspent_utxos(sk: &str, name: &str, iface: &str) -> Result<
         ..Default::default()
     };
 
-    prefetch_resolver_utxos(iface_index, &mut wallet, &mut resolver).await;
+    prefetch_resolver_utxos(
+        iface_index,
+        &mut wallet,
+        &mut resolver,
+        Some(RGB_DEFAULT_FETCH_LIMIT),
+    )
+    .await;
     prefetch_resolver_utxo_status(iface_index, &mut wallet, &mut resolver).await;
 
     sync_wallet(iface_index, &mut wallet, &mut resolver);
