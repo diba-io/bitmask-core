@@ -12,8 +12,7 @@ COPY . .
 
 RUN cargo install --locked --features server --path . --root ${BUILDER_DIR}
 
-# Set the working directory inside the container
-#WORKDIR /app
+ENV CARBONADO_DIR= "/data/bitmaskd/carbonado/"
 
 # Runtime
 FROM rust:1.69-slim-buster AS runtime
