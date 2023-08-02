@@ -28,7 +28,7 @@ use bitmask_core::{
     },
     structs::{
         AcceptRequest, FileMetadata, FullRgbTransferRequest, ImportRequest, InvoiceRequest,
-        IssueAssetRequest, IssueRequest, MediaInfo, PsbtRequest, ReIssueRequest,
+        IssueAssetRequest, IssueRequest, MediaInfo, PsbtFeeRequest, PsbtRequest, ReIssueRequest,
         RgbTransferRequest, SecretString, SelfFullRgbTransferRequest, SelfIssueRequest,
         SignPsbtRequest, WatcherRequest,
     },
@@ -151,14 +151,17 @@ async fn self_pay(
 
     let sk = issuer_keys.private.nostr_prv.as_ref();
 
+    let fee = self_pay_req
+        .fee
+        .map_or(PsbtFeeRequest::Value(1000), PsbtFeeRequest::Value);
+
     let request = FullRgbTransferRequest {
-        mnemonic: issuer_keys.mnemonic.clone(),
         contract_id: self_pay_req.contract_id,
         iface: self_pay_req.iface,
         rgb_invoice: self_pay_req.rgb_invoice,
         descriptor: SecretString(issuer_keys.public.rgb_udas_descriptor_xpub.clone()),
-        tapret: self_pay_req.tapret,
-        terminal: self_pay_req.terminal,
+        change_terminal: self_pay_req.terminal,
+        fee,
     };
 
     let transfer_res = full_transfer_asset(sk, request).await?;

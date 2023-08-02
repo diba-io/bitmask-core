@@ -15,7 +15,7 @@ use bitmask_core::{
 
 use crate::rgb::integration::utils::{
     create_new_invoice, create_new_invoice_v2, create_new_psbt, create_new_psbt_v2,
-    create_new_transfer, issuer_issue_contract, issuer_issue_contract_v2, send_some_coins,
+    create_new_transfer, issuer_issue_contract_v2, send_some_coins, UtxoFilter,
     ANOTHER_OWNER_MNEMONIC, ISSUER_MNEMONIC, OWNER_MNEMONIC,
 };
 
@@ -52,7 +52,18 @@ async fn allow_issuer_make_conseq_transfers() -> anyhow::Result<()> {
     create_watcher(&owner_sk, create_watch_req.clone()).await?;
 
     // 2. Issuer Contract
-    let issuer_resp = &issuer_issue_contract("RGB20", 5, false, true, None).await?;
+    let issuer_resp = issuer_issue_contract_v2(
+        1,
+        "RGB20",
+        5,
+        false,
+        true,
+        None,
+        Some("0.1".to_string()),
+        Some(UtxoFilter::with_amount_equal_than(10000000)),
+    )
+    .await?;
+    let issuer_resp = &issuer_resp[0];
 
     // 3. Owner Create Invoice
     let owner_invoice = &create_new_invoice(
@@ -199,7 +210,18 @@ async fn allow_owner_make_conseq_transfers() -> anyhow::Result<()> {
     .await?;
 
     // 1. Issue and Create First Transfer (Issuer side)
-    let issuer_resp = &issuer_issue_contract("RGB20", 5, false, true, None).await?;
+    let issuer_resp = issuer_issue_contract_v2(
+        1,
+        "RGB20",
+        5,
+        false,
+        true,
+        None,
+        Some("0.1".to_string()),
+        Some(UtxoFilter::with_amount_equal_than(10000000)),
+    )
+    .await?;
+    let issuer_resp = &issuer_resp[0];
     let owner_resp = &create_new_invoice(
         &issuer_resp.contract_id,
         &issuer_resp.iface,
@@ -435,7 +457,18 @@ async fn allow_conseq_transfers_between_tree_owners() -> anyhow::Result<()> {
     create_watcher(&another_owner_sk, create_watch_req.clone()).await?;
 
     // 2. Issuer Contract
-    let issuer_resp = &issuer_issue_contract("RGB20", 5, false, true, None).await?;
+    let issuer_resp = issuer_issue_contract_v2(
+        1,
+        "RGB20",
+        5,
+        false,
+        true,
+        None,
+        Some("0.1".to_string()),
+        Some(UtxoFilter::with_amount_equal_than(10000000)),
+    )
+    .await?;
+    let issuer_resp = &issuer_resp[0];
 
     // 3. Owner Create Invoice
     let owner_invoice = &create_new_invoice(
@@ -669,7 +702,18 @@ async fn allows_spend_amount_from_two_different_owners() -> anyhow::Result<()> {
     create_watcher(&another_owner_sk, create_watch_req.clone()).await?;
 
     // 2. Issuer Contract
-    let issuer_resp = &issuer_issue_contract("RGB20", 5, false, true, None).await?;
+    let issuer_resp = issuer_issue_contract_v2(
+        1,
+        "RGB20",
+        5,
+        false,
+        true,
+        None,
+        Some("0.1".to_string()),
+        Some(UtxoFilter::with_amount_equal_than(10000000)),
+    )
+    .await?;
+    let issuer_resp = &issuer_resp[0];
 
     // 3. Owner Create Invoice
     let owner_invoice = &create_new_invoice(
@@ -716,6 +760,9 @@ async fn allows_spend_amount_from_two_different_owners() -> anyhow::Result<()> {
         assert!(accept_resp.is_ok());
         assert!(accept_resp?.valid);
     }
+    let another_owner_address =
+        watcher_next_address(&another_owner_sk, watcher_name, "RGB20").await?;
+    send_some_coins(&another_owner_address.address, "0.1").await;
 
     // 6. Check Contract Balances (Issuer Owner Side)
     let contract_id = &issuer_resp.contract_id;
@@ -958,7 +1005,18 @@ async fn allows_spend_amount_from_two_different_transitions() -> anyhow::Result<
     create_watcher(&another_owner_sk, create_watch_req.clone()).await?;
 
     // 2. Issuer Contract
-    let issuer_resp = &issuer_issue_contract("RGB20", 5, false, true, None).await?;
+    let issuer_resp = issuer_issue_contract_v2(
+        1,
+        "RGB20",
+        5,
+        false,
+        true,
+        None,
+        Some("0.1".to_string()),
+        Some(UtxoFilter::with_amount_equal_than(10000000)),
+    )
+    .await?;
+    let issuer_resp = &issuer_resp[0];
 
     // 3. Owner Create Invoice
     let owner_invoice = &create_new_invoice(
@@ -1226,8 +1284,17 @@ async fn allow_issuer_make_transfer_of_two_contracts_in_same_utxo() -> anyhow::R
         &SecretString("".to_string()),
     )
     .await?;
-    let issue_contracts_resp =
-        &issuer_issue_contract_v2(2, "RGB20", 5, false, true, None, None, None).await?;
+    let issue_contracts_resp = &issuer_issue_contract_v2(
+        2,
+        "RGB20",
+        5,
+        false,
+        true,
+        None,
+        Some("1".to_string()),
+        Some(UtxoFilter::with_amount_equal_than(100000000)),
+    )
+    .await?;
     let issue_contract_a_resp = issue_contracts_resp[0].clone();
     let issue_contract_b_resp = issue_contracts_resp[1].clone();
 

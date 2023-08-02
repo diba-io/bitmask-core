@@ -469,11 +469,11 @@ pub struct PsbtRequest {
     #[garde(length(min = 0, max = 999))]
     pub asset_inputs: Vec<PsbtInputRequest>,
     /// Asset Descriptor Change
-    #[garde(custom(is_descriptor))]
-    pub asset_descriptor_change: SecretString,
+    #[garde(skip)]
+    pub asset_descriptor_change: Option<SecretString>,
     /// Asset Terminal Change (default: /10/0)
-    #[garde(custom(is_terminal_path))]
-    pub asset_terminal_change: String,
+    #[garde(skip)]
+    pub asset_terminal_change: Option<String>,
     /// Bitcoin UTXOs
     #[garde(dive)]
     #[garde(length(min = 0, max = 999))]
@@ -512,6 +512,12 @@ pub struct PsbtInputRequest {
 pub enum PsbtFeeRequest {
     Value(#[garde(range(min = 0, max = u64::MAX))] u64),
     FeeRate(#[garde(skip)] f32),
+}
+
+impl Default for PsbtFeeRequest {
+    fn default() -> Self {
+        Self::Value(0)
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -570,11 +576,6 @@ pub struct RgbTransferRequest {
 #[derive(Validate)]
 #[garde(context(RGBContext))]
 pub struct FullRgbTransferRequest {
-    /// The mnemonic
-    /// #[garde(ascii)]
-    #[garde(length(min = 0, max = 512))]
-    pub mnemonic: String,
-    /// The contract id
     #[garde(ascii)]
     #[garde(length(min = 0, max = 100))]
     pub contract_id: String,
@@ -589,11 +590,12 @@ pub struct FullRgbTransferRequest {
     /// Asset or Bitcoin Descriptor
     #[garde(custom(is_descriptor))]
     pub descriptor: SecretString,
-    #[garde(skip)]
-    pub tapret: Option<String>,
-    /// Asset UTXO Terminal (ex. /0/0)
-    #[garde(custom(is_terminal_path))]
-    pub terminal: String,
+    /// Bitcoin Terminal Change
+    #[garde(ascii)]
+    pub change_terminal: String,
+    /// Bitcoin Fee
+    #[garde(dive)]
+    pub fee: PsbtFeeRequest,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -613,11 +615,13 @@ pub struct SelfFullRgbTransferRequest {
     #[garde(ascii)]
     #[garde(length(min = 0, max = 512))]
     pub rgb_invoice: String,
-    #[garde(skip)]
-    pub tapret: Option<String>,
-    /// Asset UTXO Terminal (ex. /0/0)
-    #[garde(custom(is_terminal_path))]
+    /// Bitcoin Change Terminal
+    #[garde(ascii)]
+    #[garde(length(min = 4, max = 4))]
     pub terminal: String,
+    /// Bitcoin Fee
+    #[garde(skip)]
+    pub fee: Option<u64>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

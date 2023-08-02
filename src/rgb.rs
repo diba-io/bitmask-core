@@ -8,12 +8,14 @@ use bitcoin_30::bip32::ExtendedPubKey;
 use bitcoin_scripts::address::AddressNetwork;
 use garde::Validate;
 use miniscript_crate::DescriptorPublicKey;
+use rgb::TerminalPath;
 use rgbstd::{
     containers::BindleContent,
     contract::ContractId,
+    interface::TypedState,
     persistence::{Stash, Stock},
 };
-use rgbwallet::psbt::DbcPsbtError;
+use rgbwallet::{psbt::DbcPsbtError, RgbInvoice};
 use strict_encoding::StrictSerialize;
 use thiserror::Error;
 
@@ -31,7 +33,6 @@ pub mod transfer;
 pub mod wallet;
 
 use crate::{
-    bitcoin::{get_wallet, save_mnemonic},
     constants::{
         get_network,
         storage_keys::{ASSETS_STOCK, ASSETS_WALLETS},
@@ -50,13 +51,13 @@ use crate::{
         wallet::list_allocations,
     },
     structs::{
-        AcceptRequest, AcceptResponse, AllocationDetail, AssetType, ContractMetadata,
-        ContractResponse, ContractsResponse, FullRgbTransferRequest, ImportRequest,
-        InterfaceDetail, InterfacesResponse, InvoiceRequest, InvoiceResponse, IssueMetaRequest,
-        IssueMetadata, IssueRequest, IssueResponse, NewCollectible, NextAddressResponse,
-        NextUtxoResponse, NextUtxosResponse, PsbtFeeRequest, PsbtInputRequest, PsbtRequest,
-        PsbtResponse, ReIssueRequest, ReIssueResponse, RgbTransferRequest, RgbTransferResponse,
-        SchemaDetail, SchemasResponse, SecretString, UDADetail, UtxoResponse,
+        AcceptRequest, AcceptResponse, AllocationDetail, AllocationValue, AssetType,
+        ContractMetadata, ContractResponse, ContractsResponse, FullRgbTransferRequest,
+        ImportRequest, InterfaceDetail, InterfacesResponse, InvoiceRequest, InvoiceResponse,
+        IssueMetaRequest, IssueMetadata, IssueRequest, IssueResponse, NewCollectible,
+        NextAddressResponse, NextUtxoResponse, NextUtxosResponse, PsbtFeeRequest, PsbtInputRequest,
+        PsbtRequest, PsbtResponse, ReIssueRequest, ReIssueResponse, RgbTransferRequest,
+        RgbTransferResponse, SchemaDetail, SchemasResponse, SecretString, UDADetail, UtxoResponse,
         WatcherDetailResponse, WatcherRequest, WatcherResponse, WatcherUtxoResponse,
     },
     validators::RGBContext,
@@ -450,7 +451,6 @@ pub async fn create_invoice(
             .into_iter()
             .map(|(f, e)| (f, e.to_string()))
             .collect();
-        println!("{:#?}", errors);
         return Err(InvoiceError::Validation(errors));
     }
 
@@ -505,6 +505,8 @@ pub enum TransferError {
     Accept(AcceptTransferError),
     /// Consignment cannot be encoded.
     WrongConsig(String),
+    /// Occurs an error in export step. {0}
+    Export(ExportContractError),
 }
 
 pub async fn create_psbt(sk: &str, request: PsbtRequest) -> Result<PsbtResponse, TransferError> {
@@ -514,7 +516,6 @@ pub async fn create_psbt(sk: &str, request: PsbtRequest) -> Result<PsbtResponse,
             .into_iter()
             .map(|(f, e)| (f, e.to_string()))
             .collect();
-        println!("{:#?}", errors);
         return Err(TransferError::Validation(errors));
     }
 
@@ -575,8 +576,8 @@ pub async fn create_psbt(sk: &str, request: PsbtRequest) -> Result<PsbtResponse,
     let (psbt_file, change_terminal) = create_rgb_psbt(
         all_inputs,
         bitcoin_changes,
-        asset_terminal_change,
         fee,
+        asset_terminal_change,
         wallet.cloned(),
         &resolver,
     )
@@ -607,7 +608,6 @@ pub async fn transfer_asset(
             .into_iter()
             .map(|(f, e)| (f, e.to_string()))
             .collect();
-        println!("{:#?}", errors);
         return Err(TransferError::Validation(errors));
     }
 
@@ -686,114 +686,198 @@ pub async fn full_transfer_asset(
     sk: &str,
     request: FullRgbTransferRequest,
 ) -> Result<RgbTransferResponse, TransferError> {
-    let owner_keys = save_mnemonic(
-        &SecretString(request.mnemonic.to_string()),
-        &SecretString("".to_string()),
-    )
-    .await;
-    let owner_keys = match owner_keys {
-        Ok(keys) => keys,
-        Err(_err) => return Err(TransferError::Create(CreatePsbtError::Inconclusive)),
-    };
-    let iface: &str = &request.iface.to_owned()[..];
-
-    let watcher_name = "default";
-    let resp = watcher_details(sk, watcher_name).await;
-
-    let descriptor_pub = match iface {
-        "RGB20" => owner_keys.public.rgb_assets_descriptor_xpub.clone(),
-        "RGB21" => owner_keys.public.rgb_udas_descriptor_xpub.clone(),
-        _ => owner_keys.public.rgb_assets_descriptor_xpub.clone(),
-    };
-
-    let terminal_change = match iface {
-        "RGB20" => "/20/1",
-        "RGB21" => "/21/1",
-        _ => "/20/1",
-    };
-
-    let mut inputs = vec![];
-    let owner_utxos = watcher_unspent_utxos(sk, watcher_name, iface).await;
-    let owner_utxos = match owner_utxos {
-        Ok(utxos) => utxos,
-        Err(_err) => return Err(TransferError::Create(CreatePsbtError::Inconclusive)),
-    };
-    let watcher_details = resp;
-    let watcher_details = match watcher_details {
-        Ok(details) => details,
-        Err(_err) => return Err(TransferError::Create(CreatePsbtError::Inconclusive)),
-    };
-    for contract_allocations in watcher_details
-        .contracts
-        .into_iter()
-        .filter(|x| x.contract_id == request.contract_id)
-    {
-        let allocations: Vec<AllocationDetail> = contract_allocations
-            .allocations
+    if let Err(err) = request.validate(&RGBContext::default()) {
+        let errors = err
+            .flatten()
             .into_iter()
-            .filter(|a| {
-                a.is_mine
-                    && !a.is_spent
-                    && owner_utxos
-                        .utxos
-                        .clone()
-                        .into_iter()
-                        .any(|u| u.outpoint == a.utxo)
-            })
+            .map(|(f, e)| (f, e.to_string()))
             .collect();
-
-        if let Some(allocation) = allocations.into_iter().next() {
-            inputs.push(PsbtInputRequest {
-                descriptor: SecretString(descriptor_pub.clone()),
-                utxo: allocation.utxo.to_owned(),
-                utxo_terminal: allocation.derivation,
-                tapret: None,
-            })
-        }
+        return Err(TransferError::Validation(errors));
     }
 
-    let owner_btc_desc = &owner_keys.public.btc_descriptor_xpub;
-    let owner_vault = get_wallet(&SecretString(owner_btc_desc.to_string()), None).await;
-    let owner_vault = match owner_vault {
-        Ok(vault) => vault,
-        Err(_err) => return Err(TransferError::Create(CreatePsbtError::Inconclusive)),
+    let mut stock = retrieve_stock(sk, ASSETS_STOCK).await.map_err(|_| {
+        TransferError::Retrive(
+            CARBONADO_UNAVALIABLE.to_string(),
+            STOCK_UNAVALIABLE.to_string(),
+        )
+    })?;
+
+    let rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await.map_err(|_| {
+        TransferError::Retrive(
+            CARBONADO_UNAVALIABLE.to_string(),
+            WALLET_UNAVALIABLE.to_string(),
+        )
+    })?;
+
+    if rgb_account.wallets.get("default").is_none() {
+        return Err(TransferError::NoWatcher);
+    }
+
+    let mut wallet = Some(rgb_account.wallets.get("default").unwrap().to_owned());
+    let contract_id = ContractId::from_str(&request.contract_id).map_err(|_| {
+        let mut errors = BTreeMap::new();
+        errors.insert("contract_id".to_string(), "invalid contract id".to_string());
+        TransferError::Validation(errors)
+    })?;
+
+    let invoice = RgbInvoice::from_str(&request.rgb_invoice).map_err(|_| {
+        let mut errors = BTreeMap::new();
+        errors.insert(
+            "rgb_invoice".to_string(),
+            "invalid rgb invoice data".to_string(),
+        );
+        TransferError::Validation(errors)
+    })?;
+
+    let mut resolver = ExplorerResolver {
+        explorer_url: BITCOIN_EXPLORER_API.read().await.to_string(),
+        ..Default::default()
     };
 
-    let btc_utxo = owner_vault.lock().await.list_unspent();
-    let btc_utxo = match btc_utxo {
-        Ok(utxo) => utxo,
-        Err(_err) => return Err(TransferError::Create(CreatePsbtError::Inconclusive)),
-    };
-    let btc_utxo = btc_utxo.first();
-    let bitcoin_inputs = match btc_utxo {
-        Some(utxo) => vec![PsbtInputRequest {
-            descriptor: SecretString(owner_btc_desc.to_string()),
-            utxo: utxo.outpoint.to_string(),
-            utxo_terminal: terminal_change.to_string(),
-            ..Default::default()
-        }]
-        .to_vec(),
-        None => vec![],
-    };
+    if let TypedState::Amount(amount) = invoice.owned_state {
+        let contract = export_contract(contract_id, &mut stock, &mut resolver, &mut wallet)
+            .map_err(TransferError::Export)?;
 
-    let req = PsbtRequest {
-        asset_descriptor_change: SecretString(descriptor_pub.clone()),
-        asset_terminal_change: terminal_change.to_owned(),
-        asset_inputs: inputs,
-        bitcoin_inputs,
-        bitcoin_changes: vec![],
-        fee: PsbtFeeRequest::Value(1000),
-    };
-    let psbt_response = create_psbt(sk, req).await?;
-    transfer_asset(
-        sk,
-        RgbTransferRequest {
-            rgb_invoice: request.rgb_invoice,
-            psbt: psbt_response.psbt,
-            terminal: psbt_response.terminal,
-        },
-    )
-    .await
+        let allocations: Vec<AllocationDetail> = contract
+            .allocations
+            .into_iter()
+            .filter(|x| x.is_mine && !x.is_spent)
+            .collect();
+
+        let total: u64 = allocations
+            .clone()
+            .into_iter()
+            .filter(|a| a.is_mine && !a.is_spent)
+            .map(|a| match a.value {
+                AllocationValue::Value(value) => value.to_owned(),
+                AllocationValue::UDA(_) => 1,
+            })
+            .sum();
+
+        if total < amount {
+            let mut errors = BTreeMap::new();
+            errors.insert("rgb_invoice".to_string(), "insufficient state".to_string());
+            return Err(TransferError::Validation(errors));
+        }
+
+        let contract_index = match request.iface.as_str() {
+            "RGB20" => 20,
+            "RGB21" => 21,
+            _ => 10,
+        }
+        .to_string();
+
+        let contract_terminal = format!("/{contract_index}/*");
+        let wildcard_terminal = "/*/*";
+        let universal_desc = SecretString(
+            request
+                .descriptor
+                .to_string()
+                .replace(&contract_terminal, wildcard_terminal),
+        );
+
+        // Get All Assets UTXOs
+        let mut total = 0;
+        let mut asset_inputs = vec![];
+        for alloc in allocations.into_iter() {
+            match alloc.value {
+                AllocationValue::Value(alloc_value) => {
+                    total += alloc_value;
+                    let input = PsbtInputRequest {
+                        descriptor: universal_desc.clone(),
+                        utxo: alloc.utxo,
+                        utxo_terminal: alloc.derivation,
+                        tapret: None,
+                    };
+
+                    asset_inputs.push(input);
+
+                    if amount <= total {
+                        break;
+                    }
+                }
+                AllocationValue::UDA(_) => {
+                    let input = PsbtInputRequest {
+                        descriptor: universal_desc.clone(),
+                        utxo: alloc.utxo,
+                        utxo_terminal: alloc.derivation,
+                        tapret: None,
+                    };
+                    asset_inputs.push(input);
+                    break;
+                }
+            }
+        }
+
+        // Get All Bitcoin UTXOs
+        let mut bitcoin_inputs = vec![];
+        if let PsbtFeeRequest::Value(fee_amount) = request.fee {
+            let bitcoin_indexes = [0, 1];
+            let mut wallet = wallet.unwrap();
+            let mut all_unspents = vec![];
+            for bitcoin_index in bitcoin_indexes {
+                prefetch_resolver_utxos(bitcoin_index, &mut wallet, &mut resolver).await;
+                prefetch_resolver_utxo_status(bitcoin_index, &mut wallet, &mut resolver).await;
+
+                sync_wallet(bitcoin_index, &mut wallet, &mut resolver);
+
+                let mut unspent_utxos = next_utxos(bitcoin_index, wallet.clone(), &mut resolver)
+                    .map_err(|_| {
+                        TransferError::Retrive(
+                            "Esplora".to_string(),
+                            "Retrieve Unspent UTXO unavaliable".to_string(),
+                        )
+                    })?;
+
+                all_unspents.append(&mut unspent_utxos);
+            }
+
+            for utxo in all_unspents {
+                let TerminalPath { app, index } = utxo.derivation.terminal;
+                let btc_input = PsbtInputRequest {
+                    descriptor: universal_desc.clone(),
+                    utxo: utxo.outpoint.to_string(),
+                    utxo_terminal: format!("/{app}/{index}"),
+                    tapret: None,
+                };
+                bitcoin_inputs.push(btc_input);
+
+                if fee_amount < (total + utxo.amount) {
+                    break;
+                } else {
+                    total += utxo.amount;
+                }
+            }
+        }
+
+        let psbt_req = PsbtRequest {
+            bitcoin_inputs,
+            bitcoin_changes: vec![],
+            fee: request.fee,
+            asset_inputs,
+            asset_descriptor_change: None,
+            asset_terminal_change: Some(request.change_terminal),
+        };
+
+        let psbt_response = create_psbt(sk, psbt_req).await?;
+
+        transfer_asset(
+            sk,
+            RgbTransferRequest {
+                psbt: psbt_response.psbt,
+                rgb_invoice: request.rgb_invoice,
+                terminal: psbt_response.terminal,
+            },
+        )
+        .await
+    } else {
+        let mut errors = BTreeMap::new();
+        errors.insert(
+            "rgb_invoice".to_string(),
+            "invalid rgb invoice data".to_string(),
+        );
+        Err(TransferError::Validation(errors))
+    }
 }
 
 pub async fn accept_transfer(
@@ -806,7 +890,6 @@ pub async fn accept_transfer(
             .into_iter()
             .map(|(f, e)| (f, e.to_string()))
             .collect();
-        println!("{:#?}", errors);
         return Err(TransferError::Validation(errors));
     }
 
@@ -993,7 +1076,6 @@ pub async fn import(sk: &str, request: ImportRequest) -> Result<ContractResponse
         )
     })?;
 
-    // Prefetch
     let mut resolver = ExplorerResolver {
         explorer_url: BITCOIN_EXPLORER_API.read().await.to_string(),
         ..Default::default()
@@ -1044,6 +1126,7 @@ pub async fn import(sk: &str, request: ImportRequest) -> Result<ContractResponse
     Ok(resp)
 }
 
+// TODO: Extracte all watcher operations to watcher module
 #[derive(Debug, Clone, Eq, PartialEq, Display, From, Error)]
 #[display(doc_comments)]
 pub enum WatcherError {
