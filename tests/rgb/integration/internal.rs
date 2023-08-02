@@ -28,12 +28,12 @@ async fn allow_full_transfer_step() -> anyhow::Result<()> {
     let issuer_resp = issuer_issue_contract_v2(
         1,
         "RGB20",
-        5,
+        1,
         false,
         true,
         None,
-        Some("0.00001".to_string()),
-        Some(UtxoFilter::with_amount_less_than(1000)),
+        Some("0.00000546".to_string()),
+        Some(UtxoFilter::with_amount_less_than(546)),
     )
     .await?;
 
@@ -50,7 +50,7 @@ async fn allow_full_transfer_step() -> anyhow::Result<()> {
     .await?;
 
     // 3. Get Bitcoin UTXO
-    let issuer_btc_desc = &issuer_keys.public.btc_descriptor_xpub;
+    let issuer_btc_desc = &issuer_keys.public.btc_change_descriptor_xpub;
     let issuer_vault = get_wallet(&SecretString(issuer_btc_desc.to_string()), None).await?;
     let issuer_address = &issuer_vault
         .lock()
@@ -59,17 +59,17 @@ async fn allow_full_transfer_step() -> anyhow::Result<()> {
         .address
         .to_string();
 
-    send_some_coins(issuer_address, "0.1").await;
+    send_some_coins(issuer_address, "0.001").await;
     sync_wallet(&issuer_vault).await?;
 
-    // 4. Made a Self Payment
+    // 4. Make a Self Payment
     let self_pay_req = FullRgbTransferRequest {
         contract_id: issuer_resp.contract_id,
         iface: issuer_resp.iface,
         rgb_invoice: owner_resp.invoice.to_string(),
         descriptor: SecretString(issuer_keys.public.rgb_assets_descriptor_xpub.to_string()),
-        change_terminal: "/0/1".to_string(),
-        fee: PsbtFeeRequest::Value(1000),
+        change_terminal: "/1/0".to_string(),
+        fee: PsbtFeeRequest::Value(546),
     };
 
     let issue_sk = issuer_keys.private.nostr_prv.to_string();

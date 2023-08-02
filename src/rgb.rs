@@ -768,11 +768,12 @@ pub async fn full_transfer_asset(
         .to_string();
 
         let contract_terminal = format!("/{contract_index}/*");
+        let wildcard_terminal = "/*/*";
         let universal_desc = SecretString(
             request
                 .descriptor
                 .to_string()
-                .replace(&contract_terminal, "/*/*"),
+                .replace(&contract_terminal, wildcard_terminal),
         );
 
         // Get All Assets UTXOs
@@ -820,8 +821,8 @@ pub async fn full_transfer_asset(
 
                 sync_wallet(bitcoin_index, &mut wallet, &mut resolver);
 
-                let mut unspent_utxos =
-                    next_utxos(0, wallet.clone(), &mut resolver).map_err(|_| {
+                let mut unspent_utxos = next_utxos(bitcoin_index, wallet.clone(), &mut resolver)
+                    .map_err(|_| {
                         TransferError::Retrive(
                             "Esplora".to_string(),
                             "Retrieve Unspent UTXO unavaliable".to_string(),
