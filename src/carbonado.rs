@@ -1,5 +1,3 @@
-use std::io::{Error, ErrorKind};
-
 use amplify::hex::ToHex;
 use bitcoin_30::secp256k1::{PublicKey, SecretKey};
 
@@ -20,7 +18,11 @@ pub use server::store;
 mod server {
     use super::*;
 
-    use std::path::PathBuf;
+    use std::{
+        io::{Error, ErrorKind},
+        path::PathBuf,
+    };
+
     use tokio::fs;
 
     pub async fn store(
@@ -223,7 +225,7 @@ mod client {
         }
     }
 
-    async fn fetch_get(url: String) -> Result<JsValue, JsValue> {
+    async fn fetch_get_text(url: String) -> Result<JsValue, JsValue> {
         let request = Request::get(&url)
             .header("Content-Type", "application/octet-stream")
             .header("Cache-Control", "no-cache")
@@ -242,6 +244,39 @@ mod client {
                 if status_code == 200 {
                     match response.text().await {
                         Ok(text) => Ok(JsValue::from(&text)),
+                        Err(e) => Err(JsValue::from(e.to_string())),
+                    }
+                } else {
+                    Err(JsValue::from(status_code))
+                }
+            }
+            Err(e) => Err(JsValue::from(e.to_string())),
+        }
+    }
+
+    async fn fetch_get_byte_array(url: String) -> Result<JsValue, JsValue> {
+        let request = Request::get(&url)
+            .header("Content-Type", "application/octet-stream")
+            .header("Cache-Control", "no-cache")
+            .build();
+
+        let request = match request {
+            Ok(request) => request,
+            Err(e) => return Err(JsValue::from(e.to_string())),
+        };
+
+        let response = request.send().await;
+
+        match response {
+            Ok(response) => {
+                let status_code = response.status();
+                if status_code == 200 {
+                    match response.binary().await {
+                        Ok(bytes) => {
+                            let array = Uint8Array::new_with_length(bytes.len() as u32);
+                            array.copy_from(&bytes);
+                            Ok(JsValue::from(&array))
+                        }
                         Err(e) => Err(JsValue::from(e.to_string())),
                     }
                 } else {
@@ -313,7 +348,7 @@ mod client {
         let requests = Array::new();
         for endpoint in endpoints {
             let url = format!("{endpoint}/{pk}/{network}-{name}/metadata");
-            let fetch_fn = future_to_promise(fetch_get(url));
+            let fetch_fn = future_to_promise(fetch_get_text(url));
             requests.push(&fetch_fn);
         }
 
@@ -325,35 +360,6 @@ mod client {
 
         let result: FileMetadata = serde_json::from_str(&result.as_string().unwrap())?;
         Ok(result)
-    }
-
-    async fn server_req(endpoint: &str) -> Result<Option<Vec<u8>>, CarbonadoError> {
-        let client = reqwest::Client::new();
-        let response = client
-            .get(endpoint)
-            .header("Accept", "application/octet-stream")
-            .header("Cache-Control", "no-cache")
-            .send()
-            .await
-            .map_err(|op| {
-                CarbonadoError::StdIoError(Error::new(ErrorKind::Interrupted, op.to_string()))
-            });
-
-        if let Ok(response) = response {
-            let status_code = response.status().as_u16();
-            if status_code == 200 {
-                let bytes =
-                    response.bytes().await.map_err(|_| {
-                        CarbonadoError::StdIoError(Error::new(
-                    ErrorKind::UnexpectedEof,
-                    format!("Error in parsing server response for POST JSON request to {endpoint}"),
-                ))
-                    })?;
-                return Ok(Some(bytes.to_vec()));
-            }
-        }
-
-        Ok(None)
     }
 
     pub async fn retrieve(
@@ -369,40 +375,49 @@ mod client {
         let pk = public_key.to_hex();
 
         let network = NETWORK.read().await.to_string();
-        let endpoint = CARBONADO_ENDPOINT.read().await.to_string();
-        let name = format!("{network}-{name}");
-        if let Some(encoded) = server_req(format!("{endpoint}/{pk}/{name}").as_str())
+        let endpoints = CARBONADO_ENDPOINT.read().await.to_string();
+        let endpoints: Vec<&str> = endpoints.split(',').collect();
+
+        let requests = Array::new();
+        for endpoint in endpoints.iter() {
+            let url = format!("{endpoint}/{pk}/{network}-{name}");
+            let fetch_fn = future_to_promise(fetch_get_byte_array(url));
+            requests.push(&fetch_fn);
+        }
+
+        let result = JsFuture::from(Promise::any(&JsValue::from(requests)))
             .await
-            .map_err(|_| {
-                CarbonadoError::StdIoError(Error::new(
-                    ErrorKind::NotFound,
-                    format!("Cannot create filepath to carbonado file {name}"),
-                ))
-            })?
-        {
-            if Header::len() < encoded.len() {
+            .map_err(js_to_error)?;
+
+        let array = Uint8Array::from(result);
+        let encoded = array.to_vec();
+
+        if encoded.len() > Header::len() {
+            let (header, decoded) = carbonado::file::decode(&sk, &encoded)?;
+            return Ok((decoded, header.metadata.map(|m| m.to_vec())));
+        }
+
+        // Check alternative names
+        for alt_name in alt_names {
+            let requests = Array::new();
+            for endpoint in endpoints.iter() {
+                let url = format!("{endpoint}/{pk}/{network}-{alt_name}");
+
+                let fetch_fn = future_to_promise(fetch_get_byte_array(url));
+                requests.push(&fetch_fn);
+            }
+
+            let result = JsFuture::from(Promise::any(&JsValue::from(requests)))
+                .await
+                .map_err(js_to_error)?;
+
+            let array = Uint8Array::from(result);
+            let encoded = array.to_vec();
+
+            if encoded.len() > Header::len() {
                 let (header, decoded) = carbonado::file::decode(&sk, &encoded)?;
                 return Ok((decoded, header.metadata.map(|m| m.to_vec())));
             }
-        };
-
-        // Check alternative names
-        let alt_names = alt_names.into_iter().map(|x| format!("{network}-{x}"));
-        for alt_name in alt_names {
-            if let Some(encoded) = server_req(format!("{endpoint}/{pk}/{alt_name}").as_str())
-                .await
-                .map_err(|_| {
-                    CarbonadoError::StdIoError(Error::new(
-                        ErrorKind::NotFound,
-                        format!("Cannot create filepath to carbonado file {name}"),
-                    ))
-                })?
-            {
-                if Header::len() < encoded.len() {
-                    let (header, decoded) = carbonado::file::decode(&sk, &encoded)?;
-                    return Ok((decoded, header.metadata.map(|m| m.to_vec())));
-                }
-            };
         }
 
         Ok((Vec::new(), None))
