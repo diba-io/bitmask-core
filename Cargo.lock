@@ -2649,7 +2649,7 @@ dependencies = [
 [[package]]
 name = "rgb-std"
 version = "0.10.4"
-source = "git+https://github.com/crisdut/rgb-wallet?branch=release/bmc-v0.6-rc17#b7e4b4bd1a901f4c805005844b71c834ef53253b"
+source = "git+https://github.com/crisdut/rgb-wallet?branch=release/bmc-v0.6-rc17#b6806e7fee07e9c7ee5bc20df6a8fde2678e026c"
 dependencies = [
  "amplify",
  "baid58",
@@ -2668,7 +2668,7 @@ dependencies = [
 [[package]]
 name = "rgb-wallet"
 version = "0.10.4"
-source = "git+https://github.com/crisdut/rgb-wallet?branch=release/bmc-v0.6-rc17#b7e4b4bd1a901f4c805005844b71c834ef53253b"
+source = "git+https://github.com/crisdut/rgb-wallet?branch=release/bmc-v0.6-rc17#b6806e7fee07e9c7ee5bc20df6a8fde2678e026c"
 dependencies = [
  "amplify",
  "baid58",
