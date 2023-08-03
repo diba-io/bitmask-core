@@ -35,7 +35,7 @@ use wallet::{
 
 use crate::{
     rgb::{constants::RGB_PSBT_TAPRET, structs::AddressAmount},
-    structs::{PsbtInputRequest, SecretString},
+    structs::{AssetType, PsbtInputRequest, SecretString},
 };
 
 use crate::rgb::structs::AddressFormatParseError;
@@ -95,25 +95,22 @@ pub fn create_psbt(
 
     // Define "Universal" Descriptor
     let psbt_input = psbt_inputs[0].clone();
-    let input_terminal = psbt_input
-        .utxo_terminal
-        .parse::<DerivationSubpath<UnhardenedIndex>>()
-        .map_err(CreatePsbtError::WrongTerminal)?;
-
-    let contract_index = match input_terminal.first() {
-        Some(index) => index,
-        _ => {
-            return Err(CreatePsbtError::WrongTerminal(
-                bip32::Error::InvalidChildNumberFormat,
-            ))
-        }
-    };
-    let terminal_step = format!("/{contract_index}/*");
     let wildcard_terminal = "/*/*";
-    let descriptor_pub = psbt_input
-        .descriptor
-        .to_string()
-        .replace(&terminal_step, wildcard_terminal);
+    let mut descriptor_pub = psbt_input.descriptor.to_string();
+    for contract_type in [
+        AssetType::RGB20,
+        AssetType::RGB21,
+        AssetType::Contract,
+        AssetType::Bitcoin,
+    ] {
+        let contract_index = contract_type as u32;
+        let terminal_step = format!("/{contract_index}/*");
+        if descriptor_pub.contains(&terminal_step) {
+            descriptor_pub = descriptor_pub.replace(&terminal_step, wildcard_terminal);
+            break;
+        }
+    }
+
     let global_descriptor: &Descriptor<DerivationAccount> = &Descriptor::from_str(&descriptor_pub)
         .map_err(|op| CreatePsbtError::WrongDescriptor(op.to_string()))?;
 

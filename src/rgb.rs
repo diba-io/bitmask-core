@@ -773,21 +773,21 @@ pub async fn full_transfer_asset(
             return Err(TransferError::Validation(errors));
         }
 
-        let contract_index = match request.iface.as_str() {
-            "RGB20" => 20,
-            "RGB21" => 21,
-            _ => 10,
-        }
-        .to_string();
-
-        let contract_terminal = format!("/{contract_index}/*");
         let wildcard_terminal = "/*/*";
-        let universal_desc = SecretString(
-            request
-                .descriptor
-                .to_string()
-                .replace(&contract_terminal, wildcard_terminal),
-        );
+        let mut universal_desc = request.descriptor.to_string();
+        for contract_type in [
+            AssetType::RGB20,
+            AssetType::RGB21,
+            AssetType::Contract,
+            AssetType::Bitcoin,
+        ] {
+            let contract_index = contract_type as u32;
+            let terminal_step = format!("/{contract_index}/*");
+            if universal_desc.contains(&terminal_step) {
+                universal_desc = universal_desc.replace(&terminal_step, wildcard_terminal);
+                break;
+            }
+        }
 
         // Get All Assets UTXOs
         let mut total = 0;
@@ -797,7 +797,7 @@ pub async fn full_transfer_asset(
                 AllocationValue::Value(alloc_value) => {
                     total += alloc_value;
                     let input = PsbtInputRequest {
-                        descriptor: universal_desc.clone(),
+                        descriptor: SecretString(universal_desc.clone()),
                         utxo: alloc.utxo,
                         utxo_terminal: alloc.derivation,
                         tapret: None,
@@ -811,7 +811,7 @@ pub async fn full_transfer_asset(
                 }
                 AllocationValue::UDA(_) => {
                     let input = PsbtInputRequest {
-                        descriptor: universal_desc.clone(),
+                        descriptor: SecretString(universal_desc.clone()),
                         utxo: alloc.utxo,
                         utxo_terminal: alloc.derivation,
                         tapret: None,
@@ -854,7 +854,7 @@ pub async fn full_transfer_asset(
             for utxo in all_unspents {
                 let TerminalPath { app, index } = utxo.derivation.terminal;
                 let btc_input = PsbtInputRequest {
-                    descriptor: universal_desc.clone(),
+                    descriptor: SecretString(universal_desc.clone()),
                     utxo: utxo.outpoint.to_string(),
                     utxo_terminal: format!("/{app}/{index}"),
                     tapret: None,
