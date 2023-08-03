@@ -1,4 +1,4 @@
-#Buildere
+# Builder
 FROM rust:1.69-slim-buster AS builder
 ARG BUILDER_DIR=/srv/bitmask
 ARG BUILDER_SRC=/opt/src/bitmask
@@ -12,14 +12,18 @@ COPY . .
 
 RUN cargo install --locked --features server --path . --root ${BUILDER_DIR}
 
-ENV CARBONADO_DIR= "/data/bitmaskd/carbonado/"
+#ARG path
+#ENV  CARBONADO_DIR $path
+#ENV CARBONADO_DIR=/data/bitmaskd/carbonado/
 
 # Runtime
 FROM rust:1.69-slim-buster AS runtime
 
+ENV CARBONADO_DIR=/data/bitmaskd/carbonado/
+
 ARG BUILDER_DIR=/srv/bitmask
 ARG BIN_DIR=/usr/local/bin
-ARG DATA_DIR=/data/bitmaskd/carbonado/
+ARG DATA_DIR=/tmp/bitmaskd/carbonado/
 ARG USER=bitmask
 
 RUN apt-get update -y && apt-get install -y iputils-ping telnet \
@@ -35,7 +39,6 @@ USER ${USER}
 VOLUME ${DATA_DIR}
 EXPOSE 7070
 
-# Set the data directory for data persistence
 WORKDIR ${BIN_DIR}
 
 ENTRYPOINT ["bitmaskd"]
