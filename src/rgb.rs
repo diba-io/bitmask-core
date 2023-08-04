@@ -1,4 +1,7 @@
-use std::{collections::BTreeMap, str::FromStr};
+use std::{
+    collections::{BTreeMap, HashSet},
+    str::FromStr,
+};
 
 use ::psbt::serialize::Serialize;
 use amplify::hex::ToHex;
@@ -1434,7 +1437,7 @@ pub async fn watcher_unspent_utxos(sk: &str, name: &str, iface: &str) -> Result<
     prefetch_resolver_utxo_status(iface_index, &mut wallet, &mut resolver).await;
 
     sync_wallet(iface_index, &mut wallet, &mut resolver);
-    let utxos = next_utxos(iface_index, wallet.clone(), &mut resolver)?
+    let utxos: HashSet<UtxoResponse> = next_utxos(iface_index, wallet.clone(), &mut resolver)?
         .into_iter()
         .map(|x| UtxoResponse {
             outpoint: x.outpoint.to_string(),
@@ -1447,7 +1450,9 @@ pub async fn watcher_unspent_utxos(sk: &str, name: &str, iface: &str) -> Result<
         .insert(RGB_DEFAULT_NAME.to_string(), wallet);
     store_wallets(sk, ASSETS_WALLETS, &rgb_account).await?;
 
-    Ok(NextUtxosResponse { utxos })
+    Ok(NextUtxosResponse {
+        utxos: utxos.into_iter().collect(),
+    })
 }
 
 pub async fn clear_stock(sk: &str) {

@@ -165,13 +165,11 @@ pub fn next_utxos(
     let mut utxos: Vec<Utxo> = wallet
         .utxos
         .into_iter()
-        .filter(|utxo| {
-            utxo.derivation.terminal.app == iface_index && utxo.derivation.tweak.is_none()
-        })
+        .filter(|utxo| utxo.derivation.terminal.app == iface_index)
         .collect();
 
     if utxos.is_empty() {
-        return Ok(none!());
+        return Ok(vec![]);
     }
 
     // TODO: This is really necessary?
