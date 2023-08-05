@@ -756,7 +756,6 @@ pub struct AllocationDetail {
     /// My Allocation?
     pub is_mine: bool,
     /// Allocation spent?
-    #[serde(skip)]
     pub is_spent: bool,
 }
 
