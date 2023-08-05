@@ -18,6 +18,8 @@ use rgbstd::{
 };
 use wallet::onchain::{ResolveTx, TxResolverError};
 
+use crate::structs::TxStatus;
+
 #[derive(Default)]
 pub struct ExplorerResolver {
     pub explorer_url: String,
@@ -27,6 +29,7 @@ pub struct ExplorerResolver {
     pub txs: HashMap<bitcoin::Txid, bitcoin::Transaction>,
     pub bp_txs: HashMap<Txid, Tx>,
     pub tx_height: HashMap<Txid, WitnessOrd>,
+    pub txs_status: HashMap<bitcoin::Txid, TxStatus>,
 }
 
 impl rgb::Resolver for ExplorerResolver {
@@ -262,5 +265,29 @@ impl ResolveSpent for ExplorerResolver {
     ) -> Result<bool, Self::Error> {
         let outpoint = format!("{}:{}", txid.to_hex(), index);
         Ok(self.utxos_spent.contains(&outpoint))
+    }
+}
+
+#[derive(Clone, Debug, Display, Error, From)]
+#[display(doc_comments)]
+pub enum ResolverTxStatusError {
+    Unknown,
+}
+
+pub trait ResolveTxStatus {
+    type Error: std::error::Error;
+
+    fn resolve_tx_status(&mut self, txid: bitcoin::Txid) -> Result<TxStatus, Self::Error>;
+}
+
+impl ResolveTxStatus for ExplorerResolver {
+    type Error = ResolverTxStatusError;
+
+    fn resolve_tx_status(&mut self, txid: bitcoin::Txid) -> Result<TxStatus, Self::Error> {
+        if let Some(status) = self.txs_status.get(&txid) {
+            Ok(status.clone())
+        } else {
+            Err(ResolverTxStatusError::Unknown)
+        }
     }
 }

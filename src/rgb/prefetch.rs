@@ -1,7 +1,7 @@
 #![allow(unused_imports)]
 #![allow(unused_variables)]
 use crate::rgb::resolvers::ExplorerResolver;
-use crate::structs::AssetType;
+use crate::structs::{AssetType, TxStatus};
 use crate::{debug, structs::IssueMetaRequest};
 use amplify::{
     confinement::Confined,
@@ -19,6 +19,7 @@ use bp::{LockTime, Outpoint, SeqNo, Tx, TxIn, TxOut, TxVer, Txid as BpTxid, VarI
 use rgb::{DeriveInfo, MiningStatus, RgbWallet, SpkDescriptor, Utxo};
 use rgbstd::containers::Contract;
 use std::collections::HashMap;
+use std::f32::consts::E;
 use std::{collections::BTreeMap, str::FromStr};
 use strict_encoding::StrictDeserialize;
 use wallet::onchain::ResolveTx;
@@ -576,4 +577,31 @@ async fn retrieve_data(url: &str) -> Option<Vec<u8>> {
     }
 
     None
+}
+
+pub async fn prefetch_resolver_txs_status(txids: Vec<Txid>, explorer: &mut ExplorerResolver) {
+    let esplora_client = EsploraBlockchain::new(&explorer.explorer_url, 1).with_concurrency(6);
+    for txid in txids {
+        let tx_resp = esplora_client.get_tx_status(&txid).await;
+        if tx_resp.is_ok() {
+            let mut status = TxStatus::NotFound;
+            let tx_resp = tx_resp.unwrap_or_default();
+            if let Some(tx_status) = tx_resp {
+                if tx_status.confirmed {
+                    status = TxStatus::Block(tx_status.block_height.unwrap_or_default());
+                } else {
+                    status = TxStatus::Mempool;
+                }
+            }
+            explorer.txs_status.insert(txid, status);
+        } else {
+            let err = match tx_resp.err() {
+                Some(err) => err.to_string(),
+                None => "unknown explorer error".to_string(),
+            };
+
+            let err = TxStatus::Error(err);
+            explorer.txs_status.insert(txid, err);
+        }
+    }
 }

@@ -4,6 +4,7 @@ use postcard::{from_bytes, to_allocvec};
 use rgbstd::{persistence::Stock, stl::LIB_ID_RGB};
 use strict_encoding::{StrictDeserialize, StrictSerialize};
 
+use crate::rgb::structs::RgbTransfers;
 use crate::{
     carbonado::{retrieve, store},
     rgb::{constants::RGB_STRICT_TYPE_VERSION, structs::RgbAccount},
@@ -117,6 +118,47 @@ pub async fn retrieve_wallets(sk: &str, name: &str) -> Result<RgbAccount, Storag
 
     if data.is_empty() {
         Ok(RgbAccount::default())
+    } else {
+        let rgb_wallets = from_bytes(&data)
+            .map_err(|op| StorageError::StrictRetrive(name.to_string(), op.to_string()))?;
+        Ok(rgb_wallets)
+    }
+}
+
+pub async fn store_transfers(
+    sk: &str,
+    name: &str,
+    rgb_transfers: &RgbTransfers,
+) -> Result<(), StorageError> {
+    let data = to_allocvec(rgb_transfers)
+        .map_err(|op| StorageError::StrictWrite(name.to_string(), op.to_string()))?;
+
+    let hashed_name = blake3::hash(format!("{LIB_ID_RGB}-{name}").as_bytes())
+        .to_hex()
+        .to_lowercase();
+
+    store(
+        sk,
+        &format!("{hashed_name}.c15"),
+        &data,
+        false,
+        Some(RGB_STRICT_TYPE_VERSION.to_vec()),
+    )
+    .await
+    .map_err(|op| StorageError::CarbonadoWrite(name.to_string(), op.to_string()))
+}
+
+pub async fn retrieve_transfers(sk: &str, name: &str) -> Result<RgbTransfers, StorageError> {
+    let hashed_name = blake3::hash(format!("{LIB_ID_RGB}-{name}").as_bytes())
+        .to_hex()
+        .to_lowercase();
+
+    let (data, _) = retrieve(sk, &format!("{hashed_name}.c15"), vec![])
+        .await
+        .map_err(|op| StorageError::CarbonadoRetrive(name.to_string(), op.to_string()))?;
+
+    if data.is_empty() {
+        Ok(RgbTransfers::default())
     } else {
         let rgb_wallets = from_bytes(&data)
             .map_err(|op| StorageError::StrictRetrive(name.to_string(), op.to_string()))?;

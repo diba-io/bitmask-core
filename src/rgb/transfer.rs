@@ -12,7 +12,7 @@ use rgbstd::{
     interface::TypedState,
     persistence::{Inventory, Stash, Stock},
     resolvers::ResolveHeight,
-    validation::{ResolveTx, Status},
+    validation::{AnchoredBundle, ConsignmentApi, ResolveTx, Status},
 };
 use rgbwallet::{InventoryWallet, InvoiceParseError, RgbInvoice, RgbTransport};
 use seals::txout::ExplicitSeal;
@@ -57,6 +57,8 @@ pub enum NewPaymentError {
 pub enum AcceptTransferError {
     /// Consignment data have an invalid hexadecimal format.
     WrongHex,
+    /// ContractID cannot be decoded. {0}
+    WrongContract(String),
     /// Consignment cannot be decoded. {0}
     WrongConsig(String),
     /// The Consignment is invalid. Details: {0:?}
@@ -199,4 +201,35 @@ where
         Ok(_) => Ok(bindle),
         _ => Err(AcceptTransferError::Inconclusive),
     }
+}
+
+pub fn extract_transfer(
+    contract_id: String,
+    transfer: String,
+) -> Result<(Txid, Bindle<Transfer>), AcceptTransferError> {
+    let serialized = Vec::<u8>::from_hex(&transfer).map_err(|_| AcceptTransferError::WrongHex)?;
+    let confined = Confined::try_from_iter(serialized.iter().copied())
+        .map_err(|err| AcceptTransferError::WrongConsig(err.to_string()))?;
+    let transfer = Transfer::from_strict_serialized::<{ usize::MAX }>(confined)
+        .map_err(|err| AcceptTransferError::WrongConsig(err.to_string()))?;
+
+    let contract_id = ContractId::from_str(&contract_id)
+        .map_err(|_| AcceptTransferError::WrongContract(contract_id))?;
+    for (bundle_id, _) in transfer.terminals() {
+        let Some(transitions) = transfer.known_transitions_by_bundle_id(bundle_id) else {
+            return Err(AcceptTransferError::Inconclusive);
+        };
+        for transition in transitions {
+            if contract_id != transition.contract_id {
+                continue;
+            }
+
+            if let Some(AnchoredBundle { anchor, bundle: _ }) = transfer.anchored_bundle(bundle_id)
+            {
+                return Ok((anchor.txid, Bindle::new(transfer)));
+            }
+        }
+    }
+
+    Err(AcceptTransferError::Inconclusive)
 }
