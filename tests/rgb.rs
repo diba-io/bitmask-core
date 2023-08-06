@@ -18,6 +18,7 @@ mod rgb {
         mod dustless;
         mod fungibles;
         mod import;
+        mod internal;
         mod issue;
         mod states;
         mod stress;

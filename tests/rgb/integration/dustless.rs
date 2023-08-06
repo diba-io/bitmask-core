@@ -31,10 +31,7 @@ async fn allow_multiple_inputs_in_same_psbt() -> anyhow::Result<()> {
         true,
         None,
         Some("0.00001".to_string()),
-        Some(UtxoFilter {
-            outpoint_equal: None,
-            amount_less_than: Some(1000),
-        }),
+        Some(UtxoFilter::with_amount_equal_than(1000)),
     )
     .await?;
     let issuer_resp = issuer_resp[0].clone();

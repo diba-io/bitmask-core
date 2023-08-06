@@ -469,11 +469,11 @@ pub struct PsbtRequest {
     #[garde(length(min = 0, max = 999))]
     pub asset_inputs: Vec<PsbtInputRequest>,
     /// Asset Descriptor Change
-    #[garde(custom(is_descriptor))]
-    pub asset_descriptor_change: SecretString,
+    #[garde(skip)]
+    pub asset_descriptor_change: Option<SecretString>,
     /// Asset Terminal Change (default: /10/0)
-    #[garde(custom(is_terminal_path))]
-    pub asset_terminal_change: String,
+    #[garde(skip)]
+    pub asset_terminal_change: Option<String>,
     /// Bitcoin UTXOs
     #[garde(dive)]
     #[garde(length(min = 0, max = 999))]
@@ -512,6 +512,12 @@ pub struct PsbtInputRequest {
 pub enum PsbtFeeRequest {
     Value(#[garde(range(min = 0, max = u64::MAX))] u64),
     FeeRate(#[garde(skip)] f32),
+}
+
+impl Default for PsbtFeeRequest {
+    fn default() -> Self {
+        Self::Value(0)
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -563,6 +569,59 @@ pub struct RgbTransferRequest {
     /// Asset UTXO Terminal (ex. /0/0)
     #[garde(custom(is_terminal_path))]
     pub terminal: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+#[derive(Validate)]
+#[garde(context(RGBContext))]
+pub struct FullRgbTransferRequest {
+    #[garde(ascii)]
+    #[garde(length(min = 0, max = 100))]
+    pub contract_id: String,
+    /// The contract interface
+    #[garde(ascii)]
+    #[garde(length(min = 0, max = 32))]
+    pub iface: String,
+    /// RGB Invoice
+    #[garde(ascii)]
+    #[garde(length(min = 0, max = 512))]
+    pub rgb_invoice: String,
+    /// Asset or Bitcoin Descriptor
+    #[garde(custom(is_descriptor))]
+    pub descriptor: SecretString,
+    /// Bitcoin Terminal Change
+    #[garde(ascii)]
+    pub change_terminal: String,
+    /// Bitcoin Fee
+    #[garde(dive)]
+    pub fee: PsbtFeeRequest,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+#[derive(Validate)]
+#[garde(context(RGBContext))]
+pub struct SelfFullRgbTransferRequest {
+    /// The contract id
+    #[garde(ascii)]
+    #[garde(length(min = 0, max = 100))]
+    pub contract_id: String,
+    /// The contract interface
+    #[garde(ascii)]
+    #[garde(length(min = 0, max = 32))]
+    pub iface: String,
+    /// RGB Invoice
+    #[garde(ascii)]
+    #[garde(length(min = 0, max = 512))]
+    pub rgb_invoice: String,
+    /// Bitcoin Change Terminal
+    #[garde(ascii)]
+    #[garde(length(min = 4, max = 4))]
+    pub terminal: String,
+    /// Bitcoin Fee
+    #[garde(skip)]
+    pub fee: Option<u64>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -697,7 +756,6 @@ pub struct AllocationDetail {
     /// My Allocation?
     pub is_mine: bool,
     /// Allocation spent?
-    #[serde(skip)]
     pub is_spent: bool,
 }
 
@@ -758,7 +816,7 @@ pub struct NextUtxosResponse {
     pub utxos: Vec<UtxoResponse>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[derive(Eq, PartialEq, Hash, Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct UtxoResponse {
     pub outpoint: String,

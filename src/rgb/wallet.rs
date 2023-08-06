@@ -21,6 +21,7 @@ use rgbstd::{
 use strict_encoding::tn;
 
 use crate::{
+    debug,
     rgb::{resolvers::ResolveSpent, structs::AddressTerminal},
     structs::{AllocationDetail, AllocationValue, UDAPosition, WatcherDetail},
 };
@@ -97,6 +98,8 @@ pub fn next_address(
         .max()
         .unwrap_or_default();
 
+    debug!(format!("Max RGB wallet derivations: {max}"));
+
     let next_index = max + 1;
     let scripts = wallet.descr.derive(iface_index, max..next_index);
     let addresses: Vec<AddressTerminal> = scripts
@@ -109,6 +112,8 @@ pub fn next_address(
             AddressTerminal { address, terminal }
         })
         .collect();
+
+    debug!(format!("RGB Addresses: {addresses:?}"));
 
     Ok(addresses[addresses.len() - 1].clone())
 }
@@ -160,13 +165,11 @@ pub fn next_utxos(
     let mut utxos: Vec<Utxo> = wallet
         .utxos
         .into_iter()
-        .filter(|utxo| {
-            utxo.derivation.terminal.app == iface_index && utxo.derivation.tweak.is_none()
-        })
+        .filter(|utxo| utxo.derivation.terminal.app == iface_index)
         .collect();
 
     if utxos.is_empty() {
-        return Ok(none!());
+        return Ok(vec![]);
     }
 
     // TODO: This is really necessary?

@@ -580,7 +580,7 @@ checksum = "630be753d4e58660abd17930c71b647fe46c27ea6b63cc59e1e3851406972e42"
 
 [[package]]
 name = "bitmask-core"
-version = "0.6.2"
+version = "0.6.3-rc.7"
 dependencies = [
  "amplify",
  "anyhow",
@@ -2649,7 +2649,7 @@ dependencies = [
 [[package]]
 name = "rgb-std"
 version = "0.10.4"
-source = "git+https://github.com/crisdut/rgb-wallet?branch=release/bmc-v0.6-rc17#b7e4b4bd1a901f4c805005844b71c834ef53253b"
+source = "git+https://github.com/crisdut/rgb-wallet?branch=release/bmc-v0.6-rc17#b6806e7fee07e9c7ee5bc20df6a8fde2678e026c"
 dependencies = [
  "amplify",
  "baid58",
@@ -2668,7 +2668,7 @@ dependencies = [
 [[package]]
 name = "rgb-wallet"
 version = "0.10.4"
-source = "git+https://github.com/crisdut/rgb-wallet?branch=release/bmc-v0.6-rc17#b7e4b4bd1a901f4c805005844b71c834ef53253b"
+source = "git+https://github.com/crisdut/rgb-wallet?branch=release/bmc-v0.6-rc17#b6806e7fee07e9c7ee5bc20df6a8fde2678e026c"
 dependencies = [
  "amplify",
  "baid58",

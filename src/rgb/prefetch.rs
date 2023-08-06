@@ -55,6 +55,7 @@ pub async fn prefetch_resolver_utxos(
     iface_index: u32,
     wallet: &mut RgbWallet,
     explorer: &mut ExplorerResolver,
+    limit: Option<u32>,
 ) {
 }
 
@@ -290,14 +291,19 @@ pub async fn prefetch_resolver_utxos(
     iface_index: u32,
     wallet: &mut RgbWallet,
     explorer: &mut ExplorerResolver,
+    limit: Option<u32>,
 ) {
     use std::collections::HashSet;
 
     let esplora_client: EsploraBlockchain =
         EsploraBlockchain::new(&explorer.explorer_url, 1).with_concurrency(6);
 
-    let step = 100;
     let index = 0;
+    let mut step = 100;
+    if let Some(limit) = limit {
+        step = limit;
+    }
+
     let mut utxos = bset![];
 
     let scripts = wallet.descr.derive(iface_index, index..step);
@@ -395,11 +401,11 @@ pub async fn prefetch_resolver_waddress(
     let esplora_client: EsploraBlockchain =
         EsploraBlockchain::new(&explorer.explorer_url, 1).with_concurrency(6);
 
+    let index = 0;
     let mut step = 100;
     if let Some(limit) = limit {
         step = limit;
     }
-    let index = 0;
 
     let sc = AddressCompat::from_str(address).expect("invalid address");
     let script = ScriptBuf::from_hex(&sc.script_pubkey().to_hex()).expect("invalid script");
