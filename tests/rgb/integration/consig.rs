@@ -123,11 +123,7 @@ pub async fn allow_save_read_remove_transfers() -> Result<()> {
             .into_iter()
             .find(|x| x.consig_id == transfer.consig_id)
         {
-            let expected_status = match consig_status.status {
-                TxStatus::Mempool => true,
-                _ => false,
-            };
-            assert!(expected_status);
+            matches!(consig_status.status, TxStatus::Mempool);
 
             if is_issuer {
                 assert_eq!(consig_status.ty, TransferType::Sended);
@@ -153,11 +149,7 @@ pub async fn allow_save_read_remove_transfers() -> Result<()> {
             .into_iter()
             .find(|x| x.consig_id == transfer.consig_id)
         {
-            let expected_status = match consig_status.status {
-                TxStatus::Block(_) => true,
-                _ => false,
-            };
-            assert!(expected_status);
+            matches!(consig_status.status, TxStatus::Block(_));
         }
     }
 

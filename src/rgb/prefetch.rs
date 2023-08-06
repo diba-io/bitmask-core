@@ -295,7 +295,6 @@ pub async fn prefetch_resolver_utxos(
     limit: Option<u32>,
 ) {
     use std::collections::HashSet;
-
     let esplora_client: EsploraBlockchain =
         EsploraBlockchain::new(&explorer.explorer_url, 1).with_concurrency(6);
 
@@ -346,26 +345,23 @@ pub async fn prefetch_resolver_utxos(
         }
 
         related_txs.into_iter().for_each(|tx| {
-            let index = tx
-                .vout
-                .clone()
-                .into_iter()
-                .position(|txout| txout.scriptpubkey == script);
-            if let Some(index) = index {
-                let index = index;
+            for (index, vout) in tx.vout.iter().enumerate() {
+                if vout.scriptpubkey != script {
+                    continue;
+                }
 
                 let status = match tx.status.block_height {
                     Some(height) => MiningStatus::Blockchain(height),
                     _ => MiningStatus::Mempool,
                 };
                 let outpoint = Outpoint::new(
-                    rgbstd::Txid::from_str(&tx.txid.to_hex()).expect("invalid transactionID parse"),
+                    bp::Txid::from_str(&tx.txid.to_hex()).expect("invalid outpoint parse"),
                     index as u32,
                 );
                 let new_utxo = Utxo {
                     outpoint,
                     status,
-                    amount: tx.vout[index].value,
+                    amount: vout.value,
                     derivation: derive.clone(),
                 };
                 utxos.insert(new_utxo);

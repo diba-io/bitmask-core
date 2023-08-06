@@ -79,13 +79,11 @@ impl rgb::Resolver for ExplorerResolver {
             }
 
             related_txs.into_iter().for_each(|tx| {
-                let index = tx
-                    .vout
-                    .clone()
-                    .into_iter()
-                    .position(|txout| txout.scriptpubkey == script);
-                if let Some(index) = index {
-                    let index = index;
+                for (index, vout) in tx.vout.iter().enumerate() {
+                    if vout.scriptpubkey != script {
+                        continue;
+                    }
+
                     let status = match tx.status.block_height {
                         Some(height) => MiningStatus::Blockchain(height),
                         _ => MiningStatus::Mempool,
@@ -97,7 +95,7 @@ impl rgb::Resolver for ExplorerResolver {
                     let new_utxo = Utxo {
                         outpoint,
                         status,
-                        amount: tx.vout[index].value,
+                        amount: vout.value,
                         derivation: derive.clone(),
                     };
                     utxos.insert(new_utxo);
