@@ -875,3 +875,10 @@ pub struct FileMetadata {
     pub filename: String,
     pub metadata: [u8; 8],
 }
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct RgbInvoiceResponse {
+    pub contract_id: String,
+    pub amount: u64,
+}
