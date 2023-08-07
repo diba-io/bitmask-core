@@ -668,6 +668,7 @@ pub mod rgb {
             }
         })
     }
+    #[wasm_bindgen]
     pub fn decode_invoice(invoice: String) -> Promise {
         set_panic_hook();
 
