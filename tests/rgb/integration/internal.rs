@@ -70,6 +70,7 @@ async fn allow_fungible_full_transfer_op() -> anyhow::Result<()> {
         descriptor: SecretString(issuer_keys.public.rgb_assets_descriptor_xpub.to_string()),
         change_terminal: "/1/0".to_string(),
         fee: PsbtFeeRequest::Value(546),
+        bitcoin_changes: vec![],
     };
 
     let issue_sk = issuer_keys.private.nostr_prv.to_string();
@@ -138,6 +139,7 @@ async fn allow_uda_full_transfer_op() -> anyhow::Result<()> {
         descriptor: SecretString(issuer_keys.public.rgb_udas_descriptor_xpub.to_string()),
         change_terminal: "/1/0".to_string(),
         fee: PsbtFeeRequest::Value(546),
+        bitcoin_changes: vec![],
     };
 
     let issue_sk = issuer_keys.private.nostr_prv.to_string();

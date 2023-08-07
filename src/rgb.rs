@@ -85,7 +85,7 @@ use self::{
         prefetch_resolver_utxos, prefetch_resolver_waddress, prefetch_resolver_wutxo,
     },
     psbt::{fee_estimate, save_commit, CreatePsbtError},
-    structs::RgbTransfer,
+    structs::{AddressAmount, RgbTransfer},
     transfer::{extract_transfer, AcceptTransferError, NewInvoiceError, NewPaymentError},
     wallet::{
         create_wallet, next_address, next_utxo, next_utxos, register_address, register_utxo,
@@ -814,7 +814,7 @@ pub async fn full_transfer_asset(
             .filter(|x| x.is_mine && !x.is_spent)
             .collect();
 
-        let total: u64 = allocations
+        let asset_total: u64 = allocations
             .clone()
             .into_iter()
             .filter(|a| a.is_mine && !a.is_spent)
@@ -824,7 +824,7 @@ pub async fn full_transfer_asset(
             })
             .sum();
 
-        if total < amount {
+        if asset_total < amount {
             let mut errors = BTreeMap::new();
             errors.insert("rgb_invoice".to_string(), "insufficient state".to_string());
             return Err(TransferError::Validation(errors));
@@ -847,12 +847,12 @@ pub async fn full_transfer_asset(
         }
 
         // Get All Assets UTXOs
-        let mut total = 0;
+        let mut asset_total = 0;
         let mut asset_inputs = vec![];
         for alloc in allocations.into_iter() {
             match alloc.value {
                 AllocationValue::Value(alloc_value) => {
-                    total += alloc_value;
+                    asset_total += alloc_value;
                     let input = PsbtInputRequest {
                         descriptor: SecretString(universal_desc.clone()),
                         utxo: alloc.utxo,
@@ -861,8 +861,7 @@ pub async fn full_transfer_asset(
                     };
 
                     asset_inputs.push(input);
-
-                    if amount <= total {
+                    if asset_total >= amount {
                         break;
                     }
                 }
@@ -880,6 +879,16 @@ pub async fn full_transfer_asset(
         }
 
         // Get All Bitcoin UTXOs
+        let bitcoin_spend_total: u64 = request
+            .bitcoin_changes
+            .clone()
+            .into_iter()
+            .map(|x| {
+                let recipient = AddressAmount::from_str(&x).expect("invalid address amount format");
+                recipient.amount
+            })
+            .sum();
+
         let mut bitcoin_inputs = vec![];
         if let PsbtFeeRequest::Value(fee_amount) = request.fee {
             let bitcoin_indexes = [0, 1];
@@ -894,7 +903,6 @@ pub async fn full_transfer_asset(
                 )
                 .await;
                 prefetch_resolver_utxo_status(bitcoin_index, &mut wallet, &mut resolver).await;
-
                 sync_wallet(bitcoin_index, &mut wallet, &mut resolver);
 
                 let mut unspent_utxos = next_utxos(bitcoin_index, wallet.clone(), &mut resolver)
@@ -908,35 +916,36 @@ pub async fn full_transfer_asset(
                 all_unspents.append(&mut unspent_utxos);
             }
 
+            let mut bitcoin_total = 0;
             for utxo in all_unspents {
-                let TerminalPath { app, index } = utxo.derivation.terminal;
-                let btc_input = PsbtInputRequest {
-                    descriptor: SecretString(universal_desc.clone()),
-                    utxo: utxo.outpoint.to_string(),
-                    utxo_terminal: format!("/{app}/{index}"),
-                    tapret: None,
-                };
-                bitcoin_inputs.push(btc_input);
-
-                if fee_amount < (total + utxo.amount) {
+                if bitcoin_total > (bitcoin_spend_total + fee_amount) {
                     break;
                 } else {
-                    total += utxo.amount;
+                    bitcoin_total += utxo.amount;
+
+                    let TerminalPath { app, index } = utxo.derivation.terminal;
+                    let btc_input = PsbtInputRequest {
+                        descriptor: SecretString(universal_desc.clone()),
+                        utxo: utxo.outpoint.to_string(),
+                        utxo_terminal: format!("/{app}/{index}"),
+                        tapret: None,
+                    };
+
+                    bitcoin_inputs.push(btc_input);
                 }
             }
         }
 
         let psbt_req = PsbtRequest {
-            bitcoin_inputs,
-            bitcoin_changes: vec![],
-            fee: request.fee,
             asset_inputs,
+            bitcoin_inputs,
+            bitcoin_changes: request.bitcoin_changes,
+            fee: request.fee,
             asset_descriptor_change: None,
             asset_terminal_change: Some(request.change_terminal),
         };
 
         let psbt_response = create_psbt(sk, psbt_req).await?;
-
         transfer_asset(
             sk,
             RgbTransferRequest {

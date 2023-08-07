@@ -161,8 +161,9 @@ async fn self_pay(
         iface: self_pay_req.iface,
         rgb_invoice: self_pay_req.rgb_invoice,
         descriptor: SecretString(issuer_keys.public.rgb_udas_descriptor_xpub.clone()),
-        change_terminal: self_pay_req.terminal,
         fee,
+        change_terminal: self_pay_req.terminal,
+        bitcoin_changes: self_pay_req.bitcoin_changes,
     };
 
     let transfer_res = full_transfer_asset(sk, request).await?;
