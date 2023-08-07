@@ -587,10 +587,10 @@ pub struct FullRgbTransferRequest {
     #[garde(ascii)]
     #[garde(length(min = 0, max = 512))]
     pub rgb_invoice: String,
-    /// Asset and Bitcoin Descriptor
+    /// Asset Descriptor
     #[garde(custom(is_descriptor))]
     pub descriptor: SecretString,
-    /// Bitcoin Terminal Change
+    /// Asset Terminal Change
     #[garde(ascii)]
     pub change_terminal: String,
     /// Bitcoin Fee

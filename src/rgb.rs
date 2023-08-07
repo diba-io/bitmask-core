@@ -1,8 +1,3 @@
-use std::{
-    collections::{BTreeMap, HashSet},
-    str::FromStr,
-};
-
 use ::psbt::serialize::Serialize;
 use amplify::{
     confinement::U32,
@@ -14,6 +9,7 @@ use bitcoin_30::bip32::ExtendedPubKey;
 use bitcoin_scripts::address::AddressNetwork;
 use garde::Validate;
 use miniscript_crate::DescriptorPublicKey;
+use rand::{rngs::StdRng, Rng, SeedableRng};
 use rgb::TerminalPath;
 use rgbstd::{
     containers::BindleContent,
@@ -22,6 +18,10 @@ use rgbstd::{
     persistence::{Stash, Stock},
 };
 use rgbwallet::{psbt::DbcPsbtError, RgbInvoice};
+use std::{
+    collections::{BTreeMap, HashSet},
+    str::FromStr,
+};
 use strict_encoding::StrictSerialize;
 use thiserror::Error;
 
@@ -88,8 +88,8 @@ use self::{
     structs::{AddressAmount, RgbTransfer},
     transfer::{extract_transfer, AcceptTransferError, NewInvoiceError, NewPaymentError},
     wallet::{
-        create_wallet, next_address, next_utxo, next_utxos, register_address, register_utxo,
-        sync_wallet,
+        create_wallet, get_address, next_address, next_utxo, next_utxos, register_address,
+        register_utxo, sync_wallet,
     },
 };
 
@@ -529,6 +529,8 @@ pub enum TransferError {
     WrongConsig(String),
     /// Rgb Invoice cannot be decoded. {0}
     WrongInvoice(String),
+    /// Bitcoin network be decoded. {0}
+    WrongNetwork(String),
     /// Occurs an error in export step. {0}
     Export(ExportContractError),
 }
@@ -804,7 +806,7 @@ pub async fn full_transfer_asset(
         ..Default::default()
     };
 
-    if let TypedState::Amount(amount) = invoice.owned_state {
+    if let TypedState::Amount(target_amount) = invoice.owned_state {
         let contract = export_contract(contract_id, &mut stock, &mut resolver, &mut wallet)
             .map_err(TransferError::Export)?;
 
@@ -824,14 +826,24 @@ pub async fn full_transfer_asset(
             })
             .sum();
 
-        if asset_total < amount {
+        if asset_total < target_amount {
             let mut errors = BTreeMap::new();
             errors.insert("rgb_invoice".to_string(), "insufficient state".to_string());
             return Err(TransferError::Validation(errors));
         }
 
+        let FullRgbTransferRequest {
+            contract_id: _,
+            iface: _,
+            rgb_invoice,
+            descriptor,
+            change_terminal,
+            fee,
+            mut bitcoin_changes,
+        } = request;
+
         let wildcard_terminal = "/*/*";
-        let mut universal_desc = request.descriptor.to_string();
+        let mut universal_desc = descriptor.to_string();
         for contract_type in [
             AssetType::RGB20,
             AssetType::RGB21,
@@ -845,42 +857,75 @@ pub async fn full_transfer_asset(
                 break;
             }
         }
+        let mut wallet = wallet.unwrap();
+        let mut all_unspents = vec![];
 
         // Get All Assets UTXOs
         let mut asset_total = 0;
         let mut asset_inputs = vec![];
+        let mut asset_unspent_utxos = vec![];
+        for contract_index in [AssetType::RGB20, AssetType::RGB21] {
+            let contract_index = contract_index as u32;
+            prefetch_resolver_utxo_status(contract_index, &mut wallet, &mut resolver).await;
+            sync_wallet(contract_index, &mut wallet, &mut resolver);
+            asset_unspent_utxos.append(
+                &mut next_utxos(contract_index, wallet.clone(), &mut resolver).map_err(|_| {
+                    TransferError::Retrive(
+                        "Esplora".to_string(),
+                        "Retrieve Unspent UTXO unavaliable".to_string(),
+                    )
+                })?,
+            )
+        }
+
+        let mut rng = StdRng::seed_from_u64(0);
+        let rnd_amount = rng.gen_range(600..1500);
+
+        let mut total_asset_bitcoin_unspend: u64 = 0;
         for alloc in allocations.into_iter() {
             match alloc.value {
                 AllocationValue::Value(alloc_value) => {
+                    if asset_total >= target_amount {
+                        break;
+                    }
                     asset_total += alloc_value;
                     let input = PsbtInputRequest {
                         descriptor: SecretString(universal_desc.clone()),
-                        utxo: alloc.utxo,
+                        utxo: alloc.utxo.clone(),
                         utxo_terminal: alloc.derivation,
                         tapret: None,
                     };
 
                     asset_inputs.push(input);
-                    if asset_total >= amount {
-                        break;
-                    }
+                    total_asset_bitcoin_unspend += asset_unspent_utxos
+                        .clone()
+                        .into_iter()
+                        .find(|x| x.outpoint.to_string() == alloc.utxo.clone())
+                        .map(|x| x.amount)
+                        .unwrap_or_default();
                 }
                 AllocationValue::UDA(_) => {
                     let input = PsbtInputRequest {
                         descriptor: SecretString(universal_desc.clone()),
-                        utxo: alloc.utxo,
+                        utxo: alloc.utxo.clone(),
                         utxo_terminal: alloc.derivation,
                         tapret: None,
                     };
                     asset_inputs.push(input);
+                    total_asset_bitcoin_unspend += asset_unspent_utxos
+                        .clone()
+                        .into_iter()
+                        .find(|x| x.outpoint.to_string() == alloc.utxo.clone())
+                        .map(|x| x.amount)
+                        .unwrap_or_default();
+
                     break;
                 }
             }
         }
 
         // Get All Bitcoin UTXOs
-        let bitcoin_spend_total: u64 = request
-            .bitcoin_changes
+        let total_bitcoin_spend: u64 = bitcoin_changes
             .clone()
             .into_iter()
             .map(|x| {
@@ -888,12 +933,9 @@ pub async fn full_transfer_asset(
                 recipient.amount
             })
             .sum();
-
         let mut bitcoin_inputs = vec![];
-        if let PsbtFeeRequest::Value(fee_amount) = request.fee {
+        if let PsbtFeeRequest::Value(fee_amount) = fee {
             let bitcoin_indexes = [0, 1];
-            let mut wallet = wallet.unwrap();
-            let mut all_unspents = vec![];
             for bitcoin_index in bitcoin_indexes {
                 prefetch_resolver_utxos(
                     bitcoin_index,
@@ -916,9 +958,9 @@ pub async fn full_transfer_asset(
                 all_unspents.append(&mut unspent_utxos);
             }
 
-            let mut bitcoin_total = 0;
+            let mut bitcoin_total = total_asset_bitcoin_unspend;
             for utxo in all_unspents {
-                if bitcoin_total > (bitcoin_spend_total + fee_amount) {
+                if bitcoin_total > (fee_amount + rnd_amount) {
                     break;
                 } else {
                     bitcoin_total += utxo.amount;
@@ -934,23 +976,43 @@ pub async fn full_transfer_asset(
                     bitcoin_inputs.push(btc_input);
                 }
             }
+
+            if bitcoin_total < (fee_amount + rnd_amount) {
+                let mut errors = BTreeMap::new();
+                errors.insert("bitcoin".to_string(), "insufficient satoshis".to_string());
+                return Err(TransferError::Validation(errors));
+            } else {
+                let network = NETWORK.read().await.to_string();
+                let network = Network::from_str(&network)
+                    .map_err(|err| TransferError::WrongNetwork(err.to_string()))?;
+
+                let network = AddressNetwork::from(network);
+
+                let change_address = get_address(1, 1, wallet, network)
+                    .map_err(|err| TransferError::WrongNetwork(err.to_string()))?
+                    .address;
+
+                let change_amount = bitcoin_total - (rnd_amount + fee_amount + total_bitcoin_spend);
+                let change_bitcoin = format!("{change_address}:{change_amount}");
+                bitcoin_changes.push(change_bitcoin);
+            }
         }
 
         let psbt_req = PsbtRequest {
             asset_inputs,
             bitcoin_inputs,
-            bitcoin_changes: request.bitcoin_changes,
-            fee: request.fee,
+            bitcoin_changes,
+            fee,
             asset_descriptor_change: None,
-            asset_terminal_change: Some(request.change_terminal),
+            asset_terminal_change: Some(change_terminal),
         };
 
         let psbt_response = create_psbt(sk, psbt_req).await?;
         transfer_asset(
             sk,
             RgbTransferRequest {
+                rgb_invoice,
                 psbt: psbt_response.psbt,
-                rgb_invoice: request.rgb_invoice,
                 terminal: psbt_response.terminal,
             },
         )

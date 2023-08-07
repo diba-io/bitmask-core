@@ -624,6 +624,7 @@ dependencies = [
  "postcard 1.0.4",
  "pretty_env_logger",
  "psbt",
+ "rand",
  "regex",
  "reqwest",
  "rgb-contracts",

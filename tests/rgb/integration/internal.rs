@@ -68,8 +68,8 @@ async fn allow_fungible_full_transfer_op() -> anyhow::Result<()> {
         iface: issuer_resp.iface,
         rgb_invoice: owner_resp.invoice.to_string(),
         descriptor: SecretString(issuer_keys.public.rgb_assets_descriptor_xpub.to_string()),
-        change_terminal: "/1/0".to_string(),
-        fee: PsbtFeeRequest::Value(546),
+        change_terminal: "/20/1".to_string(),
+        fee: PsbtFeeRequest::Value(1000),
         bitcoin_changes: vec![],
     };
 
@@ -137,7 +137,7 @@ async fn allow_uda_full_transfer_op() -> anyhow::Result<()> {
         iface: issuer_resp.iface,
         rgb_invoice: owner_resp.invoice.to_string(),
         descriptor: SecretString(issuer_keys.public.rgb_udas_descriptor_xpub.to_string()),
-        change_terminal: "/1/0".to_string(),
+        change_terminal: "/21/1".to_string(),
         fee: PsbtFeeRequest::Value(546),
         bitcoin_changes: vec![],
     };
