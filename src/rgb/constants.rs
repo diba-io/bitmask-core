@@ -15,3 +15,4 @@ pub const CARBONADO_UNAVAILABLE: &str = "carbonado filesystem";
 pub const CARBONADO_UNAVAILABLE: &str = "carbonado server";
 pub const STOCK_UNAVAILABLE: &str = "Unable to access Stock data";
 pub const WALLET_UNAVAILABLE: &str = "Unable to access Wallet data";
+pub const TRANSFER_UNAVAILABLE: &str = "Unable to access transfer data";

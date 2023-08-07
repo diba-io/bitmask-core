@@ -1,7 +1,12 @@
-use std::{collections::HashMap, str::FromStr};
+use std::{
+    collections::{BTreeMap, HashMap},
+    str::FromStr,
+};
 
+use amplify::confinement::{Confined, U32};
 use bitcoin::Address;
 use bitcoin_scripts::address::AddressCompat;
+use bp::Txid;
 use rgb::{RgbWallet, TerminalPath};
 
 use serde::{Deserialize, Serialize};
@@ -38,4 +43,22 @@ pub struct RgbAccount {
 pub struct AddressTerminal {
     pub address: AddressCompat,
     pub terminal: TerminalPath,
+}
+
+#[derive(
+    Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Serialize, Deserialize, Default, Display,
+)]
+#[display(doc_comments)]
+
+pub struct RgbTransfers {
+    pub transfers: BTreeMap<String, Vec<RgbTransfer>>,
+}
+
+#[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize, Debug, Display)]
+#[display("{tx}")]
+pub struct RgbTransfer {
+    pub consig_id: String,
+    pub consig: Confined<Vec<u8>, 0, { U32 }>,
+    pub tx: Txid,
+    pub is_send: bool,
 }

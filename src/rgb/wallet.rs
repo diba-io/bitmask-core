@@ -80,6 +80,29 @@ pub fn list_utxos(wallet: RgbWallet) -> Result<Vec<Utxo>, anyhow::Error> {
     Ok(wallet.utxos.into_iter().collect())
 }
 
+pub fn get_address(
+    iface_index: u32,
+    index: u32,
+    wallet: RgbWallet,
+    network: AddressNetwork,
+) -> Result<AddressTerminal, anyhow::Error> {
+    let scripts = wallet.descr.derive(iface_index, 0..index);
+    let addresses: Vec<AddressTerminal> = scripts
+        .into_iter()
+        .map(|(d, sb)| {
+            let sc = Script::from_str(&sb.to_hex_string()).expect("invalid script data");
+            let address =
+                AddressCompat::from_script(&sc.into(), network).expect("invalid address data");
+            let terminal = d.terminal;
+            AddressTerminal { address, terminal }
+        })
+        .collect();
+
+    debug!(format!("RGB Addresses: {addresses:?}"));
+
+    Ok(addresses[addresses.len() - 1].clone())
+}
+
 pub fn next_address(
     iface_index: u32,
     wallet: RgbWallet,

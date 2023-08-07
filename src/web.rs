@@ -1,6 +1,7 @@
 use crate::structs::{
     AcceptRequest, FullRgbTransferRequest, ImportRequest, InvoiceRequest, IssueRequest,
-    PsbtRequest, ReIssueRequest, RgbTransferRequest, SecretString, SignPsbtRequest, WatcherRequest,
+    PsbtRequest, ReIssueRequest, RgbRemoveTransferRequest, RgbSaveTransferRequest,
+    RgbTransferRequest, SecretString, SignPsbtRequest, WatcherRequest,
 };
 // use crate::{carbonado, lightning, rgb};
 
@@ -624,6 +625,49 @@ pub mod rgb {
         })
     }
 
+    #[wasm_bindgen]
+    pub fn list_transfers(nostr_hex_sk: String, contract_id: String) -> Promise {
+        set_panic_hook();
+
+        future_to_promise(async move {
+            match crate::rgb::list_transfers(&nostr_hex_sk, contract_id).await {
+                Ok(result) => Ok(JsValue::from_string(
+                    serde_json::to_string(&result).unwrap(),
+                )),
+                Err(err) => Err(JsValue::from_string(err.to_string())),
+            }
+        })
+    }
+
+    #[wasm_bindgen]
+    pub fn save_transfer(nostr_hex_sk: String, request: JsValue) -> Promise {
+        set_panic_hook();
+
+        future_to_promise(async move {
+            let req: RgbSaveTransferRequest = serde_wasm_bindgen::from_value(request).unwrap();
+            match crate::rgb::save_transfer(&nostr_hex_sk, req).await {
+                Ok(result) => Ok(JsValue::from_string(
+                    serde_json::to_string(&result).unwrap(),
+                )),
+                Err(err) => Err(JsValue::from_string(err.to_string())),
+            }
+        })
+    }
+
+    #[wasm_bindgen]
+    pub fn remove_transfer(nostr_hex_sk: String, request: JsValue) -> Promise {
+        set_panic_hook();
+
+        future_to_promise(async move {
+            let req: RgbRemoveTransferRequest = serde_wasm_bindgen::from_value(request).unwrap();
+            match crate::rgb::remove_transfer(&nostr_hex_sk, req).await {
+                Ok(result) => Ok(JsValue::from_string(
+                    serde_json::to_string(&result).unwrap(),
+                )),
+                Err(err) => Err(JsValue::from_string(err.to_string())),
+            }
+        })
+    }
     #[wasm_bindgen]
     pub fn decode_invoice(invoice: String) -> Promise {
         set_panic_hook();

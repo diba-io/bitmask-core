@@ -169,17 +169,6 @@ pub fn create_psbt(
         .map(|AddressAmount { address, amount }| (address.script_pubkey().into(), amount))
         .collect();
 
-    // Define Tapret Proprierties
-    let proprietary_keys = vec![ProprietaryKeyDescriptor {
-        location: ProprietaryKeyLocation::Output(0_u16),
-        ty: ProprietaryKeyType {
-            prefix: RGB_PSBT_TAPRET.to_owned(),
-            subtype: 0,
-        },
-        key: None,
-        value: None,
-    }];
-
     // Change Terminal Derivation
     let mut change_index = DerivationSubpath::new();
     if let Some(terminal_change) = terminal_change {
@@ -197,6 +186,17 @@ pub fn create_psbt(
         tx_resolver,
     )
     .map_err(|op| CreatePsbtError::Incomplete(op.to_string()))?;
+
+    // Define Tapret Proprierties
+    let proprietary_keys = vec![ProprietaryKeyDescriptor {
+        location: ProprietaryKeyLocation::Output((psbt.outputs.len() - 1) as u16),
+        ty: ProprietaryKeyType {
+            prefix: RGB_PSBT_TAPRET.to_owned(),
+            subtype: 0,
+        },
+        key: None,
+        value: None,
+    }];
 
     for key in proprietary_keys {
         match key.location {

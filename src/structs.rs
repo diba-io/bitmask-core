@@ -1,6 +1,6 @@
 use garde::Validate;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 pub use bdk::{Balance, BlockTime, TransactionDetails};
@@ -587,15 +587,18 @@ pub struct FullRgbTransferRequest {
     #[garde(ascii)]
     #[garde(length(min = 0, max = 512))]
     pub rgb_invoice: String,
-    /// Asset or Bitcoin Descriptor
+    /// Asset Descriptor
     #[garde(custom(is_descriptor))]
     pub descriptor: SecretString,
-    /// Bitcoin Terminal Change
+    /// Asset Terminal Change
     #[garde(ascii)]
     pub change_terminal: String,
     /// Bitcoin Fee
     #[garde(dive)]
     pub fee: PsbtFeeRequest,
+    /// Bitcoin Change Addresses (format: {address}:{amount})
+    #[garde(length(min = 0, max = 999))]
+    pub bitcoin_changes: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -619,6 +622,9 @@ pub struct SelfFullRgbTransferRequest {
     #[garde(ascii)]
     #[garde(length(min = 4, max = 4))]
     pub terminal: String,
+    /// Bitcoin Change Addresses (format: {address}:{amount})
+    #[garde(length(min = 0, max = 999))]
+    pub bitcoin_changes: Vec<String>,
     /// Bitcoin Fee
     #[garde(skip)]
     pub fee: Option<u64>,
@@ -660,6 +666,46 @@ pub struct AcceptResponse {
     pub contract_id: String,
     /// Transfer accept status
     pub valid: bool,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+#[derive(Validate)]
+#[garde(context(RGBContext))]
+pub struct RgbSaveTransferRequest {
+    /// Contract ID
+    #[garde(ascii)]
+    #[garde(length(min = 0, max = 100))]
+    pub contract_id: String,
+
+    /// Consignment encoded in hexadecimal
+    #[garde(ascii)]
+    #[garde(length(min = 0, max = U64))]
+    pub consignment: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+#[derive(Validate)]
+#[garde(context(RGBContext))]
+pub struct RgbRemoveTransferRequest {
+    /// Contract ID
+    #[garde(ascii)]
+    #[garde(length(min = 0, max = 100))]
+    pub contract_id: String,
+
+    /// Consignment ID
+    #[garde(length(min = 1, max = 999))]
+    pub consig_ids: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct RgbTransferStatusResponse {
+    /// Contract ID
+    pub contract_id: String,
+    /// Transfer ID
+    pub consig_status: BTreeMap<String, bool>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -874,6 +920,48 @@ pub struct ExportRequestMini {
 pub struct FileMetadata {
     pub filename: String,
     pub metadata: [u8; 8],
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct RgbTransfersResponse {
+    /// List of avaliable transfers
+    pub transfers: Vec<RgbTransferDetail>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct RgbTransferDetail {
+    pub consig_id: String,
+    pub status: TxStatus,
+    #[serde(rename = "type")]
+    pub ty: TransferType,
+}
+
+#[derive(Eq, Ord, PartialEq, PartialOrd, Serialize, Deserialize, Debug, Clone, Display)]
+#[serde(rename_all = "camelCase")]
+pub enum TxStatus {
+    #[display(inner)]
+    #[serde(rename = "not_found")]
+    NotFound,
+    #[serde(rename = "error")]
+    Error(String),
+    #[serde(rename = "mempool")]
+    Mempool,
+    #[serde(rename = "block")]
+    Block(u32),
+}
+
+#[derive(Eq, Ord, PartialEq, PartialOrd, Serialize, Deserialize, Debug, Clone, Display)]
+#[serde(rename_all = "camelCase")]
+pub enum TransferType {
+    #[display(inner)]
+    #[serde(rename = "sended")]
+    Sended,
+    #[serde(rename = "received")]
+    Received,
+    #[serde(rename = "unknown")]
+    Unknown,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
