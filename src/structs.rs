@@ -963,3 +963,10 @@ pub enum TransferType {
     #[serde(rename = "unknown")]
     Unknown,
 }
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct RgbInvoiceResponse {
+    pub contract_id: String,
+    pub amount: u64,
+}

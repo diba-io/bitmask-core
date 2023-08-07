@@ -668,6 +668,18 @@ pub mod rgb {
             }
         })
     }
+    pub fn decode_invoice(invoice: String) -> Promise {
+        set_panic_hook();
+
+        future_to_promise(async move {
+            match crate::rgb::decode_invoice(invoice).await {
+                Ok(result) => Ok(JsValue::from_string(
+                    serde_json::to_string(&result).unwrap(),
+                )),
+                Err(err) => Err(JsValue::from_string(err.to_string())),
+            }
+        })
+    }
 }
 
 pub mod lightning {

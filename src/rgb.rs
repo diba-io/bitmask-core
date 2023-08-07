@@ -62,11 +62,11 @@ use crate::{
         ImportRequest, InterfaceDetail, InterfacesResponse, InvoiceRequest, InvoiceResponse,
         IssueMetaRequest, IssueMetadata, IssueRequest, IssueResponse, NewCollectible,
         NextAddressResponse, NextUtxoResponse, NextUtxosResponse, PsbtFeeRequest, PsbtInputRequest,
-        PsbtRequest, PsbtResponse, ReIssueRequest, ReIssueResponse, RgbRemoveTransferRequest,
-        RgbSaveTransferRequest, RgbTransferDetail, RgbTransferRequest, RgbTransferResponse,
-        RgbTransferStatusResponse, RgbTransfersResponse, SchemaDetail, SchemasResponse,
-        SecretString, TransferType, TxStatus, UDADetail, UtxoResponse, WatcherDetailResponse,
-        WatcherRequest, WatcherResponse, WatcherUtxoResponse,
+        PsbtRequest, PsbtResponse, ReIssueRequest, ReIssueResponse, RgbInvoiceResponse,
+        RgbRemoveTransferRequest, RgbSaveTransferRequest, RgbTransferDetail, RgbTransferRequest,
+        RgbTransferResponse, RgbTransferStatusResponse, RgbTransfersResponse, SchemaDetail,
+        SchemasResponse, SecretString, TransferType, TxStatus, UDADetail, UtxoResponse,
+        WatcherDetailResponse, WatcherRequest, WatcherResponse, WatcherUtxoResponse,
     },
     validators::RGBContext,
 };
@@ -1707,4 +1707,24 @@ pub async fn clear_stock(sk: &str) {
     store_stock(sk, ASSETS_STOCK, &Stock::default())
         .await
         .expect("unable store stock");
+}
+
+pub async fn decode_invoice(invoice: String) -> Result<RgbInvoiceResponse> {
+    let rgb_invoice = RgbInvoice::from_str(&invoice)?;
+
+    let contract_id = rgb_invoice
+        .contract
+        .map(|x| x.to_string())
+        .unwrap_or_default();
+
+    let amount = match rgb_invoice.owned_state {
+        TypedState::Amount(amount) => amount,
+        TypedState::Data(_) => 1,
+        _ => 0,
+    };
+
+    Ok(RgbInvoiceResponse {
+        contract_id,
+        amount,
+    })
 }
