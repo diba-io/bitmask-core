@@ -5,7 +5,7 @@ use bitmask_core::{
     structs::{SecretString, WatcherRequest},
 };
 
-use crate::rgb::integration::utils::{send_some_coins, ISSUER_MNEMONIC};
+use crate::rgb::integration::utils::{send_some_coins, ISSUER_MNEMONIC, OWNER_MNEMONIC};
 
 #[tokio::test]
 async fn allow_monitoring_address() -> anyhow::Result<()> {
@@ -154,5 +154,42 @@ async fn allow_monitoring_valid_utxo() -> anyhow::Result<()> {
     let resp = watcher_utxo(&sk, watcher_name, &next_utxo.utxo.unwrap().outpoint).await;
     assert!(resp.is_ok());
     assert!(!resp?.utxos.is_empty());
+    Ok(())
+}
+
+#[tokio::test]
+async fn allow_migrate_watcher() -> anyhow::Result<()> {
+    let issuer_keys = &save_mnemonic(
+        &SecretString(ISSUER_MNEMONIC.to_string()),
+        &SecretString("".to_string()),
+    )
+    .await?;
+
+    let owner_keys = &save_mnemonic(
+        &SecretString(OWNER_MNEMONIC.to_string()),
+        &SecretString("".to_string()),
+    )
+    .await?;
+
+    // Create Watcher (Wrong Key)
+    let watcher_name = "default";
+    let sk = issuer_keys.private.nostr_prv.clone();
+    let create_watch_req = WatcherRequest {
+        name: watcher_name.to_string(),
+        xpub: owner_keys.public.watcher_xpub.clone(),
+        force: false,
+    };
+
+    create_watcher(&sk, create_watch_req.clone()).await?;
+
+    // Create Watcher (Correct Key)
+    let create_watch_req = WatcherRequest {
+        name: watcher_name.to_string(),
+        xpub: issuer_keys.public.watcher_xpub.clone(),
+        force: false,
+    };
+
+    let resp = create_watcher(&sk, create_watch_req.clone()).await?;
+    assert!(resp.migrate);
     Ok(())
 }
