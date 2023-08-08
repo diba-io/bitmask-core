@@ -103,6 +103,7 @@ where
             ))
         }
     };
+
     let genesis_strict = genesis_serialized.to_hex();
     let genesis_legacy = match encode(
         "rgb",

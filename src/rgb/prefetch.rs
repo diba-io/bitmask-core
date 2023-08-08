@@ -91,32 +91,16 @@ pub async fn prefetch_resolver_rgb(
     explorer: &mut ExplorerResolver,
     asset_type: Option<AssetType>,
 ) {
-    use crate::rgb::import::contract_from_genesis;
+    use crate::rgb::import::{contract_from_armored, contract_from_other_formats};
     use amplify::confinement::U32;
     use rgbstd::contract::Genesis;
 
     let esplora_client: EsploraBlockchain =
         EsploraBlockchain::new(&explorer.explorer_url, 1).with_concurrency(6);
-    let serialized = if contract.starts_with("rgb1") {
-        let (_, serialized, _) =
-            decode(contract).expect("invalid serialized contract (bech32m format)");
-        Vec::<u8>::from_base32(&serialized).expect("invalid hexadecimal contract (bech32m format)")
+    let contract = if contract.starts_with("-----BEGIN RGB CONTRACT-----") {
+        contract_from_armored(contract)
     } else {
-        Vec::<u8>::from_hex(contract).expect("invalid hexadecimal contract (baid58 format)")
-    };
-
-    let confined: Confined<Vec<u8>, 0, { U32 }> =
-        Confined::try_from_iter(serialized.iter().copied())
-            .expect("invalid strict serialized data");
-
-    let contract = match asset_type {
-        Some(asset_type) => match Genesis::from_strict_serialized::<{ U32 }>(confined.clone()) {
-            Ok(genesis) => contract_from_genesis(genesis, asset_type, None),
-            Err(_) => Contract::from_strict_serialized::<{ U32 }>(confined)
-                .expect("invalid strict contract data"),
-        },
-        _ => Contract::from_strict_serialized::<{ U32 }>(confined)
-            .expect("invalid strict contract data"),
+        contract_from_other_formats(contract, asset_type, None)
     };
 
     for anchor_bundle in contract.bundles {

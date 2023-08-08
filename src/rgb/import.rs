@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use amplify::{
     confinement::{Confined, U32},
     hex::FromHex,
@@ -5,7 +7,7 @@ use amplify::{
 use bech32::{decode, FromBase32};
 use rgb_schemata::{nia_rgb20, nia_schema, uda_rgb21, uda_schema};
 use rgbstd::{
-    containers::Contract,
+    containers::{Bindle, Contract},
     contract::Genesis,
     interface::{rgb20, rgb21, IfacePair},
     persistence::{Inventory, Stash, Stock},
@@ -31,22 +33,10 @@ where
     R: ResolveHeight + ResolveTx,
     R::Error: 'static,
 {
-    let serialized = if contract.starts_with("rgb1") {
-        let (_, serialized, _) =
-            decode(contract).expect("invalid serialized contract (bech32m format)");
-        Vec::<u8>::from_base32(&serialized).expect("invalid hexadecimal contract (bech32m format)")
+    let contract = if contract.starts_with("-----BEGIN RGB CONTRACT-----") {
+        contract_from_armored(contract)
     } else {
-        Vec::<u8>::from_hex(contract).expect("invalid hexadecimal contract (baid58 format)")
-    };
-
-    let confined: Confined<Vec<u8>, 0, { U32 }> =
-        Confined::try_from_iter(serialized.iter().copied())
-            .expect("invalid strict serialized data");
-
-    let contract = match Genesis::from_strict_serialized::<{ U32 }>(confined.clone()) {
-        Ok(genesis) => contract_from_genesis(genesis, asset_type, Some(stock)),
-        Err(_) => Contract::from_strict_serialized::<{ U32 }>(confined)
-            .expect("invalid strict contract data"),
+        contract_from_other_formats(contract, Some(asset_type), Some(stock))
     };
 
     let contract_id = contract.contract_id();
@@ -63,6 +53,41 @@ where
     };
 
     Ok(contract)
+}
+
+pub fn contract_from_armored(contract: &str) -> Contract {
+    Bindle::<Contract>::from_str(contract)
+        .expect("invalid serialized contract/genesis (base58 format)")
+        .unbindle()
+}
+
+pub fn contract_from_other_formats(
+    contract: &str,
+    asset_type: Option<AssetType>,
+    stock: Option<&mut Stock>,
+) -> Contract {
+    let serialized = if contract.starts_with("rgb1") {
+        let (_, serialized, _) =
+            decode(contract).expect("invalid serialized contract/genesis (bech32m format)");
+        Vec::<u8>::from_base32(&serialized)
+            .expect("invalid hexadecimal contract/genesis (bech32m format)")
+    } else {
+        Vec::<u8>::from_hex(contract).expect("invalid hexadecimal contract/genesis")
+    };
+
+    let confined: Confined<Vec<u8>, 0, { U32 }> =
+        Confined::try_from_iter(serialized.iter().copied())
+            .expect("invalid strict serialized data");
+
+    match asset_type {
+        Some(asset_type) => {
+            let genesis = Genesis::from_strict_serialized::<{ U32 }>(confined)
+                .expect("invalid strict genesis data");
+            contract_from_genesis(genesis, asset_type, stock)
+        }
+        None => Contract::from_strict_serialized::<{ U32 }>(confined)
+            .expect("invalid strict contract data"),
+    }
 }
 
 pub fn contract_from_genesis(
