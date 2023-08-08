@@ -10,7 +10,7 @@ use bitcoin_scripts::address::AddressNetwork;
 use garde::Validate;
 use miniscript_crate::DescriptorPublicKey;
 use rand::{rngs::StdRng, Rng, SeedableRng};
-use rgb::TerminalPath;
+use rgb::{RgbDescr, TerminalPath};
 use rgbstd::{
     containers::BindleContent,
     contract::ContractId,
@@ -1480,6 +1480,14 @@ pub async fn import(sk: &str, request: ImportRequest) -> Result<ContractResponse
 pub enum WatcherError {
     /// Some request data is missing. {0}
     Validation(String),
+    /// Occurs an error in parse descriptor step. {0}
+    WrongDesc(String),
+    /// Occurs an error in parse xpub step. {0}
+    WrongXPub(String),
+    /// Occurs an error in create watcher step. {0}
+    Create(String),
+    /// Occurs an error in migrate watcher step. {0}
+    Legacy(String),
     /// Retrieve I/O or connectivity error. {1} in {0}
     Retrive(String, String),
     /// Write I/O or connectivity error. {1} in {0}
@@ -1502,12 +1510,31 @@ pub async fn create_watcher(
         rgb_account.wallets.remove(&name);
     }
 
+    let mut migrate = false;
+    if let Some(current_wallet) = rgb_account.wallets.get(&name) {
+        let current_wallet = current_wallet.clone();
+        let RgbDescr::Tapret(tapret_desc) = current_wallet.clone().descr;
+
+        if xpub != tapret_desc.xpub.to_string() {
+            rgb_account
+                .wallets
+                .insert("legacy".to_string(), current_wallet);
+            rgb_account.wallets.remove(&name);
+            migrate = true;
+        }
+    }
+
     if !rgb_account.wallets.contains_key(&name) {
-        let xdesc = DescriptorPublicKey::from_str(&xpub).expect("");
+        let xdesc = DescriptorPublicKey::from_str(&xpub)
+            .map_err(|err| WatcherError::WrongDesc(err.to_string()))?;
         if let DescriptorPublicKey::XPub(xpub) = xdesc {
             let xpub = xpub.xkey;
-            let xpub = ExtendedPubKey::from_str(&xpub.to_string()).expect("");
-            create_wallet(&name, xpub, &mut rgb_account.wallets).expect("");
+            let xpub = ExtendedPubKey::from_str(&xpub.to_string())
+                .map_err(|err| WatcherError::WrongXPub(err.to_string()))?;
+            create_wallet(&name, xpub, &mut rgb_account.wallets)
+                .map_err(|err| WatcherError::Create(err.to_string()))?;
+        } else {
+            return Err(WatcherError::WrongXPub("invalid xpub type".to_string()));
         }
     }
 
@@ -1519,7 +1546,7 @@ pub async fn create_watcher(
                 WALLET_UNAVAILABLE.to_string(),
             )
         })?;
-    Ok(WatcherResponse { name })
+    Ok(WatcherResponse { name, migrate })
 }
 
 pub async fn clear_watcher(sk: &str, name: &str) -> Result<WatcherResponse> {
@@ -1532,6 +1559,7 @@ pub async fn clear_watcher(sk: &str, name: &str) -> Result<WatcherResponse> {
     store_wallets(sk, ASSETS_WALLETS, &rgb_account).await?;
     Ok(WatcherResponse {
         name: name.to_string(),
+        migrate: false,
     })
 }
 

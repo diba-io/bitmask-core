@@ -772,6 +772,8 @@ pub struct WatcherRequest {
 pub struct WatcherResponse {
     /// The watcher name
     pub name: String,
+    /// migrate?
+    pub migrate: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
