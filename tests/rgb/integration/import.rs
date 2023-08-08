@@ -26,6 +26,25 @@ async fn allow_import_fungibles_from_genesis() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
+async fn allow_import_fungibles_from_contract() -> anyhow::Result<()> {
+    let issuer_resp = issuer_issue_contract("RGB20", 5, false, true, None).await;
+    assert!(issuer_resp.is_ok());
+
+    let another_vault = new_mnemonic(&SecretString("".to_string())).await?;
+
+    let sk = &another_vault.private.nostr_prv;
+    let contract_import = ImportRequest {
+        import: AssetType::RGB20,
+        data: issuer_resp?.contract.armored,
+    };
+
+    let import_resp = import(sk, contract_import).await;
+    assert!(import_resp.is_ok());
+
+    Ok(())
+}
+
+#[tokio::test]
 async fn allow_import_fungibles_from_genesis_data() -> anyhow::Result<()> {
     let issuer_keys = save_mnemonic(
         &SecretString(ISSUER_MNEMONIC.to_string()),
