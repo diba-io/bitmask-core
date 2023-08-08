@@ -248,9 +248,7 @@ pub async fn prefetch_resolver_utxo_status(
         .utxos
         .clone()
         .into_iter()
-        .filter(|utxo| {
-            utxo.derivation.terminal.app == iface_index && utxo.derivation.tweak.is_none()
-        })
+        .filter(|utxo| utxo.derivation.terminal.app == iface_index)
         .collect();
 
     if !utxos.is_empty() {
@@ -263,7 +261,7 @@ pub async fn prefetch_resolver_utxo_status(
                 .expect("service unavaliable")
             {
                 if !status.spent {
-                    break;
+                    continue;
                 }
                 explorer.utxos_spent.push(utxo.outpoint.to_string());
             }
