@@ -80,11 +80,11 @@ pub fn contract_from_other_formats(
             .expect("invalid strict serialized data");
 
     match asset_type {
-        Some(asset_type) => {
-            let genesis = Genesis::from_strict_serialized::<{ U32 }>(confined)
-                .expect("invalid strict genesis data");
-            contract_from_genesis(genesis, asset_type, stock)
-        }
+        Some(asset_type) => match Genesis::from_strict_serialized::<{ U32 }>(confined.clone()) {
+            Ok(genesis) => contract_from_genesis(genesis, asset_type, stock),
+            Err(_) => Contract::from_strict_serialized::<{ U32 }>(confined)
+                .expect("invalid strict contract data"),
+        },
         None => Contract::from_strict_serialized::<{ U32 }>(confined)
             .expect("invalid strict contract data"),
     }
