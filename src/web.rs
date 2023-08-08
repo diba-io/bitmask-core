@@ -684,6 +684,20 @@ pub mod lightning {
     }
 
     #[wasm_bindgen]
+    pub fn pay_ln_address(ln_address: String, amount: u32, token: String) -> Promise {
+        set_panic_hook();
+
+        future_to_promise(async move {
+            match crate::lightning::pay_ln_address(&ln_address, amount, &token).await {
+                Ok(result) => Ok(JsValue::from_string(
+                    serde_json::to_string(&result).unwrap(),
+                )),
+                Err(err) => Err(JsValue::from_string(err.to_string())),
+            }
+        })
+    }
+
+    #[wasm_bindgen]
     pub fn check_payment(payment_hash: String) -> Promise {
         set_panic_hook();
 
