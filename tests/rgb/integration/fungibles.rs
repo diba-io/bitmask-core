@@ -1,6 +1,6 @@
 #![cfg(not(target_arch = "wasm32"))]
 use crate::rgb::integration::utils::{
-    create_new_invoice, create_new_psbt, create_new_transfer, issuer_issue_contract,
+    create_new_invoice, create_new_psbt, create_new_transfer, issuer_issue_contract_v2, UtxoFilter,
     ISSUER_MNEMONIC, OWNER_MNEMONIC,
 };
 use bitmask_core::{
@@ -21,7 +21,19 @@ async fn allow_beneficiary_accept_transfer() -> anyhow::Result<()> {
         &SecretString("".to_string()),
     )
     .await?;
-    let issuer_resp = &issuer_issue_contract("RGB20", 5, false, true, None).await?;
+    let issuer_resp = issuer_issue_contract_v2(
+        1,
+        "RGB20",
+        5,
+        false,
+        true,
+        None,
+        Some("0.1".to_string()),
+        Some(UtxoFilter::with_amount_equal_than(10000000)),
+    )
+    .await?;
+    let issuer_resp = &issuer_resp[0];
+
     let owner_resp = &create_new_invoice(
         &issuer_resp.contract_id,
         &issuer_resp.iface,

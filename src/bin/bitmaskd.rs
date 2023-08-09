@@ -6,7 +6,7 @@ use std::{env, fs::OpenOptions, io::ErrorKind, net::SocketAddr, str::FromStr};
 use amplify::hex::ToHex;
 use anyhow::Result;
 use axum::{
-    body::Bytes,
+    body::{Bytes, Full},
     extract::Path,
     headers::{authorization::Bearer, Authorization, CacheControl},
     http::StatusCode,
@@ -21,15 +21,17 @@ use bitmask_core::{
     constants::{get_marketplace_seed, get_network, get_udas_utxo, switch_network},
     rgb::{
         accept_transfer, clear_watcher as rgb_clear_watcher, create_invoice, create_psbt,
-        create_watcher, import as rgb_import, issue_contract, list_contracts, list_interfaces,
-        list_schemas, reissue_contract, transfer_asset, watcher_address,
-        watcher_details as rgb_watcher_details, watcher_next_address, watcher_next_utxo,
-        watcher_utxo,
+        create_watcher, full_transfer_asset, import as rgb_import, issue_contract, list_contracts,
+        list_interfaces, list_schemas, list_transfers as list_rgb_transfers, reissue_contract,
+        remove_transfer as remove_rgb_transfer, save_transfer as save_rgb_transfer, transfer_asset,
+        watcher_address, watcher_details as rgb_watcher_details, watcher_next_address,
+        watcher_next_utxo, watcher_utxo,
     },
     structs::{
-        AcceptRequest, FileMetadata, ImportRequest, InvoiceRequest, IssueAssetRequest,
-        IssueRequest, MediaInfo, PsbtRequest, ReIssueRequest, RgbTransferRequest, SecretString,
-        SelfIssueRequest, SignPsbtRequest, WatcherRequest,
+        AcceptRequest, FileMetadata, FullRgbTransferRequest, ImportRequest, InvoiceRequest,
+        IssueAssetRequest, IssueRequest, MediaInfo, PsbtFeeRequest, PsbtRequest, ReIssueRequest,
+        RgbRemoveTransferRequest, RgbSaveTransferRequest, RgbTransferRequest, SecretString,
+        SelfFullRgbTransferRequest, SelfIssueRequest, SignPsbtRequest, WatcherRequest,
     },
 };
 use carbonado::file;
@@ -132,6 +134,39 @@ async fn pay(
     let nostr_hex_sk = auth.token();
 
     let transfer_res = transfer_asset(nostr_hex_sk, pay_req).await?;
+
+    Ok((StatusCode::OK, Json(transfer_res)))
+}
+
+#[axum_macros::debug_handler]
+async fn self_pay(
+    Json(self_pay_req): Json<SelfFullRgbTransferRequest>,
+) -> Result<impl IntoResponse, AppError> {
+    info!("POST /self_pay {self_pay_req:?}");
+
+    let issuer_keys = save_mnemonic(
+        &SecretString(get_marketplace_seed().await),
+        &SecretString("".to_string()),
+    )
+    .await?;
+
+    let sk = issuer_keys.private.nostr_prv.as_ref();
+
+    let fee = self_pay_req
+        .fee
+        .map_or(PsbtFeeRequest::Value(1000), PsbtFeeRequest::Value);
+
+    let request = FullRgbTransferRequest {
+        contract_id: self_pay_req.contract_id,
+        iface: self_pay_req.iface,
+        rgb_invoice: self_pay_req.rgb_invoice,
+        descriptor: SecretString(issuer_keys.public.rgb_udas_descriptor_xpub.clone()),
+        fee,
+        change_terminal: self_pay_req.terminal,
+        bitcoin_changes: self_pay_req.bitcoin_changes,
+    };
+
+    let transfer_res = full_transfer_asset(sk, request).await?;
 
     Ok((StatusCode::OK, Json(transfer_res)))
 }
@@ -292,6 +327,42 @@ async fn register_utxo(
     let resp = watcher_utxo(nostr_hex_sk, &name, &utxo).await?;
 
     Ok((StatusCode::OK, Json(resp)))
+}
+
+async fn list_transfers(
+    TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
+    Path(contract_id): Path<String>,
+) -> Result<impl IntoResponse, AppError> {
+    info!("GET /transfers/{contract_id:?}");
+
+    let nostr_hex_sk = auth.token();
+    let transfers_res = list_rgb_transfers(nostr_hex_sk, contract_id).await?;
+
+    Ok((StatusCode::OK, Json(transfers_res)))
+}
+
+async fn save_transfer(
+    TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
+    Json(request): Json<RgbSaveTransferRequest>,
+) -> Result<impl IntoResponse, AppError> {
+    info!("POST /transfers {request:?}");
+
+    let nostr_hex_sk = auth.token();
+    let import_res = save_rgb_transfer(nostr_hex_sk, request).await?;
+
+    Ok((StatusCode::OK, Json(import_res)))
+}
+
+async fn remove_transfer(
+    TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
+    Json(request): Json<RgbRemoveTransferRequest>,
+) -> Result<impl IntoResponse, AppError> {
+    info!("DELETE /transfers {request:?}");
+
+    let nostr_hex_sk = auth.token();
+    let import_res = remove_rgb_transfer(nostr_hex_sk, request).await?;
+
+    Ok((StatusCode::OK, Json(import_res)))
 }
 
 async fn co_store(
@@ -483,6 +554,7 @@ async fn main() -> Result<()> {
         // .route("/psbt", post(psbt))
         // .route("/sign", post(sign_psbt))
         .route("/pay", post(pay))
+        .route("/selfpay", post(self_pay))
         .route("/accept", post(accept))
         .route("/contracts", get(contracts))
         .route("/contract/:id", get(contract_detail))
@@ -499,6 +571,9 @@ async fn main() -> Result<()> {
         )
         .route("/watcher/:name/:asset/utxo/:utxo", put(register_utxo))
         .route("/watcher/:name", delete(clear_watcher))
+        .route("/transfers/:id", get(list_transfers))
+        .route("/transfers/", post(save_transfer))
+        .route("/transfers/", delete(remove_transfer))
         .route("/key/:pk", get(key))
         .route("/carbonado/status", get(status))
         .route("/carbonado/:pk/:name", post(co_store))

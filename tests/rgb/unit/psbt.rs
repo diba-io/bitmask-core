@@ -31,8 +31,8 @@ async fn allow_create_psbt_file() -> anyhow::Result<()> {
             tapret: None,
         }],
         vec![],
-        "/0/1".to_string(),
         fee,
+        Some("/0/1".to_string()),
         None,
         &tx_resolver,
     );

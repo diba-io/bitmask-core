@@ -394,6 +394,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8c3c1a368f70d6cf7302d78f8f7093da241fb8e8807c05cc9e51a125895a6d5b"
 
 [[package]]
+name = "base85"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "36915bbaca237c626689b5bd14d02f2ba7a5a359d30a2a08be697392e3718079"
+dependencies = [
+ "thiserror",
+]
+
+[[package]]
 name = "bdk"
 version = "0.28.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -580,7 +589,7 @@ checksum = "630be753d4e58660abd17930c71b647fe46c27ea6b63cc59e1e3851406972e42"
 
 [[package]]
 name = "bitmask-core"
-version = "0.6.2"
+version = "0.6.3-rc.10"
 dependencies = [
  "amplify",
  "anyhow",
@@ -588,6 +597,7 @@ dependencies = [
  "axum",
  "axum-macros",
  "base64-compat",
+ "base85",
  "bdk",
  "bech32",
  "bip39",
@@ -610,6 +620,7 @@ dependencies = [
  "getrandom",
  "gloo-console",
  "gloo-net",
+ "gloo-utils",
  "hex",
  "indexmap 1.9.3",
  "inflate",
@@ -623,6 +634,7 @@ dependencies = [
  "postcard 1.0.4",
  "pretty_env_logger",
  "psbt",
+ "rand",
  "regex",
  "reqwest",
  "rgb-contracts",
@@ -1471,9 +1483,9 @@ dependencies = [
 
 [[package]]
 name = "gloo-net"
-version = "0.3.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3000ef231a67d5bfee6b35f2c0f6f5c8d45b3381ef5bbbea603690ec4e539762"
+checksum = "a66b4e3c7d9ed8d315fd6b97c8b1f74a7c6ecbbc2320e65ae7ed38b7068cc620"
 dependencies = [
  "futures-channel",
  "futures-core",
@@ -2648,7 +2660,7 @@ dependencies = [
 [[package]]
 name = "rgb-std"
 version = "0.10.4"
-source = "git+https://github.com/crisdut/rgb-wallet?branch=release/bmc-v0.6-rc17#b7e4b4bd1a901f4c805005844b71c834ef53253b"
+source = "git+https://github.com/crisdut/rgb-wallet?branch=release/bmc-v0.6-rc17#b6806e7fee07e9c7ee5bc20df6a8fde2678e026c"
 dependencies = [
  "amplify",
  "baid58",
@@ -2667,7 +2679,7 @@ dependencies = [
 [[package]]
 name = "rgb-wallet"
 version = "0.10.4"
-source = "git+https://github.com/crisdut/rgb-wallet?branch=release/bmc-v0.6-rc17#b7e4b4bd1a901f4c805005844b71c834ef53253b"
+source = "git+https://github.com/crisdut/rgb-wallet?branch=release/bmc-v0.6-rc17#b6806e7fee07e9c7ee5bc20df6a8fde2678e026c"
 dependencies = [
  "amplify",
  "baid58",

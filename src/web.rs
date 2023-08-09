@@ -1,5 +1,6 @@
 use crate::structs::{
-    AcceptRequest, ImportRequest, InvoiceRequest, IssueRequest, PsbtRequest, ReIssueRequest,
+    AcceptRequest, FullRgbTransferRequest, ImportRequest, InvoiceRequest, IssueRequest,
+    PsbtRequest, ReIssueRequest, RgbRemoveTransferRequest, RgbSaveTransferRequest,
     RgbTransferRequest, SecretString, SignPsbtRequest, WatcherRequest,
 };
 // use crate::{carbonado, lightning, rgb};
@@ -425,6 +426,21 @@ pub mod rgb {
     }
 
     #[wasm_bindgen]
+    pub fn full_transfer_asset(nostr_hex_sk: String, request: JsValue) -> Promise {
+        set_panic_hook();
+
+        future_to_promise(async move {
+            let pay_req: FullRgbTransferRequest = serde_wasm_bindgen::from_value(request).unwrap();
+            match crate::rgb::full_transfer_asset(&nostr_hex_sk, pay_req).await {
+                Ok(result) => Ok(JsValue::from_string(
+                    serde_json::to_string(&result).unwrap(),
+                )),
+                Err(err) => Err(JsValue::from_string(err.to_string())),
+            }
+        })
+    }
+
+    #[wasm_bindgen]
     pub fn accept_transfer(nostr_hex_sk: String, request: JsValue) -> Promise {
         set_panic_hook();
 
@@ -587,6 +603,77 @@ pub mod rgb {
 
         future_to_promise(async move {
             match crate::rgb::watcher_next_utxo(&nostr_hex_sk, &name, &iface).await {
+                Ok(result) => Ok(JsValue::from_string(
+                    serde_json::to_string(&result).unwrap(),
+                )),
+                Err(err) => Err(JsValue::from_string(err.to_string())),
+            }
+        })
+    }
+
+    #[wasm_bindgen]
+    pub fn watcher_unspent_utxos(nostr_hex_sk: String, name: String, iface: String) -> Promise {
+        set_panic_hook();
+
+        future_to_promise(async move {
+            match crate::rgb::watcher_unspent_utxos(&nostr_hex_sk, &name, &iface).await {
+                Ok(result) => Ok(JsValue::from_string(
+                    serde_json::to_string(&result).unwrap(),
+                )),
+                Err(err) => Err(JsValue::from_string(err.to_string())),
+            }
+        })
+    }
+
+    #[wasm_bindgen]
+    pub fn list_transfers(nostr_hex_sk: String, contract_id: String) -> Promise {
+        set_panic_hook();
+
+        future_to_promise(async move {
+            match crate::rgb::list_transfers(&nostr_hex_sk, contract_id).await {
+                Ok(result) => Ok(JsValue::from_string(
+                    serde_json::to_string(&result).unwrap(),
+                )),
+                Err(err) => Err(JsValue::from_string(err.to_string())),
+            }
+        })
+    }
+
+    #[wasm_bindgen]
+    pub fn save_transfer(nostr_hex_sk: String, request: JsValue) -> Promise {
+        set_panic_hook();
+
+        future_to_promise(async move {
+            let req: RgbSaveTransferRequest = serde_wasm_bindgen::from_value(request).unwrap();
+            match crate::rgb::save_transfer(&nostr_hex_sk, req).await {
+                Ok(result) => Ok(JsValue::from_string(
+                    serde_json::to_string(&result).unwrap(),
+                )),
+                Err(err) => Err(JsValue::from_string(err.to_string())),
+            }
+        })
+    }
+
+    #[wasm_bindgen]
+    pub fn remove_transfer(nostr_hex_sk: String, request: JsValue) -> Promise {
+        set_panic_hook();
+
+        future_to_promise(async move {
+            let req: RgbRemoveTransferRequest = serde_wasm_bindgen::from_value(request).unwrap();
+            match crate::rgb::remove_transfer(&nostr_hex_sk, req).await {
+                Ok(result) => Ok(JsValue::from_string(
+                    serde_json::to_string(&result).unwrap(),
+                )),
+                Err(err) => Err(JsValue::from_string(err.to_string())),
+            }
+        })
+    }
+    #[wasm_bindgen]
+    pub fn decode_invoice(invoice: String) -> Promise {
+        set_panic_hook();
+
+        future_to_promise(async move {
+            match crate::rgb::decode_invoice(invoice).await {
                 Ok(result) => Ok(JsValue::from_string(
                     serde_json::to_string(&result).unwrap(),
                 )),
@@ -785,28 +872,28 @@ pub mod carbonado {
     pub fn encode_hex(bytes: Vec<u8>) -> String {
         set_panic_hook();
 
-        crate::carbonado::encode_hex(&bytes)
+        crate::carbonado::util::encode_hex(&bytes)
     }
 
     #[wasm_bindgen]
     pub fn encode_base64(bytes: Vec<u8>) -> String {
         set_panic_hook();
 
-        crate::carbonado::encode_base64(&bytes)
+        crate::carbonado::util::encode_base64(&bytes)
     }
 
     #[wasm_bindgen]
     pub fn decode_hex(string: String) -> Result<Vec<u8>, JsError> {
         set_panic_hook();
 
-        crate::carbonado::decode_hex(&string).map_err(|err| JsError::new(&err.to_string()))
+        crate::carbonado::util::decode_hex(&string).map_err(|err| JsError::new(&err.to_string()))
     }
 
     #[wasm_bindgen]
     pub fn decode_base64(string: String) -> Result<Vec<u8>, JsError> {
         set_panic_hook();
 
-        crate::carbonado::decode_base64(&string).map_err(|err| JsError::new(&err.to_string()))
+        crate::carbonado::util::decode_base64(&string).map_err(|err| JsError::new(&err.to_string()))
     }
 }
 

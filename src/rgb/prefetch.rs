@@ -1,7 +1,7 @@
 #![allow(unused_imports)]
 #![allow(unused_variables)]
 use crate::rgb::resolvers::ExplorerResolver;
-use crate::structs::AssetType;
+use crate::structs::{AssetType, TxStatus};
 use crate::{debug, structs::IssueMetaRequest};
 use amplify::{
     confinement::Confined,
@@ -19,6 +19,7 @@ use bp::{LockTime, Outpoint, SeqNo, Tx, TxIn, TxOut, TxVer, Txid as BpTxid, VarI
 use rgb::{DeriveInfo, MiningStatus, RgbWallet, SpkDescriptor, Utxo};
 use rgbstd::containers::Contract;
 use std::collections::HashMap;
+use std::f32::consts::E;
 use std::{collections::BTreeMap, str::FromStr};
 use strict_encoding::StrictDeserialize;
 use wallet::onchain::ResolveTx;
@@ -55,6 +56,7 @@ pub async fn prefetch_resolver_utxos(
     iface_index: u32,
     wallet: &mut RgbWallet,
     explorer: &mut ExplorerResolver,
+    limit: Option<u32>,
 ) {
 }
 
@@ -89,32 +91,16 @@ pub async fn prefetch_resolver_rgb(
     explorer: &mut ExplorerResolver,
     asset_type: Option<AssetType>,
 ) {
-    use crate::rgb::import::contract_from_genesis;
+    use crate::rgb::import::{contract_from_armored, contract_from_other_formats};
     use amplify::confinement::U32;
     use rgbstd::contract::Genesis;
 
     let esplora_client: EsploraBlockchain =
         EsploraBlockchain::new(&explorer.explorer_url, 1).with_concurrency(6);
-    let serialized = if contract.starts_with("rgb1") {
-        let (_, serialized, _) =
-            decode(contract).expect("invalid serialized contract (bech32m format)");
-        Vec::<u8>::from_base32(&serialized).expect("invalid hexadecimal contract (bech32m format)")
+    let contract = if contract.starts_with("-----BEGIN RGB CONTRACT-----") {
+        contract_from_armored(contract)
     } else {
-        Vec::<u8>::from_hex(contract).expect("invalid hexadecimal contract (baid58 format)")
-    };
-
-    let confined: Confined<Vec<u8>, 0, { U32 }> =
-        Confined::try_from_iter(serialized.iter().copied())
-            .expect("invalid strict serialized data");
-
-    let contract = match asset_type {
-        Some(asset_type) => match Genesis::from_strict_serialized::<{ U32 }>(confined.clone()) {
-            Ok(genesis) => contract_from_genesis(genesis, asset_type, None),
-            Err(_) => Contract::from_strict_serialized::<{ U32 }>(confined)
-                .expect("invalid strict contract data"),
-        },
-        _ => Contract::from_strict_serialized::<{ U32 }>(confined)
-            .expect("invalid strict contract data"),
+        contract_from_other_formats(contract, asset_type, None)
     };
 
     for anchor_bundle in contract.bundles {
@@ -262,9 +248,7 @@ pub async fn prefetch_resolver_utxo_status(
         .utxos
         .clone()
         .into_iter()
-        .filter(|utxo| {
-            utxo.derivation.terminal.app == iface_index && utxo.derivation.tweak.is_none()
-        })
+        .filter(|utxo| utxo.derivation.terminal.app == iface_index)
         .collect();
 
     if !utxos.is_empty() {
@@ -277,7 +261,7 @@ pub async fn prefetch_resolver_utxo_status(
                 .expect("service unavaliable")
             {
                 if !status.spent {
-                    break;
+                    continue;
                 }
                 explorer.utxos_spent.push(utxo.outpoint.to_string());
             }
@@ -290,14 +274,18 @@ pub async fn prefetch_resolver_utxos(
     iface_index: u32,
     wallet: &mut RgbWallet,
     explorer: &mut ExplorerResolver,
+    limit: Option<u32>,
 ) {
     use std::collections::HashSet;
-
     let esplora_client: EsploraBlockchain =
         EsploraBlockchain::new(&explorer.explorer_url, 1).with_concurrency(6);
 
-    let step = 100;
     let index = 0;
+    let mut step = 100;
+    if let Some(limit) = limit {
+        step = limit;
+    }
+
     let mut utxos = bset![];
 
     let scripts = wallet.descr.derive(iface_index, index..step);
@@ -339,26 +327,23 @@ pub async fn prefetch_resolver_utxos(
         }
 
         related_txs.into_iter().for_each(|tx| {
-            let index = tx
-                .vout
-                .clone()
-                .into_iter()
-                .position(|txout| txout.scriptpubkey == script);
-            if let Some(index) = index {
-                let index = index;
+            for (index, vout) in tx.vout.iter().enumerate() {
+                if vout.scriptpubkey != script {
+                    continue;
+                }
 
                 let status = match tx.status.block_height {
                     Some(height) => MiningStatus::Blockchain(height),
                     _ => MiningStatus::Mempool,
                 };
                 let outpoint = Outpoint::new(
-                    rgbstd::Txid::from_str(&tx.txid.to_hex()).expect("invalid transactionID parse"),
+                    bp::Txid::from_str(&tx.txid.to_hex()).expect("invalid outpoint parse"),
                     index as u32,
                 );
                 let new_utxo = Utxo {
                     outpoint,
                     status,
-                    amount: tx.vout[index].value,
+                    amount: vout.value,
                     derivation: derive.clone(),
                 };
                 utxos.insert(new_utxo);
@@ -395,11 +380,11 @@ pub async fn prefetch_resolver_waddress(
     let esplora_client: EsploraBlockchain =
         EsploraBlockchain::new(&explorer.explorer_url, 1).with_concurrency(6);
 
+    let index = 0;
     let mut step = 100;
     if let Some(limit) = limit {
         step = limit;
     }
-    let index = 0;
 
     let sc = AddressCompat::from_str(address).expect("invalid address");
     let script = ScriptBuf::from_hex(&sc.script_pubkey().to_hex()).expect("invalid script");
@@ -570,4 +555,31 @@ async fn retrieve_data(url: &str) -> Option<Vec<u8>> {
     }
 
     None
+}
+
+pub async fn prefetch_resolver_txs_status(txids: Vec<Txid>, explorer: &mut ExplorerResolver) {
+    let esplora_client = EsploraBlockchain::new(&explorer.explorer_url, 1).with_concurrency(6);
+    for txid in txids {
+        let tx_resp = esplora_client.get_tx_status(&txid).await;
+        if tx_resp.is_ok() {
+            let mut status = TxStatus::NotFound;
+            let tx_resp = tx_resp.unwrap_or_default();
+            if let Some(tx_status) = tx_resp {
+                if tx_status.confirmed {
+                    status = TxStatus::Block(tx_status.block_height.unwrap_or_default());
+                } else {
+                    status = TxStatus::Mempool;
+                }
+            }
+            explorer.txs_status.insert(txid, status);
+        } else {
+            let err = match tx_resp.err() {
+                Some(err) => err.to_string(),
+                None => "unknown explorer error".to_string(),
+            };
+
+            let err = TxStatus::Error(err);
+            explorer.txs_status.insert(txid, err);
+        }
+    }
 }

@@ -30,6 +30,33 @@ pub const ANOTHER_OWNER_MNEMONIC: &str =
 pub struct UtxoFilter {
     pub outpoint_equal: Option<String>,
     pub amount_less_than: Option<u64>,
+    pub equal_than: Option<u64>,
+}
+
+impl UtxoFilter {
+    pub fn with_outpoint(outpoint: String) -> UtxoFilter {
+        UtxoFilter {
+            outpoint_equal: Some(outpoint),
+            equal_than: None,
+            amount_less_than: None,
+        }
+    }
+
+    pub fn with_amount_equal_than(amount: u64) -> UtxoFilter {
+        UtxoFilter {
+            outpoint_equal: None,
+            equal_than: Some(amount),
+            amount_less_than: None,
+        }
+    }
+
+    pub fn with_amount_less_than(amount: u64) -> UtxoFilter {
+        UtxoFilter {
+            outpoint_equal: None,
+            equal_than: None,
+            amount_less_than: Some(amount),
+        }
+    }
 }
 
 #[allow(dead_code)]
@@ -342,8 +369,8 @@ pub async fn create_new_psbt(
     }
 
     let req = PsbtRequest {
-        asset_descriptor_change: SecretString(descriptor_pub.clone()),
-        asset_terminal_change: terminal_change.to_owned(),
+        asset_descriptor_change: Some(SecretString(descriptor_pub.clone())),
+        asset_terminal_change: Some(terminal_change.to_owned()),
         asset_inputs: inputs,
         bitcoin_inputs: vec![],
         bitcoin_changes: vec![],
@@ -396,6 +423,10 @@ pub async fn issuer_issue_contract_v2(
 
         if let Some(amount) = filter.amount_less_than {
             unspent_utxos.retain(|x| x.amount <= amount);
+        }
+
+        if let Some(amount) = filter.equal_than {
+            unspent_utxos.retain(|x| x.amount == amount);
         }
 
         if let Some(outpoint) = filter.outpoint_equal {
@@ -522,8 +553,8 @@ pub async fn create_new_psbt_v2(
 
     let default_fee = fee_strategy.unwrap_or(PsbtFeeRequest::Value(1000));
     let req = PsbtRequest {
-        asset_descriptor_change: SecretString(descriptor_pub.clone()),
-        asset_terminal_change: terminal_change.to_owned(),
+        asset_descriptor_change: Some(SecretString(descriptor_pub.clone())),
+        asset_terminal_change: Some(terminal_change.to_owned()),
         asset_inputs: inputs,
         bitcoin_inputs: owner_bitcoin_inputs,
         bitcoin_changes,
