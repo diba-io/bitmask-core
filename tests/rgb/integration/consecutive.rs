@@ -304,7 +304,7 @@ async fn allow_consecutive_full_transfer_bidirectional() -> anyhow::Result<()> {
             bitcoin_changes: vec![],
         };
 
-        let full_transfer_resp = full_transfer_asset(&wallet_a_sk, self_pay_req).await;
+        let full_transfer_resp = full_transfer_asset(wallet_a_sk, self_pay_req).await;
         println!("Payment A #{i}:1 ({})", full_transfer_resp.is_ok());
 
         let full_transfer_resp = full_transfer_resp?;
@@ -331,13 +331,13 @@ async fn allow_consecutive_full_transfer_bidirectional() -> anyhow::Result<()> {
             consignment: consig.clone(),
             force: false,
         };
-        let resp = accept_transfer(&wallet_a_sk, request.clone()).await;
+        let resp = accept_transfer(wallet_a_sk, request.clone()).await;
         assert!(resp.is_ok());
         let request = AcceptRequest {
             consignment: consig.clone(),
             force: false,
         };
-        let resp = accept_transfer(&wallet_b_sk, request.clone()).await;
+        let resp = accept_transfer(wallet_b_sk, request.clone()).await;
         assert!(resp.is_ok());
 
         send_some_coins(another_wallet, "0.00000546").await;
@@ -368,7 +368,7 @@ async fn allow_consecutive_full_transfer_bidirectional() -> anyhow::Result<()> {
                 bitcoin_changes: vec![],
             };
 
-            let full_transfer_resp = full_transfer_asset(&wallet_b_sk, self_pay_req).await;
+            let full_transfer_resp = full_transfer_asset(wallet_b_sk, self_pay_req).await;
             println!("Payment B #{i}:{j} ({})", full_transfer_resp.is_ok());
 
             let full_transfer_resp = full_transfer_resp?;
@@ -395,21 +395,21 @@ async fn allow_consecutive_full_transfer_bidirectional() -> anyhow::Result<()> {
                 consignment: consig.clone(),
                 force: false,
             };
-            let resp = accept_transfer(&wallet_a_sk, request.clone()).await;
+            let resp = accept_transfer(wallet_a_sk, request.clone()).await;
             assert!(resp.is_ok());
             let request = AcceptRequest {
                 consignment: consig.clone(),
                 force: false,
             };
-            let resp = accept_transfer(&wallet_b_sk, request.clone()).await;
+            let resp = accept_transfer(wallet_b_sk, request.clone()).await;
             assert!(resp.is_ok());
         }
 
         send_some_coins(another_wallet, "0.00000546").await;
     }
 
-    let _contract_a = get_contract(&wallet_a_sk, &contract_id).await?;
-    let _contract_b = get_contract(&wallet_b_sk, &contract_id).await?;
+    let _contract_a = get_contract(wallet_a_sk, &contract_id).await?;
+    let _contract_b = get_contract(wallet_b_sk, &contract_id).await?;
 
     // println!(
     //     "Contract A: {}\nAllocations: {:#?}\n\n",
