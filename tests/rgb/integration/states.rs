@@ -64,6 +64,7 @@ async fn check_fungible_state_after_accept_consig() -> anyhow::Result<()> {
         None,
         Some("0.1".to_string()),
         Some(UtxoFilter::with_amount_equal_than(10000000)),
+        None,
     )
     .await?;
     let issuer_resp = &issuer_resp[0];
@@ -165,6 +166,7 @@ async fn check_uda_state_after_accept_consig() -> anyhow::Result<()> {
         meta,
         Some("0.1".to_string()),
         Some(UtxoFilter::with_amount_equal_than(10000000)),
+        None,
     )
     .await?;
     let issuer_resp = issuer_resp[0].clone();

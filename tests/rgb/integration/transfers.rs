@@ -61,6 +61,7 @@ async fn allow_issuer_make_conseq_transfers() -> anyhow::Result<()> {
         None,
         Some("0.1".to_string()),
         Some(UtxoFilter::with_amount_equal_than(10000000)),
+        None,
     )
     .await?;
     let issuer_resp = &issuer_resp[0];
@@ -219,6 +220,7 @@ async fn allow_owner_make_conseq_transfers() -> anyhow::Result<()> {
         None,
         Some("0.1".to_string()),
         Some(UtxoFilter::with_amount_equal_than(10000000)),
+        None,
     )
     .await?;
     let issuer_resp = &issuer_resp[0];
@@ -466,6 +468,7 @@ async fn allow_conseq_transfers_between_tree_owners() -> anyhow::Result<()> {
         None,
         Some("0.1".to_string()),
         Some(UtxoFilter::with_amount_equal_than(10000000)),
+        None,
     )
     .await?;
     let issuer_resp = &issuer_resp[0];
@@ -711,6 +714,7 @@ async fn allows_spend_amount_from_two_different_owners() -> anyhow::Result<()> {
         None,
         Some("0.1".to_string()),
         Some(UtxoFilter::with_amount_equal_than(10000000)),
+        None,
     )
     .await?;
     let issuer_resp = &issuer_resp[0];
@@ -1014,6 +1018,7 @@ async fn allows_spend_amount_from_two_different_transitions() -> anyhow::Result<
         None,
         Some("0.1".to_string()),
         Some(UtxoFilter::with_amount_equal_than(10000000)),
+        None,
     )
     .await?;
     let issuer_resp = &issuer_resp[0];
@@ -1293,6 +1298,7 @@ async fn allow_issuer_make_transfer_of_two_contracts_in_same_utxo() -> anyhow::R
         None,
         Some("1".to_string()),
         Some(UtxoFilter::with_amount_equal_than(100000000)),
+        None,
     )
     .await?;
     let issue_contract_a_resp = issue_contracts_resp[0].clone();
@@ -1462,6 +1468,7 @@ async fn allow_issuer_make_transfer_of_two_contract_types_in_same_utxo() -> anyh
         None,
         Some("1".to_string()),
         Some(UtxoFilter::with_amount_equal_than(100000000)),
+        None,
     )
     .await?;
     let issue_contract_a_resp = issue_contracts_resp[0].clone();
@@ -1476,6 +1483,7 @@ async fn allow_issuer_make_transfer_of_two_contract_types_in_same_utxo() -> anyh
         meta,
         Some("1".to_string()),
         Some(UtxoFilter::with_amount_equal_than(100000000)),
+        None,
     )
     .await?;
     let issue_contract_b_resp = issue_contracts_resp[0].clone();
