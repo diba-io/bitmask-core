@@ -10,7 +10,7 @@ use bitcoin_scripts::address::AddressNetwork;
 use garde::Validate;
 use miniscript_crate::DescriptorPublicKey;
 use rand::{rngs::StdRng, Rng, SeedableRng};
-use rgb::{RgbDescr, TerminalPath};
+use rgb::{RgbDescr, SpkDescriptor, TerminalPath};
 use rgbstd::{
     containers::BindleContent,
     contract::ContractId,
@@ -882,18 +882,40 @@ pub async fn full_transfer_asset(
         let rnd_amount = rng.gen_range(600..1500);
 
         let mut total_asset_bitcoin_unspend: u64 = 0;
+        let RgbDescr::Tapret(tapret_desc) = wallet.descr.clone();
         for alloc in allocations.into_iter() {
+            let mut tapret = none!();
+            let mut terminal_indexes = alloc.derivation.split('/');
+            if let (_, Some(app), Some(index), _) = (
+                terminal_indexes.next(),
+                terminal_indexes.next(),
+                terminal_indexes.next(),
+                terminal_indexes.next(),
+            ) {
+                let app = u32::from_str(app).expect("invalid terminal app");
+                let index = u32::from_str(index).expect("invalid terminal index");
+                let derive_infos = tapret_desc.derive(app, 0..index);
+                if let Some((d, _)) = derive_infos
+                    .into_iter()
+                    .find(|(d, _)| d.terminal == TerminalPath { app, index } && d.tweak.is_some())
+                {
+                    if let Some(tweak) = d.tweak {
+                        tapret = Some(tweak.to_string());
+                    }
+                }
+            }
+
             match alloc.value {
                 AllocationValue::Value(alloc_value) => {
                     if asset_total >= target_amount {
                         break;
                     }
-                    asset_total += alloc_value;
+
                     let input = PsbtInputRequest {
                         descriptor: SecretString(universal_desc.clone()),
                         utxo: alloc.utxo.clone(),
                         utxo_terminal: alloc.derivation,
-                        tapret: None,
+                        tapret,
                     };
 
                     asset_inputs.push(input);
@@ -903,13 +925,14 @@ pub async fn full_transfer_asset(
                         .find(|x| x.outpoint.to_string() == alloc.utxo.clone())
                         .map(|x| x.amount)
                         .unwrap_or_default();
+                    asset_total += alloc_value;
                 }
                 AllocationValue::UDA(_) => {
                     let input = PsbtInputRequest {
                         descriptor: SecretString(universal_desc.clone()),
                         utxo: alloc.utxo.clone(),
                         utxo_terminal: alloc.derivation,
-                        tapret: None,
+                        tapret,
                     };
                     asset_inputs.push(input);
                     total_asset_bitcoin_unspend += asset_unspent_utxos
@@ -977,7 +1000,7 @@ pub async fn full_transfer_asset(
                 }
             }
 
-            if bitcoin_total < (fee_amount + rnd_amount) {
+            if bitcoin_total < (fee_amount + rnd_amount + total_bitcoin_spend) {
                 let mut errors = BTreeMap::new();
                 errors.insert("bitcoin".to_string(), "insufficient satoshis".to_string());
                 return Err(TransferError::Validation(errors));

@@ -14,12 +14,12 @@ mod rgb {
         // mod collectibles;
         mod collectibles;
 
+        mod consecutive;
         mod consig;
         mod drain;
         mod dustless;
         mod fungibles;
         mod import;
-        mod internal;
         mod issue;
         mod states;
         mod stress;

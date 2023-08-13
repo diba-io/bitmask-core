@@ -56,6 +56,7 @@ pub async fn allow_save_read_remove_transfers() -> Result<()> {
         None,
         Some("0.1".to_string()),
         Some(UtxoFilter::with_amount_equal_than(10000000)),
+        None,
     )
     .await?;
     let issuer_resp = &issuer_resp[0];
