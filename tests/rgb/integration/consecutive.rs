@@ -3,10 +3,13 @@
 use bdk::wallet::AddressIndex;
 use bitmask_core::{
     bitcoin::{get_wallet, new_mnemonic, save_mnemonic, sign_psbt_file, sync_wallet},
-    rgb::{accept_transfer, create_watcher, full_transfer_asset, get_contract},
+    rgb::{
+        accept_transfer, create_watcher, full_transfer_asset, get_contract, save_transfer,
+        verify_transfers,
+    },
     structs::{
-        AcceptRequest, FullRgbTransferRequest, IssueResponse, PsbtFeeRequest, RgbTransferResponse,
-        SecretString, SignPsbtRequest, WatcherRequest,
+        AcceptRequest, FullRgbTransferRequest, IssueResponse, PsbtFeeRequest,
+        RgbSaveTransferRequest, RgbTransferResponse, SecretString, SignPsbtRequest, WatcherRequest,
     },
 };
 
@@ -419,6 +422,125 @@ async fn allow_consecutive_full_transfer_bidirectional() -> anyhow::Result<()> {
     //     "Contract B: {}\nAllocations: {:#?}",
     //     contract_b.contract_id, contract_b.allocations
     // );
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn allow_save_transfer_and_verify() -> anyhow::Result<()> {
+    // 1. Initial Setup
+    let issuer_keys = save_mnemonic(
+        &SecretString(ISSUER_MNEMONIC.to_string()),
+        &SecretString("".to_string()),
+    )
+    .await?;
+    let owner_keys = save_mnemonic(
+        &SecretString(OWNER_MNEMONIC.to_string()),
+        &SecretString("".to_string()),
+    )
+    .await?;
+    let issuer_resp = issuer_issue_contract_v2(
+        1,
+        "RGB20",
+        1,
+        false,
+        true,
+        None,
+        Some("0.00000546".to_string()),
+        Some(UtxoFilter::with_amount_less_than(546)),
+        None,
+    )
+    .await?;
+
+    let issuer_watcher_key = &issuer_keys.public.watcher_xpub;
+    let issuer_watcher = WatcherRequest {
+        name: "default".to_string(),
+        xpub: issuer_watcher_key.to_string(),
+        force: false,
+    };
+    let issue_sk = issuer_keys.private.nostr_prv.to_string();
+    create_watcher(&issue_sk, issuer_watcher).await?;
+
+    let owner_watcher_key = &owner_keys.public.watcher_xpub;
+    let owner_watcher = WatcherRequest {
+        name: "default".to_string(),
+        xpub: owner_watcher_key.to_string(),
+        force: false,
+    };
+    let owner_sk = owner_keys.private.nostr_prv.to_string();
+    create_watcher(&owner_sk, owner_watcher).await?;
+
+    // 2. Get Invoice
+    let issuer_resp = issuer_resp[0].clone();
+
+    let owner_resp = &create_new_invoice(
+        &issuer_resp.contract_id,
+        &issuer_resp.iface,
+        1,
+        owner_keys.clone(),
+        None,
+        Some(issuer_resp.clone().contract.strict),
+    )
+    .await?;
+
+    // 3. Get Bitcoin UTXO
+    let issuer_btc_desc = &issuer_keys.public.btc_change_descriptor_xpub;
+    let issuer_vault = get_wallet(&SecretString(issuer_btc_desc.to_string()), None).await?;
+    let issuer_address = &issuer_vault
+        .lock()
+        .await
+        .get_address(AddressIndex::LastUnused)?
+        .address
+        .to_string();
+
+    send_some_coins(issuer_address, "0.001").await;
+    sync_wallet(&issuer_vault).await?;
+
+    // 4. Make a Self Payment
+    let self_pay_req = FullRgbTransferRequest {
+        contract_id: issuer_resp.contract_id.clone(),
+        iface: issuer_resp.iface,
+        rgb_invoice: owner_resp.invoice.to_string(),
+        descriptor: SecretString(issuer_keys.public.rgb_assets_descriptor_xpub.to_string()),
+        change_terminal: "/20/1".to_string(),
+        fee: PsbtFeeRequest::Value(1000),
+        bitcoin_changes: vec![],
+    };
+
+    let resp = full_transfer_asset(&issue_sk, self_pay_req).await?;
+
+    let RgbTransferResponse {
+        consig_id: _,
+        consig,
+        psbt,
+        commit: _,
+    } = resp;
+
+    let request = SignPsbtRequest {
+        psbt,
+        descriptors: vec![
+            SecretString(issuer_keys.private.rgb_assets_descriptor_xprv.clone()),
+            SecretString(issuer_keys.private.btc_descriptor_xprv.clone()),
+            SecretString(issuer_keys.private.btc_change_descriptor_xprv.clone()),
+        ],
+    };
+    let resp = sign_psbt_file(request).await;
+    assert!(resp.is_ok());
+
+    let owner_sk = owner_keys.private.nostr_prv.clone();
+    let request = RgbSaveTransferRequest {
+        contract_id: issuer_resp.contract_id.clone(),
+        consignment: consig,
+    };
+    let resp = save_transfer(&owner_sk, request).await;
+    assert!(resp.is_ok());
+
+    send_some_coins(issuer_address, "0.001").await;
+    let resp = verify_transfers(&owner_sk).await;
+    assert!(resp.is_ok());
+
+    let contract = get_contract(&owner_sk, &issuer_resp.contract_id).await?;
+    assert_eq!(contract.balance, 1);
 
     Ok(())
 }

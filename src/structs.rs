@@ -972,3 +972,18 @@ pub struct RgbInvoiceResponse {
     pub contract_id: String,
     pub amount: u64,
 }
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct BatchRgbTransferResponse {
+    pub transfers: Vec<BatchRgbTransferItem>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct BatchRgbTransferItem {
+    pub contract_id: String,
+    pub consig_id: String,
+    pub status: TxStatus,
+    pub is_accept: bool,
+}

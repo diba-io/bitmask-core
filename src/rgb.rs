@@ -16,6 +16,7 @@ use rgbstd::{
     contract::ContractId,
     interface::TypedState,
     persistence::{Stash, Stock},
+    validation::Validity,
 };
 use rgbwallet::{psbt::DbcPsbtError, RgbInvoice};
 use std::{
@@ -58,15 +59,16 @@ use crate::{
     },
     structs::{
         AcceptRequest, AcceptResponse, AllocationDetail, AllocationValue, AssetType,
-        ContractMetadata, ContractResponse, ContractsResponse, FullRgbTransferRequest,
-        ImportRequest, InterfaceDetail, InterfacesResponse, InvoiceRequest, InvoiceResponse,
-        IssueMetaRequest, IssueMetadata, IssueRequest, IssueResponse, NewCollectible,
-        NextAddressResponse, NextUtxoResponse, NextUtxosResponse, PsbtFeeRequest, PsbtInputRequest,
-        PsbtRequest, PsbtResponse, ReIssueRequest, ReIssueResponse, RgbInvoiceResponse,
-        RgbRemoveTransferRequest, RgbSaveTransferRequest, RgbTransferDetail, RgbTransferRequest,
-        RgbTransferResponse, RgbTransferStatusResponse, RgbTransfersResponse, SchemaDetail,
-        SchemasResponse, SecretString, TransferType, TxStatus, UDADetail, UtxoResponse,
-        WatcherDetailResponse, WatcherRequest, WatcherResponse, WatcherUtxoResponse,
+        BatchRgbTransferItem, BatchRgbTransferResponse, ContractMetadata, ContractResponse,
+        ContractsResponse, FullRgbTransferRequest, ImportRequest, InterfaceDetail,
+        InterfacesResponse, InvoiceRequest, InvoiceResponse, IssueMetaRequest, IssueMetadata,
+        IssueRequest, IssueResponse, NewCollectible, NextAddressResponse, NextUtxoResponse,
+        NextUtxosResponse, PsbtFeeRequest, PsbtInputRequest, PsbtRequest, PsbtResponse,
+        ReIssueRequest, ReIssueResponse, RgbInvoiceResponse, RgbRemoveTransferRequest,
+        RgbSaveTransferRequest, RgbTransferDetail, RgbTransferRequest, RgbTransferResponse,
+        RgbTransferStatusResponse, RgbTransfersResponse, SchemaDetail, SchemasResponse,
+        SecretString, TransferType, TxStatus, UDADetail, UtxoResponse, WatcherDetailResponse,
+        WatcherRequest, WatcherResponse, WatcherUtxoResponse,
     },
     validators::RGBContext,
 };
@@ -707,7 +709,7 @@ pub async fn transfer_asset(
 
     let rgb_transfer = RgbTransfer {
         consig_id: consig_id.clone(),
-        consig: consig.clone(),
+        consig: consig.to_hex(),
         tx: bp_txid,
         is_send: true,
     };
@@ -1147,7 +1149,7 @@ pub async fn save_transfer(
     let consig_id = transfer.bindle_id().to_string();
     let rgb_transfer = RgbTransfer {
         consig_id: consig_id.clone(),
-        consig: consig.clone(),
+        consig: consig.to_hex(),
         tx: txid,
         is_send: false,
     };
@@ -1409,6 +1411,115 @@ pub async fn list_transfers(sk: &str, contract_id: String) -> Result<RgbTransfer
     }
 
     Ok(RgbTransfersResponse { transfers })
+}
+
+pub async fn verify_transfers(sk: &str) -> Result<BatchRgbTransferResponse, TransferError> {
+    let mut stock = retrieve_stock(sk, ASSETS_STOCK).await.map_err(|_| {
+        TransferError::Retrive(
+            CARBONADO_UNAVAILABLE.to_string(),
+            STOCK_UNAVAILABLE.to_string(),
+        )
+    })?;
+    let mut rgb_transfers = retrieve_transfers(sk, ASSETS_TRANSFERS)
+        .await
+        .map_err(|_| {
+            TransferError::Retrive(
+                CARBONADO_UNAVAILABLE.to_string(),
+                TRANSFER_UNAVAILABLE.to_string(),
+            )
+        })?;
+
+    let mut resolver = ExplorerResolver {
+        explorer_url: BITCOIN_EXPLORER_API.read().await.to_string(),
+        ..Default::default()
+    };
+    let mut transfers = vec![];
+    for (contract_id, transfer_activities) in rgb_transfers.transfers.clone() {
+        let txids: Vec<bitcoin::Txid> = transfer_activities
+            .clone()
+            .into_iter()
+            .map(|x| Txid::from_str(&x.tx.to_hex()).expect("invalid tx id"))
+            .collect();
+        prefetch_resolver_txs_status(txids, &mut resolver).await;
+
+        for activity in transfer_activities {
+            let ty = if activity.is_send {
+                TransferType::Sended
+            } else {
+                TransferType::Received
+            };
+
+            let txid = Txid::from_str(&activity.tx.to_hex()).expect("invalid tx id");
+            let status = resolver
+                .txs_status
+                .get(&txid)
+                .unwrap_or(&TxStatus::NotFound)
+                .to_owned();
+
+            let accept_status = match (ty.clone(), status.clone()) {
+                (TransferType::Received, TxStatus::Block(_)) => {
+                    prefetch_resolver_rgb(&activity.consig, &mut resolver, None).await;
+                    accept_rgb_transfer(activity.consig, true, &mut resolver, &mut stock)
+                        .map_err(TransferError::Accept)?
+                }
+                (TransferType::Sended, TxStatus::Mempool | TxStatus::Block(_)) => {
+                    prefetch_resolver_rgb(&activity.consig, &mut resolver, None).await;
+                    accept_rgb_transfer(activity.consig, false, &mut resolver, &mut stock)
+                        .map_err(TransferError::Accept)?
+                }
+                _ => continue,
+            };
+            let accept_status = accept_status.unbindle();
+            if let Some(rgb_status) = accept_status.validation_status() {
+                let consig_id = accept_status.transfer_id().to_string();
+                transfers.push(if rgb_status.validity() == Validity::Valid {
+                    BatchRgbTransferItem {
+                        contract_id: contract_id.clone(),
+                        consig_id: consig_id.to_string(),
+                        status,
+                        is_accept: true,
+                    }
+                } else {
+                    BatchRgbTransferItem {
+                        contract_id: contract_id.clone(),
+                        consig_id: consig_id.to_string(),
+                        status,
+                        is_accept: false,
+                    }
+                });
+
+                if let Some(current_transfers) = rgb_transfers.transfers.get(&contract_id) {
+                    let current_transfers = current_transfers
+                        .clone()
+                        .into_iter()
+                        .filter(|x| x.consig_id != consig_id)
+                        .collect();
+
+                    rgb_transfers
+                        .transfers
+                        .insert(contract_id.clone(), current_transfers);
+                }
+            }
+        }
+    }
+
+    store_stock(sk, ASSETS_STOCK, &stock).await.map_err(|_| {
+        TransferError::Write(
+            CARBONADO_UNAVAILABLE.to_string(),
+            STOCK_UNAVAILABLE.to_string(),
+        )
+    })?;
+
+    store_transfers(sk, ASSETS_TRANSFERS, &rgb_transfers)
+        .await
+        .map_err(|_| {
+            TransferError::Write(
+                CARBONADO_UNAVAILABLE.to_string(),
+                STOCK_UNAVAILABLE.to_string(),
+            )
+        })?;
+
+    Ok(BatchRgbTransferResponse { transfers })
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Display, From, Error)]

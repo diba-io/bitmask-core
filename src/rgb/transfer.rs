@@ -1,6 +1,9 @@
 use std::{collections::HashMap, str::FromStr};
 
-use amplify::{confinement::Confined, hex::ToHex};
+use amplify::{
+    confinement::{Confined, U32},
+    hex::ToHex,
+};
 use bitcoin_30::psbt::Psbt as PSBT;
 use bitcoin_hashes::hex::FromHex;
 use bp::{seals::txout::CloseMethod, Txid};
@@ -158,9 +161,10 @@ pub fn validate_transfer<R: ResolveTx>(
 
     let consig = transfer.clone().validate(resolver).map_err(|err| {
         if let Some(status) = err.into_validation_status() {
-            AcceptTransferError::InvalidConsig(
-                status.failures.into_iter().map(|x| x.to_string()).collect(),
-            )
+            let mut messages = vec![];
+            messages.append(&mut status.warnings.into_iter().map(|x| x.to_string()).collect());
+            messages.append(&mut status.failures.into_iter().map(|x| x.to_string()).collect());
+            AcceptTransferError::InvalidConsig(messages)
         } else {
             AcceptTransferError::Inconclusive
         }
@@ -183,14 +187,15 @@ where
     let serialized = Vec::<u8>::from_hex(&transfer).map_err(|_| AcceptTransferError::WrongHex)?;
     let confined = Confined::try_from_iter(serialized.iter().copied())
         .map_err(|err| AcceptTransferError::WrongConsig(err.to_string()))?;
-    let transfer = Transfer::from_strict_serialized::<{ usize::MAX }>(confined)
+    let transfer = Transfer::from_strict_serialized::<{ U32 }>(confined)
         .map_err(|err| AcceptTransferError::WrongConsig(err.to_string()))?;
 
     let consig = transfer.validate(resolver).map_err(|err| {
         if let Some(status) = err.into_validation_status() {
-            AcceptTransferError::InvalidConsig(
-                status.failures.into_iter().map(|x| x.to_string()).collect(),
-            )
+            let mut messages = vec![];
+            messages.append(&mut status.warnings.into_iter().map(|x| x.to_string()).collect());
+            messages.append(&mut status.failures.into_iter().map(|x| x.to_string()).collect());
+            AcceptTransferError::InvalidConsig(messages)
         } else {
             AcceptTransferError::Inconclusive
         }
@@ -210,7 +215,7 @@ pub fn extract_transfer(
     let serialized = Vec::<u8>::from_hex(&transfer).map_err(|_| AcceptTransferError::WrongHex)?;
     let confined = Confined::try_from_iter(serialized.iter().copied())
         .map_err(|err| AcceptTransferError::WrongConsig(err.to_string()))?;
-    let transfer = Transfer::from_strict_serialized::<{ usize::MAX }>(confined)
+    let transfer = Transfer::from_strict_serialized::<{ U32 }>(confined)
         .map_err(|err| AcceptTransferError::WrongConsig(err.to_string()))?;
 
     let contract_id = ContractId::from_str(&contract_id)
