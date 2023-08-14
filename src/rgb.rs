@@ -1428,13 +1428,40 @@ pub async fn verify_transfers(sk: &str) -> Result<BatchRgbTransferResponse, Tran
                 TRANSFER_UNAVAILABLE.to_string(),
             )
         })?;
+    let rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await.unwrap();
 
     let mut resolver = ExplorerResolver {
         explorer_url: BITCOIN_EXPLORER_API.read().await.to_string(),
         ..Default::default()
     };
+
+    let wallet = rgb_account.wallets.get("default");
+    let mut wallet = match wallet {
+        Some(wallet) => {
+            let mut fetch_wallet = wallet.to_owned();
+            for contract_type in [AssetType::RGB20, AssetType::RGB21] {
+                prefetch_resolver_utxos(
+                    contract_type as u32,
+                    &mut fetch_wallet,
+                    &mut resolver,
+                    Some(RGB_DEFAULT_FETCH_LIMIT),
+                )
+                .await;
+            }
+
+            Some(fetch_wallet)
+        }
+        _ => None,
+    };
     let mut transfers = vec![];
     for (contract_id, transfer_activities) in rgb_transfers.transfers.clone() {
+        let contract_extracted = export_contract(
+            ContractId::from_str(&contract_id).unwrap(),
+            &mut stock,
+            &mut resolver,
+            &mut wallet,
+        )
+        .unwrap();
         let txids: Vec<bitcoin::Txid> = transfer_activities
             .clone()
             .into_iter()
@@ -1478,6 +1505,7 @@ pub async fn verify_transfers(sk: &str) -> Result<BatchRgbTransferResponse, Tran
                         consig_id: consig_id.to_string(),
                         status,
                         is_accept: true,
+                        iface: contract_extracted.iface.clone(),
                     }
                 } else {
                     BatchRgbTransferItem {
@@ -1485,6 +1513,7 @@ pub async fn verify_transfers(sk: &str) -> Result<BatchRgbTransferResponse, Tran
                         consig_id: consig_id.to_string(),
                         status,
                         is_accept: false,
+                        iface: contract_extracted.iface.clone(),
                     }
                 });
 

@@ -986,4 +986,5 @@ pub struct BatchRgbTransferItem {
     pub consig_id: String,
     pub status: TxStatus,
     pub is_accept: bool,
+    pub iface: String,
 }
