@@ -45,6 +45,7 @@ use crate::{
         storage_keys::{ASSETS_STOCK, ASSETS_TRANSFERS, ASSETS_WALLETS},
         BITCOIN_EXPLORER_API, NETWORK,
     },
+    debug,
     rgb::{
         carbonado::{force_store_stock, retrieve_stock, store_stock},
         constants::WALLET_UNAVAILABLE,
@@ -1022,6 +1023,22 @@ pub async fn full_transfer_asset(
                 bitcoin_changes.push(change_bitcoin);
             }
         }
+
+        debug!(format!(
+            "Asset UTXOs: {:#?}",
+            asset_inputs
+                .clone()
+                .into_iter()
+                .map(|x| format!("{}:({:?})", x.utxo, x.tapret))
+        ));
+
+        debug!(format!(
+            "Bitcoin UTXOs: {:#?}",
+            bitcoin_inputs
+                .clone()
+                .into_iter()
+                .map(|x| format!("{}:({:?})", x.utxo, x.tapret))
+        ));
 
         let psbt_req = PsbtRequest {
             asset_inputs,

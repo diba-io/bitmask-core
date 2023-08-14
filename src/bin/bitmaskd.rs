@@ -538,6 +538,24 @@ async fn key(Path(pk): Path<String>) -> Result<impl IntoResponse, AppError> {
     Ok(ss.to_string())
 }
 
+#[cfg(not(target_arch = "wasm32"))]
+async fn new_block() -> Result<impl IntoResponse, AppError> {
+    use bitmask_core::regtest::new_block;
+    new_block();
+
+    Ok("Ok")
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+async fn send_coins(
+    Path((address, amount)): Path<(String, String)>,
+) -> Result<impl IntoResponse, AppError> {
+    use bitmask_core::regtest::send_coins;
+
+    send_coins(&address, &amount);
+    Ok("Ok")
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     if env::var("RUST_LOG").is_err() {
@@ -546,7 +564,7 @@ async fn main() -> Result<()> {
 
     pretty_env_logger::init();
 
-    let app = Router::new()
+    let mut app = Router::new()
         .route("/issue", post(issue))
         .route("/reissue", post(reissue))
         .route("/selfissue", post(self_issue))
@@ -579,12 +597,19 @@ async fn main() -> Result<()> {
         .route("/carbonado/:pk/:name", post(co_store))
         .route("/carbonado/:pk/:name/force", post(co_force_store))
         .route("/carbonado/:pk/:name/metadata", get(co_metadata))
-        .route("/carbonado/:pk/:name", get(co_retrieve))
-        .layer(CorsLayer::permissive());
+        .route("/carbonado/:pk/:name", get(co_retrieve));
 
     let network = get_network().await;
     switch_network(&network).await?;
 
+    #[cfg(not(target_arch = "wasm32"))]
+    if network == "regtest" {
+        app = app
+            .route("/regtest/block", get(new_block))
+            .route("/regtest/send/:address/:amount", get(send_coins));
+    }
+
+    let app = app.layer(CorsLayer::permissive());
     let addr = SocketAddr::from(([0, 0, 0, 0], 7070));
 
     info!("bitmaskd REST server successfully running at {addr}");
