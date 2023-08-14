@@ -57,6 +57,7 @@ pub struct RgbTransfers {
 #[display("{tx}")]
 pub struct RgbTransfer {
     pub consig_id: String,
+    pub iface: String,
     pub consig: String,
     pub tx: Txid,
     pub is_send: bool,

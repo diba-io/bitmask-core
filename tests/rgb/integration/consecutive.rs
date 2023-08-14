@@ -499,7 +499,7 @@ async fn allow_save_transfer_and_verify() -> anyhow::Result<()> {
     // 4. Make a Self Payment
     let self_pay_req = FullRgbTransferRequest {
         contract_id: issuer_resp.contract_id.clone(),
-        iface: issuer_resp.iface,
+        iface: issuer_resp.iface.clone(),
         rgb_invoice: owner_resp.invoice.to_string(),
         descriptor: SecretString(issuer_keys.public.rgb_assets_descriptor_xpub.to_string()),
         change_terminal: "/20/1".to_string(),
@@ -529,6 +529,7 @@ async fn allow_save_transfer_and_verify() -> anyhow::Result<()> {
 
     let owner_sk = owner_keys.private.nostr_prv.clone();
     let request = RgbSaveTransferRequest {
+        iface: issuer_resp.iface.clone(),
         contract_id: issuer_resp.contract_id.clone(),
         consignment: consig,
     };

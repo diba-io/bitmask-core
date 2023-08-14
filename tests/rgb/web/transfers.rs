@@ -244,6 +244,7 @@ async fn create_contract_and_transfer() {
     let all_sks = [owner_sk.clone()];
     for sk in all_sks {
         let save_transfer_req = RgbSaveTransferRequest {
+            iface: issuer_resp.iface.clone(),
             contract_id: issuer_resp.contract_id.clone(),
             consignment: full_transfer_resp.consig.clone(),
         };
@@ -324,6 +325,7 @@ async fn create_contract_and_transfer() {
     let all_sks = [owner_sk.clone()];
     for sk in all_sks {
         let save_transfer_req = RgbSaveTransferRequest {
+            iface: issuer_resp.iface.clone(),
             contract_id: issuer_resp.contract_id.clone(),
             consignment: full_transfer_resp.consig.clone(),
         };
@@ -412,6 +414,7 @@ async fn create_contract_and_transfer() {
     let all_sks = [issuer_sk.clone()];
     for sk in all_sks {
         let save_transfer_req = RgbSaveTransferRequest {
+            iface: issuer_resp.iface.clone(),
             contract_id: issuer_resp.contract_id.clone(),
             consignment: full_transfer_resp.consig.clone(),
         };

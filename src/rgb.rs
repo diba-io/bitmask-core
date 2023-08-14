@@ -708,6 +708,7 @@ pub async fn transfer_asset(
     let consig_id = transfer.bindle_id().to_string();
 
     let rgb_transfer = RgbTransfer {
+        iface: rgb_invoice.iface.unwrap().to_string(),
         consig_id: consig_id.clone(),
         consig: consig.to_hex(),
         tx: bp_txid,
@@ -1163,6 +1164,7 @@ pub async fn save_transfer(
 
     let RgbSaveTransferRequest {
         contract_id,
+        iface,
         consignment,
     } = request;
 
@@ -1187,6 +1189,7 @@ pub async fn save_transfer(
     let rgb_transfer = RgbTransfer {
         consig_id: consig_id.clone(),
         consig: consig.to_hex(),
+        iface,
         tx: txid,
         is_send: false,
     };
@@ -1511,6 +1514,7 @@ pub async fn verify_transfers(sk: &str) -> Result<BatchRgbTransferResponse, Tran
                 let consig_id = accept_status.transfer_id().to_string();
                 transfers.push(if rgb_status.validity() == Validity::Valid {
                     BatchRgbTransferItem {
+                        iface: activity.iface,
                         contract_id: contract_id.clone(),
                         consig_id: consig_id.to_string(),
                         status,
@@ -1518,6 +1522,7 @@ pub async fn verify_transfers(sk: &str) -> Result<BatchRgbTransferResponse, Tran
                     }
                 } else {
                     BatchRgbTransferItem {
+                        iface: activity.iface,
                         contract_id: contract_id.clone(),
                         consig_id: consig_id.to_string(),
                         status,

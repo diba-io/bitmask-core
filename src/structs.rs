@@ -677,7 +677,9 @@ pub struct RgbSaveTransferRequest {
     #[garde(ascii)]
     #[garde(length(min = 0, max = 100))]
     pub contract_id: String,
-
+    /// The name of the iface (ex: RGB20)
+    #[garde(alphanumeric)]
+    pub iface: String,
     /// Consignment encoded in hexadecimal
     #[garde(ascii)]
     #[garde(length(min = 0, max = U64))]
@@ -984,6 +986,7 @@ pub struct BatchRgbTransferResponse {
 pub struct BatchRgbTransferItem {
     pub contract_id: String,
     pub consig_id: String,
+    pub iface: String,
     pub status: TxStatus,
     pub is_accept: bool,
 }
