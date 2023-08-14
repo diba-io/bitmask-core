@@ -248,10 +248,9 @@ pub async fn prefetch_resolver_utxo_status(
                 .await
                 .expect("service unavaliable")
             {
-                if !status.spent {
-                    continue;
+                if status.spent {
+                    explorer.utxos_spent.push(utxo.outpoint.to_string());
                 }
-                explorer.utxos_spent.push(utxo.outpoint.to_string());
             }
         }
     }
