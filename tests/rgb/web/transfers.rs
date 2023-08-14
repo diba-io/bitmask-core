@@ -47,9 +47,9 @@ const SEED_PASSWORD: &str = "";
 async fn create_contract_and_transfer() {
     set_panic_hook();
     let issuer_mnemonic =
-        "ordinary crucial edit settle pencil lion appear unlock left fly century license";
+        "try engine hurt mushroom adapt club boring diagram barely rail cable vicious tower boss hurt";
     let owner_mnemonic =
-        "apology pull visa moon retreat spell elite extend secret region fly diary";
+        "rally ready surround evil grace autumn merry lunch husband infant forum wet possible thought drink";
     let hash = hash_password(ENCRYPTION_PASSWORD.to_owned());
 
     info!("Import wallet");
@@ -84,7 +84,7 @@ async fn create_contract_and_transfer() {
     let issuer_watcher_req = WatcherRequest {
         name: watcher_name.to_string(),
         xpub: issuer_vault.public.watcher_xpub.clone(),
-        force: true,
+        force: false,
     };
 
     let issuer_sk = &issuer_vault.private.nostr_prv;
@@ -103,15 +103,19 @@ async fn create_contract_and_transfer() {
         iface.to_string(),
     ))
     .await;
-    let next_address: NextAddressResponse = json_parse(&next_address);
-    debug!(format!("Issuer Show Address {}", next_address.address));
-    let _ = send_coins(&next_address.address, "1").await;
+    let issuer_next_address: NextAddressResponse = json_parse(&next_address);
+    debug!(format!(
+        "Issuer Show Address {}",
+        issuer_next_address.address
+    ));
+    let resp = send_coins(&issuer_next_address.address, "1").await;
+    debug!(format!("Issuer Receive Bitcoin {:?}", resp));
 
     info!("Create Owner Watcher");
     let owner_watcher_req = WatcherRequest {
         name: watcher_name.to_string(),
         xpub: owner_vault.public.watcher_xpub.clone(),
-        force: true,
+        force: false,
     };
     let owner_sk = &owner_vault.private.nostr_prv;
     let owner_watcher_req = serde_wasm_bindgen::to_value(&owner_watcher_req).expect("");
@@ -123,15 +127,16 @@ async fn create_contract_and_transfer() {
     let watcher_resp: WatcherResponse = json_parse(&watcher_resp);
 
     info!("Get Address");
-    let next_address: JsValue = resolve(watcher_next_address(
+    let owner_next_address: JsValue = resolve(watcher_next_address(
         owner_sk.to_string(),
         watcher_name.to_string(),
         iface.to_string(),
     ))
     .await;
-    let next_address: NextAddressResponse = json_parse(&next_address);
-    debug!(format!("Owner Show Address {}", next_address.address));
-    let _ = send_coins(&next_address.address, "1").await;
+    let owner_next_address: NextAddressResponse = json_parse(&owner_next_address);
+    debug!(format!("Owner Show Address {}", owner_next_address.address));
+    let resp = send_coins(&owner_next_address.address, "1").await;
+    debug!(format!("Owner Receive Bitcoin {:?}", resp));
 
     info!("Get UTXO (Issuer)");
     let next_utxo: JsValue = resolve(watcher_next_utxo(
@@ -189,7 +194,7 @@ async fn create_contract_and_transfer() {
     };
     let invoice_req = serde_wasm_bindgen::to_value(&invoice_req).expect("");
     let invoice_resp: JsValue =
-        resolve(rgb_create_invoice(issuer_sk.to_string(), invoice_req)).await;
+        resolve(rgb_create_invoice(owner_sk.to_string(), invoice_req)).await;
     let invoice_resp: InvoiceResponse = json_parse(&invoice_resp);
 
     info!("Create Payment (Issuer)");
@@ -248,7 +253,6 @@ async fn create_contract_and_transfer() {
         debug!(format!("Save Consig: {:?}", save_transfer_resp));
     }
 
-    info!("::: SEND INVOICE SECOND TIME :::");
     info!("Verify Consig (Both)");
     let all_sks = [owner_sk.clone(), issuer_sk.clone()];
     for sk in all_sks {
@@ -257,6 +261,7 @@ async fn create_contract_and_transfer() {
         debug!(format!("Verify Consig: {:?}", verify_transfer_resp));
     }
 
+    info!("::: SEND INVOICE SECOND TIME :::");
     info!("Create Invoice (Owner)");
     let params = HashMap::new();
     let owner_seal = format!("tapret1st:{owner_utxo}");
@@ -269,7 +274,7 @@ async fn create_contract_and_transfer() {
     };
     let invoice_req = serde_wasm_bindgen::to_value(&invoice_req).expect("");
     let invoice_resp: JsValue =
-        resolve(rgb_create_invoice(issuer_sk.to_string(), invoice_req)).await;
+        resolve(rgb_create_invoice(owner_sk.to_string(), invoice_req)).await;
     let invoice_resp: InvoiceResponse = json_parse(&invoice_resp);
 
     info!("Create Payment (Issuer)");
@@ -317,6 +322,94 @@ async fn create_contract_and_transfer() {
 
     info!("Save Consig (Owner)");
     let all_sks = [owner_sk.clone()];
+    for sk in all_sks {
+        let save_transfer_req = RgbSaveTransferRequest {
+            contract_id: issuer_resp.contract_id.clone(),
+            consignment: full_transfer_resp.consig.clone(),
+        };
+        let save_transfer_req = serde_wasm_bindgen::to_value(&save_transfer_req).expect("");
+        let save_transfer_resp = resolve(save_transfer(sk.to_string(), save_transfer_req)).await;
+        let save_transfer_resp: RgbTransferStatusResponse = json_parse(&save_transfer_resp);
+        debug!(format!("Save Consig: {:?}", save_transfer_resp));
+    }
+
+    info!("Verify Consig (Both)");
+    let all_sks = [owner_sk.clone(), issuer_sk.clone()];
+    for sk in all_sks {
+        let verify_transfer_resp = resolve(verify_transfers(sk.to_string())).await;
+        let verify_transfer_resp: BatchRgbTransferResponse = json_parse(&verify_transfer_resp);
+        debug!(format!("Verify Consig: {:?}", verify_transfer_resp));
+    }
+
+    info!("::: SEND INVOICE TO ISSUER :::");
+    info!("Get UTXO (Issuer)");
+    let next_utxo: JsValue = resolve(watcher_next_utxo(
+        issuer_sk.clone(),
+        watcher_name.to_string(),
+        iface.to_string(),
+    ))
+    .await;
+    let issuer_next_utxo: NextUtxoResponse = json_parse(&next_utxo);
+    debug!(format!("UTXO (Issuer): {:?}", issuer_next_utxo.utxo));
+
+    info!("Create Invoice (Issuer)");
+    let params = HashMap::new();
+    let issuer_seal = issuer_next_utxo.utxo.unwrap().outpoint.to_string();
+    let issuer_seal = format!("tapret1st:{issuer_seal}");
+    let invoice_req = InvoiceRequest {
+        contract_id: issuer_resp.contract_id.to_string(),
+        iface: issuer_resp.iface.to_string(),
+        amount: 4000,
+        seal: issuer_seal,
+        params,
+    };
+    let invoice_req = serde_wasm_bindgen::to_value(&invoice_req).expect("");
+    let invoice_resp: JsValue =
+        resolve(rgb_create_invoice(issuer_sk.to_string(), invoice_req)).await;
+    let invoice_resp: InvoiceResponse = json_parse(&invoice_resp);
+
+    info!("Create Payment (owner)");
+    let owner_desc = owner_vault.public.rgb_assets_descriptor_xpub.to_string();
+    let full_transfer_req = FullRgbTransferRequest {
+        contract_id: issuer_resp.contract_id.to_string(),
+        iface: issuer_resp.iface.to_string(),
+        rgb_invoice: invoice_resp.invoice.to_string(),
+        descriptor: SecretString(owner_desc.to_string()),
+        change_terminal: "/20/1".to_string(),
+        fee: PsbtFeeRequest::Value(1000),
+        bitcoin_changes: vec![],
+    };
+
+    let full_transfer_req = serde_wasm_bindgen::to_value(&full_transfer_req).expect("");
+    let full_transfer_resp: JsValue =
+        resolve(full_transfer_asset(owner_sk.to_string(), full_transfer_req)).await;
+    let full_transfer_resp: RgbTransferResponse = json_parse(&full_transfer_resp);
+    debug!(format!(
+        "Payment (Issuer): {:?}",
+        full_transfer_resp.consig_id
+    ));
+
+    info!("Sign PSBT (Issuer)");
+    let psbt_req = SignPsbtRequest {
+        psbt: full_transfer_resp.psbt,
+        descriptors: vec![
+            SecretString(owner_vault.private.rgb_assets_descriptor_xprv.clone()),
+            SecretString(owner_vault.private.btc_descriptor_xprv.clone()),
+            SecretString(owner_vault.private.btc_change_descriptor_xprv.clone()),
+        ],
+    };
+
+    let psbt_req = serde_wasm_bindgen::to_value(&psbt_req).expect("");
+    let psbt_resp: JsValue = resolve(psbt_sign_file(owner_sk.to_string(), psbt_req)).await;
+    let psbt_resp: SignPsbtResponse = json_parse(&psbt_resp);
+    debug!(format!("Sign Psbt: {:?}", psbt_resp));
+
+    info!("Create new Block");
+    let resp = new_block().await;
+    debug!(format!("Block Created: {:?}", resp));
+
+    info!("Save Consig (Issuer)");
+    let all_sks = [issuer_sk.clone()];
     for sk in all_sks {
         let save_transfer_req = RgbSaveTransferRequest {
             contract_id: issuer_resp.contract_id.clone(),
