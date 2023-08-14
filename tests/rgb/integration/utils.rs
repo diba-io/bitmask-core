@@ -392,13 +392,16 @@ pub async fn issuer_issue_contract_v2(
     meta: Option<IssueMetaRequest>,
     initial_sats: Option<String>,
     filter_utxo: Option<UtxoFilter>,
+    vault: Option<DecryptedWalletData>,
 ) -> Result<Vec<IssueResponse>, anyhow::Error> {
     setup_regtest(force, None).await;
-    let issuer_keys = save_mnemonic(
-        &SecretString(ISSUER_MNEMONIC.to_string()),
-        &SecretString("".to_string()),
-    )
-    .await?;
+    let issuer_keys = vault.unwrap_or(
+        save_mnemonic(
+            &SecretString(ISSUER_MNEMONIC.to_string()),
+            &SecretString("".to_string()),
+        )
+        .await?,
+    );
     let watcher_name = "default";
 
     // Create Watcher

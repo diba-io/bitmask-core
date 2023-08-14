@@ -369,8 +369,15 @@ pub fn save_commit(terminal: &str, commit: Vec<u8>, wallet: &mut RgbWallet) {
     };
 
     let mpc = Commitment::from_str(&commit.to_hex()).expect("invalid tapret");
-    let tap_commit = TapretCommitment::with(mpc, 0);
-    tapret.taprets.insert(terminal, bset! {tap_commit});
+    let tap_commit = &TapretCommitment::with(mpc, 0);
+    if let Some(taprets) = tapret.taprets.get(&terminal) {
+        let mut current_taprets = taprets.clone();
+        current_taprets.insert(tap_commit.clone());
+        tapret.taprets.insert(terminal, current_taprets.clone());
+    } else {
+        tapret.taprets.insert(terminal, bset! {tap_commit.clone()});
+    }
+
     wallet.descr = RgbDescr::Tapret(tapret);
 }
 

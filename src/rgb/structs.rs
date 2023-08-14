@@ -3,7 +3,6 @@ use std::{
     str::FromStr,
 };
 
-use amplify::confinement::{Confined, U32};
 use bitcoin::Address;
 use bitcoin_scripts::address::AddressCompat;
 use bp::Txid;
@@ -58,7 +57,7 @@ pub struct RgbTransfers {
 #[display("{tx}")]
 pub struct RgbTransfer {
     pub consig_id: String,
-    pub consig: Confined<Vec<u8>, 0, { U32 }>,
+    pub consig: String,
     pub tx: Txid,
     pub is_send: bool,
 }
