@@ -869,6 +869,13 @@ pub async fn full_transfer_asset(
         let mut asset_unspent_utxos = vec![];
         for contract_index in [AssetType::RGB20, AssetType::RGB21] {
             let contract_index = contract_index as u32;
+            prefetch_resolver_utxos(
+                contract_index,
+                &mut wallet,
+                &mut resolver,
+                Some(RGB_DEFAULT_FETCH_LIMIT),
+            )
+            .await;
             prefetch_resolver_utxo_status(contract_index, &mut wallet, &mut resolver).await;
             sync_wallet(contract_index, &mut wallet, &mut resolver);
             asset_unspent_utxos.append(
@@ -920,8 +927,14 @@ pub async fn full_transfer_asset(
                         utxo_terminal: alloc.derivation,
                         tapret,
                     };
+                    if !asset_inputs
+                        .clone()
+                        .into_iter()
+                        .any(|x: PsbtInputRequest| x.utxo == alloc.utxo)
+                    {
+                        asset_inputs.push(input);
+                    }
 
-                    asset_inputs.push(input);
                     total_asset_bitcoin_unspend += asset_unspent_utxos
                         .clone()
                         .into_iter()
@@ -937,7 +950,14 @@ pub async fn full_transfer_asset(
                         utxo_terminal: alloc.derivation,
                         tapret,
                     };
-                    asset_inputs.push(input);
+                    if !asset_inputs
+                        .clone()
+                        .into_iter()
+                        .any(|x| x.utxo == alloc.utxo)
+                    {
+                        asset_inputs.push(input);
+                    }
+
                     total_asset_bitcoin_unspend += asset_unspent_utxos
                         .clone()
                         .into_iter()
@@ -998,8 +1018,13 @@ pub async fn full_transfer_asset(
                         utxo_terminal: format!("/{app}/{index}"),
                         tapret: None,
                     };
-
-                    bitcoin_inputs.push(btc_input);
+                    if !bitcoin_inputs
+                        .clone()
+                        .into_iter()
+                        .any(|x: PsbtInputRequest| x.utxo == utxo.outpoint.to_string())
+                    {
+                        bitcoin_inputs.push(btc_input);
+                    }
                 }
             }
 
@@ -1476,12 +1501,12 @@ pub async fn verify_transfers(sk: &str) -> Result<BatchRgbTransferResponse, Tran
             let accept_status = match (ty.clone(), status.clone()) {
                 (TransferType::Received, TxStatus::Block(_)) => {
                     prefetch_resolver_rgb(&activity.consig, &mut resolver, None).await;
-                    accept_rgb_transfer(activity.consig, true, &mut resolver, &mut stock)
+                    accept_rgb_transfer(activity.consig, false, &mut resolver, &mut stock)
                         .map_err(TransferError::Accept)?
                 }
                 (TransferType::Sended, TxStatus::Mempool | TxStatus::Block(_)) => {
                     prefetch_resolver_rgb(&activity.consig, &mut resolver, None).await;
-                    accept_rgb_transfer(activity.consig, false, &mut resolver, &mut stock)
+                    accept_rgb_transfer(activity.consig, true, &mut resolver, &mut stock)
                         .map_err(TransferError::Accept)?
                 }
                 _ => continue,
