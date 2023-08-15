@@ -538,7 +538,6 @@ async fn key(Path(pk): Path<String>) -> Result<impl IntoResponse, AppError> {
     Ok(ss.to_string())
 }
 
-#[cfg(not(target_arch = "wasm32"))]
 async fn new_block() -> Result<impl IntoResponse, AppError> {
     use bitmask_core::regtest::new_block;
     new_block();
@@ -546,7 +545,6 @@ async fn new_block() -> Result<impl IntoResponse, AppError> {
     Ok("Ok")
 }
 
-#[cfg(not(target_arch = "wasm32"))]
 async fn send_coins(
     Path((address, amount)): Path<(String, String)>,
 ) -> Result<impl IntoResponse, AppError> {
@@ -602,7 +600,6 @@ async fn main() -> Result<()> {
     let network = get_network().await;
     switch_network(&network).await?;
 
-    #[cfg(not(target_arch = "wasm32"))]
     if network == "regtest" {
         app = app
             .route("/regtest/block", get(new_block))
