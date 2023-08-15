@@ -1293,13 +1293,17 @@ pub async fn get_contract(sk: &str, contract_id: &str) -> Result<ContractRespons
         Some(wallet) => {
             let mut fetch_wallet = wallet.to_owned();
             for contract_type in [AssetType::RGB20, AssetType::RGB21] {
+                let contract_index = contract_type as u32;
+                sync_wallet(contract_index, &mut fetch_wallet, &mut resolver);
                 prefetch_resolver_utxos(
-                    contract_type as u32,
+                    contract_index,
                     &mut fetch_wallet,
                     &mut resolver,
                     Some(RGB_DEFAULT_FETCH_LIMIT),
                 )
                 .await;
+                prefetch_resolver_utxo_status(contract_index, &mut fetch_wallet, &mut resolver)
+                    .await;
             }
 
             Some(fetch_wallet)
@@ -1336,6 +1340,7 @@ pub async fn list_contracts(sk: &str) -> Result<ContractsResponse> {
             let mut fetch_wallet = wallet.to_owned();
             for contract_type in [AssetType::RGB20, AssetType::RGB21] {
                 let contract_index = contract_type as u32;
+                sync_wallet(contract_index, &mut fetch_wallet, &mut resolver);
                 prefetch_resolver_utxos(
                     contract_index,
                     &mut fetch_wallet,
