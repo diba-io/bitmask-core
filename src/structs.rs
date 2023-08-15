@@ -461,9 +461,6 @@ pub struct SelfInvoiceRequest {
     #[garde(ascii)]
     #[garde(length(min = 0, max = 100))]
     pub contract_id: String,
-    /// Amount of the asset
-    #[garde(range(min = 0, max = u64::MAX))]
-    pub amount: u64,
     /// Query parameters
     #[garde(skip)]
     pub params: HashMap<String, String>,
