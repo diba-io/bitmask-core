@@ -31,7 +31,8 @@ use bitmask_core::{
         AcceptRequest, FileMetadata, FullRgbTransferRequest, ImportRequest, InvoiceRequest,
         IssueAssetRequest, IssueRequest, MediaInfo, PsbtFeeRequest, PsbtRequest, ReIssueRequest,
         RgbRemoveTransferRequest, RgbSaveTransferRequest, RgbTransferRequest, SecretString,
-        SelfFullRgbTransferRequest, SelfIssueRequest, SignPsbtRequest, WatcherRequest,
+        SelfFullRgbTransferRequest, SelfInvoiceRequest, SelfIssueRequest, SignPsbtRequest,
+        WatcherRequest,
     },
 };
 use carbonado::file;
@@ -101,7 +102,9 @@ async fn invoice(
     Ok((StatusCode::OK, Json(invoice_res)))
 }
 
-async fn self_invoice(Json(invoice): Json<InvoiceRequest>) -> Result<impl IntoResponse, AppError> {
+async fn self_invoice(
+    Json(self_invoice): Json<SelfInvoiceRequest>,
+) -> Result<impl IntoResponse, AppError> {
     info!("POST /self_invoice {self_invoice:?}");
 
     let issuer_keys = save_mnemonic(
@@ -110,6 +113,16 @@ async fn self_invoice(Json(invoice): Json<InvoiceRequest>) -> Result<impl IntoRe
     )
     .await?;
     let nostr_hex_sk = issuer_keys.private.nostr_prv.as_ref();
+
+    let invoice_seal = format!("tapret1st:{}", get_udas_utxo().await);
+
+    let invoice = InvoiceRequest {
+        contract_id: self_invoice.contract_id,
+        iface: "RGB21".to_string(),
+        amount: 1,
+        seal: invoice_seal.to_owned(),
+        params: self_invoice.params,
+    };
     let invoice_res = create_invoice(nostr_hex_sk, invoice).await?;
 
     Ok((StatusCode::OK, Json(invoice_res)))

@@ -454,6 +454,23 @@ pub struct InvoiceRequest {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
+#[derive(Validate)]
+#[garde(context(RGBContext))]
+pub struct SelfInvoiceRequest {
+    /// The contract id
+    #[garde(ascii)]
+    #[garde(length(min = 0, max = 100))]
+    pub contract_id: String,
+    /// Amount of the asset
+    #[garde(range(min = 0, max = u64::MAX))]
+    pub amount: u64,
+    /// Query parameters
+    #[garde(skip)]
+    pub params: HashMap<String, String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct InvoiceResponse {
     /// Invoice encoded in Baid58
     pub invoice: String,
