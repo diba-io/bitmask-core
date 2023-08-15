@@ -1294,7 +1294,7 @@ pub async fn get_contract(sk: &str, contract_id: &str) -> Result<ContractRespons
             let mut fetch_wallet = wallet.to_owned();
             for contract_type in [AssetType::RGB20, AssetType::RGB21] {
                 let contract_index = contract_type as u32;
-                sync_wallet(contract_index, &mut fetch_wallet, &mut resolver);
+                // sync_wallet(contract_index, &mut fetch_wallet, &mut resolver);
                 prefetch_resolver_utxos(
                     contract_index,
                     &mut fetch_wallet,
@@ -1518,6 +1518,19 @@ pub async fn verify_transfers(sk: &str) -> Result<BatchRgbTransferResponse, Tran
             if let Some(rgb_status) = accept_status.validation_status() {
                 let consig_id = accept_status.transfer_id().to_string();
                 transfers.push(if rgb_status.validity() == Validity::Valid {
+                    if let Some(current_transfers) = rgb_transfers.transfers.get(&contract_id) {
+                        let current_transfers = current_transfers
+                            .clone()
+                            .into_iter()
+                            .filter(|x| x.consig_id != consig_id)
+                            .collect();
+
+                        rgb_transfers.transfers.remove(&contract_id);
+                        rgb_transfers
+                            .transfers
+                            .insert(contract_id.clone(), current_transfers);
+                    }
+
                     BatchRgbTransferItem {
                         iface: activity.iface,
                         contract_id: contract_id.clone(),
@@ -1534,18 +1547,6 @@ pub async fn verify_transfers(sk: &str) -> Result<BatchRgbTransferResponse, Tran
                         is_accept: false,
                     }
                 });
-
-                if let Some(current_transfers) = rgb_transfers.transfers.get(&contract_id) {
-                    let current_transfers = current_transfers
-                        .clone()
-                        .into_iter()
-                        .filter(|x| x.consig_id != consig_id)
-                        .collect();
-
-                    rgb_transfers
-                        .transfers
-                        .insert(contract_id.clone(), current_transfers);
-                }
             }
         }
     }
