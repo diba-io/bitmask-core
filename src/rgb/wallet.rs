@@ -146,25 +146,16 @@ pub fn next_utxo(
     wallet: RgbWallet,
     resolver: &mut impl ResolveSpent,
 ) -> Result<Option<Utxo>, anyhow::Error> {
-    let mut utxos: Vec<Utxo> = wallet
+    let utxos: Vec<Utxo> = wallet
         .utxos
         .into_iter()
-        .filter(|utxo| {
-            utxo.derivation.terminal.app == iface_index && utxo.derivation.tweak.is_none()
-        })
+        .filter(|utxo| utxo.derivation.terminal.app == iface_index)
         .collect();
 
     if utxos.is_empty() {
         return Ok(none!());
     }
 
-    // TODO: This is really necessary?
-    utxos.sort_by(|a, b| {
-        a.derivation
-            .terminal
-            .index
-            .cmp(&b.derivation.terminal.index)
-    });
     let mut next_utxo: Option<Utxo> = None;
     for utxo in utxos {
         let txid =
@@ -185,7 +176,7 @@ pub fn next_utxos(
     wallet: RgbWallet,
     resolver: &mut impl ResolveSpent,
 ) -> Result<Vec<Utxo>, anyhow::Error> {
-    let mut utxos: Vec<Utxo> = wallet
+    let utxos: Vec<Utxo> = wallet
         .utxos
         .into_iter()
         .filter(|utxo| utxo.derivation.terminal.app == iface_index)
@@ -195,13 +186,6 @@ pub fn next_utxos(
         return Ok(vec![]);
     }
 
-    // TODO: This is really necessary?
-    utxos.sort_by(|a, b| {
-        a.derivation
-            .terminal
-            .index
-            .cmp(&b.derivation.terminal.index)
-    });
     let mut next_utxo: Vec<Utxo> = vec![];
     for utxo in utxos {
         let txid =

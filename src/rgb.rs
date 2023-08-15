@@ -708,6 +708,7 @@ pub async fn transfer_asset(
     let consig_id = transfer.bindle_id().to_string();
 
     let rgb_transfer = RgbTransfer {
+        iface: rgb_invoice.iface.unwrap().to_string(),
         consig_id: consig_id.clone(),
         consig: consig.to_hex(),
         tx: bp_txid,
@@ -787,7 +788,7 @@ pub async fn full_transfer_asset(
         return Err(TransferError::NoWatcher);
     }
 
-    let mut wallet = Some(rgb_account.wallets.get("default").unwrap().to_owned());
+    let wallet = Some(rgb_account.wallets.get("default").unwrap().to_owned());
     let contract_id = ContractId::from_str(&request.contract_id).map_err(|_| {
         let mut errors = BTreeMap::new();
         errors.insert("contract_id".to_string(), "invalid contract id".to_string());
@@ -809,34 +810,9 @@ pub async fn full_transfer_asset(
     };
 
     if let TypedState::Amount(target_amount) = invoice.owned_state {
-        let contract = export_contract(contract_id, &mut stock, &mut resolver, &mut wallet)
-            .map_err(TransferError::Export)?;
-
-        let allocations: Vec<AllocationDetail> = contract
-            .allocations
-            .into_iter()
-            .filter(|x| x.is_mine && !x.is_spent)
-            .collect();
-
-        let asset_total: u64 = allocations
-            .clone()
-            .into_iter()
-            .filter(|a| a.is_mine && !a.is_spent)
-            .map(|a| match a.value {
-                AllocationValue::Value(value) => value.to_owned(),
-                AllocationValue::UDA(_) => 1,
-            })
-            .sum();
-
-        if asset_total < target_amount {
-            let mut errors = BTreeMap::new();
-            errors.insert("rgb_invoice".to_string(), "insufficient state".to_string());
-            return Err(TransferError::Validation(errors));
-        }
-
         let FullRgbTransferRequest {
             contract_id: _,
-            iface: _,
+            iface,
             rgb_invoice,
             descriptor,
             change_terminal,
@@ -863,31 +839,64 @@ pub async fn full_transfer_asset(
         let mut all_unspents = vec![];
 
         // Get All Assets UTXOs
-        let mut asset_total = 0;
-        let mut asset_inputs = vec![];
-        let mut asset_unspent_utxos = vec![];
-        for contract_index in [AssetType::RGB20, AssetType::RGB21] {
-            let contract_index = contract_index as u32;
-            prefetch_resolver_utxos(
-                contract_index,
-                &mut wallet,
-                &mut resolver,
-                Some(RGB_DEFAULT_FETCH_LIMIT),
-            )
-            .await;
-            prefetch_resolver_utxo_status(contract_index, &mut wallet, &mut resolver).await;
-            sync_wallet(contract_index, &mut wallet, &mut resolver);
-            asset_unspent_utxos.append(
-                &mut next_utxos(contract_index, wallet.clone(), &mut resolver).map_err(|_| {
-                    TransferError::Retrive(
-                        "Esplora".to_string(),
-                        "Retrieve Unspent UTXO unavaliable".to_string(),
-                    )
-                })?,
-            )
+        let contract_index = if let "RGB20" = iface.as_str() {
+            AssetType::RGB20
+        } else {
+            AssetType::RGB21
+        };
+
+        let contract_index = contract_index as u32;
+        sync_wallet(contract_index, &mut wallet, &mut resolver);
+        prefetch_resolver_utxos(
+            contract_index,
+            &mut wallet,
+            &mut resolver,
+            Some(RGB_DEFAULT_FETCH_LIMIT),
+        )
+        .await;
+        prefetch_resolver_utxo_status(contract_index, &mut wallet, &mut resolver).await;
+
+        let contract = export_contract(
+            contract_id,
+            &mut stock,
+            &mut resolver,
+            &mut Some(wallet.clone()),
+        )
+        .map_err(TransferError::Export)?;
+
+        let allocations: Vec<AllocationDetail> = contract
+            .allocations
+            .into_iter()
+            .filter(|x| x.is_mine && !x.is_spent)
+            .collect();
+
+        let asset_total: u64 = allocations
+            .clone()
+            .into_iter()
+            .filter(|a| a.is_mine && !a.is_spent)
+            .map(|a| match a.value {
+                AllocationValue::Value(value) => value.to_owned(),
+                AllocationValue::UDA(_) => 1,
+            })
+            .sum();
+
+        if asset_total < target_amount {
+            let mut errors = BTreeMap::new();
+            errors.insert("rgb_invoice".to_string(), "insufficient state".to_string());
+            return Err(TransferError::Validation(errors));
         }
 
-        let mut rng = StdRng::seed_from_u64(0);
+        let asset_unspent_utxos = &mut next_utxos(contract_index, wallet.clone(), &mut resolver)
+            .map_err(|_| {
+                TransferError::Retrive(
+                    "Esplora".to_string(),
+                    "Retrieve Unspent UTXO unavaliable".to_string(),
+                )
+            })?;
+
+        let mut asset_total = 0;
+        let mut asset_inputs = vec![];
+        let mut rng = StdRng::seed_from_u64(1);
         let rnd_amount = rng.gen_range(600..1500);
 
         let mut total_asset_bitcoin_unspend: u64 = 0;
@@ -932,15 +941,18 @@ pub async fn full_transfer_asset(
                         .any(|x: PsbtInputRequest| x.utxo == alloc.utxo)
                     {
                         asset_inputs.push(input);
+                        total_asset_bitcoin_unspend += asset_unspent_utxos
+                            .clone()
+                            .into_iter()
+                            .filter(|x| {
+                                x.outpoint.to_string() == alloc.utxo.clone()
+                                    && alloc.is_mine
+                                    && !alloc.is_spent
+                            })
+                            .map(|x| x.amount)
+                            .sum::<u64>();
+                        asset_total += alloc_value;
                     }
-
-                    total_asset_bitcoin_unspend += asset_unspent_utxos
-                        .clone()
-                        .into_iter()
-                        .find(|x| x.outpoint.to_string() == alloc.utxo.clone())
-                        .map(|x| x.amount)
-                        .unwrap_or_default();
-                    asset_total += alloc_value;
                 }
                 AllocationValue::UDA(_) => {
                     let input = PsbtInputRequest {
@@ -955,15 +967,17 @@ pub async fn full_transfer_asset(
                         .any(|x| x.utxo == alloc.utxo)
                     {
                         asset_inputs.push(input);
+                        total_asset_bitcoin_unspend += asset_unspent_utxos
+                            .clone()
+                            .into_iter()
+                            .filter(|x| {
+                                x.outpoint.to_string() == alloc.utxo.clone()
+                                    && alloc.is_mine
+                                    && !alloc.is_spent
+                            })
+                            .map(|x| x.amount)
+                            .sum::<u64>();
                     }
-
-                    total_asset_bitcoin_unspend += asset_unspent_utxos
-                        .clone()
-                        .into_iter()
-                        .find(|x| x.outpoint.to_string() == alloc.utxo.clone())
-                        .map(|x| x.amount)
-                        .unwrap_or_default();
-
                     break;
                 }
             }
@@ -982,6 +996,7 @@ pub async fn full_transfer_asset(
         if let PsbtFeeRequest::Value(fee_amount) = fee {
             let bitcoin_indexes = [0, 1];
             for bitcoin_index in bitcoin_indexes {
+                sync_wallet(bitcoin_index, &mut wallet, &mut resolver);
                 prefetch_resolver_utxos(
                     bitcoin_index,
                     &mut wallet,
@@ -990,7 +1005,6 @@ pub async fn full_transfer_asset(
                 )
                 .await;
                 prefetch_resolver_utxo_status(bitcoin_index, &mut wallet, &mut resolver).await;
-                sync_wallet(bitcoin_index, &mut wallet, &mut resolver);
 
                 let mut unspent_utxos = next_utxos(bitcoin_index, wallet.clone(), &mut resolver)
                     .map_err(|_| {
@@ -1026,7 +1040,6 @@ pub async fn full_transfer_asset(
                     }
                 }
             }
-
             if bitcoin_total < (fee_amount + rnd_amount + total_bitcoin_spend) {
                 let mut errors = BTreeMap::new();
                 errors.insert("bitcoin".to_string(), "insufficient satoshis".to_string());
@@ -1151,6 +1164,7 @@ pub async fn save_transfer(
 
     let RgbSaveTransferRequest {
         contract_id,
+        iface,
         consignment,
     } = request;
 
@@ -1175,6 +1189,7 @@ pub async fn save_transfer(
     let rgb_transfer = RgbTransfer {
         consig_id: consig_id.clone(),
         consig: consig.to_hex(),
+        iface,
         tx: txid,
         is_send: false,
     };
@@ -1499,6 +1514,7 @@ pub async fn verify_transfers(sk: &str) -> Result<BatchRgbTransferResponse, Tran
                 let consig_id = accept_status.transfer_id().to_string();
                 transfers.push(if rgb_status.validity() == Validity::Valid {
                     BatchRgbTransferItem {
+                        iface: activity.iface,
                         contract_id: contract_id.clone(),
                         consig_id: consig_id.to_string(),
                         status,
@@ -1506,6 +1522,7 @@ pub async fn verify_transfers(sk: &str) -> Result<BatchRgbTransferResponse, Tran
                     }
                 } else {
                     BatchRgbTransferItem {
+                        iface: activity.iface,
                         contract_id: contract_id.clone(),
                         consig_id: consig_id.to_string(),
                         status,

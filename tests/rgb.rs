@@ -34,6 +34,8 @@ mod rgb {
         mod imports;
         mod stl_ids;
         mod stl_load;
+        mod transfers;
+        mod utils;
     }
 
     mod sre {
