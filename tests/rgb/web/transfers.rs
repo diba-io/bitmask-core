@@ -25,8 +25,8 @@ use bitmask_core::{
         },
         json_parse, resolve,
         rgb::{
-            create_watcher, full_transfer_asset, import_contract, issue_contract, list_contracts,
-            psbt_sign_file, rgb_create_invoice, save_transfer, verify_transfers,
+            create_watcher, full_transfer_asset, get_contract, import_contract, issue_contract,
+            list_contracts, psbt_sign_file, rgb_create_invoice, save_transfer, verify_transfers,
             watcher_next_address, watcher_next_utxo,
         },
         set_panic_hook,
@@ -431,4 +431,27 @@ async fn create_contract_and_transfer() {
         let verify_transfer_resp: BatchRgbTransferResponse = json_parse(&verify_transfer_resp);
         debug!(format!("Verify Consig: {:?}", verify_transfer_resp));
     }
+
+    info!("Get Contract (Issuer)");
+    let contract_resp: JsValue = resolve(get_contract(
+        issuer_sk.to_string(),
+        issuer_resp.contract_id.clone(),
+    ))
+    .await;
+    let contract_resp: ContractResponse = json_parse(&contract_resp);
+    debug!(format!(
+        "Contract {}({})\n {:#?}",
+        contract_resp.contract_id, contract_resp.balance, contract_resp.allocations
+    ));
+    info!("Get Contract (Owner)");
+    let contract_resp: JsValue = resolve(get_contract(
+        owner_sk.to_string(),
+        issuer_resp.contract_id.clone(),
+    ))
+    .await;
+    let contract_resp: ContractResponse = json_parse(&contract_resp);
+    debug!(format!(
+        "Contract {}({})\n {:#?}",
+        contract_resp.contract_id, contract_resp.balance, contract_resp.allocations
+    ));
 }
