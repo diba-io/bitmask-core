@@ -89,6 +89,11 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
+      - name: Disable incremental compilation
+          # Disable incremental compilation to save diskspace (the CI doesn't recompile modified files)
+          shell: bash
+          run: echo "CARGO_INCREMENTAL=0" >> $GITHUB_ENV
+
       - name: Up Bitcoin Node
         run: |
           docker compose up -d node1
