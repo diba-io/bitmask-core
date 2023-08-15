@@ -607,10 +607,8 @@ async fn main() -> Result<()> {
     let mut app = Router::new()
         .route("/issue", post(issue))
         .route("/reissue", post(reissue))
-        .route(
-            "/selfissue",
-            post(self_issue).route("/invoice", post(invoice)),
-        )
+        .route("/selfissue", post(self_issue))
+        .route("/invoice", post(invoice))
         .route("/selfinvoice", post(self_invoice))
         // .route("/psbt", post(psbt))
         // .route("/sign", post(sign_psbt))
