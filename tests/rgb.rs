@@ -30,16 +30,16 @@ mod rgb {
     }
 
     mod web {
-        // mod contracts;
-        // mod imports;
-        // mod stl_ids;
-        // mod stl_load;
+        mod contracts;
+        mod imports;
+        mod stl_ids;
+        mod stl_load;
         mod transfers;
         mod utils;
     }
 
     mod sre {
         mod st160;
-        // mod st160_web;
+        mod st160_web;
     }
 }
