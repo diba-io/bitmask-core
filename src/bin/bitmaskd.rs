@@ -31,7 +31,8 @@ use bitmask_core::{
         AcceptRequest, FileMetadata, FullRgbTransferRequest, ImportRequest, InvoiceRequest,
         IssueAssetRequest, IssueRequest, MediaInfo, PsbtFeeRequest, PsbtRequest, ReIssueRequest,
         RgbRemoveTransferRequest, RgbSaveTransferRequest, RgbTransferRequest, SecretString,
-        SelfFullRgbTransferRequest, SelfIssueRequest, SignPsbtRequest, WatcherRequest,
+        SelfFullRgbTransferRequest, SelfInvoiceRequest, SelfIssueRequest, SignPsbtRequest,
+        WatcherRequest,
     },
 };
 use carbonado::file;
@@ -70,6 +71,7 @@ async fn self_issue(Json(issue): Json<SelfIssueRequest>) -> Result<impl IntoResp
         &SecretString("".to_string()),
     )
     .await?;
+    let sk = issuer_keys.private.nostr_prv.as_ref();
 
     let issue_seal = format!("tapret1st:{}", get_udas_utxo().await);
     let request = IssueRequest {
@@ -83,7 +85,6 @@ async fn self_issue(Json(issue): Json<SelfIssueRequest>) -> Result<impl IntoResp
         meta: issue.meta,
     };
 
-    let sk = issuer_keys.private.nostr_prv.as_ref();
     let issue_res = issue_contract(sk, request).await?;
 
     Ok((StatusCode::OK, Json(issue_res)))
@@ -96,6 +97,32 @@ async fn invoice(
     info!("POST /invoice {invoice:?}");
 
     let nostr_hex_sk = auth.token();
+    let invoice_res = create_invoice(nostr_hex_sk, invoice).await?;
+
+    Ok((StatusCode::OK, Json(invoice_res)))
+}
+
+async fn self_invoice(
+    Json(self_invoice): Json<SelfInvoiceRequest>,
+) -> Result<impl IntoResponse, AppError> {
+    info!("POST /self_invoice {self_invoice:?}");
+
+    let issuer_keys = save_mnemonic(
+        &SecretString(get_marketplace_seed().await),
+        &SecretString("".to_string()),
+    )
+    .await?;
+    let nostr_hex_sk = issuer_keys.private.nostr_prv.as_ref();
+
+    let invoice_seal = format!("tapret1st:{}", get_udas_utxo().await);
+
+    let invoice = InvoiceRequest {
+        contract_id: self_invoice.contract_id,
+        iface: "RGB21".to_string(),
+        amount: 1,
+        seal: invoice_seal.to_owned(),
+        params: self_invoice.params,
+    };
     let invoice_res = create_invoice(nostr_hex_sk, invoice).await?;
 
     Ok((StatusCode::OK, Json(invoice_res)))
@@ -150,7 +177,7 @@ async fn self_pay(
     )
     .await?;
 
-    let sk = issuer_keys.private.nostr_prv.as_ref();
+    let nostr_hex_sk = issuer_keys.private.nostr_prv.as_ref();
 
     let fee = self_pay_req
         .fee
@@ -166,7 +193,7 @@ async fn self_pay(
         bitcoin_changes: self_pay_req.bitcoin_changes,
     };
 
-    let transfer_res = full_transfer_asset(sk, request).await?;
+    let transfer_res = full_transfer_asset(nostr_hex_sk, request).await?;
 
     Ok((StatusCode::OK, Json(transfer_res)))
 }
@@ -178,6 +205,21 @@ async fn accept(
     info!("POST /accept {accept_req:?}");
 
     let nostr_hex_sk = auth.token();
+    let transfer_res = accept_transfer(nostr_hex_sk, accept_req).await?;
+
+    Ok((StatusCode::OK, Json(transfer_res)))
+}
+
+async fn self_accept(Json(accept_req): Json<AcceptRequest>) -> Result<impl IntoResponse, AppError> {
+    info!("POST /self_accept {accept_req:?}");
+
+    let issuer_keys = save_mnemonic(
+        &SecretString(get_marketplace_seed().await),
+        &SecretString("".to_string()),
+    )
+    .await?;
+
+    let nostr_hex_sk = issuer_keys.private.nostr_prv.as_ref();
     let transfer_res = accept_transfer(nostr_hex_sk, accept_req).await?;
 
     Ok((StatusCode::OK, Json(transfer_res)))
@@ -567,11 +609,13 @@ async fn main() -> Result<()> {
         .route("/reissue", post(reissue))
         .route("/selfissue", post(self_issue))
         .route("/invoice", post(invoice))
+        .route("/selfinvoice", post(self_invoice))
         // .route("/psbt", post(psbt))
         // .route("/sign", post(sign_psbt))
         .route("/pay", post(pay))
         .route("/selfpay", post(self_pay))
         .route("/accept", post(accept))
+        .route("/selfaccept", post(self_accept))
         .route("/contracts", get(contracts))
         .route("/contract/:id", get(contract_detail))
         .route("/interfaces", get(interfaces))
