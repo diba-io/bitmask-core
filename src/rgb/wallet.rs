@@ -156,18 +156,24 @@ pub fn next_utxo(
         return Ok(none!());
     }
 
-    let mut next_utxo: Option<Utxo> = None;
+    let mut h_min = 0;
+    let mut next_utxo = none!();
     for utxo in utxos {
         let txid =
             Txid::from_str(&utxo.outpoint.txid.to_hex()).expect("invalid transaction id parse");
-        let is_spent = resolver
-            .resolve_spent_status(txid, utxo.outpoint.vout.into_u32().into())
+        let index = utxo.outpoint.vout.into_u32();
+        let utxo_status = resolver
+            .resolve_spent_status(txid, index.into(), true)
             .expect("unavaliable service");
-        if !is_spent {
-            next_utxo = Some(utxo);
-            break;
+        if !utxo_status.is_spent && utxo_status.block_height.is_some() {
+            let h_current = utxo_status.block_height.unwrap_or_default();
+            if h_min == 0 || h_current < h_min {
+                h_min = h_current;
+                next_utxo = Some(utxo);
+            }
         }
     }
+
     Ok(next_utxo)
 }
 
@@ -190,10 +196,11 @@ pub fn next_utxos(
     for utxo in utxos {
         let txid =
             Txid::from_str(&utxo.outpoint.txid.to_hex()).expect("invalid transaction id parse");
-        let is_spent = resolver
-            .resolve_spent_status(txid, utxo.outpoint.vout.into_u32().into())
+        let index = utxo.outpoint.vout.into_u32();
+        let utxo_status = resolver
+            .resolve_spent_status(txid, index.into(), true)
             .expect("unavaliable service");
-        if !is_spent {
+        if !utxo_status.is_spent {
             next_utxo.push(utxo);
         }
     }
@@ -333,8 +340,9 @@ where
                     for allocation in allocations {
                         let txid = bitcoin::Txid::from_str(&allocation.owner.txid.to_hex())
                             .expect("invalid txid");
-                        let is_spent = resolver
-                            .resolve_spent_status(txid, allocation.owner.vout.into_u32().into())
+                        let index = allocation.owner.vout.into_u32();
+                        let utxo_spent = resolver
+                            .resolve_spent_status(txid, index.into(), false)
                             .expect("cannot find utxo");
 
                         if let Some(utxo) = wallet.utxo(allocation.owner) {
@@ -346,7 +354,7 @@ where
                                     utxo.derivation.terminal.app, utxo.derivation.terminal.index
                                 ),
                                 is_mine: true,
-                                is_spent,
+                                is_spent: utxo_spent.is_spent,
                             });
                         } else {
                             owners.push(AllocationDetail {
@@ -354,7 +362,7 @@ where
                                 value: AllocationValue::Value(allocation.value),
                                 derivation: default!(),
                                 is_mine: false,
-                                is_spent,
+                                is_spent: utxo_spent.is_spent,
                             });
                         }
                     }
@@ -364,8 +372,10 @@ where
                     for allocation in allocations {
                         let txid = bitcoin::Txid::from_str(&allocation.owner.txid.to_hex())
                             .expect("invalid txid");
-                        let is_spent = resolver
-                            .resolve_spent_status(txid, allocation.owner.vout.into_u32().into())
+
+                        let index = allocation.owner.vout.into_u32();
+                        let utxo_spent = resolver
+                            .resolve_spent_status(txid, index.into(), false)
                             .expect("cannot find utxo");
 
                         if let Some(utxo) = wallet.utxo(allocation.owner) {
@@ -377,7 +387,7 @@ where
                                     utxo.derivation.terminal.app, utxo.derivation.terminal.index
                                 ),
                                 is_mine: true,
-                                is_spent,
+                                is_spent: utxo_spent.is_spent,
                             });
                         } else {
                             owners.push(AllocationDetail {
@@ -385,7 +395,7 @@ where
                                 value: AllocationValue::UDA(UDAPosition::with(allocation.value)),
                                 derivation: default!(),
                                 is_mine: false,
-                                is_spent,
+                                is_spent: utxo_spent.is_spent,
                             });
                         }
                     }
@@ -426,8 +436,9 @@ where
                 for allocation in allocations {
                     let txid = bitcoin::Txid::from_str(&allocation.owner.txid.to_hex())
                         .expect("invalid txid");
-                    let is_spent = resolver
-                        .resolve_spent_status(txid, allocation.owner.vout.into_u32().into())
+                    let index = allocation.owner.vout.into_u32();
+                    let utxo_spent = resolver
+                        .resolve_spent_status(txid, index.into(), false)
                         .expect("cannot find utxo");
 
                     if let Some(utxo) = wallet.utxo(allocation.owner) {
@@ -439,7 +450,7 @@ where
                                 utxo.derivation.terminal.app, utxo.derivation.terminal.index
                             ),
                             is_mine: true,
-                            is_spent,
+                            is_spent: utxo_spent.is_spent,
                         });
                     } else {
                         owners.push(AllocationDetail {
@@ -447,7 +458,7 @@ where
                             value: AllocationValue::Value(allocation.value),
                             derivation: default!(),
                             is_mine: false,
-                            is_spent,
+                            is_spent: utxo_spent.is_spent,
                         });
                     }
                 }
@@ -457,8 +468,9 @@ where
                 for allocation in allocations {
                     let txid = bitcoin::Txid::from_str(&allocation.owner.txid.to_hex())
                         .expect("invalid txid");
-                    let is_spent = resolver
-                        .resolve_spent_status(txid, allocation.owner.vout.into_u32().into())
+                    let index = allocation.owner.vout.into_u32();
+                    let utxo_status = resolver
+                        .resolve_spent_status(txid, index.into(), false)
                         .expect("cannot find utxo");
 
                     if let Some(utxo) = wallet.utxo(allocation.owner) {
@@ -470,7 +482,7 @@ where
                                 utxo.derivation.terminal.app, utxo.derivation.terminal.index
                             ),
                             is_mine: true,
-                            is_spent,
+                            is_spent: utxo_status.is_spent,
                         });
                     } else {
                         owners.push(AllocationDetail {
@@ -478,7 +490,7 @@ where
                             value: AllocationValue::UDA(UDAPosition::with(allocation.value)),
                             derivation: default!(),
                             is_mine: false,
-                            is_spent,
+                            is_spent: utxo_status.is_spent,
                         });
                     }
                 }

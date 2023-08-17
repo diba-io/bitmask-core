@@ -62,3 +62,12 @@ pub struct RgbTransfer {
     pub tx: Txid,
     pub is_send: bool,
 }
+
+#[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize, Debug, Display)]
+#[display("{utxo}:{is_spent}")]
+pub struct UtxoSpentStatus {
+    pub utxo: String,
+    pub is_spent: bool,
+    pub block_height: Option<u32>,
+    pub spent_height: Option<u32>,
+}

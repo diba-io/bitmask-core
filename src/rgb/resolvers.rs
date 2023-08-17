@@ -18,6 +18,7 @@ use rgbstd::{
 };
 use wallet::onchain::{ResolveTx, TxResolverError};
 
+use crate::rgb::structs::UtxoSpentStatus;
 use crate::structs::TxStatus;
 
 #[derive(Default)]
@@ -25,7 +26,7 @@ pub struct ExplorerResolver {
     pub explorer_url: String,
     // Prefetch Data (wasm32)
     pub utxos: BTreeSet<Utxo>,
-    pub utxos_spent: Vec<String>,
+    pub utxos_spent: Vec<UtxoSpentStatus>,
     pub txs: HashMap<bitcoin::Txid, bitcoin::Transaction>,
     pub bp_txs: HashMap<Txid, Tx>,
     pub tx_height: HashMap<Txid, WitnessOrd>,
@@ -233,7 +234,8 @@ pub trait ResolveSpent {
         &mut self,
         txid: bitcoin::Txid,
         index: u64,
-    ) -> Result<bool, Self::Error>;
+        block_height: bool,
+    ) -> Result<UtxoSpentStatus, Self::Error>;
 }
 
 impl ResolveSpent for ExplorerResolver {
@@ -243,26 +245,64 @@ impl ResolveSpent for ExplorerResolver {
         &mut self,
         txid: bitcoin::Txid,
         index: u64,
-    ) -> Result<bool, Self::Error> {
+        block_height: bool,
+    ) -> Result<UtxoSpentStatus, Self::Error> {
         let explorer_client = esplora_block::Builder::new(&self.explorer_url)
             .build_blocking()
             .expect("service unavaliable");
+
+        let mut block_h = None;
+        if block_height {
+            if let Ok(tx_status) = explorer_client.get_tx_status(&txid) {
+                if tx_status.confirmed {
+                    block_h = tx_status.block_height;
+                }
+            }
+        }
+
         match explorer_client
             .get_output_status(&txid, index)
             .expect("service unavaliable")
         {
-            Some(status) => Ok(status.spent),
+            Some(output_status) => {
+                let mut height = None;
+                if let Some(status) = output_status.status {
+                    height = status.block_height;
+                }
+
+                Ok(UtxoSpentStatus {
+                    utxo: format!("{txid}:{index}"),
+                    is_spent: output_status.spent,
+                    spent_height: height,
+                    block_height: block_h,
+                })
+            }
             _ => Err(SpendResolverError::Unknown(txid)),
         }
     }
+
     #[cfg(target_arch = "wasm32")]
     fn resolve_spent_status(
         &mut self,
         txid: bitcoin::Txid,
         index: u64,
-    ) -> Result<bool, Self::Error> {
-        let outpoint = format!("{}:{}", txid.to_hex(), index);
-        Ok(self.utxos_spent.contains(&outpoint))
+        block_height: bool,
+    ) -> Result<UtxoSpentStatus, Self::Error> {
+        if let Some(utxo) = self
+            .utxos_spent
+            .clone()
+            .into_iter()
+            .find(|x| x.utxo == format!("{}:{}", txid.to_hex(), index))
+        {
+            Ok(utxo)
+        } else {
+            Ok(UtxoSpentStatus {
+                utxo: format!("{}:{}", txid.to_hex(), index),
+                is_spent: false,
+                block_height: none!(),
+                spent_height: none!(),
+            })
+        }
     }
 }
 
