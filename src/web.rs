@@ -279,8 +279,8 @@ pub mod bitcoin {
     pub fn fund_vault(
         descriptor: String,
         change_descriptor: String,
-        address: String,
-        uda_address: String,
+        asset_descriptor: String,
+        uda_descriptor: String,
         asset_amount: u64,
         uda_amount: u64,
         fee_rate: Option<f32>,
@@ -291,8 +291,8 @@ pub mod bitcoin {
             match crate::bitcoin::fund_vault(
                 &SecretString(descriptor),
                 &SecretString(change_descriptor),
-                &address,
-                &uda_address,
+                &SecretString(asset_descriptor),
+                &SecretString(uda_descriptor),
                 asset_amount,
                 uda_amount,
                 fee_rate,

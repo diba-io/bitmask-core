@@ -353,14 +353,14 @@ pub async fn send_sats(
 pub async fn fund_vault(
     btc_descriptor_xprv: &SecretString,
     btc_change_descriptor_xprv: &SecretString,
-    assets_address: &str,
-    uda_address: &str,
+    asset_descriptor: &SecretString,
+    uda_descriptor: &SecretString,
     asset_amount: u64,
     uda_amount: u64,
     fee_rate: Option<f32>,
 ) -> Result<FundVaultDetails, BitcoinError> {
-    let assets_address = Address::from_str(assets_address)?;
-    let uda_address = Address::from_str(uda_address)?;
+    let assets_address = Address::from_str(&get_new_address(asset_descriptor, None).await?)?;
+    let uda_address = Address::from_str(&get_new_address(uda_descriptor, None).await?)?;
 
     let wallet = get_wallet(btc_descriptor_xprv, Some(btc_change_descriptor_xprv)).await?;
 
