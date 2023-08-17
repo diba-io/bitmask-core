@@ -84,7 +84,7 @@ use self::{
     prefetch::{
         prefetch_resolver_allocations, prefetch_resolver_images, prefetch_resolver_import_rgb,
         prefetch_resolver_psbt, prefetch_resolver_rgb, prefetch_resolver_txs_status,
-        prefetch_resolver_utxo_status, prefetch_resolver_utxos, prefetch_resolver_waddress,
+        prefetch_resolver_user_utxo_status, prefetch_resolver_utxos, prefetch_resolver_waddress,
         prefetch_resolver_wutxo,
     },
     psbt::{fee_estimate, save_commit, CreatePsbtError},
@@ -168,7 +168,7 @@ pub async fn issue_contract(sk: &str, request: IssueRequest) -> Result<IssueResp
                     Some(RGB_DEFAULT_FETCH_LIMIT),
                 )
                 .await;
-                prefetch_resolver_utxo_status(
+                prefetch_resolver_user_utxo_status(
                     contract_index,
                     &mut fetch_wallet,
                     &mut resolver,
@@ -1024,8 +1024,13 @@ pub async fn full_transfer_asset(
                     Some(BITCOIN_DEFAULT_FETCH_LIMIT),
                 )
                 .await;
-                prefetch_resolver_utxo_status(bitcoin_index, &mut wallet, &mut resolver, false)
-                    .await;
+                prefetch_resolver_user_utxo_status(
+                    bitcoin_index,
+                    &mut wallet,
+                    &mut resolver,
+                    false,
+                )
+                .await;
 
                 let mut unspent_utxos = next_utxos(bitcoin_index, wallet.clone(), &mut resolver)
                     .map_err(|_| {
@@ -1787,7 +1792,7 @@ pub async fn watcher_details(sk: &str, name: &str) -> Result<WatcherDetailRespon
             Some(RGB_DEFAULT_FETCH_LIMIT),
         )
         .await;
-        prefetch_resolver_utxo_status(iface_index, &mut wallet, &mut resolver, false).await;
+        prefetch_resolver_user_utxo_status(iface_index, &mut wallet, &mut resolver, false).await;
         let mut result = list_allocations(&mut wallet, &mut stock, iface_index, &mut resolver)?;
         allocations.append(&mut result);
     }
@@ -1923,7 +1928,7 @@ pub async fn watcher_next_utxo(sk: &str, name: &str, iface: &str) -> Result<Next
         Some(RGB_DEFAULT_FETCH_LIMIT),
     )
     .await;
-    prefetch_resolver_utxo_status(iface_index, &mut wallet, &mut resolver, true).await;
+    prefetch_resolver_user_utxo_status(iface_index, &mut wallet, &mut resolver, true).await;
 
     sync_wallet(iface_index, &mut wallet, &mut resolver);
     let utxo = match next_utxo(iface_index, wallet.clone(), &mut resolver)? {
@@ -1970,7 +1975,7 @@ pub async fn watcher_unspent_utxos(sk: &str, name: &str, iface: &str) -> Result<
         Some(RGB_DEFAULT_FETCH_LIMIT),
     )
     .await;
-    prefetch_resolver_utxo_status(iface_index, &mut wallet, &mut resolver, true).await;
+    prefetch_resolver_user_utxo_status(iface_index, &mut wallet, &mut resolver, true).await;
 
     sync_wallet(iface_index, &mut wallet, &mut resolver);
     let utxos: HashSet<UtxoResponse> = next_utxos(iface_index, wallet.clone(), &mut resolver)?

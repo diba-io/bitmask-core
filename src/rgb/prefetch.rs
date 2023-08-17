@@ -45,7 +45,7 @@ pub async fn prefetch_resolver_import_rgb(
 pub async fn prefetch_resolver_psbt(input_utxo: &str, explorer: &mut ExplorerResolver) {}
 
 #[cfg(not(target_arch = "wasm32"))]
-pub async fn prefetch_resolver_utxo_status(
+pub async fn prefetch_resolver_user_utxo_status(
     iface_index: u32,
     wallet: &mut RgbWallet,
     explorer: &mut ExplorerResolver,
@@ -234,7 +234,7 @@ pub async fn prefetch_resolver_psbt(input_utxo: &str, explorer: &mut ExplorerRes
 }
 
 #[cfg(target_arch = "wasm32")]
-pub async fn prefetch_resolver_utxo_status(
+pub async fn prefetch_resolver_user_utxo_status(
     iface_index: u32,
     wallet: &mut RgbWallet,
     explorer: &mut ExplorerResolver,
