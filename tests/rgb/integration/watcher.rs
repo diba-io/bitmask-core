@@ -1,7 +1,11 @@
 #![cfg(not(target_arch = "wasm32"))]
 use bitmask_core::{
     bitcoin::{get_wallet, save_mnemonic, sync_wallet},
-    rgb::{create_watcher, watcher_address, watcher_next_address, watcher_next_utxo, watcher_utxo},
+    constants::switch_network,
+    rgb::{
+        create_watcher, get_contract, watcher_address, watcher_next_address, watcher_next_utxo,
+        watcher_utxo,
+    },
     structs::{SecretString, WatcherRequest},
 };
 
@@ -191,5 +195,46 @@ async fn allow_migrate_watcher() -> anyhow::Result<()> {
 
     let resp = create_watcher(&sk, create_watch_req.clone()).await?;
     assert!(resp.migrate);
+    Ok(())
+}
+
+#[ignore]
+#[tokio::test]
+async fn reproduce_jose_transfer_tests() -> anyhow::Result<()> {
+    switch_network("testnet").await?;
+    // 1. Initial Setup
+    let _scontract_id = "rgb:24bsMkisNQEhWT4fB6WgrG3kvs8XnW1kwQa2m852sGVEEscPha";
+    let wallet_a_keys = save_mnemonic(
+        &SecretString("priority palace course actor exercise silver donkey prize blast tool discover hunt cup vast dash universe slam onion wall indoor correct mechanic pink wink".to_string()),
+        &SecretString("".to_string()),
+    )
+    .await?;
+
+    let wallet_b_keys = save_mnemonic(
+        &SecretString("whisper cloud movie wood soon stumble journey assist town wrong unique love reward produce faith wine sponsor label fine upon cargo plate cash owner".to_string()),
+        &SecretString("".to_string()),
+    )
+    .await?;
+
+    let contract_id = "rgb:mbEPRYUwcqkqsG9KMVY88ANkiHuEe5j4x67LjsPgBhD22Nzcj";
+
+    let wallet_a_sk = &wallet_a_keys.private.nostr_prv;
+    let contract = get_contract(wallet_a_sk, contract_id).await?;
+    // for contract in contracts.contracts {
+    println!(
+        "Wallet A: {} ({})\nAllocs: {:#?}",
+        contract.contract_id, contract.ticker, contract.allocations
+    );
+    // }
+
+    let wallet_b_sk = &wallet_b_keys.private.nostr_prv;
+    let contract = get_contract(wallet_b_sk, contract_id).await?;
+    // for contract in contracts.contracts {
+    println!(
+        "Wallet B: {} ({})\nAllocs: {:#?}",
+        contract.contract_id, contract.ticker, contract.allocations
+    );
+    // }
+
     Ok(())
 }

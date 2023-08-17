@@ -528,9 +528,9 @@ pub enum TransferError {
     Write(String, String),
     /// Watcher is required in this operation. Please, create watcher.
     NoWatcher,
-    /// Contract is required in this operation. Please, create watcher.
+    /// Contract is required in this operation. Please, import or issue a Contract.
     NoContract,
-    /// Iface is required in this operation. Please, create watcher.
+    /// Iface is required in this operation. Please, use the correct iface contract.
     NoIface,
     /// Occurs an error in create step. {0}
     Create(CreatePsbtError),
