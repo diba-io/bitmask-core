@@ -15,7 +15,7 @@ use rgbstd::{
     containers::BindleContent,
     contract::ContractId,
     interface::TypedState,
-    persistence::{Stash, Stock},
+    persistence::{Inventory, Stash, Stock},
     validation::Validity,
 };
 use rgbwallet::{psbt::DbcPsbtError, RgbInvoice};
@@ -23,7 +23,7 @@ use std::{
     collections::{BTreeMap, HashSet},
     str::FromStr,
 };
-use strict_encoding::StrictSerialize;
+use strict_encoding::{tn, StrictSerialize};
 use thiserror::Error;
 
 pub mod accept;
@@ -82,12 +82,13 @@ use self::{
     contract::{export_contract, ExportContractError},
     import::{import_contract, ImportContractError},
     prefetch::{
-        prefetch_resolver_images, prefetch_resolver_import_rgb, prefetch_resolver_psbt,
-        prefetch_resolver_rgb, prefetch_resolver_txs_status, prefetch_resolver_utxo_status,
-        prefetch_resolver_utxos, prefetch_resolver_waddress, prefetch_resolver_wutxo,
+        prefetch_resolver_allocations, prefetch_resolver_images, prefetch_resolver_import_rgb,
+        prefetch_resolver_psbt, prefetch_resolver_rgb, prefetch_resolver_txs_status,
+        prefetch_resolver_user_utxo_status, prefetch_resolver_utxos, prefetch_resolver_waddress,
+        prefetch_resolver_wutxo,
     },
     psbt::{fee_estimate, save_commit, CreatePsbtError},
-    structs::{AddressAmount, RgbTransfer},
+    structs::{AddressAmount, RgbTransfer, RgbTransfers},
     transfer::{extract_transfer, AcceptTransferError, NewInvoiceError, NewPaymentError},
     wallet::{
         create_wallet, get_address, next_address, next_utxo, next_utxos, register_address,
@@ -159,11 +160,19 @@ pub async fn issue_contract(sk: &str, request: IssueRequest) -> Result<IssueResp
         Some(wallet) => {
             let mut fetch_wallet = wallet.to_owned();
             for contract_type in [AssetType::RGB20, AssetType::RGB21] {
+                let contract_index = contract_type as u32;
                 prefetch_resolver_utxos(
-                    contract_type as u32,
+                    contract_index,
                     &mut fetch_wallet,
                     &mut resolver,
                     Some(RGB_DEFAULT_FETCH_LIMIT),
+                )
+                .await;
+                prefetch_resolver_user_utxo_status(
+                    contract_index,
+                    &mut fetch_wallet,
+                    &mut resolver,
+                    true,
                 )
                 .await;
             }
@@ -519,6 +528,10 @@ pub enum TransferError {
     Write(String, String),
     /// Watcher is required in this operation. Please, create watcher.
     NoWatcher,
+    /// Contract is required in this operation. Please, import or issue a Contract.
+    NoContract,
+    /// Iface is required in this operation. Please, use the correct iface contract.
+    NoIface,
     /// Occurs an error in create step. {0}
     Create(CreatePsbtError),
     /// Occurs an error in commitment step. {0}
@@ -812,7 +825,7 @@ pub async fn full_transfer_asset(
     if let TypedState::Amount(target_amount) = invoice.owned_state {
         let FullRgbTransferRequest {
             contract_id: _,
-            iface,
+            iface: iface_name,
             rgb_invoice,
             descriptor,
             change_terminal,
@@ -839,11 +852,18 @@ pub async fn full_transfer_asset(
         let mut all_unspents = vec![];
 
         // Get All Assets UTXOs
-        let contract_index = if let "RGB20" = iface.as_str() {
+        let contract_index = if let "RGB20" = iface_name.as_str() {
             AssetType::RGB20
         } else {
             AssetType::RGB21
         };
+
+        let iface = stock
+            .iface_by_name(&tn!(iface_name))
+            .map_err(|_| TransferError::NoIface)?;
+        let contract_iface = stock
+            .contract_iface(contract_id, iface.iface_id())
+            .map_err(|_| TransferError::NoContract)?;
 
         let contract_index = contract_index as u32;
         sync_wallet(contract_index, &mut wallet, &mut resolver);
@@ -854,7 +874,7 @@ pub async fn full_transfer_asset(
             Some(RGB_DEFAULT_FETCH_LIMIT),
         )
         .await;
-        prefetch_resolver_utxo_status(contract_index, &mut wallet, &mut resolver).await;
+        prefetch_resolver_allocations(contract_iface, &mut resolver).await;
 
         let contract = export_contract(
             contract_id,
@@ -1004,7 +1024,13 @@ pub async fn full_transfer_asset(
                     Some(BITCOIN_DEFAULT_FETCH_LIMIT),
                 )
                 .await;
-                prefetch_resolver_utxo_status(bitcoin_index, &mut wallet, &mut resolver).await;
+                prefetch_resolver_user_utxo_status(
+                    bitcoin_index,
+                    &mut wallet,
+                    &mut resolver,
+                    false,
+                )
+                .await;
 
                 let mut unspent_utxos = next_utxos(bitcoin_index, wallet.clone(), &mut resolver)
                     .map_err(|_| {
@@ -1288,22 +1314,30 @@ pub async fn get_contract(sk: &str, contract_id: &str) -> Result<ContractRespons
         ..Default::default()
     };
 
+    let contract_id = ContractId::from_str(contract_id)?;
     let wallet = rgb_account.wallets.get("default");
     let mut wallet = match wallet {
         Some(wallet) => {
             let mut fetch_wallet = wallet.to_owned();
             for contract_type in [AssetType::RGB20, AssetType::RGB21] {
-                let contract_index = contract_type as u32;
-                // sync_wallet(contract_index, &mut fetch_wallet, &mut resolver);
-                prefetch_resolver_utxos(
-                    contract_index,
-                    &mut fetch_wallet,
-                    &mut resolver,
-                    Some(RGB_DEFAULT_FETCH_LIMIT),
-                )
-                .await;
-                prefetch_resolver_utxo_status(contract_index, &mut fetch_wallet, &mut resolver)
+                let contract_index = contract_type.clone() as u32;
+                let iface_name = contract_type.to_string().to_uppercase().clone();
+
+                let iface = stock
+                    .iface_by_name(&tn!(iface_name.clone()))
+                    .map_err(|_| TransferError::NoIface)?;
+
+                if let Ok(contract_iface) = stock.contract_iface(contract_id, iface.iface_id()) {
+                    sync_wallet(contract_index, &mut fetch_wallet, &mut resolver);
+                    prefetch_resolver_utxos(
+                        contract_index,
+                        &mut fetch_wallet,
+                        &mut resolver,
+                        Some(RGB_DEFAULT_FETCH_LIMIT),
+                    )
                     .await;
+                    prefetch_resolver_allocations(contract_iface, &mut resolver).await;
+                }
             }
 
             Some(fetch_wallet)
@@ -1311,9 +1345,7 @@ pub async fn get_contract(sk: &str, contract_id: &str) -> Result<ContractRespons
         _ => None,
     };
 
-    let contract_id = ContractId::from_str(contract_id)?;
     let contract = export_contract(contract_id, &mut stock, &mut resolver, &mut wallet)?;
-
     if let Some(wallet) = wallet {
         rgb_account
             .wallets
@@ -1348,8 +1380,6 @@ pub async fn list_contracts(sk: &str) -> Result<ContractsResponse> {
                     Some(RGB_DEFAULT_FETCH_LIMIT),
                 )
                 .await;
-                prefetch_resolver_utxo_status(contract_index, &mut fetch_wallet, &mut resolver)
-                    .await;
             }
             Some(fetch_wallet)
         }
@@ -1357,10 +1387,28 @@ pub async fn list_contracts(sk: &str) -> Result<ContractsResponse> {
     };
 
     let mut contracts = vec![];
+    for contract_type in [AssetType::RGB20, AssetType::RGB21] {
+        let iface_name = contract_type.to_string().to_uppercase().clone();
+        let iface_name = tn!(iface_name);
+        let iface = stock
+            .iface_by_name(&iface_name)
+            .expect("Iface name not found")
+            .clone();
 
-    for contract_id in stock.contract_ids()? {
-        let resp = export_contract(contract_id, &mut stock, &mut resolver, &mut wallet)?;
-        contracts.push(resp);
+        let contract_ids = stock
+            .contract_ids_by_iface(&iface_name)
+            .expect("contract not found");
+
+        for contract_id in contract_ids {
+            let contract_iface = stock
+                .clone()
+                .contract_iface(contract_id, iface.iface_id())
+                .expect("Iface not found");
+
+            prefetch_resolver_allocations(contract_iface, &mut resolver).await;
+            let resp = export_contract(contract_id, &mut stock, &mut resolver, &mut wallet)?;
+            contracts.push(resp);
+        }
     }
 
     if let Some(wallet) = wallet {
@@ -1459,13 +1507,7 @@ pub async fn list_transfers(sk: &str, contract_id: String) -> Result<RgbTransfer
 }
 
 pub async fn verify_transfers(sk: &str) -> Result<BatchRgbTransferResponse, TransferError> {
-    let mut stock = retrieve_stock(sk, ASSETS_STOCK).await.map_err(|_| {
-        TransferError::Retrive(
-            CARBONADO_UNAVAILABLE.to_string(),
-            STOCK_UNAVAILABLE.to_string(),
-        )
-    })?;
-    let mut rgb_transfers = retrieve_transfers(sk, ASSETS_TRANSFERS)
+    let rgb_transfers = retrieve_transfers(sk, ASSETS_TRANSFERS)
         .await
         .map_err(|_| {
             TransferError::Retrive(
@@ -1474,12 +1516,22 @@ pub async fn verify_transfers(sk: &str) -> Result<BatchRgbTransferResponse, Tran
             )
         })?;
 
+    let mut stock = retrieve_stock(sk, ASSETS_STOCK).await.map_err(|_| {
+        TransferError::Retrive(
+            CARBONADO_UNAVAILABLE.to_string(),
+            STOCK_UNAVAILABLE.to_string(),
+        )
+    })?;
     let mut resolver = ExplorerResolver {
         explorer_url: BITCOIN_EXPLORER_API.read().await.to_string(),
         ..Default::default()
     };
+
     let mut transfers = vec![];
+    let mut rgb_pending = RgbTransfers::default();
+
     for (contract_id, transfer_activities) in rgb_transfers.transfers.clone() {
+        let mut pending_transfers = vec![];
         let txids: Vec<bitcoin::Txid> = transfer_activities
             .clone()
             .into_iter()
@@ -1487,13 +1539,8 @@ pub async fn verify_transfers(sk: &str) -> Result<BatchRgbTransferResponse, Tran
             .collect();
         prefetch_resolver_txs_status(txids, &mut resolver).await;
 
-        for activity in transfer_activities {
-            let ty = if activity.is_send {
-                TransferType::Sended
-            } else {
-                TransferType::Received
-            };
-
+        for activity in transfer_activities.iter() {
+            let iface = activity.iface.clone();
             let txid = Txid::from_str(&activity.tx.to_hex()).expect("invalid tx id");
             let status = resolver
                 .txs_status
@@ -1501,15 +1548,10 @@ pub async fn verify_transfers(sk: &str) -> Result<BatchRgbTransferResponse, Tran
                 .unwrap_or(&TxStatus::NotFound)
                 .to_owned();
 
-            let accept_status = match (ty.clone(), status.clone()) {
-                (TransferType::Received, TxStatus::Block(_)) => {
+            let accept_status = match status.clone() {
+                TxStatus::Block(_) => {
                     prefetch_resolver_rgb(&activity.consig, &mut resolver, None).await;
-                    accept_rgb_transfer(activity.consig, false, &mut resolver, &mut stock)
-                        .map_err(TransferError::Accept)?
-                }
-                (TransferType::Sended, TxStatus::Mempool | TxStatus::Block(_)) => {
-                    prefetch_resolver_rgb(&activity.consig, &mut resolver, None).await;
-                    accept_rgb_transfer(activity.consig, true, &mut resolver, &mut stock)
+                    accept_rgb_transfer(activity.consig.clone(), false, &mut resolver, &mut stock)
                         .map_err(TransferError::Accept)?
                 }
                 _ => continue,
@@ -1518,29 +1560,17 @@ pub async fn verify_transfers(sk: &str) -> Result<BatchRgbTransferResponse, Tran
             if let Some(rgb_status) = accept_status.validation_status() {
                 let consig_id = accept_status.transfer_id().to_string();
                 transfers.push(if rgb_status.validity() == Validity::Valid {
-                    if let Some(current_transfers) = rgb_transfers.transfers.get(&contract_id) {
-                        let current_transfers = current_transfers
-                            .clone()
-                            .into_iter()
-                            .filter(|x| x.consig_id != consig_id)
-                            .collect();
-
-                        rgb_transfers.transfers.remove(&contract_id);
-                        rgb_transfers
-                            .transfers
-                            .insert(contract_id.clone(), current_transfers);
-                    }
-
                     BatchRgbTransferItem {
-                        iface: activity.iface,
+                        iface,
                         contract_id: contract_id.clone(),
                         consig_id: consig_id.to_string(),
                         status,
                         is_accept: true,
                     }
                 } else {
+                    pending_transfers.push(activity.to_owned());
                     BatchRgbTransferItem {
-                        iface: activity.iface,
+                        iface,
                         contract_id: contract_id.clone(),
                         consig_id: consig_id.to_string(),
                         status,
@@ -1549,6 +1579,8 @@ pub async fn verify_transfers(sk: &str) -> Result<BatchRgbTransferResponse, Tran
                 });
             }
         }
+
+        rgb_pending.transfers.insert(contract_id, pending_transfers);
     }
 
     store_stock(sk, ASSETS_STOCK, &stock).await.map_err(|_| {
@@ -1558,7 +1590,7 @@ pub async fn verify_transfers(sk: &str) -> Result<BatchRgbTransferResponse, Tran
         )
     })?;
 
-    store_transfers(sk, ASSETS_TRANSFERS, &rgb_transfers)
+    store_transfers(sk, ASSETS_TRANSFERS, &rgb_pending)
         .await
         .map_err(|_| {
             TransferError::Write(
@@ -1774,7 +1806,7 @@ pub async fn watcher_details(sk: &str, name: &str) -> Result<WatcherDetailRespon
             Some(RGB_DEFAULT_FETCH_LIMIT),
         )
         .await;
-        prefetch_resolver_utxo_status(iface_index, &mut wallet, &mut resolver).await;
+        prefetch_resolver_user_utxo_status(iface_index, &mut wallet, &mut resolver, false).await;
         let mut result = list_allocations(&mut wallet, &mut stock, iface_index, &mut resolver)?;
         allocations.append(&mut result);
     }
@@ -1910,14 +1942,15 @@ pub async fn watcher_next_utxo(sk: &str, name: &str, iface: &str) -> Result<Next
         Some(RGB_DEFAULT_FETCH_LIMIT),
     )
     .await;
-    prefetch_resolver_utxo_status(iface_index, &mut wallet, &mut resolver).await;
+    prefetch_resolver_user_utxo_status(iface_index, &mut wallet, &mut resolver, true).await;
 
     sync_wallet(iface_index, &mut wallet, &mut resolver);
     let utxo = match next_utxo(iface_index, wallet.clone(), &mut resolver)? {
-        Some(next_utxo) => Some(UtxoResponse {
-            outpoint: next_utxo.outpoint.to_string(),
-            amount: next_utxo.amount,
-        }),
+        Some(next_utxo) => Some(UtxoResponse::with(
+            next_utxo.outpoint,
+            next_utxo.amount,
+            next_utxo.status,
+        )),
         _ => None,
     };
 
@@ -1957,15 +1990,12 @@ pub async fn watcher_unspent_utxos(sk: &str, name: &str, iface: &str) -> Result<
         Some(RGB_DEFAULT_FETCH_LIMIT),
     )
     .await;
-    prefetch_resolver_utxo_status(iface_index, &mut wallet, &mut resolver).await;
+    prefetch_resolver_user_utxo_status(iface_index, &mut wallet, &mut resolver, true).await;
 
     sync_wallet(iface_index, &mut wallet, &mut resolver);
     let utxos: HashSet<UtxoResponse> = next_utxos(iface_index, wallet.clone(), &mut resolver)?
         .into_iter()
-        .map(|x| UtxoResponse {
-            outpoint: x.outpoint.to_string(),
-            amount: x.amount,
-        })
+        .map(|x| UtxoResponse::with(x.outpoint, x.amount, x.status))
         .collect();
 
     rgb_account

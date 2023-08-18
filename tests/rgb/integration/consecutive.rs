@@ -429,6 +429,7 @@ async fn allow_consecutive_full_transfer_bidirectional() -> anyhow::Result<()> {
 #[tokio::test]
 async fn allow_save_transfer_and_verify() -> anyhow::Result<()> {
     // 1. Initial Setup
+    let whatever_address = "bcrt1p76gtucrxhmn8s5622r859dpnmkj0kgfcel9xy0sz6yj84x6ppz2qk5hpsw";
     let issuer_keys = save_mnemonic(
         &SecretString(ISSUER_MNEMONIC.to_string()),
         &SecretString("".to_string()),
@@ -526,6 +527,7 @@ async fn allow_save_transfer_and_verify() -> anyhow::Result<()> {
     };
     let resp = sign_psbt_file(request).await;
     assert!(resp.is_ok());
+    send_some_coins(whatever_address, "0.001").await;
 
     let owner_sk = owner_keys.private.nostr_prv.clone();
     let request = RgbSaveTransferRequest {
@@ -536,7 +538,6 @@ async fn allow_save_transfer_and_verify() -> anyhow::Result<()> {
     let resp = save_transfer(&owner_sk, request).await;
     assert!(resp.is_ok());
 
-    send_some_coins(issuer_address, "0.001").await;
     let resp = verify_transfers(&owner_sk).await;
     assert!(resp.is_ok());
 

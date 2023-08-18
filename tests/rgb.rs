@@ -22,7 +22,6 @@ mod rgb {
         mod import;
         mod issue;
         mod states;
-        mod stress;
         mod transfers;
         mod udas;
         pub mod utils;
