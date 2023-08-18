@@ -763,7 +763,7 @@ async fn allows_spend_amount_from_two_different_owners() -> anyhow::Result<()> {
     };
     let resp = sign_psbt_file(request).await;
     assert!(resp.is_ok());
-    send_some_coins(&whatever_address, "0.1").await;
+    send_some_coins(whatever_address, "0.1").await;
 
     // 5. Accept Consig (Issuer and Owner Side)
     let all_sks = [issuer_sk.clone(), owner_sk.clone()];
@@ -846,7 +846,7 @@ async fn allows_spend_amount_from_two_different_owners() -> anyhow::Result<()> {
     };
     let resp = sign_psbt_file(request).await;
     assert!(resp.is_ok());
-    send_some_coins(&whatever_address, "0.1").await;
+    send_some_coins(whatever_address, "0.1").await;
 
     // 9. Create Transfer and Accept (Owner Side)
     let owner_xpriv = owner_keys.private.rgb_assets_descriptor_xprv.clone();
@@ -955,7 +955,7 @@ async fn allows_spend_amount_from_two_different_owners() -> anyhow::Result<()> {
     };
     let resp = sign_psbt_file(request).await;
     assert!(resp.is_ok());
-    send_some_coins(&whatever_address, "0.1").await;
+    send_some_coins(whatever_address, "0.1").await;
 
     // 14. Accept Consig (Another Owner Side)
     let request = AcceptRequest {
