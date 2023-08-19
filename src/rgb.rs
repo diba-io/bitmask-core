@@ -896,7 +896,7 @@ pub async fn full_transfer_asset(
 
         let mut asset_total = 0;
         let mut asset_inputs = vec![];
-        let mut rng = StdRng::seed_from_u64(1);
+        let mut rng = StdRng::from_entropy();
         let rnd_amount = rng.gen_range(600..1500);
 
         let mut total_asset_bitcoin_unspend: u64 = 0;
