@@ -279,10 +279,10 @@ pub mod bitcoin {
     pub fn fund_vault(
         descriptor: String,
         change_descriptor: String,
-        address: String,
-        uda_address: String,
-        asset_amount: u64,
-        uda_amount: u64,
+        asset_address_1: String,
+        asset_address_2: String,
+        uda_address_1: String,
+        uda_address_2: String,
         fee_rate: Option<f32>,
     ) -> Promise {
         set_panic_hook();
@@ -291,10 +291,10 @@ pub mod bitcoin {
             match crate::bitcoin::fund_vault(
                 &SecretString(descriptor),
                 &SecretString(change_descriptor),
-                &address,
-                &uda_address,
-                asset_amount,
-                uda_amount,
+                &asset_address_1,
+                &asset_address_2,
+                &uda_address_1,
+                &uda_address_2,
                 fee_rate,
             )
             .await
