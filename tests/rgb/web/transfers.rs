@@ -198,6 +198,11 @@ async fn create_contract_and_transfer() {
     let invoice_resp: InvoiceResponse = json_parse(&invoice_resp);
 
     info!("Create Payment (Issuer)");
+    debug!(format!(
+        "Invoice (Issuer): {}",
+        invoice_resp.invoice.to_string()
+    ));
+
     let issuer_desc = issuer_vault.public.rgb_assets_descriptor_xpub.to_string();
     let full_transfer_req = FullRgbTransferRequest {
         contract_id: issuer_resp.contract_id.to_string(),

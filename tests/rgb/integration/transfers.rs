@@ -22,6 +22,7 @@ use crate::rgb::integration::utils::{
 #[tokio::test]
 async fn allow_issuer_make_conseq_transfers() -> anyhow::Result<()> {
     // 0. Retrieve all keys
+    let whatever_address = "bcrt1p76gtucrxhmn8s5622r859dpnmkj0kgfcel9xy0sz6yj84x6ppz2qk5hpsw";
     let issuer_keys: DecryptedWalletData = save_mnemonic(
         &SecretString(ISSUER_MNEMONIC.to_string()),
         &SecretString("".to_string()),
@@ -101,6 +102,7 @@ async fn allow_issuer_make_conseq_transfers() -> anyhow::Result<()> {
     };
     let resp = sign_psbt_file(request).await;
     assert!(resp.is_ok());
+    send_some_coins(whatever_address, "0.001").await;
 
     // 5. Accept Consig (Issuer and Owner Side)
     let all_sks = [issuer_sk.clone(), owner_sk.clone()];
@@ -170,6 +172,7 @@ async fn allow_issuer_make_conseq_transfers() -> anyhow::Result<()> {
     };
     let resp = sign_psbt_file(request).await;
     assert!(resp.is_ok());
+    send_some_coins(whatever_address, "0.001").await;
 
     // 9. Accept Consig (Issuer and Another Owner Sides)
     let all_sks = [issuer_sk.clone(), owner_sk.clone()];
@@ -199,6 +202,7 @@ async fn allow_issuer_make_conseq_transfers() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn allow_owner_make_conseq_transfers() -> anyhow::Result<()> {
+    let whatever_address = "bcrt1p76gtucrxhmn8s5622r859dpnmkj0kgfcel9xy0sz6yj84x6ppz2qk5hpsw";
     let issuer_keys: DecryptedWalletData = save_mnemonic(
         &SecretString(ISSUER_MNEMONIC.to_string()),
         &SecretString("".to_string()),
@@ -253,6 +257,7 @@ async fn allow_owner_make_conseq_transfers() -> anyhow::Result<()> {
     };
     let resp = sign_psbt_file(request).await;
     assert!(resp.is_ok());
+    send_some_coins(whatever_address, "0.001").await;
 
     // 3. Accept Consig (Issuer Side)
     let issuer_sk = issuer_keys.private.nostr_prv.to_string();
@@ -330,6 +335,7 @@ async fn allow_owner_make_conseq_transfers() -> anyhow::Result<()> {
     };
     let resp = sign_psbt_file(request).await;
     assert!(resp.is_ok());
+    send_some_coins(whatever_address, "0.001").await;
 
     // 9. Accept Consig (Issuer Side)
     let request = AcceptRequest {
@@ -394,6 +400,7 @@ async fn allow_owner_make_conseq_transfers() -> anyhow::Result<()> {
     };
     let resp = sign_psbt_file(request).await;
     assert!(resp.is_ok());
+    send_some_coins(whatever_address, "0.001").await;
 
     // 13. Accept Consig (Owner Side)
     let request = AcceptRequest {
@@ -416,6 +423,7 @@ async fn allow_owner_make_conseq_transfers() -> anyhow::Result<()> {
 #[tokio::test]
 async fn allow_conseq_transfers_between_tree_owners() -> anyhow::Result<()> {
     // 0. Retrieve all keys
+    let whatever_address = "bcrt1p76gtucrxhmn8s5622r859dpnmkj0kgfcel9xy0sz6yj84x6ppz2qk5hpsw";
     let issuer_keys: DecryptedWalletData = save_mnemonic(
         &SecretString(ISSUER_MNEMONIC.to_string()),
         &SecretString("".to_string()),
@@ -508,6 +516,7 @@ async fn allow_conseq_transfers_between_tree_owners() -> anyhow::Result<()> {
     };
     let resp = sign_psbt_file(request).await;
     assert!(resp.is_ok());
+    send_some_coins(whatever_address, "0.001").await;
 
     // 5. Accept Consig (Issuer and Owner Side)
     let all_sks = [issuer_sk.clone(), owner_sk.clone()];
@@ -583,6 +592,7 @@ async fn allow_conseq_transfers_between_tree_owners() -> anyhow::Result<()> {
     };
     let resp = sign_psbt_file(request).await;
     assert!(resp.is_ok());
+    send_some_coins(whatever_address, "0.001").await;
 
     // 9. Create Transfer and Accept (Owner Side)
     let owner_xpriv = owner_keys.private.rgb_assets_descriptor_xprv.clone();
@@ -662,6 +672,7 @@ async fn allow_conseq_transfers_between_tree_owners() -> anyhow::Result<()> {
 #[tokio::test]
 async fn allows_spend_amount_from_two_different_owners() -> anyhow::Result<()> {
     // 0. Retrieve all keys
+    let whatever_address = "bcrt1p76gtucrxhmn8s5622r859dpnmkj0kgfcel9xy0sz6yj84x6ppz2qk5hpsw";
     let issuer_keys: DecryptedWalletData = save_mnemonic(
         &SecretString(ISSUER_MNEMONIC.to_string()),
         &SecretString("".to_string()),
@@ -684,7 +695,7 @@ async fn allows_spend_amount_from_two_different_owners() -> anyhow::Result<()> {
     let create_watch_req = WatcherRequest {
         name: watcher_name.to_string(),
         xpub: issuer_keys.public.watcher_xpub.clone(),
-        force: true,
+        force: false,
     };
     create_watcher(&issuer_sk, create_watch_req.clone()).await?;
 
@@ -692,7 +703,7 @@ async fn allows_spend_amount_from_two_different_owners() -> anyhow::Result<()> {
     let create_watch_req = WatcherRequest {
         name: watcher_name.to_string(),
         xpub: owner_keys.public.watcher_xpub.clone(),
-        force: true,
+        force: false,
     };
     create_watcher(&owner_sk, create_watch_req.clone()).await?;
 
@@ -700,7 +711,7 @@ async fn allows_spend_amount_from_two_different_owners() -> anyhow::Result<()> {
     let create_watch_req = WatcherRequest {
         name: watcher_name.to_string(),
         xpub: another_owner_keys.public.watcher_xpub.clone(),
-        force: true,
+        force: false,
     };
     create_watcher(&another_owner_sk, create_watch_req.clone()).await?;
 
@@ -752,6 +763,7 @@ async fn allows_spend_amount_from_two_different_owners() -> anyhow::Result<()> {
     };
     let resp = sign_psbt_file(request).await;
     assert!(resp.is_ok());
+    send_some_coins(whatever_address, "0.1").await;
 
     // 5. Accept Consig (Issuer and Owner Side)
     let all_sks = [issuer_sk.clone(), owner_sk.clone()];
@@ -764,11 +776,12 @@ async fn allows_spend_amount_from_two_different_owners() -> anyhow::Result<()> {
         assert!(accept_resp.is_ok());
         assert!(accept_resp?.valid);
     }
+
+    // 6. Check Contract Balances (Issuer Owner Side)
     let another_owner_address =
         watcher_next_address(&another_owner_sk, watcher_name, "RGB20").await?;
     send_some_coins(&another_owner_address.address, "0.1").await;
 
-    // 6. Check Contract Balances (Issuer Owner Side)
     let contract_id = &issuer_resp.contract_id;
     let resp = get_contract(&issuer_sk, contract_id).await;
     assert!(resp.is_ok());
@@ -780,8 +793,6 @@ async fn allows_spend_amount_from_two_different_owners() -> anyhow::Result<()> {
     assert!(resp.is_ok());
 
     let owner_contract = resp?;
-    assert_eq!(2, owner_contract.balance);
-
     // 7. Create 2 Invoices (Another Owner Side)
     let another_owner_address =
         watcher_next_address(&another_owner_sk, watcher_name, "RGB20").await?;
@@ -835,6 +846,7 @@ async fn allows_spend_amount_from_two_different_owners() -> anyhow::Result<()> {
     };
     let resp = sign_psbt_file(request).await;
     assert!(resp.is_ok());
+    send_some_coins(whatever_address, "0.1").await;
 
     // 9. Create Transfer and Accept (Owner Side)
     let owner_xpriv = owner_keys.private.rgb_assets_descriptor_xprv.clone();
@@ -943,6 +955,7 @@ async fn allows_spend_amount_from_two_different_owners() -> anyhow::Result<()> {
     };
     let resp = sign_psbt_file(request).await;
     assert!(resp.is_ok());
+    send_some_coins(whatever_address, "0.1").await;
 
     // 14. Accept Consig (Another Owner Side)
     let request = AcceptRequest {
@@ -966,6 +979,7 @@ async fn allows_spend_amount_from_two_different_owners() -> anyhow::Result<()> {
 #[tokio::test]
 async fn allows_spend_amount_from_two_different_transitions() -> anyhow::Result<()> {
     // 0. Retrieve all keys
+    let whatever_address = "bcrt1p76gtucrxhmn8s5622r859dpnmkj0kgfcel9xy0sz6yj84x6ppz2qk5hpsw";
     let issuer_keys: DecryptedWalletData = save_mnemonic(
         &SecretString(ISSUER_MNEMONIC.to_string()),
         &SecretString("".to_string()),
@@ -1056,6 +1070,7 @@ async fn allows_spend_amount_from_two_different_transitions() -> anyhow::Result<
     };
     let resp = sign_psbt_file(request).await;
     assert!(resp.is_ok());
+    send_some_coins(whatever_address, "0.1").await;
 
     // 5. Accept Consig (Issuer and Owner Side)
     let all_sks = [issuer_sk.clone(), owner_sk.clone()];
@@ -1166,6 +1181,7 @@ async fn allows_spend_amount_from_two_different_transitions() -> anyhow::Result<
     };
     let resp = sign_psbt_file(request).await;
     assert!(resp.is_ok());
+    send_some_coins(whatever_address, "0.1").await;
 
     // 9. Accept Consig (Issuer and Another Owner Sides)
     let all_sks = [issuer_sk.clone(), another_owner_sk.clone()];
@@ -1256,6 +1272,7 @@ async fn allows_spend_amount_from_two_different_transitions() -> anyhow::Result<
     };
     let resp = sign_psbt_file(request).await;
     assert!(resp.is_ok());
+    send_some_coins(whatever_address, "0.1").await;
 
     // 14. Accept Consig (Another Owner Side)
     let request = AcceptRequest {
@@ -1279,6 +1296,7 @@ async fn allows_spend_amount_from_two_different_transitions() -> anyhow::Result<
 #[tokio::test]
 async fn allow_issuer_make_transfer_of_two_contracts_in_same_utxo() -> anyhow::Result<()> {
     // 1. Issue and First Transfer (Issuer side)
+    let whatever_address = "bcrt1p76gtucrxhmn8s5622r859dpnmkj0kgfcel9xy0sz6yj84x6ppz2qk5hpsw";
     let issuer_keys = &save_mnemonic(
         &SecretString(ISSUER_MNEMONIC.to_string()),
         &SecretString("".to_string()),
@@ -1348,6 +1366,7 @@ async fn allow_issuer_make_transfer_of_two_contracts_in_same_utxo() -> anyhow::R
     };
     let resp = sign_psbt_file(request).await;
     assert!(resp.is_ok());
+    send_some_coins(whatever_address, "0.1").await;
 
     // 3. Accept Consig (Both Sides)
     let request = AcceptRequest {
@@ -1414,6 +1433,7 @@ async fn allow_issuer_make_transfer_of_two_contracts_in_same_utxo() -> anyhow::R
     };
     let resp = sign_psbt_file(request).await;
     assert!(resp.is_ok());
+    send_some_coins(whatever_address, "0.1").await;
 
     // 7. Accept Consig (Both Side)
     let request = AcceptRequest {

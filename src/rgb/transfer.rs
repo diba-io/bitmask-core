@@ -19,7 +19,6 @@ use rgbstd::{
 };
 use rgbwallet::{InventoryWallet, InvoiceParseError, RgbInvoice, RgbTransport};
 use seals::txout::ExplicitSeal;
-// use seals::txout::CloseMethod;
 use strict_encoding::{StrictDeserialize, TypeName};
 
 #[derive(Clone, Eq, PartialEq, Debug, Display, Error, From)]
@@ -204,7 +203,7 @@ where
     let bindle = Bindle::new(consig.clone());
     match stock.accept_transfer(consig, resolver, force) {
         Ok(_) => Ok(bindle),
-        _ => Err(AcceptTransferError::Inconclusive),
+        Err(err) => Err(AcceptTransferError::InvalidConsig(vec![err.to_string()])),
     }
 }
 
