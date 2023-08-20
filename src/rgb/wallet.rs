@@ -13,7 +13,10 @@ use bitcoin_scripts::{
 };
 use bp::dbc::tapret::TapretCommitment;
 use commit_verify::mpc::Commitment;
-use rgb::{DeriveInfo, Resolver, RgbDescr, RgbWallet, SpkDescriptor, Tapret, TerminalPath, Utxo};
+use rgb::{
+    DeriveInfo, MiningStatus, Resolver, RgbDescr, RgbWallet, SpkDescriptor, Tapret, TerminalPath,
+    Utxo,
+};
 use rgbstd::{
     contract::ContractId,
     persistence::{Inventory, Stash, Stock},
@@ -210,7 +213,7 @@ pub fn next_utxos(
         let utxo_status = resolver
             .resolve_spent_status(txid, index.into(), true)
             .expect("unavaliable service");
-        if !utxo_status.is_spent {
+        if !utxo_status.is_spent && !next_utxo.contains(&utxo) {
             next_utxo.push(utxo);
         }
     }
@@ -224,11 +227,26 @@ pub fn sync_wallet(iface_index: u32, wallet: &mut RgbWallet, resolver: &mut impl
     let scripts = wallet.descr.derive(iface_index, index..step);
     let new_scripts = scripts.into_iter().map(|(d, sc)| (d, sc)).collect();
 
-    let mut new_utxos = resolver
+    let new_utxos = resolver
         .resolve_utxo(new_scripts)
         .expect("service unavalible");
-    if !new_utxos.is_empty() {
-        wallet.utxos.append(&mut new_utxos);
+
+    for mut new_utxo in new_utxos {
+        if let Some(current_utxo) = wallet
+            .utxos
+            .clone()
+            .into_iter()
+            .find(|u| u.outpoint == new_utxo.outpoint)
+        {
+            if current_utxo.status == MiningStatus::Mempool {
+                wallet.utxos.remove(&current_utxo);
+
+                new_utxo.derivation = current_utxo.derivation;
+                wallet.utxos.insert(new_utxo);
+            }
+        } else {
+            wallet.utxos.insert(new_utxo);
+        }
     }
 }
 

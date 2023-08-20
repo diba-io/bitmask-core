@@ -281,7 +281,7 @@ async fn allow_consecutive_full_transfer_bidirectional() -> anyhow::Result<()> {
     } = contract_issue;
 
     // 4. Make a Self Payment
-    for i in 1..10 {
+    for _ in 1..10 {
         // Wallet B Invoice
         sync_wallet(&wallet_b_vault).await?;
         let utxo_unspent = wallet_b_vault.lock().await.list_unspent().expect("");
@@ -308,7 +308,7 @@ async fn allow_consecutive_full_transfer_bidirectional() -> anyhow::Result<()> {
         };
 
         let full_transfer_resp = full_transfer_asset(wallet_a_sk, self_pay_req).await;
-        println!("Payment A #{i}:1 ({})", full_transfer_resp.is_ok());
+        // println!("Payment A #{i}:1 ({})", full_transfer_resp.is_ok());
 
         let full_transfer_resp = full_transfer_resp?;
         let RgbTransferResponse {
@@ -345,7 +345,7 @@ async fn allow_consecutive_full_transfer_bidirectional() -> anyhow::Result<()> {
 
         send_some_coins(another_wallet, "0.00000546").await;
 
-        for j in 1..2 {
+        for _ in 1..2 {
             // Wallet A Invoice
             sync_wallet(&wallet_a_vault).await?;
             let utxo_unspent = wallet_a_vault.lock().await.list_unspent().expect("");
@@ -372,7 +372,7 @@ async fn allow_consecutive_full_transfer_bidirectional() -> anyhow::Result<()> {
             };
 
             let full_transfer_resp = full_transfer_asset(wallet_b_sk, self_pay_req).await;
-            println!("Payment B #{i}:{j} ({})", full_transfer_resp.is_ok());
+            // println!("Payment B #{i}:{j} ({})", full_transfer_resp.is_ok());
 
             let full_transfer_resp = full_transfer_resp?;
             let RgbTransferResponse {

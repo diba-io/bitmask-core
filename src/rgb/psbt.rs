@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use amplify::hex::ToHex;
+use amplify::hex::{FromHex, ToHex};
 use bdk::{
     wallet::coin_selection::{decide_change, Excess},
     FeeRate,
@@ -15,7 +15,7 @@ use bitcoin::{EcdsaSighashType, OutPoint, Script, XOnlyPublicKey};
 use bitcoin_30::{secp256k1::SECP256K1 as SECP256K1_30, taproot::TaprootBuilder, ScriptBuf};
 use bitcoin_blockchain::locks::SeqNo;
 use bitcoin_scripts::PubkeyScript;
-use bp::{dbc::tapret::TapretCommitment, TapScript};
+use bp::{dbc::tapret::TapretCommitment, Outpoint, TapScript, Vout};
 use commit_verify::{mpc::Commitment, CommitVerify};
 use miniscript_crate::Descriptor;
 use psbt::{ProprietaryKey, ProprietaryKeyType};
@@ -24,7 +24,7 @@ use rgb::{
         DbcPsbtError, TapretKeyError, PSBT_OUT_TAPRET_COMMITMENT, PSBT_OUT_TAPRET_HOST,
         PSBT_TAPRET_PREFIX,
     },
-    Resolver, RgbDescr, RgbWallet, TerminalPath,
+    DeriveInfo, MiningStatus, Resolver, RgbDescr, RgbWallet, TerminalPath, Utxo,
 };
 use wallet::{
     descriptors::{derive::DeriveDescriptor, InputDescriptor},
@@ -329,10 +329,10 @@ fn complete_input_desc(
     }
 }
 
-pub fn extract_commit(mut psbt: Psbt) -> Result<Vec<u8>, DbcPsbtError> {
-    let (_, output) = psbt
+pub fn extract_commit(psbt: Psbt) -> Result<(Outpoint, Vec<u8>), DbcPsbtError> {
+    let (index, output) = psbt
         .outputs
-        .iter_mut()
+        .iter()
         .enumerate()
         .find(|(_, output)| {
             output.proprietary.contains_key(&ProprietaryKey {
@@ -351,12 +351,16 @@ pub fn extract_commit(mut psbt: Psbt) -> Result<Vec<u8>, DbcPsbtError> {
     });
 
     match commit_vec {
-        Some(commit) => Ok(commit.to_owned()),
+        Some(commit) => {
+            let txid = bp::Txid::from_hex(&psbt.to_txid().to_hex()).expect("invalid outpoint");
+            let vout = Vout::from_str(&index.to_string()).expect("invalid vout");
+            Ok((Outpoint::new(txid, vout), commit.to_owned()))
+        }
         _ => Err(DbcPsbtError::TapretKey(TapretKeyError::InvalidProof)),
     }
 }
 
-pub fn save_commit(terminal: &str, commit: Vec<u8>, wallet: &mut RgbWallet) {
+pub fn save_commit(outpoint: Outpoint, commit: Vec<u8>, terminal: &str, wallet: &mut RgbWallet) {
     let descr = wallet.descr.clone();
     let RgbDescr::Tapret(mut tapret) = descr;
     let derive: Vec<&str> = terminal.split('/').filter(|s| !s.is_empty()).collect();
@@ -378,6 +382,12 @@ pub fn save_commit(terminal: &str, commit: Vec<u8>, wallet: &mut RgbWallet) {
         tapret.taprets.insert(terminal, bset! {tap_commit.clone()});
     }
 
+    wallet.utxos.insert(Utxo {
+        amount: 0,
+        outpoint,
+        status: MiningStatus::Mempool,
+        derivation: DeriveInfo::with(terminal.app, terminal.index, Some(tap_commit.clone())),
+    });
     wallet.descr = RgbDescr::Tapret(tapret);
 }
 

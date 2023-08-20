@@ -10,7 +10,7 @@ use bitcoin_scripts::address::AddressNetwork;
 use garde::Validate;
 use miniscript_crate::DescriptorPublicKey;
 use rand::{rngs::StdRng, Rng, SeedableRng};
-use rgb::{RgbDescr, SpkDescriptor, TerminalPath};
+use rgb::{RgbDescr, TerminalPath};
 use rgbstd::{
     containers::BindleContent,
     contract::ContractId,
@@ -687,11 +687,11 @@ pub async fn transfer_asset(
     let (psbt, transfer) =
         pay_invoice(rgb_invoice.clone(), psbt, &mut stock).map_err(TransferError::Pay)?;
 
-    let commit = extract_commit(psbt.clone()).map_err(TransferError::Commitment)?;
+    let (outpoint, commit) = extract_commit(psbt.clone()).map_err(TransferError::Commitment)?;
     let wallet = rgb_account.wallets.get("default");
     if let Some(wallet) = wallet {
         let mut wallet = wallet.to_owned();
-        save_commit(&terminal, commit.clone(), &mut wallet);
+        save_commit(outpoint, commit.clone(), &terminal, &mut wallet);
 
         rgb_account
             .wallets
@@ -866,6 +866,7 @@ pub async fn full_transfer_asset(
             .map_err(|_| TransferError::NoContract)?;
 
         let contract_index = contract_index as u32;
+        prefetch_resolver_allocations(contract_iface, &mut resolver).await;
         sync_wallet(contract_index, &mut wallet, &mut resolver);
         prefetch_resolver_utxos(
             contract_index,
@@ -874,7 +875,6 @@ pub async fn full_transfer_asset(
             Some(RGB_DEFAULT_FETCH_LIMIT),
         )
         .await;
-        prefetch_resolver_allocations(contract_iface, &mut resolver).await;
 
         let contract = export_contract(
             contract_id,
@@ -920,28 +920,18 @@ pub async fn full_transfer_asset(
         let rnd_amount = rng.gen_range(600..1500);
 
         let mut total_asset_bitcoin_unspend: u64 = 0;
-        let RgbDescr::Tapret(tapret_desc) = wallet.descr.clone();
         for alloc in allocations.into_iter() {
-            let mut tapret = none!();
-            let mut terminal_indexes = alloc.derivation.split('/');
-            if let (_, Some(app), Some(index), _) = (
-                terminal_indexes.next(),
-                terminal_indexes.next(),
-                terminal_indexes.next(),
-                terminal_indexes.next(),
-            ) {
-                let app = u32::from_str(app).expect("invalid terminal app");
-                let index = u32::from_str(index).expect("invalid terminal index");
-                let derive_infos = tapret_desc.derive(app, 0..index);
-                if let Some((d, _)) = derive_infos
-                    .into_iter()
-                    .find(|(d, _)| d.terminal == TerminalPath { app, index } && d.tweak.is_some())
-                {
-                    if let Some(tweak) = d.tweak {
-                        tapret = Some(tweak.to_string());
-                    }
-                }
-            }
+            // let tapret = none!();
+            // if let Some(utxo) = wallet
+            //     .utxos
+            //     .clone()
+            //     .into_iter()
+            //     .find(|x| x.outpoint.to_string() == alloc.utxo)
+            // {
+            //     if let Some(utxo_tapret) = utxo.derivation.tweak {
+            //         tapret = Some(utxo_tapret.to_string());
+            //     }
+            // }
 
             match alloc.value {
                 AllocationValue::Value(alloc_value) => {
@@ -953,7 +943,7 @@ pub async fn full_transfer_asset(
                         descriptor: SecretString(universal_desc.clone()),
                         utxo: alloc.utxo.clone(),
                         utxo_terminal: alloc.derivation,
-                        tapret,
+                        tapret: None,
                     };
                     if !asset_inputs
                         .clone()
@@ -979,7 +969,7 @@ pub async fn full_transfer_asset(
                         descriptor: SecretString(universal_desc.clone()),
                         utxo: alloc.utxo.clone(),
                         utxo_terminal: alloc.derivation,
-                        tapret,
+                        tapret: None,
                     };
                     if !asset_inputs
                         .clone()
@@ -1328,6 +1318,7 @@ pub async fn get_contract(sk: &str, contract_id: &str) -> Result<ContractRespons
                     .map_err(|_| TransferError::NoIface)?;
 
                 if let Ok(contract_iface) = stock.contract_iface(contract_id, iface.iface_id()) {
+                    prefetch_resolver_allocations(contract_iface, &mut resolver).await;
                     sync_wallet(contract_index, &mut fetch_wallet, &mut resolver);
                     prefetch_resolver_utxos(
                         contract_index,
@@ -1336,7 +1327,6 @@ pub async fn get_contract(sk: &str, contract_id: &str) -> Result<ContractRespons
                         Some(RGB_DEFAULT_FETCH_LIMIT),
                     )
                     .await;
-                    prefetch_resolver_allocations(contract_iface, &mut resolver).await;
                 }
             }
 
@@ -1530,7 +1520,7 @@ pub async fn verify_transfers(sk: &str) -> Result<BatchRgbTransferResponse, Tran
     let mut transfers = vec![];
     let mut rgb_pending = RgbTransfers::default();
 
-    for (contract_id, transfer_activities) in rgb_transfers.transfers.clone() {
+    for (contract_id, transfer_activities) in rgb_transfers.transfers {
         let mut pending_transfers = vec![];
         let txids: Vec<bitcoin::Txid> = transfer_activities
             .clone()
@@ -1834,7 +1824,7 @@ pub async fn watcher_address(sk: &str, name: &str, address: &str) -> Result<Watc
             ..Default::default()
         };
 
-        let asset_indexes: Vec<u32> = [0, 1, 9, 20, 21].to_vec();
+        let asset_indexes: Vec<u32> = [0, 1, 9, 10, 20, 21].to_vec();
         let mut wallet = wallet.to_owned();
 
         prefetch_resolver_waddress(address, &mut wallet, &mut resolver, Some(20)).await;
@@ -1862,7 +1852,7 @@ pub async fn watcher_utxo(sk: &str, name: &str, utxo: &str) -> Result<WatcherUtx
         let network = Network::from_str(&network)?;
         let network = AddressNetwork::from(network);
 
-        let asset_indexes: Vec<u32> = [0, 1, 9, 20, 21].to_vec();
+        let asset_indexes: Vec<u32> = [0, 1, 9, 10, 20, 21].to_vec();
         let mut wallet = wallet.to_owned();
 
         prefetch_resolver_wutxo(utxo, network, &mut wallet, &mut resolver, Some(20)).await;

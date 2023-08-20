@@ -310,8 +310,6 @@ pub async fn prefetch_resolver_utxos(
         step = limit;
     }
 
-    let mut utxos = bset![];
-
     let scripts = wallet.descr.derive(iface_index, index..step);
     let new_scripts: BTreeMap<DeriveInfo, ScriptBuf> =
         scripts.into_iter().map(|(d, sc)| (d, sc)).collect();
@@ -327,6 +325,7 @@ pub async fn prefetch_resolver_utxos(
         .collect::<HashSet<_>>()
         .into_iter();
 
+    let mut new_utxos = bset![];
     for (derive, script) in script_list {
         let mut related_txs = esplora_client
             .scripthash_txs(&script, None)
@@ -370,13 +369,26 @@ pub async fn prefetch_resolver_utxos(
                     amount: vout.value,
                     derivation: derive.clone(),
                 };
-                utxos.insert(new_utxo);
+                new_utxos.insert(new_utxo);
             }
         });
     }
 
-    if !utxos.is_empty() {
-        wallet.utxos.append(&mut utxos);
+    for mut new_utxo in new_utxos {
+        if let Some(current_utxo) = wallet
+            .utxos
+            .clone()
+            .into_iter()
+            .find(|u| u.outpoint == new_utxo.outpoint)
+        {
+            if current_utxo.status == MiningStatus::Mempool {
+                wallet.utxos.remove(&current_utxo);
+                new_utxo.derivation = current_utxo.derivation;
+                wallet.utxos.insert(new_utxo);
+            }
+        } else {
+            wallet.utxos.insert(new_utxo);
+        }
     }
 }
 
@@ -414,7 +426,7 @@ pub async fn prefetch_resolver_waddress(
     let script = ScriptBuf::from_hex(&sc.script_pubkey().to_hex()).expect("invalid script");
 
     let mut scripts: BTreeMap<DeriveInfo, ScriptBuf> = BTreeMap::new();
-    let asset_indexes: Vec<u32> = [0, 1, 9, 20, 21].to_vec();
+    let asset_indexes: Vec<u32> = [0, 1, 9, 10, 20, 21].to_vec();
     for app in asset_indexes {
         scripts.append(&mut wallet.descr.derive(app, index..step));
     }
@@ -431,7 +443,7 @@ pub async fn prefetch_resolver_waddress(
             )
         });
 
-        let mut utxos = bset![];
+        let mut new_utxos = bset![];
         for (derive, script) in script_list {
             let txs = match esplora_client.scripthash_txs(&script, none!()).await {
                 Ok(txs) => txs,
@@ -461,13 +473,27 @@ pub async fn prefetch_resolver_waddress(
                         amount: tx.vout[index].value,
                         derivation: derive.clone(),
                     };
-                    utxos.insert(new_utxo);
+                    new_utxos.insert(new_utxo);
                 }
             });
         }
 
-        if !utxos.is_empty() {
-            wallet.utxos.append(&mut utxos);
+        for mut new_utxo in new_utxos {
+            if let Some(current_utxo) = wallet
+                .utxos
+                .clone()
+                .into_iter()
+                .find(|u| u.outpoint == new_utxo.outpoint)
+            {
+                if current_utxo.status == MiningStatus::Mempool {
+                    wallet.utxos.remove(&current_utxo);
+
+                    new_utxo.derivation = current_utxo.derivation;
+                    wallet.utxos.insert(new_utxo);
+                }
+            } else {
+                wallet.utxos.insert(new_utxo);
+            }
         }
     }
 }
