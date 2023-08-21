@@ -11,12 +11,7 @@ use bitcoin_scripts::{
     address::{AddressCompat, AddressNetwork},
     PubkeyScript,
 };
-use bp::dbc::tapret::TapretCommitment;
-use commit_verify::mpc::Commitment;
-use rgb::{
-    DeriveInfo, MiningStatus, Resolver, RgbDescr, RgbWallet, SpkDescriptor, Tapret, TerminalPath,
-    Utxo,
-};
+use rgb::{DeriveInfo, MiningStatus, Resolver, RgbDescr, RgbWallet, SpkDescriptor, Tapret, Utxo};
 use rgbstd::{
     contract::ContractId,
     persistence::{Inventory, Stash, Stock},
@@ -317,29 +312,6 @@ where
         }
     }
     Ok(utxos)
-}
-
-pub fn save_commitment(
-    iface_index: u32,
-    path: TerminalPath,
-    commit: String,
-    wallet: &mut RgbWallet,
-) {
-    let mpc = Commitment::from_str(&commit).expect("invalid commitment");
-    let tap_commit = TapretCommitment::with(mpc, 0);
-
-    let mut utxo = wallet
-        .utxos
-        .clone()
-        .into_iter()
-        .find(|utxo| {
-            utxo.derivation.terminal.app == iface_index && utxo.derivation.terminal == path
-        })
-        .expect("invalid UTXO reference");
-
-    wallet.utxos.remove(&utxo);
-    utxo.derivation.tweak = Some(tap_commit);
-    wallet.utxos.insert(utxo);
 }
 
 pub fn list_allocations<T>(

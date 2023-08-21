@@ -74,7 +74,9 @@ use crate::{
 };
 
 use self::{
-    carbonado::{retrieve_transfers, retrieve_wallets, store_transfers, store_wallets},
+    carbonado::{
+        force_store_wallets, retrieve_transfers, retrieve_wallets, store_transfers, store_wallets,
+    },
     constants::{
         BITCOIN_DEFAULT_FETCH_LIMIT, CARBONADO_UNAVAILABLE, RGB_DEFAULT_FETCH_LIMIT,
         RGB_DEFAULT_NAME, STOCK_UNAVAILABLE, TRANSFER_UNAVAILABLE,
@@ -688,8 +690,7 @@ pub async fn transfer_asset(
         pay_invoice(rgb_invoice.clone(), psbt, &mut stock).map_err(TransferError::Pay)?;
 
     let (outpoint, commit) = extract_commit(psbt.clone()).map_err(TransferError::Commitment)?;
-    let wallet = rgb_account.wallets.get("default");
-    if let Some(wallet) = wallet {
+    if let Some(wallet) = rgb_account.wallets.get("default") {
         let mut wallet = wallet.to_owned();
         save_commit(outpoint, commit.clone(), &terminal, &mut wallet);
 
@@ -697,7 +698,7 @@ pub async fn transfer_asset(
             .wallets
             .insert("default".to_string(), wallet.clone());
 
-        store_wallets(sk, ASSETS_WALLETS, &rgb_account)
+        force_store_wallets(sk, ASSETS_WALLETS, &rgb_account)
             .await
             .map_err(|_| {
                 TransferError::Write(
@@ -921,18 +922,6 @@ pub async fn full_transfer_asset(
 
         let mut total_asset_bitcoin_unspend: u64 = 0;
         for alloc in allocations.into_iter() {
-            // let tapret = none!();
-            // if let Some(utxo) = wallet
-            //     .utxos
-            //     .clone()
-            //     .into_iter()
-            //     .find(|x| x.outpoint.to_string() == alloc.utxo)
-            // {
-            //     if let Some(utxo_tapret) = utxo.derivation.tweak {
-            //         tapret = Some(utxo_tapret.to_string());
-            //     }
-            // }
-
             match alloc.value {
                 AllocationValue::Value(alloc_value) => {
                     if asset_total >= target_amount {
@@ -1318,8 +1307,8 @@ pub async fn get_contract(sk: &str, contract_id: &str) -> Result<ContractRespons
                     .map_err(|_| TransferError::NoIface)?;
 
                 if let Ok(contract_iface) = stock.contract_iface(contract_id, iface.iface_id()) {
-                    prefetch_resolver_allocations(contract_iface, &mut resolver).await;
                     sync_wallet(contract_index, &mut fetch_wallet, &mut resolver);
+                    prefetch_resolver_allocations(contract_iface, &mut resolver).await;
                     prefetch_resolver_utxos(
                         contract_index,
                         &mut fetch_wallet,
@@ -1497,15 +1486,6 @@ pub async fn list_transfers(sk: &str, contract_id: String) -> Result<RgbTransfer
 }
 
 pub async fn verify_transfers(sk: &str) -> Result<BatchRgbTransferResponse, TransferError> {
-    let rgb_transfers = retrieve_transfers(sk, ASSETS_TRANSFERS)
-        .await
-        .map_err(|_| {
-            TransferError::Retrive(
-                CARBONADO_UNAVAILABLE.to_string(),
-                TRANSFER_UNAVAILABLE.to_string(),
-            )
-        })?;
-
     let mut stock = retrieve_stock(sk, ASSETS_STOCK).await.map_err(|_| {
         TransferError::Retrive(
             CARBONADO_UNAVAILABLE.to_string(),
@@ -1516,10 +1496,17 @@ pub async fn verify_transfers(sk: &str) -> Result<BatchRgbTransferResponse, Tran
         explorer_url: BITCOIN_EXPLORER_API.read().await.to_string(),
         ..Default::default()
     };
+    let rgb_transfers = retrieve_transfers(sk, ASSETS_TRANSFERS)
+        .await
+        .map_err(|_| {
+            TransferError::Retrive(
+                CARBONADO_UNAVAILABLE.to_string(),
+                TRANSFER_UNAVAILABLE.to_string(),
+            )
+        })?;
 
     let mut transfers = vec![];
     let mut rgb_pending = RgbTransfers::default();
-
     for (contract_id, transfer_activities) in rgb_transfers.transfers {
         let mut pending_transfers = vec![];
         let txids: Vec<bitcoin::Txid> = transfer_activities
@@ -1529,7 +1516,7 @@ pub async fn verify_transfers(sk: &str) -> Result<BatchRgbTransferResponse, Tran
             .collect();
         prefetch_resolver_txs_status(txids, &mut resolver).await;
 
-        for activity in transfer_activities.iter() {
+        for activity in transfer_activities {
             let iface = activity.iface.clone();
             let txid = Txid::from_str(&activity.tx.to_hex()).expect("invalid tx id");
             let status = resolver
@@ -1544,33 +1531,45 @@ pub async fn verify_transfers(sk: &str) -> Result<BatchRgbTransferResponse, Tran
                     accept_rgb_transfer(activity.consig.clone(), false, &mut resolver, &mut stock)
                         .map_err(TransferError::Accept)?
                 }
-                _ => continue,
-            };
-            let accept_status = accept_status.unbindle();
-            if let Some(rgb_status) = accept_status.validation_status() {
-                let consig_id = accept_status.transfer_id().to_string();
-                transfers.push(if rgb_status.validity() == Validity::Valid {
-                    BatchRgbTransferItem {
-                        iface,
-                        contract_id: contract_id.clone(),
-                        consig_id: consig_id.to_string(),
-                        status,
-                        is_accept: true,
-                    }
-                } else {
+                _ => {
                     pending_transfers.push(activity.to_owned());
-                    BatchRgbTransferItem {
+                    transfers.push(BatchRgbTransferItem {
                         iface,
-                        contract_id: contract_id.clone(),
-                        consig_id: consig_id.to_string(),
                         status,
                         is_accept: false,
-                    }
-                });
+                        contract_id: contract_id.clone(),
+                        consig_id: activity.consig_id.to_string(),
+                    });
+                    continue;
+                }
+            };
+            let transfer_id = accept_status.transfer_id();
+            let accept_status = accept_status.unbindle();
+            if let Some(rgb_status) = accept_status.into_validation_status() {
+                if rgb_status.validity() == Validity::Valid {
+                    transfers.push(BatchRgbTransferItem {
+                        iface,
+                        status,
+                        is_accept: true,
+                        contract_id: contract_id.clone(),
+                        consig_id: transfer_id.to_string(),
+                    });
+                } else {
+                    transfers.push(BatchRgbTransferItem {
+                        iface,
+                        status,
+                        is_accept: false,
+                        contract_id: contract_id.clone(),
+                        consig_id: transfer_id.to_string(),
+                    });
+                    pending_transfers.push(activity.to_owned());
+                }
             }
         }
 
-        rgb_pending.transfers.insert(contract_id, pending_transfers);
+        rgb_pending
+            .transfers
+            .insert(contract_id.to_string(), pending_transfers);
     }
 
     store_stock(sk, ASSETS_STOCK, &stock).await.map_err(|_| {

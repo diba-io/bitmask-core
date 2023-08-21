@@ -195,6 +195,16 @@ async fn create_contract_and_transfer() {
     let issue_resp: JsValue = resolve(issue_contract(issuer_sk.to_string(), issue_req)).await;
     let issuer_resp: IssueResponse = json_parse(&issue_resp);
 
+    // info!("Import Contract (Owner)");
+    // let contract_import = ImportRequest {
+    //     import: AssetType::RGB20,
+    //     data: issuer_resp.contract.strict,
+    // };
+
+    // let req = serde_wasm_bindgen::to_value(&contract_import).expect("oh no!");
+    // let resp = resolve(import_contract(owner_sk.clone(), req)).await;
+    // let resp: ContractResponse = json_parse(&resp);
+
     let mut total_issuer = supply;
     let mut total_owner = 0;
     let rounds = vec![
@@ -319,27 +329,31 @@ async fn create_contract_and_transfer() {
         debug!(format!("Block Created: {:?}", resp));
 
         info!(format!("Save Consig ({receiver})"));
-        let all_sks = [receiver_sk.clone()];
-        for sk in all_sks {
-            let save_transfer_req = RgbSaveTransferRequest {
-                iface: issuer_resp.iface.clone(),
-                contract_id: issuer_resp.contract_id.clone(),
-                consignment: full_transfer_resp.consig.clone(),
-            };
-            let save_transfer_req = serde_wasm_bindgen::to_value(&save_transfer_req).expect("");
-            let save_transfer_resp =
-                resolve(save_transfer(sk.to_string(), save_transfer_req)).await;
-            let save_transfer_resp: RgbTransferStatusResponse = json_parse(&save_transfer_resp);
-            debug!(format!("Save Consig: {:?}", save_transfer_resp));
-        }
+        let save_transfer_req = RgbSaveTransferRequest {
+            iface: issuer_resp.iface.clone(),
+            contract_id: issuer_resp.contract_id.clone(),
+            consignment: full_transfer_resp.consig.clone(),
+        };
+        let save_transfer_req = serde_wasm_bindgen::to_value(&save_transfer_req).expect("");
+        let save_transfer_resp =
+            resolve(save_transfer(receiver_sk.to_string(), save_transfer_req)).await;
+        let save_transfer_resp: RgbTransferStatusResponse = json_parse(&save_transfer_resp);
+        debug!(format!("Save Consig: {:?}", save_transfer_resp));
 
         info!("Verify Consig (Both)");
-        let all_sks = [sender_sk.clone(), receiver_sk.clone()];
-        for sk in all_sks {
-            let verify_transfer_resp = resolve(verify_transfers(sk.to_string())).await;
-            let verify_transfer_resp: BatchRgbTransferResponse = json_parse(&verify_transfer_resp);
-            debug!(format!("Verify Consig: {:?}", verify_transfer_resp));
-        }
+        let verify_transfer_resp = resolve(verify_transfers(sender_sk.to_string())).await;
+        let verify_transfer_resp: BatchRgbTransferResponse = json_parse(&verify_transfer_resp);
+        debug!(format!(
+            "Verify Consig ({sender}): {:?}",
+            verify_transfer_resp
+        ));
+
+        let verify_transfer_resp = resolve(verify_transfers(receiver_sk.to_string())).await;
+        let verify_transfer_resp: BatchRgbTransferResponse = json_parse(&verify_transfer_resp);
+        debug!(format!(
+            "Verify Consig ({receiver}): {:?}",
+            verify_transfer_resp
+        ));
 
         let (sender_balance, receiver_balance) = if round.is_issuer_sender {
             total_issuer -= round.send_amount;

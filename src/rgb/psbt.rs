@@ -373,10 +373,11 @@ pub fn save_commit(outpoint: Outpoint, commit: Vec<u8>, terminal: &str, wallet: 
     };
 
     let mpc = Commitment::from_str(&commit.to_hex()).expect("invalid tapret");
-    let tap_commit = &TapretCommitment::with(mpc, 0);
+    let tap_commit = TapretCommitment::with(mpc, 0);
     if let Some(taprets) = tapret.taprets.get(&terminal) {
         let mut current_taprets = taprets.clone();
         current_taprets.insert(tap_commit.clone());
+
         tapret.taprets.insert(terminal, current_taprets.clone());
     } else {
         tapret.taprets.insert(terminal, bset! {tap_commit.clone()});

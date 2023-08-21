@@ -107,6 +107,29 @@ pub async fn store_wallets(
     .map_err(|op| StorageError::CarbonadoWrite(name.to_string(), op.to_string()))
 }
 
+pub async fn force_store_wallets(
+    sk: &str,
+    name: &str,
+    rgb_wallets: &RgbAccount,
+) -> Result<(), StorageError> {
+    let data = to_allocvec(rgb_wallets)
+        .map_err(|op| StorageError::StrictWrite(name.to_string(), op.to_string()))?;
+
+    let hashed_name = blake3::hash(format!("{LIB_ID_RGB}-{name}").as_bytes())
+        .to_hex()
+        .to_lowercase();
+
+    store(
+        sk,
+        &format!("{hashed_name}.c15"),
+        &data,
+        true,
+        Some(RGB_STRICT_TYPE_VERSION.to_vec()),
+    )
+    .await
+    .map_err(|op| StorageError::CarbonadoWrite(name.to_string(), op.to_string()))
+}
+
 pub async fn retrieve_wallets(sk: &str, name: &str) -> Result<RgbAccount, StorageError> {
     let hashed_name = blake3::hash(format!("{LIB_ID_RGB}-{name}").as_bytes())
         .to_hex()
@@ -141,7 +164,7 @@ pub async fn store_transfers(
         sk,
         &format!("{hashed_name}.c15"),
         &data,
-        false,
+        true,
         Some(RGB_STRICT_TYPE_VERSION.to_vec()),
     )
     .await
