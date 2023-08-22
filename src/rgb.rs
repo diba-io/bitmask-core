@@ -3,14 +3,13 @@ use amplify::{
     confinement::U32,
     hex::{FromHex, ToHex},
 };
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use bitcoin::{Network, Txid};
 use bitcoin_30::bip32::ExtendedPubKey;
 use bitcoin_scripts::address::AddressNetwork;
 use garde::Validate;
 use miniscript_crate::DescriptorPublicKey;
-use rand::{rngs::StdRng, Rng, SeedableRng};
-use rgb::{RgbDescr, TerminalPath};
+use rgb::RgbDescr;
 use rgbstd::{
     containers::BindleContent,
     contract::ContractId,
@@ -30,8 +29,10 @@ pub mod accept;
 pub mod carbonado;
 pub mod constants;
 pub mod contract;
+pub mod fs;
 pub mod import;
 pub mod issue;
+pub mod prebuild;
 pub mod prefetch;
 pub mod psbt;
 pub mod resolvers;
@@ -40,14 +41,8 @@ pub mod transfer;
 pub mod wallet;
 
 use crate::{
-    constants::{
-        get_network,
-        storage_keys::{ASSETS_STOCK, ASSETS_TRANSFERS, ASSETS_WALLETS},
-        BITCOIN_EXPLORER_API, NETWORK,
-    },
+    constants::{get_network, BITCOIN_EXPLORER_API, NETWORK},
     rgb::{
-        carbonado::{force_store_stock, retrieve_stock, store_stock},
-        constants::WALLET_UNAVAILABLE,
         issue::{issue_contract as create_contract, IssueContractError},
         psbt::{create_psbt as create_rgb_psbt, extract_commit},
         resolvers::ExplorerResolver,
@@ -58,31 +53,31 @@ use crate::{
         wallet::list_allocations,
     },
     structs::{
-        AcceptRequest, AcceptResponse, AllocationDetail, AllocationValue, AssetType,
-        BatchRgbTransferItem, BatchRgbTransferResponse, ContractMetadata, ContractResponse,
-        ContractsResponse, FullRgbTransferRequest, ImportRequest, InterfaceDetail,
-        InterfacesResponse, InvoiceRequest, InvoiceResponse, IssueMetaRequest, IssueMetadata,
-        IssueRequest, IssueResponse, NewCollectible, NextAddressResponse, NextUtxoResponse,
-        NextUtxosResponse, PsbtFeeRequest, PsbtInputRequest, PsbtRequest, PsbtResponse,
-        ReIssueRequest, ReIssueResponse, RgbInvoiceResponse, RgbRemoveTransferRequest,
-        RgbSaveTransferRequest, RgbTransferDetail, RgbTransferRequest, RgbTransferResponse,
-        RgbTransferStatusResponse, RgbTransfersResponse, SchemaDetail, SchemasResponse,
-        SecretString, TransferType, TxStatus, UDADetail, UtxoResponse, WatcherDetailResponse,
+        AcceptRequest, AcceptResponse, AssetType, BatchRgbTransferItem, BatchRgbTransferResponse,
+        ContractMetadata, ContractResponse, ContractsResponse, FullRgbTransferRequest,
+        ImportRequest, InterfaceDetail, InterfacesResponse, InvoiceRequest, InvoiceResponse,
+        IssueMetaRequest, IssueMetadata, IssueRequest, IssueResponse, NewCollectible,
+        NextAddressResponse, NextUtxoResponse, NextUtxosResponse, PsbtFeeRequest, PsbtRequest,
+        PsbtResponse, ReIssueRequest, ReIssueResponse, RgbInvoiceResponse,
+        RgbRemoveTransferRequest, RgbSaveTransferRequest, RgbTransferDetail, RgbTransferRequest,
+        RgbTransferResponse, RgbTransferStatusResponse, RgbTransfersResponse, SchemaDetail,
+        SchemasResponse, TransferType, TxStatus, UDADetail, UtxoResponse, WatcherDetailResponse,
         WatcherRequest, WatcherResponse, WatcherUtxoResponse,
     },
     validators::RGBContext,
 };
 
 use self::{
-    carbonado::{
-        force_store_wallets, retrieve_transfers, retrieve_wallets, store_transfers, store_wallets,
-    },
-    constants::{
-        BITCOIN_DEFAULT_FETCH_LIMIT, CARBONADO_UNAVAILABLE, RGB_DEFAULT_FETCH_LIMIT,
-        RGB_DEFAULT_NAME, STOCK_UNAVAILABLE, TRANSFER_UNAVAILABLE,
-    },
+    constants::{RGB_DEFAULT_FETCH_LIMIT, RGB_DEFAULT_NAME},
     contract::{export_contract, ExportContractError},
+    fs::{
+        retrieve_account, retrieve_stock as retrieve_rgb_stock, retrieve_stock_account,
+        retrieve_stock_account_transfers, retrieve_stock_transfers, retrieve_transfers,
+        store_account, store_stock as store_rgb_stock, store_stock_account,
+        store_stock_account_transfers, store_stock_transfers, store_transfers, RgbPersistenceError,
+    },
     import::{import_contract, ImportContractError},
+    prebuild::prebuild_transfer_asset,
     prefetch::{
         prefetch_resolver_allocations, prefetch_resolver_images, prefetch_resolver_import_rgb,
         prefetch_resolver_psbt, prefetch_resolver_rgb, prefetch_resolver_txs_status,
@@ -90,11 +85,11 @@ use self::{
         prefetch_resolver_wutxo,
     },
     psbt::{fee_estimate, save_commit, CreatePsbtError},
-    structs::{AddressAmount, RgbTransfer, RgbTransfers},
+    structs::{RgbAccount, RgbTransfer, RgbTransfers},
     transfer::{extract_transfer, AcceptTransferError, NewInvoiceError, NewPaymentError},
     wallet::{
-        create_wallet, get_address, next_address, next_utxo, next_utxos, register_address,
-        register_utxo, sync_wallet,
+        create_wallet, next_address, next_utxo, next_utxos, register_address, register_utxo,
+        sync_wallet,
     },
 };
 
@@ -103,10 +98,8 @@ use self::{
 pub enum IssueError {
     /// Some request data is missing. {0:?}
     Validation(BTreeMap<String, String>),
-    /// Retrieve I/O or connectivity error. {1} in {0}
-    Retrieve(String, String),
-    /// Write I/O or connectivity error. {1} in {0}
-    Write(String, String),
+    /// I/O or connectivity error. {0}
+    IO(RgbPersistenceError),
     /// Watcher is required for this operation.
     Watcher,
     /// Occurs an error in issue step. {0}
@@ -137,24 +130,12 @@ pub async fn issue_contract(sk: &str, request: IssueRequest) -> Result<IssueResp
         meta,
     } = request;
 
-    let mut stock = retrieve_stock(sk, ASSETS_STOCK).await.map_err(|_| {
-        IssueError::Retrieve(
-            CARBONADO_UNAVAILABLE.to_string(),
-            STOCK_UNAVAILABLE.to_string(),
-        )
-    })?;
-
-    let mut rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await.map_err(|_| {
-        IssueError::Retrieve(
-            CARBONADO_UNAVAILABLE.to_string(),
-            WALLET_UNAVAILABLE.to_string(),
-        )
-    })?;
-
     let mut resolver = ExplorerResolver {
         explorer_url: BITCOIN_EXPLORER_API.read().await.to_string(),
         ..Default::default()
     };
+
+    let (mut stock, mut rgb_account) = retrieve_stock_account(sk).await.map_err(IssueError::IO)?;
 
     let network = get_network().await;
     let wallet = rgb_account.wallets.get("default");
@@ -230,21 +211,9 @@ pub async fn issue_contract(sk: &str, request: IssueRequest) -> Result<IssueResp
             .insert(RGB_DEFAULT_NAME.to_string(), wallet);
     };
 
-    store_stock(sk, ASSETS_STOCK, &stock).await.map_err(|_| {
-        IssueError::Write(
-            CARBONADO_UNAVAILABLE.to_string(),
-            STOCK_UNAVAILABLE.to_string(),
-        )
-    })?;
-
-    store_wallets(sk, ASSETS_WALLETS, &rgb_account)
+    store_stock_account(sk, stock, rgb_account)
         .await
-        .map_err(|_| {
-            IssueError::Write(
-                CARBONADO_UNAVAILABLE.to_string(),
-                WALLET_UNAVAILABLE.to_string(),
-            )
-        })?;
+        .map_err(IssueError::IO)?;
 
     Ok(IssueResponse {
         contract_id,
@@ -277,25 +246,12 @@ pub async fn reissue_contract(
         return Err(IssueError::Validation(errors));
     }
 
-    let mut stock = retrieve_stock(sk, ASSETS_STOCK).await.map_err(|_| {
-        IssueError::Retrieve(
-            CARBONADO_UNAVAILABLE.to_string(),
-            STOCK_UNAVAILABLE.to_string(),
-        )
-    })?;
-
-    let mut rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await.map_err(|_| {
-        IssueError::Retrieve(
-            CARBONADO_UNAVAILABLE.to_string(),
-            WALLET_UNAVAILABLE.to_string(),
-        )
-    })?;
-
-    // Prefetch
     let mut resolver = ExplorerResolver {
         explorer_url: BITCOIN_EXPLORER_API.read().await.to_string(),
         ..Default::default()
     };
+
+    let (mut stock, mut rgb_account) = retrieve_stock_account(sk).await.map_err(IssueError::IO)?;
 
     let mut reissue_resp = vec![];
     for contract in request.contracts {
@@ -304,16 +260,11 @@ pub async fn reissue_contract(
             name,
             description,
             supply,
-            contract_id: _,
-            iimpl_id: _,
             iface,
             precision,
-            balance: _,
             allocations,
-            contract: _,
-            genesis: _,
             meta: contract_meta,
-            created: _,
+            ..
         } = contract;
 
         let seals: Vec<String> = allocations
@@ -333,12 +284,9 @@ pub async fn reissue_contract(
                         let UDADetail {
                             ticker,
                             name,
-                            token_index: _,
                             description,
-                            balance: _,
                             media,
-                            allocations: _,
-                            attach: _,
+                            ..
                         } = collectible_item;
 
                         let new_item = NewCollectible {
@@ -401,13 +349,11 @@ pub async fn reissue_contract(
             name,
             description,
             supply,
-            precision: _,
-            balance: _,
-            allocations: _,
             contract,
             genesis,
             meta,
             created,
+            ..
         } = export_contract(
             contract.contract_id(),
             &mut stock,
@@ -440,23 +386,9 @@ pub async fn reissue_contract(
         });
     }
 
-    force_store_stock(sk, ASSETS_STOCK, &stock)
+    store_stock_account(sk, stock, rgb_account)
         .await
-        .map_err(|_| {
-            IssueError::Write(
-                CARBONADO_UNAVAILABLE.to_string(),
-                STOCK_UNAVAILABLE.to_string(),
-            )
-        })?;
-
-    store_wallets(sk, ASSETS_WALLETS, &rgb_account)
-        .await
-        .map_err(|_| {
-            IssueError::Write(
-                CARBONADO_UNAVAILABLE.to_string(),
-                WALLET_UNAVAILABLE.to_string(),
-            )
-        })?;
+        .map_err(IssueError::IO)?;
 
     Ok(ReIssueResponse {
         contracts: reissue_resp,
@@ -468,10 +400,8 @@ pub async fn reissue_contract(
 pub enum InvoiceError {
     /// Some request data is missing. {0:?}
     Validation(BTreeMap<String, String>),
-    /// Retrieve I/O or connectivity error. {1} in {0}
-    Retrive(String, String),
-    /// Write I/O or connectivity error. {1} in {0}
-    Write(String, String),
+    /// I/O or connectivity error. {0}
+    IO(RgbPersistenceError),
     /// Occurs an error in invoice step. {0}
     Invoice(NewInvoiceError),
 }
@@ -497,22 +427,11 @@ pub async fn create_invoice(
         params,
     } = request;
 
-    let mut stock = retrieve_stock(sk, ASSETS_STOCK).await.map_err(|_| {
-        InvoiceError::Retrive(
-            CARBONADO_UNAVAILABLE.to_string(),
-            STOCK_UNAVAILABLE.to_string(),
-        )
-    })?;
-
+    let mut stock = retrieve_rgb_stock(sk).await.map_err(InvoiceError::IO)?;
     let invoice = create_rgb_invoice(&contract_id, &iface, amount, &seal, params, &mut stock)
         .map_err(InvoiceError::Invoice)?;
 
-    store_stock(sk, ASSETS_STOCK, &stock).await.map_err(|_| {
-        InvoiceError::Write(
-            CARBONADO_UNAVAILABLE.to_string(),
-            STOCK_UNAVAILABLE.to_string(),
-        )
-    })?;
+    store_rgb_stock(sk, stock).await.map_err(InvoiceError::IO)?;
 
     Ok(InvoiceResponse {
         invoice: invoice.to_string(),
@@ -524,10 +443,8 @@ pub async fn create_invoice(
 pub enum TransferError {
     /// Some request data is missing. {0:?}
     Validation(BTreeMap<String, String>),
-    /// Retrieve I/O or connectivity error. {1} in {0}
-    Retrive(String, String),
-    /// Write I/O or connectivity error. {1} in {0}
-    Write(String, String),
+    /// Retrieve I/O or connectivity error. {0:?}
+    IO(RgbPersistenceError),
     /// Watcher is required in this operation. Please, create watcher.
     NoWatcher,
     /// Contract is required in this operation. Please, import or issue a Contract.
@@ -553,6 +470,21 @@ pub enum TransferError {
 }
 
 pub async fn create_psbt(sk: &str, request: PsbtRequest) -> Result<PsbtResponse, TransferError> {
+    let mut resolver = ExplorerResolver {
+        explorer_url: BITCOIN_EXPLORER_API.read().await.to_string(),
+        ..Default::default()
+    };
+
+    let mut rgb_account = retrieve_account(sk).await.map_err(TransferError::IO)?;
+    let psbt = internal_create_psbt(request, &mut rgb_account, &mut resolver).await?;
+    Ok(psbt)
+}
+
+async fn internal_create_psbt(
+    request: PsbtRequest,
+    rgb_account: &mut RgbAccount,
+    resolver: &mut ExplorerResolver,
+) -> Result<PsbtResponse, TransferError> {
     if let Err(err) = request.validate(&RGBContext::default()) {
         let errors = err
             .flatten()
@@ -560,6 +492,10 @@ pub async fn create_psbt(sk: &str, request: PsbtRequest) -> Result<PsbtResponse,
             .map(|(f, e)| (f, e.to_string()))
             .collect();
         return Err(TransferError::Validation(errors));
+    }
+
+    if rgb_account.wallets.get("default").is_none() {
+        return Err(TransferError::NoWatcher);
     }
 
     let PsbtRequest {
@@ -571,34 +507,10 @@ pub async fn create_psbt(sk: &str, request: PsbtRequest) -> Result<PsbtResponse,
         fee,
     } = request;
 
-    // Prefetch
-    let mut resolver = ExplorerResolver {
-        explorer_url: BITCOIN_EXPLORER_API.read().await.to_string(),
-        ..Default::default()
-    };
-
-    let stock = retrieve_stock(sk, ASSETS_STOCK).await.map_err(|_| {
-        TransferError::Retrive(
-            CARBONADO_UNAVAILABLE.to_string(),
-            STOCK_UNAVAILABLE.to_string(),
-        )
-    })?;
-
-    let rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await.map_err(|_| {
-        TransferError::Retrive(
-            CARBONADO_UNAVAILABLE.to_string(),
-            WALLET_UNAVAILABLE.to_string(),
-        )
-    })?;
-
-    if rgb_account.wallets.get("default").is_none() {
-        return Err(TransferError::NoWatcher);
-    }
-
     let mut all_inputs = asset_inputs.clone();
     all_inputs.extend(bitcoin_inputs.clone());
     for input_utxo in all_inputs.clone() {
-        prefetch_resolver_psbt(&input_utxo.utxo, &mut resolver).await;
+        prefetch_resolver_psbt(&input_utxo.utxo, resolver).await;
     }
 
     // Retrieve transaction fee
@@ -611,7 +523,7 @@ pub async fn create_psbt(sk: &str, request: PsbtRequest) -> Result<PsbtResponse,
             bitcoin_inputs,
             bitcoin_changes.clone(),
             fee_rate,
-            &mut resolver,
+            resolver,
         ),
     };
 
@@ -622,16 +534,9 @@ pub async fn create_psbt(sk: &str, request: PsbtRequest) -> Result<PsbtResponse,
         fee,
         asset_terminal_change,
         wallet.cloned(),
-        &resolver,
+        resolver,
     )
     .map_err(TransferError::Create)?;
-
-    store_stock(sk, ASSETS_STOCK, &stock).await.map_err(|_| {
-        TransferError::Write(
-            CARBONADO_UNAVAILABLE.to_string(),
-            STOCK_UNAVAILABLE.to_string(),
-        )
-    })?;
 
     let psbt = PsbtResponse {
         psbt: Serialize::serialize(&psbt_file).to_hex(),
@@ -641,9 +546,9 @@ pub async fn create_psbt(sk: &str, request: PsbtRequest) -> Result<PsbtResponse,
     Ok(psbt)
 }
 
-pub async fn transfer_asset(
+pub async fn full_transfer_asset(
     sk: &str,
-    request: RgbTransferRequest,
+    request: FullRgbTransferRequest,
 ) -> Result<RgbTransferResponse, TransferError> {
     if let Err(err) = request.validate(&RGBContext::default()) {
         let errors = err
@@ -654,30 +559,96 @@ pub async fn transfer_asset(
         return Err(TransferError::Validation(errors));
     }
 
-    let mut stock = retrieve_stock(sk, ASSETS_STOCK).await.map_err(|_| {
-        TransferError::Retrive(
-            CARBONADO_UNAVAILABLE.to_string(),
-            STOCK_UNAVAILABLE.to_string(),
-        )
-    })?;
-
-    let mut rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await.map_err(|_| {
-        TransferError::Retrive(
-            CARBONADO_UNAVAILABLE.to_string(),
-            WALLET_UNAVAILABLE.to_string(),
-        )
-    })?;
-
-    let mut rgb_transfers = retrieve_transfers(sk, ASSETS_TRANSFERS)
+    let (mut stock, mut rgb_account, mut rgb_transfers) = retrieve_stock_account_transfers(sk)
         .await
-        .map_err(|_| {
-            TransferError::Retrive(
-                CARBONADO_UNAVAILABLE.to_string(),
-                TRANSFER_UNAVAILABLE.to_string(),
-            )
-        })?;
+        .map_err(TransferError::IO)?;
 
-    if rgb_account.wallets.get("default").is_none() {
+    let mut resolver = ExplorerResolver {
+        explorer_url: BITCOIN_EXPLORER_API.read().await.to_string(),
+        ..Default::default()
+    };
+
+    let mut rgb_wallet = match rgb_account.wallets.get(RGB_DEFAULT_NAME) {
+        Some(rgb_wallet) => rgb_wallet.to_owned(),
+        _ => return Err(TransferError::NoWatcher),
+    };
+
+    let (asset_inputs, bitcoin_inputs, bitcoin_changes) =
+        prebuild_transfer_asset(request.clone(), &mut stock, &mut rgb_wallet, &mut resolver)
+            .await?;
+
+    let FullRgbTransferRequest {
+        rgb_invoice,
+        change_terminal,
+        fee,
+        ..
+    } = request;
+
+    let psbt_req = PsbtRequest {
+        fee,
+        asset_inputs,
+        bitcoin_inputs,
+        bitcoin_changes,
+        asset_descriptor_change: None,
+        asset_terminal_change: Some(change_terminal),
+    };
+
+    let psbt_response = internal_create_psbt(psbt_req, &mut rgb_account, &mut resolver).await?;
+    let transfer_req = RgbTransferRequest {
+        rgb_invoice,
+        psbt: psbt_response.psbt,
+        terminal: psbt_response.terminal,
+    };
+
+    let resp = internal_transfer_asset(
+        transfer_req,
+        &mut stock,
+        &mut rgb_account,
+        &mut rgb_transfers,
+    )
+    .await?;
+
+    store_stock_account_transfers(sk, stock, rgb_account, rgb_transfers)
+        .await
+        .map_err(TransferError::IO)?;
+
+    Ok(resp)
+}
+
+pub async fn transfer_asset(
+    sk: &str,
+    request: RgbTransferRequest,
+) -> Result<RgbTransferResponse, TransferError> {
+    let (mut stock, mut rgb_account, mut rgb_transfers) = retrieve_stock_account_transfers(sk)
+        .await
+        .map_err(TransferError::IO)?;
+
+    let resp =
+        internal_transfer_asset(request, &mut stock, &mut rgb_account, &mut rgb_transfers).await?;
+
+    store_stock_account_transfers(sk, stock, rgb_account, rgb_transfers)
+        .await
+        .map_err(TransferError::IO)?;
+
+    Ok(resp)
+}
+
+async fn internal_transfer_asset(
+    request: RgbTransferRequest,
+    stock: &mut Stock,
+    rgb_account: &mut RgbAccount,
+    rgb_transfers: &mut RgbTransfers,
+) -> Result<RgbTransferResponse, TransferError> {
+    if let Err(err) = request.validate(&RGBContext::default()) {
+        let errors = err
+            .flatten()
+            .into_iter()
+            .map(|(f, e)| (f, e.to_string()))
+            .collect();
+        return Err(TransferError::Validation(errors));
+    }
+
+    if rgb_account.wallets.get(RGB_DEFAULT_NAME).is_none() {
         return Err(TransferError::NoWatcher);
     }
 
@@ -687,25 +658,16 @@ pub async fn transfer_asset(
         terminal,
     } = request;
     let (psbt, transfer) =
-        pay_invoice(rgb_invoice.clone(), psbt, &mut stock).map_err(TransferError::Pay)?;
+        pay_invoice(rgb_invoice.clone(), psbt, stock).map_err(TransferError::Pay)?;
 
     let (outpoint, commit) = extract_commit(psbt.clone()).map_err(TransferError::Commitment)?;
-    if let Some(wallet) = rgb_account.wallets.get("default") {
+    if let Some(wallet) = rgb_account.wallets.get(RGB_DEFAULT_NAME) {
         let mut wallet = wallet.to_owned();
         save_commit(outpoint, commit.clone(), &terminal, &mut wallet);
 
         rgb_account
             .wallets
-            .insert("default".to_string(), wallet.clone());
-
-        force_store_wallets(sk, ASSETS_WALLETS, &rgb_account)
-            .await
-            .map_err(|_| {
-                TransferError::Write(
-                    CARBONADO_UNAVAILABLE.to_string(),
-                    WALLET_UNAVAILABLE.to_string(),
-                )
-            })?;
+            .insert(RGB_DEFAULT_NAME.to_string(), wallet.clone());
     };
 
     let consig = transfer
@@ -752,347 +714,7 @@ pub async fn transfer_asset(
         commit,
     };
 
-    store_stock(sk, ASSETS_STOCK, &stock).await.map_err(|_| {
-        TransferError::Write(
-            CARBONADO_UNAVAILABLE.to_string(),
-            STOCK_UNAVAILABLE.to_string(),
-        )
-    })?;
-
-    store_transfers(sk, ASSETS_TRANSFERS, &rgb_transfers)
-        .await
-        .map_err(|_| {
-            TransferError::Write(
-                CARBONADO_UNAVAILABLE.to_string(),
-                STOCK_UNAVAILABLE.to_string(),
-            )
-        })?;
-
     Ok(resp)
-}
-
-pub async fn full_transfer_asset(
-    sk: &str,
-    request: FullRgbTransferRequest,
-) -> Result<RgbTransferResponse, TransferError> {
-    if let Err(err) = request.validate(&RGBContext::default()) {
-        let errors = err
-            .flatten()
-            .into_iter()
-            .map(|(f, e)| (f, e.to_string()))
-            .collect();
-        return Err(TransferError::Validation(errors));
-    }
-
-    let mut stock = retrieve_stock(sk, ASSETS_STOCK).await.map_err(|_| {
-        TransferError::Retrive(
-            CARBONADO_UNAVAILABLE.to_string(),
-            STOCK_UNAVAILABLE.to_string(),
-        )
-    })?;
-
-    let rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await.map_err(|_| {
-        TransferError::Retrive(
-            CARBONADO_UNAVAILABLE.to_string(),
-            WALLET_UNAVAILABLE.to_string(),
-        )
-    })?;
-
-    if rgb_account.wallets.get("default").is_none() {
-        return Err(TransferError::NoWatcher);
-    }
-
-    let wallet = Some(rgb_account.wallets.get("default").unwrap().to_owned());
-    let contract_id = ContractId::from_str(&request.contract_id).map_err(|_| {
-        let mut errors = BTreeMap::new();
-        errors.insert("contract_id".to_string(), "invalid contract id".to_string());
-        TransferError::Validation(errors)
-    })?;
-
-    let invoice = RgbInvoice::from_str(&request.rgb_invoice).map_err(|_| {
-        let mut errors = BTreeMap::new();
-        errors.insert(
-            "rgb_invoice".to_string(),
-            "invalid rgb invoice data".to_string(),
-        );
-        TransferError::Validation(errors)
-    })?;
-
-    let mut resolver = ExplorerResolver {
-        explorer_url: BITCOIN_EXPLORER_API.read().await.to_string(),
-        ..Default::default()
-    };
-
-    if let TypedState::Amount(target_amount) = invoice.owned_state {
-        let FullRgbTransferRequest {
-            contract_id: _,
-            iface: iface_name,
-            rgb_invoice,
-            descriptor,
-            change_terminal,
-            fee,
-            mut bitcoin_changes,
-        } = request;
-
-        let wildcard_terminal = "/*/*";
-        let mut universal_desc = descriptor.to_string();
-        for contract_type in [
-            AssetType::RGB20,
-            AssetType::RGB21,
-            AssetType::Contract,
-            AssetType::Bitcoin,
-        ] {
-            let contract_index = contract_type as u32;
-            let terminal_step = format!("/{contract_index}/*");
-            if universal_desc.contains(&terminal_step) {
-                universal_desc = universal_desc.replace(&terminal_step, wildcard_terminal);
-                break;
-            }
-        }
-        let mut wallet = wallet.unwrap();
-        let mut all_unspents = vec![];
-
-        // Get All Assets UTXOs
-        let contract_index = if let "RGB20" = iface_name.as_str() {
-            AssetType::RGB20
-        } else {
-            AssetType::RGB21
-        };
-
-        let iface = stock
-            .iface_by_name(&tn!(iface_name))
-            .map_err(|_| TransferError::NoIface)?;
-        let contract_iface = stock
-            .contract_iface(contract_id, iface.iface_id())
-            .map_err(|_| TransferError::NoContract)?;
-
-        let contract_index = contract_index as u32;
-        prefetch_resolver_allocations(contract_iface, &mut resolver).await;
-        sync_wallet(contract_index, &mut wallet, &mut resolver);
-        prefetch_resolver_utxos(
-            contract_index,
-            &mut wallet,
-            &mut resolver,
-            Some(RGB_DEFAULT_FETCH_LIMIT),
-        )
-        .await;
-
-        let contract = export_contract(
-            contract_id,
-            &mut stock,
-            &mut resolver,
-            &mut Some(wallet.clone()),
-        )
-        .map_err(TransferError::Export)?;
-
-        let allocations: Vec<AllocationDetail> = contract
-            .allocations
-            .into_iter()
-            .filter(|x| x.is_mine && !x.is_spent)
-            .collect();
-
-        let asset_total: u64 = allocations
-            .clone()
-            .into_iter()
-            .filter(|a| a.is_mine && !a.is_spent)
-            .map(|a| match a.value {
-                AllocationValue::Value(value) => value.to_owned(),
-                AllocationValue::UDA(_) => 1,
-            })
-            .sum();
-
-        if asset_total < target_amount {
-            let mut errors = BTreeMap::new();
-            errors.insert("rgb_invoice".to_string(), "insufficient state".to_string());
-            return Err(TransferError::Validation(errors));
-        }
-
-        let asset_unspent_utxos = &mut next_utxos(contract_index, wallet.clone(), &mut resolver)
-            .map_err(|_| {
-                TransferError::Retrive(
-                    "Esplora".to_string(),
-                    "Retrieve Unspent UTXO unavaliable".to_string(),
-                )
-            })?;
-
-        let mut asset_total = 0;
-        let mut asset_inputs = vec![];
-        let mut rng = StdRng::seed_from_u64(1);
-        let rnd_amount = rng.gen_range(600..1500);
-
-        let mut total_asset_bitcoin_unspend: u64 = 0;
-        for alloc in allocations.into_iter() {
-            match alloc.value {
-                AllocationValue::Value(alloc_value) => {
-                    if asset_total >= target_amount {
-                        break;
-                    }
-
-                    let input = PsbtInputRequest {
-                        descriptor: SecretString(universal_desc.clone()),
-                        utxo: alloc.utxo.clone(),
-                        utxo_terminal: alloc.derivation,
-                        tapret: None,
-                    };
-                    if !asset_inputs
-                        .clone()
-                        .into_iter()
-                        .any(|x: PsbtInputRequest| x.utxo == alloc.utxo)
-                    {
-                        asset_inputs.push(input);
-                        total_asset_bitcoin_unspend += asset_unspent_utxos
-                            .clone()
-                            .into_iter()
-                            .filter(|x| {
-                                x.outpoint.to_string() == alloc.utxo.clone()
-                                    && alloc.is_mine
-                                    && !alloc.is_spent
-                            })
-                            .map(|x| x.amount)
-                            .sum::<u64>();
-                        asset_total += alloc_value;
-                    }
-                }
-                AllocationValue::UDA(_) => {
-                    let input = PsbtInputRequest {
-                        descriptor: SecretString(universal_desc.clone()),
-                        utxo: alloc.utxo.clone(),
-                        utxo_terminal: alloc.derivation,
-                        tapret: None,
-                    };
-                    if !asset_inputs
-                        .clone()
-                        .into_iter()
-                        .any(|x| x.utxo == alloc.utxo)
-                    {
-                        asset_inputs.push(input);
-                        total_asset_bitcoin_unspend += asset_unspent_utxos
-                            .clone()
-                            .into_iter()
-                            .filter(|x| {
-                                x.outpoint.to_string() == alloc.utxo.clone()
-                                    && alloc.is_mine
-                                    && !alloc.is_spent
-                            })
-                            .map(|x| x.amount)
-                            .sum::<u64>();
-                    }
-                    break;
-                }
-            }
-        }
-
-        // Get All Bitcoin UTXOs
-        let total_bitcoin_spend: u64 = bitcoin_changes
-            .clone()
-            .into_iter()
-            .map(|x| {
-                let recipient = AddressAmount::from_str(&x).expect("invalid address amount format");
-                recipient.amount
-            })
-            .sum();
-        let mut bitcoin_inputs = vec![];
-        if let PsbtFeeRequest::Value(fee_amount) = fee {
-            let bitcoin_indexes = [0, 1];
-            for bitcoin_index in bitcoin_indexes {
-                sync_wallet(bitcoin_index, &mut wallet, &mut resolver);
-                prefetch_resolver_utxos(
-                    bitcoin_index,
-                    &mut wallet,
-                    &mut resolver,
-                    Some(BITCOIN_DEFAULT_FETCH_LIMIT),
-                )
-                .await;
-                prefetch_resolver_user_utxo_status(
-                    bitcoin_index,
-                    &mut wallet,
-                    &mut resolver,
-                    false,
-                )
-                .await;
-
-                let mut unspent_utxos = next_utxos(bitcoin_index, wallet.clone(), &mut resolver)
-                    .map_err(|_| {
-                        TransferError::Retrive(
-                            "Esplora".to_string(),
-                            "Retrieve Unspent UTXO unavaliable".to_string(),
-                        )
-                    })?;
-
-                all_unspents.append(&mut unspent_utxos);
-            }
-
-            let mut bitcoin_total = total_asset_bitcoin_unspend;
-            for utxo in all_unspents {
-                if bitcoin_total > (fee_amount + rnd_amount) {
-                    break;
-                } else {
-                    bitcoin_total += utxo.amount;
-
-                    let TerminalPath { app, index } = utxo.derivation.terminal;
-                    let btc_input = PsbtInputRequest {
-                        descriptor: SecretString(universal_desc.clone()),
-                        utxo: utxo.outpoint.to_string(),
-                        utxo_terminal: format!("/{app}/{index}"),
-                        tapret: None,
-                    };
-                    if !bitcoin_inputs
-                        .clone()
-                        .into_iter()
-                        .any(|x: PsbtInputRequest| x.utxo == utxo.outpoint.to_string())
-                    {
-                        bitcoin_inputs.push(btc_input);
-                    }
-                }
-            }
-            if bitcoin_total < (fee_amount + rnd_amount + total_bitcoin_spend) {
-                let mut errors = BTreeMap::new();
-                errors.insert("bitcoin".to_string(), "insufficient satoshis".to_string());
-                return Err(TransferError::Validation(errors));
-            } else {
-                let network = NETWORK.read().await.to_string();
-                let network = Network::from_str(&network)
-                    .map_err(|err| TransferError::WrongNetwork(err.to_string()))?;
-
-                let network = AddressNetwork::from(network);
-
-                let change_address = get_address(1, 1, wallet, network)
-                    .map_err(|err| TransferError::WrongNetwork(err.to_string()))?
-                    .address;
-
-                let change_amount = bitcoin_total - (rnd_amount + fee_amount + total_bitcoin_spend);
-                let change_bitcoin = format!("{change_address}:{change_amount}");
-                bitcoin_changes.push(change_bitcoin);
-            }
-        }
-
-        let psbt_req = PsbtRequest {
-            asset_inputs,
-            bitcoin_inputs,
-            bitcoin_changes,
-            fee,
-            asset_descriptor_change: None,
-            asset_terminal_change: Some(change_terminal),
-        };
-
-        let psbt_response = create_psbt(sk, psbt_req).await?;
-        transfer_asset(
-            sk,
-            RgbTransferRequest {
-                rgb_invoice,
-                psbt: psbt_response.psbt,
-                terminal: psbt_response.terminal,
-            },
-        )
-        .await
-    } else {
-        let mut errors = BTreeMap::new();
-        errors.insert(
-            "rgb_invoice".to_string(),
-            "invalid rgb invoice data".to_string(),
-        );
-        Err(TransferError::Validation(errors))
-    }
 }
 
 pub async fn accept_transfer(
@@ -1107,19 +729,13 @@ pub async fn accept_transfer(
             .collect();
         return Err(TransferError::Validation(errors));
     }
-
-    let AcceptRequest { consignment, force } = request;
-    let mut stock = retrieve_stock(sk, ASSETS_STOCK).await.map_err(|_| {
-        TransferError::Retrive(
-            CARBONADO_UNAVAILABLE.to_string(),
-            STOCK_UNAVAILABLE.to_string(),
-        )
-    })?;
-
+    let mut stock = retrieve_rgb_stock(sk).await.map_err(TransferError::IO)?;
     let mut resolver = ExplorerResolver {
         explorer_url: BITCOIN_EXPLORER_API.read().await.to_string(),
         ..Default::default()
     };
+
+    let AcceptRequest { consignment, force } = request;
     prefetch_resolver_rgb(&consignment, &mut resolver, None).await;
 
     let transfer = accept_rgb_transfer(consignment, force, &mut resolver, &mut stock)
@@ -1131,12 +747,9 @@ pub async fn accept_transfer(
         valid: true,
     };
 
-    store_stock(sk, ASSETS_STOCK, &stock).await.map_err(|_| {
-        TransferError::Write(
-            CARBONADO_UNAVAILABLE.to_string(),
-            STOCK_UNAVAILABLE.to_string(),
-        )
-    })?;
+    store_rgb_stock(sk, stock)
+        .await
+        .map_err(TransferError::IO)?;
 
     Ok(resp)
 }
@@ -1146,8 +759,8 @@ pub async fn accept_transfer(
 pub enum SaveTransferError {
     /// Some request data is missing. {0:?}
     Validation(BTreeMap<String, String>),
-    /// Retrieve I/O or connectivity error. {1} in {0}
-    Retrive(String, String),
+    /// I/O or connectivity error. {0}
+    IO(RgbPersistenceError),
     /// Occurs an error in parse consig step. {0}
     WrongConsig(AcceptTransferError),
     /// Write I/O or connectivity error. {1} in {0}
@@ -1173,14 +786,9 @@ pub async fn save_transfer(
         consignment,
     } = request;
 
-    let mut rgb_transfers = retrieve_transfers(sk, ASSETS_TRANSFERS)
+    let mut rgb_transfers = retrieve_transfers(sk)
         .await
-        .map_err(|_| {
-            SaveTransferError::Retrive(
-                CARBONADO_UNAVAILABLE.to_string(),
-                TRANSFER_UNAVAILABLE.to_string(),
-            )
-        })?;
+        .map_err(SaveTransferError::IO)?;
 
     let (txid, transfer) = extract_transfer(contract_id.clone(), consignment)
         .map_err(SaveTransferError::WrongConsig)?;
@@ -1211,14 +819,9 @@ pub async fn save_transfer(
             .insert(contract_id.clone(), vec![rgb_transfer]);
     }
 
-    store_transfers(sk, ASSETS_TRANSFERS, &rgb_transfers)
+    store_transfers(sk, rgb_transfers)
         .await
-        .map_err(|_| {
-            SaveTransferError::Write(
-                CARBONADO_UNAVAILABLE.to_string(),
-                STOCK_UNAVAILABLE.to_string(),
-            )
-        })?;
+        .map_err(SaveTransferError::IO)?;
 
     let mut status = BTreeMap::new();
     status.insert(consig_id, false);
@@ -1247,14 +850,9 @@ pub async fn remove_transfer(
         consig_ids,
     } = request;
 
-    let mut rgb_transfers = retrieve_transfers(sk, ASSETS_TRANSFERS)
+    let mut rgb_transfers = retrieve_transfers(sk)
         .await
-        .map_err(|_| {
-            SaveTransferError::Retrive(
-                CARBONADO_UNAVAILABLE.to_string(),
-                TRANSFER_UNAVAILABLE.to_string(),
-            )
-        })?;
+        .map_err(SaveTransferError::IO)?;
 
     if let Some(transfers) = rgb_transfers.transfers.get(&contract_id.clone()) {
         let current_transfers = transfers
@@ -1268,14 +866,9 @@ pub async fn remove_transfer(
             .insert(contract_id.clone(), current_transfers);
     }
 
-    store_transfers(sk, ASSETS_TRANSFERS, &rgb_transfers)
+    store_transfers(sk, rgb_transfers)
         .await
-        .map_err(|_| {
-            SaveTransferError::Write(
-                CARBONADO_UNAVAILABLE.to_string(),
-                STOCK_UNAVAILABLE.to_string(),
-            )
-        })?;
+        .map_err(SaveTransferError::IO)?;
 
     let status = consig_ids.into_iter().map(|x| (x, true)).collect();
     Ok(RgbTransferStatusResponse {
@@ -1285,13 +878,12 @@ pub async fn remove_transfer(
 }
 
 pub async fn get_contract(sk: &str, contract_id: &str) -> Result<ContractResponse> {
-    let mut stock = retrieve_stock(sk, ASSETS_STOCK).await?;
-    let mut rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await?;
-
     let mut resolver = ExplorerResolver {
         explorer_url: BITCOIN_EXPLORER_API.read().await.to_string(),
         ..Default::default()
     };
+
+    let (mut stock, mut rgb_account) = retrieve_stock_account(sk).await?;
 
     let contract_id = ContractId::from_str(contract_id)?;
     let wallet = rgb_account.wallets.get("default");
@@ -1329,21 +921,19 @@ pub async fn get_contract(sk: &str, contract_id: &str) -> Result<ContractRespons
         rgb_account
             .wallets
             .insert(RGB_DEFAULT_NAME.to_string(), wallet);
-        store_wallets(sk, ASSETS_WALLETS, &rgb_account).await?;
+        store_account(sk, rgb_account).await?;
     };
 
     Ok(contract)
 }
 
 pub async fn list_contracts(sk: &str) -> Result<ContractsResponse> {
-    let mut stock = retrieve_stock(sk, ASSETS_STOCK).await?;
-    let mut rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await?;
-
-    // Prefetch
     let mut resolver = ExplorerResolver {
         explorer_url: BITCOIN_EXPLORER_API.read().await.to_string(),
         ..Default::default()
     };
+
+    let (mut stock, mut rgb_account) = retrieve_stock_account(sk).await?;
 
     let wallet = rgb_account.wallets.get("default");
     let mut wallet = match wallet {
@@ -1394,14 +984,14 @@ pub async fn list_contracts(sk: &str) -> Result<ContractsResponse> {
         rgb_account
             .wallets
             .insert(RGB_DEFAULT_NAME.to_string(), wallet);
-        store_wallets(sk, ASSETS_WALLETS, &rgb_account).await?;
+        store_account(sk, rgb_account).await?;
     };
 
     Ok(ContractsResponse { contracts })
 }
 
 pub async fn list_interfaces(sk: &str) -> Result<InterfacesResponse> {
-    let stock = retrieve_stock(sk, ASSETS_STOCK).await?;
+    let stock = retrieve_rgb_stock(sk).await?;
 
     let mut interfaces = vec![];
     for schema_id in stock.schema_ids()? {
@@ -1422,7 +1012,7 @@ pub async fn list_interfaces(sk: &str) -> Result<InterfacesResponse> {
 }
 
 pub async fn list_schemas(sk: &str) -> Result<SchemasResponse> {
-    let stock = retrieve_stock(sk, ASSETS_STOCK).await?;
+    let stock = retrieve_rgb_stock(sk).await?;
 
     let mut schemas = vec![];
     for schema_id in stock.schema_ids()? {
@@ -1442,7 +1032,7 @@ pub async fn list_schemas(sk: &str) -> Result<SchemasResponse> {
 }
 
 pub async fn list_transfers(sk: &str, contract_id: String) -> Result<RgbTransfersResponse> {
-    let rgb_transfers = retrieve_transfers(sk, ASSETS_TRANSFERS).await?;
+    let rgb_transfers = retrieve_transfers(sk).await?;
 
     let mut resolver = ExplorerResolver {
         explorer_url: BITCOIN_EXPLORER_API.read().await.to_string(),
@@ -1486,24 +1076,14 @@ pub async fn list_transfers(sk: &str, contract_id: String) -> Result<RgbTransfer
 }
 
 pub async fn verify_transfers(sk: &str) -> Result<BatchRgbTransferResponse, TransferError> {
-    let mut stock = retrieve_stock(sk, ASSETS_STOCK).await.map_err(|_| {
-        TransferError::Retrive(
-            CARBONADO_UNAVAILABLE.to_string(),
-            STOCK_UNAVAILABLE.to_string(),
-        )
-    })?;
+    let (mut stock, rgb_transfers) = retrieve_stock_transfers(sk)
+        .await
+        .map_err(TransferError::IO)?;
+
     let mut resolver = ExplorerResolver {
         explorer_url: BITCOIN_EXPLORER_API.read().await.to_string(),
         ..Default::default()
     };
-    let rgb_transfers = retrieve_transfers(sk, ASSETS_TRANSFERS)
-        .await
-        .map_err(|_| {
-            TransferError::Retrive(
-                CARBONADO_UNAVAILABLE.to_string(),
-                TRANSFER_UNAVAILABLE.to_string(),
-            )
-        })?;
 
     let mut transfers = vec![];
     let mut rgb_pending = RgbTransfers::default();
@@ -1572,21 +1152,9 @@ pub async fn verify_transfers(sk: &str) -> Result<BatchRgbTransferResponse, Tran
             .insert(contract_id.to_string(), pending_transfers);
     }
 
-    store_stock(sk, ASSETS_STOCK, &stock).await.map_err(|_| {
-        TransferError::Write(
-            CARBONADO_UNAVAILABLE.to_string(),
-            STOCK_UNAVAILABLE.to_string(),
-        )
-    })?;
-
-    store_transfers(sk, ASSETS_TRANSFERS, &rgb_pending)
+    store_stock_transfers(sk, stock, rgb_pending)
         .await
-        .map_err(|_| {
-            TransferError::Write(
-                CARBONADO_UNAVAILABLE.to_string(),
-                STOCK_UNAVAILABLE.to_string(),
-            )
-        })?;
+        .map_err(TransferError::IO)?;
 
     Ok(BatchRgbTransferResponse { transfers })
 }
@@ -1596,10 +1164,8 @@ pub async fn verify_transfers(sk: &str) -> Result<BatchRgbTransferResponse, Tran
 pub enum ImportError {
     /// Some request data is missing. {0}
     Validation(String),
-    /// Retrieve I/O or connectivity error. {1} in {0}
-    Retrive(String, String),
-    /// Write I/O or connectivity error. {1} in {0}
-    Write(String, String),
+    /// I/O or connectivity error. {0}
+    IO(RgbPersistenceError),
     /// Watcher is required for this operation.
     Watcher,
     /// Occurs an error in import step. {0}
@@ -1609,25 +1175,14 @@ pub enum ImportError {
 }
 
 pub async fn import(sk: &str, request: ImportRequest) -> Result<ContractResponse, ImportError> {
-    let ImportRequest { data, import } = request;
-    let mut stock = retrieve_stock(sk, ASSETS_STOCK).await.map_err(|_| {
-        ImportError::Retrive(
-            CARBONADO_UNAVAILABLE.to_string(),
-            STOCK_UNAVAILABLE.to_string(),
-        )
-    })?;
-
-    let mut rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await.map_err(|_| {
-        ImportError::Retrive(
-            CARBONADO_UNAVAILABLE.to_string(),
-            WALLET_UNAVAILABLE.to_string(),
-        )
-    })?;
-
     let mut resolver = ExplorerResolver {
         explorer_url: BITCOIN_EXPLORER_API.read().await.to_string(),
         ..Default::default()
     };
+
+    let (mut stock, mut rgb_account) = retrieve_stock_account(sk).await.map_err(ImportError::IO)?;
+
+    let ImportRequest { data, import } = request;
     prefetch_resolver_import_rgb(&data, import.clone(), &mut resolver).await;
 
     let wallet = rgb_account.wallets.get("default");
@@ -1656,26 +1211,15 @@ pub async fn import(sk: &str, request: ImportRequest) -> Result<ContractResponse
     )
     .map_err(ImportError::Export)?;
 
-    store_stock(sk, ASSETS_STOCK, &stock).await.map_err(|_| {
-        ImportError::Write(
-            CARBONADO_UNAVAILABLE.to_string(),
-            STOCK_UNAVAILABLE.to_string(),
-        )
-    })?;
     if let Some(wallet) = wallet {
         rgb_account
             .wallets
             .insert(RGB_DEFAULT_NAME.to_string(), wallet);
-
-        store_wallets(sk, ASSETS_WALLETS, &rgb_account)
-            .await
-            .map_err(|_| {
-                ImportError::Write(
-                    CARBONADO_UNAVAILABLE.to_string(),
-                    WALLET_UNAVAILABLE.to_string(),
-                )
-            })?;
     };
+
+    store_stock_account(sk, stock, rgb_account)
+        .await
+        .map_err(ImportError::IO)?;
 
     Ok(resp)
 }
@@ -1686,6 +1230,10 @@ pub async fn import(sk: &str, request: ImportRequest) -> Result<ContractResponse
 pub enum WatcherError {
     /// Some request data is missing. {0}
     Validation(String),
+    /// I/O or connectivity error. {0}
+    IO(RgbPersistenceError),
+    /// Watcher is required for this operation.
+    NoWatcher,
     /// Occurs an error in parse descriptor step. {0}
     WrongDesc(String),
     /// Occurs an error in parse xpub step. {0}
@@ -1694,10 +1242,6 @@ pub enum WatcherError {
     Create(String),
     /// Occurs an error in migrate watcher step. {0}
     Legacy(String),
-    /// Retrieve I/O or connectivity error. {1} in {0}
-    Retrive(String, String),
-    /// Write I/O or connectivity error. {1} in {0}
-    Write(String, String),
 }
 
 pub async fn create_watcher(
@@ -1705,12 +1249,7 @@ pub async fn create_watcher(
     request: WatcherRequest,
 ) -> Result<WatcherResponse, WatcherError> {
     let WatcherRequest { name, xpub, force } = request;
-    let mut rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await.map_err(|_| {
-        WatcherError::Retrive(
-            CARBONADO_UNAVAILABLE.to_string(),
-            WALLET_UNAVAILABLE.to_string(),
-        )
-    })?;
+    let mut rgb_account = retrieve_account(sk).await.map_err(WatcherError::IO)?;
 
     if rgb_account.wallets.contains_key(&name) && force {
         rgb_account.wallets.remove(&name);
@@ -1744,42 +1283,38 @@ pub async fn create_watcher(
         }
     }
 
-    store_wallets(sk, ASSETS_WALLETS, &rgb_account)
+    store_account(sk, rgb_account)
         .await
-        .map_err(|_| {
-            WatcherError::Write(
-                CARBONADO_UNAVAILABLE.to_string(),
-                WALLET_UNAVAILABLE.to_string(),
-            )
-        })?;
+        .map_err(WatcherError::IO)?;
+
     Ok(WatcherResponse { name, migrate })
 }
 
-pub async fn clear_watcher(sk: &str, name: &str) -> Result<WatcherResponse> {
-    let mut rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await?;
+pub async fn clear_watcher(sk: &str, name: &str) -> Result<WatcherResponse, WatcherError> {
+    let mut rgb_account = retrieve_account(sk).await.map_err(WatcherError::IO)?;
 
     if rgb_account.wallets.contains_key(name) {
         rgb_account.wallets.remove(name);
     }
 
-    store_wallets(sk, ASSETS_WALLETS, &rgb_account).await?;
+    store_account(sk, rgb_account)
+        .await
+        .map_err(WatcherError::IO)?;
     Ok(WatcherResponse {
         name: name.to_string(),
         migrate: false,
     })
 }
 
-pub async fn watcher_details(sk: &str, name: &str) -> Result<WatcherDetailResponse> {
-    let mut stock = retrieve_stock(sk, ASSETS_STOCK).await?;
-    let mut rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await?;
+pub async fn watcher_details(sk: &str, name: &str) -> Result<WatcherDetailResponse, WatcherError> {
+    let (mut stock, mut rgb_account) =
+        retrieve_stock_account(sk).await.map_err(WatcherError::IO)?;
 
-    let wallet = match rgb_account.wallets.get(name) {
-        Some(wallet) => Ok(wallet.to_owned()),
-        _ => Err(anyhow!("Wallet watcher not found")),
+    let mut wallet = match rgb_account.wallets.get(name) {
+        Some(wallet) => wallet.to_owned(),
+        _ => return Err(WatcherError::NoWatcher),
     };
-    let mut wallet = wallet?;
 
-    // Prefetch
     let mut resolver = ExplorerResolver {
         explorer_url: BITCOIN_EXPLORER_API.read().await.to_string(),
         ..Default::default()
@@ -1796,24 +1331,30 @@ pub async fn watcher_details(sk: &str, name: &str) -> Result<WatcherDetailRespon
         )
         .await;
         prefetch_resolver_user_utxo_status(iface_index, &mut wallet, &mut resolver, false).await;
-        let mut result = list_allocations(&mut wallet, &mut stock, iface_index, &mut resolver)?;
+        let mut result = list_allocations(&mut wallet, &mut stock, iface_index, &mut resolver)
+            .map_err(|op| WatcherError::Validation(op.to_string()))?;
         allocations.append(&mut result);
     }
 
     let resp = WatcherDetailResponse {
         contracts: allocations,
     };
-    store_stock(sk, ASSETS_STOCK, &stock).await?;
-
     rgb_account
         .wallets
         .insert(RGB_DEFAULT_NAME.to_string(), wallet);
-    store_wallets(sk, ASSETS_WALLETS, &rgb_account).await?;
+
+    store_stock_account(sk, stock, rgb_account)
+        .await
+        .map_err(WatcherError::IO)?;
     Ok(resp)
 }
 
-pub async fn watcher_address(sk: &str, name: &str, address: &str) -> Result<WatcherUtxoResponse> {
-    let rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await?;
+pub async fn watcher_address(
+    sk: &str,
+    name: &str,
+    address: &str,
+) -> Result<WatcherUtxoResponse, WatcherError> {
+    let rgb_account = retrieve_account(sk).await.map_err(WatcherError::IO)?;
 
     let mut resp = WatcherUtxoResponse::default();
     if let Some(wallet) = rgb_account.wallets.get(name) {
@@ -1827,30 +1368,35 @@ pub async fn watcher_address(sk: &str, name: &str, address: &str) -> Result<Watc
         let mut wallet = wallet.to_owned();
 
         prefetch_resolver_waddress(address, &mut wallet, &mut resolver, Some(20)).await;
-        resp.utxos =
-            register_address(address, asset_indexes, &mut wallet, &mut resolver, Some(20))?
-                .into_iter()
-                .map(|utxo| utxo.outpoint.to_string())
-                .collect();
+        resp.utxos = register_address(address, asset_indexes, &mut wallet, &mut resolver, Some(20))
+            .map_err(|op| WatcherError::Validation(op.to_string()))?
+            .into_iter()
+            .map(|utxo| utxo.outpoint.to_string())
+            .collect();
     };
 
     Ok(resp)
 }
 
-pub async fn watcher_utxo(sk: &str, name: &str, utxo: &str) -> Result<WatcherUtxoResponse> {
-    let rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await?;
+pub async fn watcher_utxo(
+    sk: &str,
+    name: &str,
+    utxo: &str,
+) -> Result<WatcherUtxoResponse, WatcherError> {
+    let rgb_account = retrieve_account(sk).await.map_err(WatcherError::IO)?;
 
     let mut resp = WatcherUtxoResponse::default();
     if let Some(wallet) = rgb_account.wallets.get(name) {
-        // Prefetch
+        let network = NETWORK.read().await.to_string();
+        let network =
+            Network::from_str(&network).map_err(|op| WatcherError::Validation(op.to_string()))?;
+
         let mut resolver = ExplorerResolver {
             explorer_url: BITCOIN_EXPLORER_API.read().await.to_string(),
             ..Default::default()
         };
-        let network = NETWORK.read().await.to_string();
-        let network = Network::from_str(&network)?;
-        let network = AddressNetwork::from(network);
 
+        let network = AddressNetwork::from(network);
         let asset_indexes: Vec<u32> = [0, 1, 9, 10, 20, 21].to_vec();
         let mut wallet = wallet.to_owned();
 
@@ -1862,7 +1408,8 @@ pub async fn watcher_utxo(sk: &str, name: &str, utxo: &str) -> Result<WatcherUtx
             &mut wallet,
             &mut resolver,
             Some(RGB_DEFAULT_FETCH_LIMIT),
-        )?
+        )
+        .map_err(|op| WatcherError::Validation(op.to_string()))?
         .into_iter()
         .map(|utxo| utxo.outpoint.to_string())
         .collect();
@@ -1875,16 +1422,17 @@ pub async fn watcher_next_address(
     sk: &str,
     name: &str,
     iface: &str,
-) -> Result<NextAddressResponse> {
-    let rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await?;
+) -> Result<NextAddressResponse, WatcherError> {
+    let rgb_account = retrieve_account(sk).await.map_err(WatcherError::IO)?;
 
     let network = NETWORK.read().await.to_string();
-    let network = Network::from_str(&network)?;
+    let network =
+        Network::from_str(&network).map_err(|op| WatcherError::Validation(op.to_string()))?;
     let network = AddressNetwork::from(network);
 
     let wallet = match rgb_account.wallets.get(name) {
-        Some(wallet) => Ok(wallet.to_owned()),
-        _ => Err(anyhow!("Wallet watcher not found")),
+        Some(wallet) => wallet.to_owned(),
+        _ => return Err(WatcherError::NoWatcher),
     };
 
     let iface_index = match iface {
@@ -1893,8 +1441,8 @@ pub async fn watcher_next_address(
         _ => 10,
     };
 
-    let wallet = wallet?;
-    let next_address = next_address(iface_index, wallet, network)?;
+    let next_address = next_address(iface_index, wallet, network)
+        .map_err(|op| WatcherError::Validation(op.to_string()))?;
 
     let resp = NextAddressResponse {
         address: next_address.address.to_string(),
@@ -1903,22 +1451,23 @@ pub async fn watcher_next_address(
     Ok(resp)
 }
 
-pub async fn watcher_next_utxo(sk: &str, name: &str, iface: &str) -> Result<NextUtxoResponse> {
-    let mut rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await?;
-    let wallet = match rgb_account.wallets.get(name) {
-        Some(wallet) => Ok(wallet.to_owned()),
-        _ => Err(anyhow!("Wallet watcher not found")),
-    };
-
+pub async fn watcher_next_utxo(
+    sk: &str,
+    name: &str,
+    iface: &str,
+) -> Result<NextUtxoResponse, WatcherError> {
+    let mut rgb_account = retrieve_account(sk).await.map_err(WatcherError::IO)?;
     let iface_index = match iface {
         "RGB20" => 20,
         "RGB21" => 21,
         _ => 10,
     };
 
-    let mut wallet = wallet?;
+    let mut wallet = match rgb_account.wallets.get(name) {
+        Some(wallet) => wallet.to_owned(),
+        _ => return Err(WatcherError::NoWatcher),
+    };
 
-    // Prefetch
     let mut resolver = ExplorerResolver {
         explorer_url: BITCOIN_EXPLORER_API.read().await.to_string(),
         ..Default::default()
@@ -1934,7 +1483,9 @@ pub async fn watcher_next_utxo(sk: &str, name: &str, iface: &str) -> Result<Next
     prefetch_resolver_user_utxo_status(iface_index, &mut wallet, &mut resolver, true).await;
 
     sync_wallet(iface_index, &mut wallet, &mut resolver);
-    let utxo = match next_utxo(iface_index, wallet.clone(), &mut resolver)? {
+    let utxo = match next_utxo(iface_index, wallet.clone(), &mut resolver)
+        .map_err(|op| WatcherError::Validation(op.to_string()))?
+    {
         Some(next_utxo) => Some(UtxoResponse::with(
             next_utxo.outpoint,
             next_utxo.amount,
@@ -1946,16 +1497,23 @@ pub async fn watcher_next_utxo(sk: &str, name: &str, iface: &str) -> Result<Next
     rgb_account
         .wallets
         .insert(RGB_DEFAULT_NAME.to_string(), wallet);
-    store_wallets(sk, ASSETS_WALLETS, &rgb_account).await?;
+
+    store_account(sk, rgb_account)
+        .await
+        .map_err(WatcherError::IO)?;
 
     Ok(NextUtxoResponse { utxo })
 }
 
-pub async fn watcher_unspent_utxos(sk: &str, name: &str, iface: &str) -> Result<NextUtxosResponse> {
-    let mut rgb_account = retrieve_wallets(sk, ASSETS_WALLETS).await?;
-    let wallet = match rgb_account.wallets.get(name) {
-        Some(wallet) => Ok(wallet.to_owned()),
-        _ => Err(anyhow!("Wallet watcher not found")),
+pub async fn watcher_unspent_utxos(
+    sk: &str,
+    name: &str,
+    iface: &str,
+) -> Result<NextUtxosResponse, WatcherError> {
+    let mut rgb_account = retrieve_account(sk).await.map_err(WatcherError::IO)?;
+    let mut wallet = match rgb_account.wallets.get(name) {
+        Some(wallet) => wallet.to_owned(),
+        _ => return Err(WatcherError::NoWatcher),
     };
 
     let iface_index = match iface {
@@ -1964,9 +1522,6 @@ pub async fn watcher_unspent_utxos(sk: &str, name: &str, iface: &str) -> Result<
         _ => 9,
     };
 
-    let mut wallet = wallet?;
-
-    // Prefetch
     let mut resolver = ExplorerResolver {
         explorer_url: BITCOIN_EXPLORER_API.read().await.to_string(),
         ..Default::default()
@@ -1982,7 +1537,8 @@ pub async fn watcher_unspent_utxos(sk: &str, name: &str, iface: &str) -> Result<
     prefetch_resolver_user_utxo_status(iface_index, &mut wallet, &mut resolver, true).await;
 
     sync_wallet(iface_index, &mut wallet, &mut resolver);
-    let utxos: HashSet<UtxoResponse> = next_utxos(iface_index, wallet.clone(), &mut resolver)?
+    let utxos: HashSet<UtxoResponse> = next_utxos(iface_index, wallet.clone(), &mut resolver)
+        .map_err(|op| WatcherError::Validation(op.to_string()))?
         .into_iter()
         .map(|x| UtxoResponse::with(x.outpoint, x.amount, x.status))
         .collect();
@@ -1990,7 +1546,10 @@ pub async fn watcher_unspent_utxos(sk: &str, name: &str, iface: &str) -> Result<
     rgb_account
         .wallets
         .insert(RGB_DEFAULT_NAME.to_string(), wallet);
-    store_wallets(sk, ASSETS_WALLETS, &rgb_account).await?;
+
+    store_account(sk, rgb_account)
+        .await
+        .map_err(WatcherError::IO)?;
 
     Ok(NextUtxosResponse {
         utxos: utxos.into_iter().collect(),
@@ -1998,9 +1557,9 @@ pub async fn watcher_unspent_utxos(sk: &str, name: &str, iface: &str) -> Result<
 }
 
 pub async fn clear_stock(sk: &str) {
-    store_stock(sk, ASSETS_STOCK, &Stock::default())
+    store_rgb_stock(sk, Stock::default())
         .await
-        .expect("unable store stock");
+        .expect("unable clear stock");
 }
 
 pub async fn decode_invoice(invoice: String) -> Result<RgbInvoiceResponse> {
