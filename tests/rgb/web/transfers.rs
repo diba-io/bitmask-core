@@ -8,6 +8,7 @@ use std::{assert_eq, str::FromStr, vec};
 use crate::rgb::web::utils::{new_block, send_coins};
 use bdk::blockchain::EsploraBlockchain;
 use bitcoin::{consensus, Transaction};
+use bitmask_core::web::constants::sleep;
 use bitmask_core::{
     debug, info,
     rgb::{prefetch::prefetch_resolver_txs, resolvers::ExplorerResolver},
@@ -22,6 +23,7 @@ use bitmask_core::{
     web::{
         bitcoin::{
             decrypt_wallet, encrypt_wallet, get_assets_vault, get_wallet_data, hash_password,
+            new_mnemonic,
         },
         json_parse, resolve,
         rgb::{
@@ -61,36 +63,41 @@ impl TransferRounds {
 #[allow(unused_assignments)]
 async fn create_contract_and_transfer() {
     set_panic_hook();
-    let issuer_mnemonic =
-        "try engine hurt mushroom adapt club boring diagram barely rail cable vicious tower boss hurt";
-    let owner_mnemonic =
-        "rally ready surround evil grace autumn merry lunch husband infant forum wet possible thought drink";
-    let hash = hash_password(ENCRYPTION_PASSWORD.to_owned());
+    // let issuer_mnemonic =
+    //     "try engine hurt mushroom adapt club boring diagram barely rail cable vicious tower boss hurt";
+    // let owner_mnemonic =
+    //     "rally ready surround evil grace autumn merry lunch husband infant forum wet possible thought drink";
+    // let hash = hash_password(ENCRYPTION_PASSWORD.to_owned());
 
-    info!("Import wallet");
-    let issuer_mnemonic = resolve(encrypt_wallet(
-        issuer_mnemonic.to_owned(),
-        hash.clone(),
-        SEED_PASSWORD.to_owned(),
-    ))
-    .await;
-    let issuer_mnemonic: SecretString = json_parse(&issuer_mnemonic);
+    // info!("Import wallet");
+    // let issuer_mnemonic = resolve(encrypt_wallet(
+    //     issuer_mnemonic.to_owned(),
+    //     hash.clone(),
+    //     SEED_PASSWORD.to_owned(),
+    // ))
+    // .await;
+    // let issuer_mnemonic: SecretString = json_parse(&issuer_mnemonic);
 
-    let owner_mnemonic = resolve(encrypt_wallet(
-        owner_mnemonic.to_owned(),
-        hash.clone(),
-        SEED_PASSWORD.to_owned(),
-    ))
-    .await;
-    let owner_mnemonic: SecretString = json_parse(&owner_mnemonic);
+    // let owner_mnemonic = resolve(encrypt_wallet(
+    //     owner_mnemonic.to_owned(),
+    //     hash.clone(),
+    //     SEED_PASSWORD.to_owned(),
+    // ))
+    // .await;
+    // let owner_mnemonic: SecretString = json_parse(&owner_mnemonic);
 
-    info!("Get Issuer Vault");
-    let issuer_vault: JsValue =
-        resolve(decrypt_wallet(hash.clone(), issuer_mnemonic.to_string())).await;
+    // info!("Get Issuer Vault");
+    // let issuer_vault: JsValue =
+    //     resolve(decrypt_wallet(hash.clone(), issuer_mnemonic.to_string())).await;
+    // let issuer_vault: DecryptedWalletData = json_parse(&issuer_vault);
+
+    // info!("Get Owner Vault");
+    // let owner_vault: JsValue = resolve(decrypt_wallet(hash, owner_mnemonic.to_string())).await;
+    // let owner_vault: DecryptedWalletData = json_parse(&owner_vault);
+
+    let issuer_vault = resolve(new_mnemonic("".to_string())).await;
     let issuer_vault: DecryptedWalletData = json_parse(&issuer_vault);
-
-    info!("Get Owner Vault");
-    let owner_vault: JsValue = resolve(decrypt_wallet(hash, owner_mnemonic.to_string())).await;
+    let owner_vault = resolve(new_mnemonic("".to_string())).await;
     let owner_vault: DecryptedWalletData = json_parse(&owner_vault);
 
     info!("Create Issuer Watcher");
@@ -153,16 +160,6 @@ async fn create_contract_and_transfer() {
     let resp = send_coins(&owner_next_address.address, "1").await;
     debug!(format!("Owner Receive Bitcoin {:?}", resp));
 
-    info!("Get UTXO (Issuer)");
-    let next_utxo: JsValue = resolve(watcher_next_utxo(
-        issuer_sk.clone(),
-        watcher_name.to_string(),
-        iface.to_string(),
-    ))
-    .await;
-    let issuer_next_utxo: NextUtxoResponse = json_parse(&next_utxo);
-    debug!(format!("UTXO (Issuer): {:?}", issuer_next_utxo.utxo));
-
     info!("Get UTXO (Owner)");
     let next_utxo: JsValue = resolve(watcher_next_utxo(
         owner_sk.clone(),
@@ -171,7 +168,15 @@ async fn create_contract_and_transfer() {
     ))
     .await;
     let owner_next_utxo: NextUtxoResponse = json_parse(&next_utxo);
-    debug!(format!("UTXO (Owner): {:?}", owner_next_utxo.utxo));
+
+    info!("Get UTXO (Issuer)");
+    let next_utxo: JsValue = resolve(watcher_next_utxo(
+        issuer_sk.clone(),
+        watcher_name.to_string(),
+        iface.to_string(),
+    ))
+    .await;
+    let issuer_next_utxo: NextUtxoResponse = json_parse(&next_utxo);
 
     assert!(issuer_next_utxo.utxo.is_some());
     assert!(owner_next_utxo.utxo.is_some());
@@ -195,30 +200,20 @@ async fn create_contract_and_transfer() {
     let issue_resp: JsValue = resolve(issue_contract(issuer_sk.to_string(), issue_req)).await;
     let issuer_resp: IssueResponse = json_parse(&issue_resp);
 
-    // info!("Import Contract (Owner)");
-    // let contract_import = ImportRequest {
-    //     import: AssetType::RGB20,
-    //     data: issuer_resp.contract.strict,
-    // };
-
-    // let req = serde_wasm_bindgen::to_value(&contract_import).expect("oh no!");
-    // let resp = resolve(import_contract(owner_sk.clone(), req)).await;
-    // let resp: ContractResponse = json_parse(&resp);
-
     let mut total_issuer = supply;
     let mut total_owner = 0;
     let rounds = vec![
         TransferRounds::with(20, true),
-        TransferRounds::with(3_000, true),
-        TransferRounds::with(5_000, true),
         TransferRounds::with(20, false),
-        TransferRounds::with(20, true),
-        TransferRounds::with(8_000, false),
-        TransferRounds::with(9_000, true),
-        TransferRounds::with(9_000, false),
-        TransferRounds::with(9_000, true),
-        TransferRounds::with(20, false),
-        TransferRounds::with(50_000, true),
+        // TransferRounds::with(3_000, true),
+        // TransferRounds::with(5_000, true),
+        // TransferRounds::with(20, true),
+        // TransferRounds::with(8_000, false),
+        // TransferRounds::with(9_000, true),
+        // TransferRounds::with(9_000, false),
+        // TransferRounds::with(9_000, true),
+        // TransferRounds::with(20, false),
+        // TransferRounds::with(50_000, true),
     ];
 
     let mut sender = String::new();

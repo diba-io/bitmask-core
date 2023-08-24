@@ -4,6 +4,7 @@ use amplify::{
     hex::{FromHex, ToHex},
 };
 use anyhow::Result;
+use autosurgeon::reconcile;
 use bitcoin::{Network, Txid};
 use bitcoin_30::bip32::ExtendedPubKey;
 use bitcoin_scripts::address::AddressNetwork;
@@ -29,6 +30,7 @@ pub mod accept;
 pub mod carbonado;
 pub mod constants;
 pub mod contract;
+pub mod crdt;
 pub mod fs;
 pub mod import;
 pub mod issue;
@@ -70,11 +72,13 @@ use crate::{
 use self::{
     constants::{RGB_DEFAULT_FETCH_LIMIT, RGB_DEFAULT_NAME},
     contract::{export_contract, ExportContractError},
+    crdt::{LocalRgbAccount, RawRgbAccount, RgbMerge},
     fs::{
-        retrieve_account, retrieve_stock as retrieve_rgb_stock, retrieve_stock_account,
-        retrieve_stock_account_transfers, retrieve_stock_transfers, retrieve_transfers,
-        store_account, store_stock as store_rgb_stock, store_stock_account,
-        store_stock_account_transfers, store_stock_transfers, store_transfers, RgbPersistenceError,
+        retrieve_account, retrieve_local_account, retrieve_stock as retrieve_rgb_stock,
+        retrieve_stock_account, retrieve_stock_account_transfers, retrieve_stock_transfers,
+        retrieve_transfers, store_account, store_local_account, store_stock as store_rgb_stock,
+        store_stock_account, store_stock_account_transfers, store_stock_transfers, store_transfers,
+        RgbPersistenceError,
     },
     import::{import_contract, ImportContractError},
     prebuild::prebuild_transfer_asset,
@@ -136,7 +140,6 @@ pub async fn issue_contract(sk: &str, request: IssueRequest) -> Result<IssueResp
     };
 
     let (mut stock, mut rgb_account) = retrieve_stock_account(sk).await.map_err(IssueError::IO)?;
-
     let network = get_network().await;
     let wallet = rgb_account.wallets.get("default");
     let mut wallet = match wallet {
@@ -451,6 +454,8 @@ pub enum TransferError {
     NoContract,
     /// Iface is required in this operation. Please, use the correct iface contract.
     NoIface,
+    /// Auto merge fail in this opration
+    WrongAutoMerge(String),
     /// Occurs an error in create step. {0}
     Create(CreatePsbtError),
     /// Occurs an error in commitment step. {0}
@@ -559,9 +564,21 @@ pub async fn full_transfer_asset(
         return Err(TransferError::Validation(errors));
     }
 
-    let (mut stock, mut rgb_account, mut rgb_transfers) = retrieve_stock_account_transfers(sk)
+    let (mut stock, mut rgb_transfers) = retrieve_stock_transfers(sk)
         .await
         .map_err(TransferError::IO)?;
+
+    let local_rgb_account = retrieve_local_account(sk)
+        .await
+        .map_err(TransferError::IO)?;
+
+    let LocalRgbAccount {
+        doc,
+        mut rgb_account,
+    } = local_rgb_account;
+    let mut fork_wallet = automerge::AutoCommit::load(&doc)
+        .map_err(|op| TransferError::WrongAutoMerge(op.to_string()))?;
+    let mut rgb_account_changes = RawRgbAccount::from(rgb_account.clone());
 
     let mut resolver = ExplorerResolver {
         explorer_url: BITCOIN_EXPLORER_API.read().await.to_string(),
@@ -608,7 +625,15 @@ pub async fn full_transfer_asset(
     )
     .await?;
 
-    store_stock_account_transfers(sk, stock, rgb_account, rgb_transfers)
+    rgb_account.clone().update(&mut rgb_account_changes);
+    reconcile(&mut fork_wallet, rgb_account_changes.clone())
+        .map_err(|op| TransferError::WrongAutoMerge(op.to_string()))?;
+
+    store_local_account(sk, fork_wallet.save())
+        .await
+        .map_err(TransferError::IO)?;
+
+    store_stock_transfers(sk, stock, rgb_transfers)
         .await
         .map_err(TransferError::IO)?;
 
@@ -877,6 +902,90 @@ pub async fn remove_transfer(
     })
 }
 
+pub async fn verify_transfers(sk: &str) -> Result<BatchRgbTransferResponse, TransferError> {
+    let (mut stock, rgb_transfers) = retrieve_stock_transfers(sk)
+        .await
+        .map_err(TransferError::IO)?;
+
+    let mut resolver = ExplorerResolver {
+        explorer_url: BITCOIN_EXPLORER_API.read().await.to_string(),
+        ..Default::default()
+    };
+
+    let mut transfers = vec![];
+    let mut rgb_pending = RgbTransfers::default();
+    for (contract_id, transfer_activities) in rgb_transfers.transfers {
+        let mut pending_transfers = vec![];
+        let txids: Vec<bitcoin::Txid> = transfer_activities
+            .clone()
+            .into_iter()
+            .map(|x| Txid::from_str(&x.tx.to_hex()).expect("invalid tx id"))
+            .collect();
+        prefetch_resolver_txs_status(txids, &mut resolver).await;
+
+        for activity in transfer_activities {
+            let iface = activity.iface.clone();
+            let txid = Txid::from_str(&activity.tx.to_hex()).expect("invalid tx id");
+            let status = resolver
+                .txs_status
+                .get(&txid)
+                .unwrap_or(&TxStatus::NotFound)
+                .to_owned();
+
+            let accept_status = match status.clone() {
+                TxStatus::Block(_) => {
+                    prefetch_resolver_rgb(&activity.consig, &mut resolver, None).await;
+                    accept_rgb_transfer(activity.consig.clone(), false, &mut resolver, &mut stock)
+                        .map_err(TransferError::Accept)?
+                }
+                _ => {
+                    pending_transfers.push(activity.to_owned());
+                    transfers.push(BatchRgbTransferItem {
+                        iface,
+                        status,
+                        is_accept: false,
+                        contract_id: contract_id.clone(),
+                        consig_id: activity.consig_id.to_string(),
+                    });
+                    continue;
+                }
+            };
+            let transfer_id = accept_status.transfer_id();
+            let accept_status = accept_status.unbindle();
+            if let Some(rgb_status) = accept_status.into_validation_status() {
+                if rgb_status.validity() == Validity::Valid {
+                    transfers.push(BatchRgbTransferItem {
+                        iface,
+                        status,
+                        is_accept: true,
+                        contract_id: contract_id.clone(),
+                        consig_id: transfer_id.to_string(),
+                    });
+                } else {
+                    transfers.push(BatchRgbTransferItem {
+                        iface,
+                        status,
+                        is_accept: false,
+                        contract_id: contract_id.clone(),
+                        consig_id: transfer_id.to_string(),
+                    });
+                    pending_transfers.push(activity.to_owned());
+                }
+            }
+        }
+
+        rgb_pending
+            .transfers
+            .insert(contract_id.to_string(), pending_transfers);
+    }
+
+    store_stock_transfers(sk, stock, rgb_pending)
+        .await
+        .map_err(TransferError::IO)?;
+
+    Ok(BatchRgbTransferResponse { transfers })
+}
+
 pub async fn get_contract(sk: &str, contract_id: &str) -> Result<ContractResponse> {
     let mut resolver = ExplorerResolver {
         explorer_url: BITCOIN_EXPLORER_API.read().await.to_string(),
@@ -1073,90 +1182,6 @@ pub async fn list_transfers(sk: &str, contract_id: String) -> Result<RgbTransfer
     }
 
     Ok(RgbTransfersResponse { transfers })
-}
-
-pub async fn verify_transfers(sk: &str) -> Result<BatchRgbTransferResponse, TransferError> {
-    let (mut stock, rgb_transfers) = retrieve_stock_transfers(sk)
-        .await
-        .map_err(TransferError::IO)?;
-
-    let mut resolver = ExplorerResolver {
-        explorer_url: BITCOIN_EXPLORER_API.read().await.to_string(),
-        ..Default::default()
-    };
-
-    let mut transfers = vec![];
-    let mut rgb_pending = RgbTransfers::default();
-    for (contract_id, transfer_activities) in rgb_transfers.transfers {
-        let mut pending_transfers = vec![];
-        let txids: Vec<bitcoin::Txid> = transfer_activities
-            .clone()
-            .into_iter()
-            .map(|x| Txid::from_str(&x.tx.to_hex()).expect("invalid tx id"))
-            .collect();
-        prefetch_resolver_txs_status(txids, &mut resolver).await;
-
-        for activity in transfer_activities {
-            let iface = activity.iface.clone();
-            let txid = Txid::from_str(&activity.tx.to_hex()).expect("invalid tx id");
-            let status = resolver
-                .txs_status
-                .get(&txid)
-                .unwrap_or(&TxStatus::NotFound)
-                .to_owned();
-
-            let accept_status = match status.clone() {
-                TxStatus::Block(_) => {
-                    prefetch_resolver_rgb(&activity.consig, &mut resolver, None).await;
-                    accept_rgb_transfer(activity.consig.clone(), false, &mut resolver, &mut stock)
-                        .map_err(TransferError::Accept)?
-                }
-                _ => {
-                    pending_transfers.push(activity.to_owned());
-                    transfers.push(BatchRgbTransferItem {
-                        iface,
-                        status,
-                        is_accept: false,
-                        contract_id: contract_id.clone(),
-                        consig_id: activity.consig_id.to_string(),
-                    });
-                    continue;
-                }
-            };
-            let transfer_id = accept_status.transfer_id();
-            let accept_status = accept_status.unbindle();
-            if let Some(rgb_status) = accept_status.into_validation_status() {
-                if rgb_status.validity() == Validity::Valid {
-                    transfers.push(BatchRgbTransferItem {
-                        iface,
-                        status,
-                        is_accept: true,
-                        contract_id: contract_id.clone(),
-                        consig_id: transfer_id.to_string(),
-                    });
-                } else {
-                    transfers.push(BatchRgbTransferItem {
-                        iface,
-                        status,
-                        is_accept: false,
-                        contract_id: contract_id.clone(),
-                        consig_id: transfer_id.to_string(),
-                    });
-                    pending_transfers.push(activity.to_owned());
-                }
-            }
-        }
-
-        rgb_pending
-            .transfers
-            .insert(contract_id.to_string(), pending_transfers);
-    }
-
-    store_stock_transfers(sk, stock, rgb_pending)
-        .await
-        .map_err(TransferError::IO)?;
-
-    Ok(BatchRgbTransferResponse { transfers })
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Display, From, Error)]
@@ -1481,8 +1506,8 @@ pub async fn watcher_next_utxo(
     )
     .await;
     prefetch_resolver_user_utxo_status(iface_index, &mut wallet, &mut resolver, true).await;
-
     sync_wallet(iface_index, &mut wallet, &mut resolver);
+
     let utxo = match next_utxo(iface_index, wallet.clone(), &mut resolver)
         .map_err(|op| WatcherError::Validation(op.to_string()))?
     {
@@ -1535,8 +1560,8 @@ pub async fn watcher_unspent_utxos(
     )
     .await;
     prefetch_resolver_user_utxo_status(iface_index, &mut wallet, &mut resolver, true).await;
-
     sync_wallet(iface_index, &mut wallet, &mut resolver);
+
     let utxos: HashSet<UtxoResponse> = next_utxos(iface_index, wallet.clone(), &mut resolver)
         .map_err(|op| WatcherError::Validation(op.to_string()))?
         .into_iter()

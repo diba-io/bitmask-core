@@ -156,7 +156,7 @@ pub async fn prebuild_transfer_asset(
     }
 
     let asset_unspent_utxos = &mut next_utxos(contract_index, rgb_wallet.clone(), resolver)
-        .map_err(|_| TransferError::IO(RgbPersistenceError::RetrieveRgbAccount))?;
+        .map_err(|_| TransferError::IO(RgbPersistenceError::RetrieveRgbAccount("".to_string())))?;
 
     let mut asset_total = 0;
     let mut asset_inputs = vec![];
@@ -249,7 +249,9 @@ pub async fn prebuild_transfer_asset(
             prefetch_resolver_user_utxo_status(bitcoin_index, rgb_wallet, resolver, false).await;
 
             let mut unspent_utxos = next_utxos(bitcoin_index, rgb_wallet.clone(), resolver)
-                .map_err(|_| TransferError::IO(RgbPersistenceError::RetrieveRgbAccount))?;
+                .map_err(|_| {
+                    TransferError::IO(RgbPersistenceError::RetrieveRgbAccount("".to_string()))
+                })?;
 
             all_unspents.append(&mut unspent_utxos);
         }

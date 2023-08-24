@@ -300,6 +300,7 @@ pub async fn prefetch_resolver_utxos(
     explorer: &mut ExplorerResolver,
     limit: Option<u32>,
 ) {
+    // use crate::debug;
     use std::collections::HashSet;
     let esplora_client: EsploraBlockchain =
         EsploraBlockchain::new(&explorer.explorer_url, 1).with_concurrency(6);
@@ -382,12 +383,16 @@ pub async fn prefetch_resolver_utxos(
             .find(|u| u.outpoint == new_utxo.outpoint)
         {
             if current_utxo.status == MiningStatus::Mempool {
-                wallet.utxos.remove(&current_utxo);
+                wallet.utxos.remove(&current_utxo.clone());
+                explorer.utxos.insert(current_utxo.clone());
+
                 new_utxo.derivation = current_utxo.derivation;
-                wallet.utxos.insert(new_utxo);
+                wallet.utxos.insert(new_utxo.clone());
+                explorer.utxos.insert(new_utxo);
             }
         } else {
-            wallet.utxos.insert(new_utxo);
+            wallet.utxos.insert(new_utxo.clone());
+            explorer.utxos.insert(new_utxo);
         }
     }
 }
