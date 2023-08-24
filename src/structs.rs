@@ -882,8 +882,9 @@ pub struct NextUtxosResponse {
     pub utxos: Vec<UtxoResponse>,
 }
 
-#[derive(Eq, PartialEq, Hash, Serialize, Deserialize, Debug, Clone, Default)]
+#[derive(Eq, PartialEq, Hash, Serialize, Deserialize, Debug, Clone, Default, Display)]
 #[serde(rename_all = "camelCase")]
+#[display("{outpoint}:{amount}")]
 pub struct UtxoResponse {
     pub outpoint: String,
     pub amount: u64,

@@ -14,6 +14,7 @@ mod rgb {
         // mod collectibles;
         mod accept;
         mod collectibles;
+        mod crdt;
         mod drain;
         mod dustless;
         mod fungibles;

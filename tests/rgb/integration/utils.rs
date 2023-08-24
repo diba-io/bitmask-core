@@ -2,10 +2,12 @@
 #![cfg(not(target_arch = "wasm32"))]
 use std::{collections::HashMap, env, process::Stdio};
 
+use amplify::bmap;
 use bdk::wallet::AddressIndex;
 use bitmask_core::{
     bitcoin::{get_wallet, get_wallet_data, save_mnemonic, sync_wallet},
     rgb::{
+        crdt::{RawRgbWallet, RawUtxo},
         create_invoice, create_psbt, create_watcher, import, issue_contract, transfer_asset,
         watcher_details, watcher_next_address, watcher_next_utxo, watcher_unspent_utxos,
     },
@@ -613,4 +615,50 @@ pub fn _get_collectible_data() -> IssueMetaRequest {
             ..Default::default()
         },
     ]))
+}
+
+pub fn get_raw_wallet() -> RawRgbWallet {
+    RawRgbWallet {
+        xpub: "tpubDCBwP45jcvCdTBZSxn8TcCyQGx5YgietksRRptV9YJ1xnom6edMwb2JcBnNU15t6TmotHETmgnvHQ2Nki7N7CsgFhka6D91UgMaEYpTRuSh".to_string(),
+        taprets: bmap!{
+            "20:1".to_string() => vec![
+                "tapret054mNJMWTUsdX429C87Zi2AFr25cNGo6pxWeoEEsPExx8YNdxnCk".to_string(),
+                "tapret02Mq47rPbJsankXcDd3PDQaBhL1iDnELdqV6xz5eUiZVJYhLeVwu".to_string(),
+            ],
+        },
+        utxos: vec![
+            RawUtxo {
+                outpoint: "38de2eb14e917a066cda3283a9409ca4742427b00b070bda055cb82334d2d309:1".to_string(),
+                block: 904,
+                amount: 1000,
+                terminal: "20:0".to_string(),
+                tweak: None,
+            },
+            RawUtxo {
+                outpoint: "866c629038b8cca56908f5989a4a2dde7942b41f3093212980c1ce388207ddf0:0".to_string(),
+                block: 901,
+                amount: 1000,
+                terminal: "20:0".to_string(),
+                tweak: None,
+            },
+            RawUtxo {
+                outpoint: "1ded068d67c5c16d8ed0c551502c855a5242f22eda06e1e129b396afb3ace9f3:0".to_string(),
+                block: 0,
+                amount: 10000000,
+                terminal: "20:1".to_string(),
+                tweak: Some(
+                    "tapret054mNJMWTUsdX429C87Zi2AFr25cNGo6pxWeoEEsPExx8YNdxnCk".to_string(),
+                ),
+            },
+            RawUtxo {
+                outpoint: "adddea20b187cce1f03c45f7f8023f88541cfdd24725bcf9bbfd9472ea512548:0".to_string(),
+                block: 0,
+                amount: 10000000,
+                terminal: "20:1".to_string(),
+                tweak: Some(
+                    "tapret02Mq47rPbJsankXcDd3PDQaBhL1iDnELdqV6xz5eUiZVJYhLeVwu".to_string(),
+                ),
+            }
+        ],
+    }
 }
