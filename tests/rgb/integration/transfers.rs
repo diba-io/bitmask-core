@@ -98,7 +98,7 @@ async fn allow_issuer_make_conseq_transfers() -> anyhow::Result<()> {
 
     let request = SignPsbtRequest {
         psbt: transfer_resp.psbt.clone(),
-        descriptors: vec![SecretString(
+        descriptors: [SecretString(
             issuer_keys.private.rgb_assets_descriptor_xprv.clone(),
         )]
         .to_vec(),
@@ -168,7 +168,7 @@ async fn allow_issuer_make_conseq_transfers() -> anyhow::Result<()> {
         &create_new_transfer(issuer_keys.clone(), invoice_2.clone(), psbt_resp.clone()).await?;
     let request: SignPsbtRequest = SignPsbtRequest {
         psbt: issuer_transfer_to_another_resp.psbt.clone(),
-        descriptors: vec![SecretString(
+        descriptors: [SecretString(
             issuer_keys.private.rgb_assets_descriptor_xprv.clone(),
         )]
         .to_vec(),
@@ -253,7 +253,7 @@ async fn allow_owner_make_conseq_transfers() -> anyhow::Result<()> {
     // 2. Sign and Publish TX (Issuer side)
     let request = SignPsbtRequest {
         psbt: transfer_resp.psbt.clone(),
-        descriptors: vec![SecretString(
+        descriptors: [SecretString(
             issuer_keys.private.rgb_assets_descriptor_xprv.clone(),
         )]
         .to_vec(),
@@ -331,7 +331,7 @@ async fn allow_owner_make_conseq_transfers() -> anyhow::Result<()> {
     .await?;
     let request = SignPsbtRequest {
         psbt: transfer_resp.psbt.clone(),
-        descriptors: vec![SecretString(
+        descriptors: [SecretString(
             owner_keys.private.rgb_assets_descriptor_xprv.clone(),
         )]
         .to_vec(),
@@ -396,7 +396,7 @@ async fn allow_owner_make_conseq_transfers() -> anyhow::Result<()> {
     .await?;
     let request = SignPsbtRequest {
         psbt: transfer_resp.psbt.clone(),
-        descriptors: vec![SecretString(
+        descriptors: [SecretString(
             owner_keys.private.rgb_assets_descriptor_xprv.clone(),
         )]
         .to_vec(),
@@ -512,7 +512,7 @@ async fn allow_conseq_transfers_between_tree_owners() -> anyhow::Result<()> {
 
     let request = SignPsbtRequest {
         psbt: transfer_resp.psbt.clone(),
-        descriptors: vec![SecretString(
+        descriptors: [SecretString(
             issuer_keys.private.rgb_assets_descriptor_xprv.clone(),
         )]
         .to_vec(),
@@ -591,7 +591,7 @@ async fn allow_conseq_transfers_between_tree_owners() -> anyhow::Result<()> {
     .await?;
     let request = SignPsbtRequest {
         psbt: issuer_transfer_to_another_resp.psbt.clone(),
-        descriptors: vec![SecretString(issuer_xpriv)].to_vec(),
+        descriptors: [SecretString(issuer_xpriv)].to_vec(),
     };
     let resp = sign_psbt_file(request).await;
     assert!(resp.is_ok());
@@ -620,7 +620,7 @@ async fn allow_conseq_transfers_between_tree_owners() -> anyhow::Result<()> {
     .await?;
     let request = SignPsbtRequest {
         psbt: owner_transfer_to_another_resp.psbt.clone(),
-        descriptors: vec![SecretString(owner_xpriv)].to_vec(),
+        descriptors: [SecretString(owner_xpriv)].to_vec(),
     };
     let resp = sign_psbt_file(request).await;
     assert!(resp.is_ok());
@@ -762,7 +762,7 @@ async fn allows_spend_amount_from_two_different_owners() -> anyhow::Result<()> {
     let issuer_xprv = issuer_keys.private.rgb_assets_descriptor_xprv.clone();
     let request = SignPsbtRequest {
         psbt: transfer_resp.psbt.clone(),
-        descriptors: vec![SecretString(issuer_xprv)].to_vec(),
+        descriptors: [SecretString(issuer_xprv)].to_vec(),
     };
     let resp = sign_psbt_file(request).await;
     assert!(resp.is_ok());
@@ -845,7 +845,7 @@ async fn allows_spend_amount_from_two_different_owners() -> anyhow::Result<()> {
     .await?;
     let request = SignPsbtRequest {
         psbt: issuer_transfer_to_another_resp.psbt.clone(),
-        descriptors: vec![SecretString(issuer_xpriv)].to_vec(),
+        descriptors: [SecretString(issuer_xpriv)].to_vec(),
     };
     let resp = sign_psbt_file(request).await;
     assert!(resp.is_ok());
@@ -874,7 +874,7 @@ async fn allows_spend_amount_from_two_different_owners() -> anyhow::Result<()> {
     .await?;
     let request = SignPsbtRequest {
         psbt: owner_transfer_to_another_resp.psbt.clone(),
-        descriptors: vec![SecretString(owner_xpriv)].to_vec(),
+        descriptors: [SecretString(owner_xpriv)].to_vec(),
     };
     let resp = sign_psbt_file(request).await;
     assert!(resp.is_ok());
@@ -954,7 +954,7 @@ async fn allows_spend_amount_from_two_different_owners() -> anyhow::Result<()> {
     .await?;
     let request = SignPsbtRequest {
         psbt: another_transfer_to_issuer.psbt.clone(),
-        descriptors: vec![SecretString(another_owner_xpriv)].to_vec(),
+        descriptors: [SecretString(another_owner_xpriv)].to_vec(),
     };
     let resp = sign_psbt_file(request).await;
     assert!(resp.is_ok());
@@ -1069,7 +1069,7 @@ async fn allows_spend_amount_from_two_different_transitions() -> anyhow::Result<
     let issuer_xprv = issuer_keys.private.rgb_assets_descriptor_xprv.clone();
     let request = SignPsbtRequest {
         psbt: transfer_resp.psbt.clone(),
-        descriptors: vec![SecretString(issuer_xprv)].to_vec(),
+        descriptors: [SecretString(issuer_xprv)].to_vec(),
     };
     let resp = sign_psbt_file(request).await;
     assert!(resp.is_ok());
@@ -1152,7 +1152,7 @@ async fn allows_spend_amount_from_two_different_transitions() -> anyhow::Result<
     .await?;
     let request = SignPsbtRequest {
         psbt: issuer_transfer_to_another_resp.psbt.clone(),
-        descriptors: vec![SecretString(issuer_xpriv)].to_vec(),
+        descriptors: [SecretString(issuer_xpriv)].to_vec(),
     };
     let resp = sign_psbt_file(request).await;
     assert!(resp.is_ok());
@@ -1180,7 +1180,7 @@ async fn allows_spend_amount_from_two_different_transitions() -> anyhow::Result<
     .await?;
     let request = SignPsbtRequest {
         psbt: owner_transfer_to_another_resp.psbt.clone(),
-        descriptors: vec![SecretString(owner_xpriv)].to_vec(),
+        descriptors: [SecretString(owner_xpriv)].to_vec(),
     };
     let resp = sign_psbt_file(request).await;
     assert!(resp.is_ok());
@@ -1271,7 +1271,7 @@ async fn allows_spend_amount_from_two_different_transitions() -> anyhow::Result<
     .await?;
     let request = SignPsbtRequest {
         psbt: another_transfer_to_issuer.psbt.clone(),
-        descriptors: vec![SecretString(another_owner_xpriv)].to_vec(),
+        descriptors: [SecretString(another_owner_xpriv)].to_vec(),
     };
     let resp = sign_psbt_file(request).await;
     assert!(resp.is_ok());

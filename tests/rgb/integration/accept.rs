@@ -92,7 +92,7 @@ pub async fn allow_save_read_remove_transfers() -> Result<()> {
 
     let request = SignPsbtRequest {
         psbt: transfer_resp.psbt.clone(),
-        descriptors: vec![SecretString(
+        descriptors: [SecretString(
             issuer_keys.private.rgb_assets_descriptor_xprv.clone(),
         )]
         .to_vec(),
@@ -254,7 +254,7 @@ pub async fn allow_save_and_accept_all_transfers() -> Result<()> {
 
     let request = SignPsbtRequest {
         psbt: transfer_resp.psbt.clone(),
-        descriptors: vec![SecretString(
+        descriptors: [SecretString(
             issuer_keys.private.rgb_assets_descriptor_xprv.clone(),
         )]
         .to_vec(),

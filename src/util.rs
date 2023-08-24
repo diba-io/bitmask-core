@@ -7,7 +7,7 @@ use serde::Serialize;
 #[macro_export]
 macro_rules! info {
     ($($arg:expr),+) => {
-        let output = vec![$(String::from($arg.to_owned()),)+].join(" ");
+        let output = [$(String::from($arg.to_owned()),)+].join(" ");
         #[cfg(target_arch = "wasm32")]
         gloo_console::info!(format!("{}", output));
         #[cfg(not(target_arch = "wasm32"))]
@@ -18,7 +18,7 @@ macro_rules! info {
 #[macro_export]
 macro_rules! debug {
     ($($arg:expr),+) => {
-        let output = vec![$(String::from($arg.to_owned()),)+].join(" ");
+        let output = [$(String::from($arg.to_owned()),)+].join(" ");
         #[cfg(target_arch = "wasm32")]
         gloo_console::debug!(format!("{}", output));
         #[cfg(not(target_arch = "wasm32"))]
@@ -29,7 +29,7 @@ macro_rules! debug {
 #[macro_export]
 macro_rules! error {
     ($($arg:expr),+) => {
-        let output = vec![$(String::from($arg.to_owned()),)+].join(" ");
+        let output = [$(String::from($arg.to_owned()),)+].join(" ");
         #[cfg(target_arch = "wasm32")]
         gloo_console::error!(format!("{}", output));
         #[cfg(not(target_arch = "wasm32"))]
@@ -40,7 +40,7 @@ macro_rules! error {
 #[macro_export]
 macro_rules! warn {
     ($($arg:expr),+) => {
-        let output = vec![$(String::from($arg.to_owned()),)+].join(" ");
+        let output = [$(String::from($arg.to_owned()),)+].join(" ");
         #[cfg(target_arch = "wasm32")]
         gloo_console::warn!(format!("{}", output));
         #[cfg(not(target_arch = "wasm32"))]
@@ -51,7 +51,7 @@ macro_rules! warn {
 #[macro_export]
 macro_rules! trace {
     ($($arg:expr),+) => {
-        let output = vec![$(String::from($arg.to_owned()),)+].join(" ");
+        let output = [$(String::from($arg.to_owned()),)+].join(" ");
         #[cfg(target_arch = "wasm32")]
         gloo_console::trace!(format!("{}", output));
         #[cfg(not(target_arch = "wasm32"))]

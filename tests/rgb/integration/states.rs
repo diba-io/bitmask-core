@@ -84,7 +84,7 @@ async fn check_fungible_state_after_accept_consig() -> anyhow::Result<()> {
     let owner_sk = owner_keys.clone().private.nostr_prv.to_string();
     let request = SignPsbtRequest {
         psbt: transfer_resp.psbt.clone(),
-        descriptors: vec![SecretString(
+        descriptors: [SecretString(
             issuer_keys.private.rgb_assets_descriptor_xprv.clone(),
         )]
         .to_vec(),
@@ -187,7 +187,7 @@ async fn check_uda_state_after_accept_consig() -> anyhow::Result<()> {
     let owner_sk = owner_keys.clone().private.nostr_prv.to_string();
     let request = SignPsbtRequest {
         psbt: transfer_resp.psbt.clone(),
-        descriptors: vec![SecretString(
+        descriptors: [SecretString(
             issuer_keys.private.rgb_udas_descriptor_xprv.clone(),
         )]
         .to_vec(),
