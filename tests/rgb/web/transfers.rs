@@ -326,7 +326,6 @@ async fn create_contract_and_transfer() {
         info!(format!("Save Consig ({receiver})"));
         let save_transfer_req = RgbSaveTransferRequest {
             iface: issuer_resp.iface.clone(),
-            contract_id: issuer_resp.contract_id.clone(),
             consignment: full_transfer_resp.consig.clone(),
         };
         let save_transfer_req = serde_wasm_bindgen::to_value(&save_transfer_req).expect("");

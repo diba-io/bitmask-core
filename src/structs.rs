@@ -689,10 +689,6 @@ pub struct AcceptResponse {
 #[derive(Validate)]
 #[garde(context(RGBContext))]
 pub struct RgbSaveTransferRequest {
-    /// Contract ID
-    #[garde(ascii)]
-    #[garde(length(min = 0, max = 100))]
-    pub contract_id: String,
     /// The name of the iface (ex: RGB20)
     #[garde(alphanumeric)]
     pub iface: String,

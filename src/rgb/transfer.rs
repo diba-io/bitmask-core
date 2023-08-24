@@ -207,31 +207,19 @@ where
     }
 }
 
-pub fn extract_transfer(
-    contract_id: String,
-    transfer: String,
-) -> Result<(Txid, Bindle<Transfer>), AcceptTransferError> {
+pub fn extract_transfer(transfer: String) -> Result<(Txid, Bindle<Transfer>), AcceptTransferError> {
     let serialized = Vec::<u8>::from_hex(&transfer).map_err(|_| AcceptTransferError::WrongHex)?;
     let confined = Confined::try_from_iter(serialized.iter().copied())
         .map_err(|err| AcceptTransferError::WrongConsig(err.to_string()))?;
     let transfer = Transfer::from_strict_serialized::<{ U32 }>(confined)
         .map_err(|err| AcceptTransferError::WrongConsig(err.to_string()))?;
 
-    let contract_id = ContractId::from_str(&contract_id)
-        .map_err(|_| AcceptTransferError::WrongContract(contract_id))?;
     for (bundle_id, _) in transfer.terminals() {
-        let Some(transitions) = transfer.known_transitions_by_bundle_id(bundle_id) else {
+        if transfer.known_transitions_by_bundle_id(bundle_id).is_none() {
             return Err(AcceptTransferError::Inconclusive);
         };
-        for transition in transitions {
-            if contract_id != transition.contract_id {
-                continue;
-            }
-
-            if let Some(AnchoredBundle { anchor, bundle: _ }) = transfer.anchored_bundle(bundle_id)
-            {
-                return Ok((anchor.txid, Bindle::new(transfer)));
-            }
+        if let Some(AnchoredBundle { anchor, bundle: _ }) = transfer.anchored_bundle(bundle_id) {
+            return Ok((anchor.txid, Bindle::new(transfer)));
         }
     }
 

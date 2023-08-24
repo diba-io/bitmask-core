@@ -2174,7 +2174,6 @@ async fn allow_save_transfer_and_verify() -> anyhow::Result<()> {
     let owner_sk = owner_keys.private.nostr_prv.clone();
     let request = RgbSaveTransferRequest {
         iface: issuer_resp.iface.clone(),
-        contract_id: issuer_resp.contract_id.clone(),
         consignment: consig,
     };
     let resp = save_transfer(&owner_sk, request).await;
