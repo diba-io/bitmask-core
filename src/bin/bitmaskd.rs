@@ -3,10 +3,9 @@
 #![cfg(not(target_arch = "wasm32"))]
 use std::{env, fs::OpenOptions, io::ErrorKind, net::SocketAddr, str::FromStr};
 
-use amplify::hex::ToHex;
 use anyhow::Result;
 use axum::{
-    body::{Bytes, Full},
+    body::Bytes,
     extract::Path,
     headers::{authorization::Bearer, Authorization, CacheControl},
     http::StatusCode,
@@ -16,8 +15,8 @@ use axum::{
 };
 use bitcoin_30::secp256k1::{ecdh::SharedSecret, PublicKey, SecretKey};
 use bitmask_core::{
-    bitcoin::{decrypt_wallet, get_wallet_data, save_mnemonic, sign_psbt_file},
-    carbonado::{handle_file, retrieve, retrieve_metadata},
+    bitcoin::{save_mnemonic, sign_psbt_file},
+    carbonado::handle_file,
     constants::{get_marketplace_seed, get_network, get_udas_utxo, switch_network},
     rgb::{
         accept_transfer, clear_watcher as rgb_clear_watcher, create_invoice, create_psbt,
@@ -29,16 +28,12 @@ use bitmask_core::{
     },
     structs::{
         AcceptRequest, FileMetadata, FullRgbTransferRequest, ImportRequest, InvoiceRequest,
-        IssueAssetRequest, IssueRequest, MediaInfo, PsbtFeeRequest, PsbtRequest, ReIssueRequest,
-        RgbRemoveTransferRequest, RgbSaveTransferRequest, RgbTransferRequest, SecretString,
-        SelfFullRgbTransferRequest, SelfInvoiceRequest, SelfIssueRequest, SignPsbtRequest,
-        WatcherRequest,
+        IssueRequest, PsbtFeeRequest, PsbtRequest, ReIssueRequest, RgbRemoveTransferRequest,
+        RgbSaveTransferRequest, RgbTransferRequest, SecretString, SelfFullRgbTransferRequest,
+        SelfInvoiceRequest, SelfIssueRequest, SignPsbtRequest, WatcherRequest,
     },
 };
-use carbonado::file;
 use log::{debug, error, info};
-use rgbstd::interface::Iface;
-use serde::{Deserialize, Serialize};
 use tokio::fs;
 use tower_http::cors::CorsLayer;
 
@@ -636,10 +631,10 @@ async fn main() -> Result<()> {
         .route("/transfers/", delete(remove_transfer))
         .route("/key/:pk", get(key))
         .route("/carbonado/status", get(status))
+        .route("/carbonado/:pk/:name", get(co_retrieve))
         .route("/carbonado/:pk/:name", post(co_store))
         .route("/carbonado/:pk/:name/force", post(co_force_store))
-        .route("/carbonado/:pk/:name/metadata", get(co_metadata))
-        .route("/carbonado/:pk/:name", get(co_retrieve));
+        .route("/carbonado/:pk/:name/metadata", get(co_metadata));
 
     let network = get_network().await;
     switch_network(&network).await?;

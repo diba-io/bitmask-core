@@ -2,7 +2,7 @@
 #![allow(unused_variables)]
 use crate::rgb::resolvers::ExplorerResolver;
 use crate::structs::{AssetType, TxStatus};
-use crate::{debug, structs::IssueMetaRequest};
+use crate::{debug, structs::IssueMetaRequest, structs::UtxoSpentStatus};
 use amplify::{
     confinement::Confined,
     hex::{FromHex, ToHex},
@@ -18,6 +18,7 @@ use bitcoin_scripts::{
 use bp::{LockTime, Outpoint, SeqNo, Tx, TxIn, TxOut, TxVer, Txid as BpTxid, VarIntArray, Witness};
 use rgb::{DeriveInfo, MiningStatus, RgbWallet, SpkDescriptor, Utxo};
 use rgbstd::containers::Contract;
+use rgbstd::interface::ContractIface;
 use std::collections::HashMap;
 use std::f32::consts::E;
 use std::{collections::BTreeMap, str::FromStr};
@@ -44,9 +45,17 @@ pub async fn prefetch_resolver_import_rgb(
 pub async fn prefetch_resolver_psbt(input_utxo: &str, explorer: &mut ExplorerResolver) {}
 
 #[cfg(not(target_arch = "wasm32"))]
-pub async fn prefetch_resolver_utxo_status(
+pub async fn prefetch_resolver_user_utxo_status(
     iface_index: u32,
     wallet: &mut RgbWallet,
+    explorer: &mut ExplorerResolver,
+    with_block_height: bool,
+) {
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub async fn prefetch_resolver_allocations(
+    contract_iface: ContractIface,
     explorer: &mut ExplorerResolver,
 ) {
 }
@@ -225,10 +234,11 @@ pub async fn prefetch_resolver_psbt(input_utxo: &str, explorer: &mut ExplorerRes
 }
 
 #[cfg(target_arch = "wasm32")]
-pub async fn prefetch_resolver_utxo_status(
+pub async fn prefetch_resolver_user_utxo_status(
     iface_index: u32,
     wallet: &mut RgbWallet,
     explorer: &mut ExplorerResolver,
+    with_block_height: bool,
 ) {
     let esplora_client: EsploraBlockchain =
         EsploraBlockchain::new(&explorer.explorer_url, 1).with_concurrency(6);
@@ -243,14 +253,41 @@ pub async fn prefetch_resolver_utxo_status(
         for utxo in utxos {
             let txid = bitcoin::Txid::from_str(&utxo.outpoint.txid.to_hex())
                 .expect("invalid outpoint format");
-            if let Some(status) = esplora_client
-                .get_output_status(&txid, utxo.outpoint.vout.into_u32().into())
+
+            let mut block_h = TxStatus::NotFound;
+            if with_block_height {
+                if let Ok(Some(tx_status)) = esplora_client.get_tx_status(&txid).await {
+                    if tx_status.confirmed {
+                        block_h = TxStatus::Block(tx_status.block_height.unwrap_or_default());
+                    } else {
+                        block_h = TxStatus::Mempool;
+                    }
+                }
+            }
+
+            let index = utxo.outpoint.vout.into_u32();
+            if let Some(output_status) = esplora_client
+                .get_output_status(&txid, index.into())
                 .await
                 .expect("service unavaliable")
             {
-                if status.spent {
-                    explorer.utxos_spent.push(utxo.outpoint.to_string());
+                let mut height = TxStatus::NotFound;
+                if let Some(status) = output_status.status {
+                    if status.confirmed {
+                        height = TxStatus::Block(status.block_height.unwrap_or_default());
+                    } else {
+                        height = TxStatus::Mempool;
+                    }
                 }
+
+                let utxo_status = UtxoSpentStatus {
+                    utxo: format!("{txid}:{index}"),
+                    is_spent: output_status.spent,
+                    spent_height: height,
+                    block_height: block_h,
+                };
+
+                explorer.utxos_spent.push(utxo_status);
             }
         }
     }
@@ -263,6 +300,7 @@ pub async fn prefetch_resolver_utxos(
     explorer: &mut ExplorerResolver,
     limit: Option<u32>,
 ) {
+    // use crate::debug;
     use std::collections::HashSet;
     let esplora_client: EsploraBlockchain =
         EsploraBlockchain::new(&explorer.explorer_url, 1).with_concurrency(6);
@@ -272,8 +310,6 @@ pub async fn prefetch_resolver_utxos(
     if let Some(limit) = limit {
         step = limit;
     }
-
-    let mut utxos = bset![];
 
     let scripts = wallet.descr.derive(iface_index, index..step);
     let new_scripts: BTreeMap<DeriveInfo, ScriptBuf> =
@@ -290,6 +326,7 @@ pub async fn prefetch_resolver_utxos(
         .collect::<HashSet<_>>()
         .into_iter();
 
+    let mut new_utxos = bset![];
     for (derive, script) in script_list {
         let mut related_txs = esplora_client
             .scripthash_txs(&script, None)
@@ -333,13 +370,30 @@ pub async fn prefetch_resolver_utxos(
                     amount: vout.value,
                     derivation: derive.clone(),
                 };
-                utxos.insert(new_utxo);
+                new_utxos.insert(new_utxo);
             }
         });
     }
 
-    if !utxos.is_empty() {
-        wallet.utxos.append(&mut utxos);
+    for mut new_utxo in new_utxos {
+        if let Some(current_utxo) = wallet
+            .utxos
+            .clone()
+            .into_iter()
+            .find(|u| u.outpoint == new_utxo.outpoint)
+        {
+            if current_utxo.status == MiningStatus::Mempool {
+                wallet.utxos.remove(&current_utxo.clone());
+                explorer.utxos.insert(current_utxo.clone());
+
+                new_utxo.derivation = current_utxo.derivation;
+                wallet.utxos.insert(new_utxo.clone());
+                explorer.utxos.insert(new_utxo);
+            }
+        } else {
+            wallet.utxos.insert(new_utxo.clone());
+            explorer.utxos.insert(new_utxo);
+        }
     }
 }
 
@@ -377,7 +431,7 @@ pub async fn prefetch_resolver_waddress(
     let script = ScriptBuf::from_hex(&sc.script_pubkey().to_hex()).expect("invalid script");
 
     let mut scripts: BTreeMap<DeriveInfo, ScriptBuf> = BTreeMap::new();
-    let asset_indexes: Vec<u32> = [0, 1, 9, 20, 21].to_vec();
+    let asset_indexes: Vec<u32> = [0, 1, 9, 10, 20, 21].to_vec();
     for app in asset_indexes {
         scripts.append(&mut wallet.descr.derive(app, index..step));
     }
@@ -394,7 +448,7 @@ pub async fn prefetch_resolver_waddress(
             )
         });
 
-        let mut utxos = bset![];
+        let mut new_utxos = bset![];
         for (derive, script) in script_list {
             let txs = match esplora_client.scripthash_txs(&script, none!()).await {
                 Ok(txs) => txs,
@@ -424,13 +478,27 @@ pub async fn prefetch_resolver_waddress(
                         amount: tx.vout[index].value,
                         derivation: derive.clone(),
                     };
-                    utxos.insert(new_utxo);
+                    new_utxos.insert(new_utxo);
                 }
             });
         }
 
-        if !utxos.is_empty() {
-            wallet.utxos.append(&mut utxos);
+        for mut new_utxo in new_utxos {
+            if let Some(current_utxo) = wallet
+                .utxos
+                .clone()
+                .into_iter()
+                .find(|u| u.outpoint == new_utxo.outpoint)
+            {
+                if current_utxo.status == MiningStatus::Mempool {
+                    wallet.utxos.remove(&current_utxo);
+
+                    new_utxo.derivation = current_utxo.derivation;
+                    wallet.utxos.insert(new_utxo);
+                }
+            } else {
+                wallet.utxos.insert(new_utxo);
+            }
         }
     }
 }
@@ -486,6 +554,63 @@ pub async fn prefetch_resolver_tx_height(txid: rgbstd::Txid, explorer: &mut Expl
         explorer.tx_height.insert(txid, status);
     } else {
         explorer.tx_height.insert(txid, WitnessOrd::OffChain);
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+pub async fn prefetch_resolver_allocations(
+    contract_iface: ContractIface,
+    explorer: &mut ExplorerResolver,
+) {
+    let esplora_client: EsploraBlockchain =
+        EsploraBlockchain::new(&explorer.explorer_url, 1).with_concurrency(6);
+
+    let mut contract_utxos = vec![];
+
+    for owned in &contract_iface.iface.assignments {
+        if let Ok(allocations) = contract_iface.fungible(owned.name.clone(), &None) {
+            for allocation in allocations {
+                contract_utxos.push(allocation.owner);
+            }
+        }
+
+        if let Ok(allocations) = contract_iface.data(owned.name.clone()) {
+            for allocation in allocations {
+                contract_utxos.push(allocation.owner);
+            }
+        }
+    }
+
+    if !contract_utxos.is_empty() {
+        for utxo in contract_utxos {
+            let txid =
+                bitcoin::Txid::from_str(&utxo.txid.to_hex()).expect("invalid outpoint format");
+
+            let index = utxo.vout.into_u32();
+            if let Some(output_status) = esplora_client
+                .get_output_status(&txid, index.into())
+                .await
+                .expect("service unavaliable")
+            {
+                let mut height = TxStatus::NotFound;
+                if let Some(status) = output_status.status {
+                    if status.confirmed {
+                        height = TxStatus::Block(status.block_height.unwrap_or_default());
+                    } else {
+                        height = TxStatus::Mempool;
+                    }
+                }
+
+                let utxo_status = UtxoSpentStatus {
+                    utxo: format!("{txid}:{index}"),
+                    is_spent: output_status.spent,
+                    spent_height: height,
+                    block_height: TxStatus::NotFound,
+                };
+
+                explorer.utxos_spent.push(utxo_status);
+            }
+        }
     }
 }
 

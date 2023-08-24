@@ -1,4 +1,6 @@
+use bp::Outpoint;
 use garde::Validate;
+use rgb::MiningStatus;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
 use zeroize::{Zeroize, ZeroizeOnDrop};
@@ -880,11 +882,26 @@ pub struct NextUtxosResponse {
     pub utxos: Vec<UtxoResponse>,
 }
 
-#[derive(Eq, PartialEq, Hash, Serialize, Deserialize, Debug, Clone, Default)]
+#[derive(Eq, PartialEq, Hash, Serialize, Deserialize, Debug, Clone, Default, Display)]
 #[serde(rename_all = "camelCase")]
+#[display("{outpoint}:{amount}")]
 pub struct UtxoResponse {
     pub outpoint: String,
     pub amount: u64,
+    pub status: TxStatus,
+}
+
+impl UtxoResponse {
+    pub fn with(outpoint: Outpoint, amount: u64, status: MiningStatus) -> Self {
+        UtxoResponse {
+            amount,
+            outpoint: outpoint.to_string(),
+            status: match status {
+                MiningStatus::Mempool => TxStatus::Mempool,
+                MiningStatus::Blockchain(h) => TxStatus::Block(h),
+            },
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
@@ -956,9 +973,12 @@ pub struct RgbTransferDetail {
     pub ty: TransferType,
 }
 
-#[derive(Eq, Ord, PartialEq, PartialOrd, Serialize, Deserialize, Debug, Clone, Display)]
+#[derive(
+    Eq, Ord, PartialEq, PartialOrd, Hash, Serialize, Deserialize, Clone, Debug, Display, Default,
+)]
 #[serde(rename_all = "camelCase")]
 pub enum TxStatus {
+    #[default]
     #[display(inner)]
     #[serde(rename = "not_found")]
     NotFound,
@@ -970,7 +990,7 @@ pub enum TxStatus {
     Block(u32),
 }
 
-#[derive(Eq, Ord, PartialEq, PartialOrd, Serialize, Deserialize, Debug, Clone, Display)]
+#[derive(Eq, Ord, PartialEq, PartialOrd, Serialize, Deserialize, Clone, Debug, Display)]
 #[serde(rename_all = "camelCase")]
 pub enum TransferType {
     #[display(inner)]
@@ -1003,4 +1023,13 @@ pub struct BatchRgbTransferItem {
     pub iface: String,
     pub status: TxStatus,
     pub is_accept: bool,
+}
+
+#[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize, Debug, Display)]
+#[display("{utxo}:{is_spent}")]
+pub struct UtxoSpentStatus {
+    pub utxo: String,
+    pub is_spent: bool,
+    pub block_height: TxStatus,
+    pub spent_height: TxStatus,
 }

@@ -95,6 +95,16 @@ pub mod constants {
             Ok(JsValue::UNDEFINED)
         })
     }
+
+    #[wasm_bindgen]
+    pub fn sleep(ms: i32) -> js_sys::Promise {
+        js_sys::Promise::new(&mut |resolve, _| {
+            web_sys::window()
+                .unwrap()
+                .set_timeout_with_callback_and_timeout_and_arguments_0(&resolve, ms)
+                .unwrap();
+        })
+    }
 }
 
 pub mod bitcoin {
@@ -107,6 +117,20 @@ pub mod bitcoin {
         crate::bitcoin::hash_password(&SecretString(password))
             .0
             .to_owned()
+    }
+
+    #[wasm_bindgen]
+    pub fn new_mnemonic(password: String) -> Promise {
+        set_panic_hook();
+
+        future_to_promise(async move {
+            match crate::bitcoin::new_mnemonic(&SecretString(password)).await {
+                Ok(result) => Ok(JsValue::from_string(
+                    serde_json::to_string(&result).unwrap(),
+                )),
+                Err(err) => Err(JsValue::from_string(err.to_string())),
+            }
+        })
     }
 
     #[wasm_bindgen]
