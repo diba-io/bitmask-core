@@ -12,10 +12,9 @@ mod rgb {
     mod integration {
         // TODO: Review after support multi-token transfer
         // mod collectibles;
-        mod collectibles;
-
         mod accept;
-        mod consecutive;
+        mod collectibles;
+        mod crdt;
         mod drain;
         mod dustless;
         mod fungibles;

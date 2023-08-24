@@ -1,6 +1,6 @@
 [package]
 name = "bitmask-core"
-version = "0.6.3-rc.15"
+version = "0.6.3-rc.16"
 authors = [
     "Jose Diego Robles <jose@diba.io>",
     "Hunter Trujillo <hunter@diba.io>",
@@ -87,6 +87,8 @@ tokio = { version = "1.28.2", features = ["macros", "sync"] }
 zeroize = "1.6.0"
 blake3 = "1.4.1"
 base85 = "2.0.0"
+automerge = "0.5.1"
+autosurgeon = "0.8"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 bdk = { version = "0.28.0", features = [
@@ -95,7 +97,7 @@ bdk = { version = "0.28.0", features = [
 ], default-features = false }
 gloo-console = "0.2.3"
 gloo-net = { version = "0.3.1", features = ["http"] }
-gloo-utils = "0.1.7"
+gloo-utils = "0.2.0"
 js-sys = "0.3.63"
 serde-wasm-bindgen = "0.5.0"
 wasm-bindgen = { version = "0.2.86", features = ["serde-serialize"] }

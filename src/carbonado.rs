@@ -6,13 +6,7 @@ use crate::{carbonado::error::CarbonadoError, constants::NETWORK, info, structs:
 pub mod error;
 
 #[cfg(not(target_arch = "wasm32"))]
-pub use server::handle_file;
-#[cfg(not(target_arch = "wasm32"))]
-pub use server::retrieve;
-#[cfg(not(target_arch = "wasm32"))]
-pub use server::retrieve_metadata;
-#[cfg(not(target_arch = "wasm32"))]
-pub use server::store;
+pub use server::{handle_file, retrieve, retrieve_metadata, store};
 
 #[cfg(not(target_arch = "wasm32"))]
 mod server {
@@ -46,33 +40,6 @@ mod server {
         Ok(())
     }
 
-    pub async fn retrieve_metadata(sk: &str, name: &str) -> Result<FileMetadata, CarbonadoError> {
-        let sk = hex::decode(sk)?;
-        let secret_key = SecretKey::from_slice(&sk)?;
-        let public_key = PublicKey::from_secret_key_global(&secret_key);
-        let pk = public_key.to_hex();
-
-        let network = NETWORK.read().await.to_string();
-        let networks = ["bitcoin", "mainnet", "testnet", "signet", "regtest"];
-
-        let mut final_name = name.to_string();
-        if !networks.into_iter().any(|x| name.contains(x)) {
-            final_name = format!("{network}-{name}");
-        }
-
-        let filepath = handle_file(&pk, &final_name, 0).await?;
-        let bytes = fs::read(filepath).await?;
-
-        let (header, _) = carbonado::file::decode(&sk, &bytes)?;
-
-        let result = FileMetadata {
-            filename: header.file_name(),
-            metadata: header.metadata.unwrap_or_default(),
-        };
-
-        Ok(result)
-    }
-
     pub async fn retrieve(
         sk: &str,
         name: &str,
@@ -87,7 +54,7 @@ mod server {
 
         let mut final_name = name.to_string();
         let network = NETWORK.read().await.to_string();
-        let networks = ["bitcoin", "mainnet", "testnet", "signet", "regtest"];
+        let networks = ["bitcoin", "testnet", "signet", "regtest"];
         if !networks.into_iter().any(|x| name.contains(x)) {
             final_name = format!("{network}-{name}");
         }
@@ -122,7 +89,7 @@ mod server {
     ) -> Result<PathBuf, CarbonadoError> {
         let mut final_name = name.to_string();
         let network = NETWORK.read().await.to_string();
-        let networks = ["bitcoin", "mainnet", "testnet", "signet", "regtest"];
+        let networks = ["bitcoin", "testnet", "signet", "regtest"];
         if !networks.into_iter().any(|x| name.contains(x)) {
             final_name = format!("{network}-{name}");
         }
@@ -151,27 +118,49 @@ mod server {
 
         Ok(filepath)
     }
+
+    pub async fn retrieve_metadata(sk: &str, name: &str) -> Result<FileMetadata, CarbonadoError> {
+        let sk = hex::decode(sk)?;
+        let secret_key = SecretKey::from_slice(&sk)?;
+        let public_key = PublicKey::from_secret_key_global(&secret_key);
+        let pk = public_key.to_hex();
+
+        let network = NETWORK.read().await.to_string();
+        let networks = ["bitcoin", "testnet", "signet", "regtest"];
+
+        let mut final_name = name.to_string();
+        if !networks.into_iter().any(|x| name.contains(x)) {
+            final_name = format!("{network}-{name}");
+        }
+
+        let filepath = handle_file(&pk, &final_name, 0).await?;
+        let bytes = fs::read(filepath).await?;
+
+        let (header, _) = carbonado::file::decode(&sk, &bytes)?;
+
+        let result = FileMetadata {
+            filename: header.file_name(),
+            metadata: header.metadata.unwrap_or_default(),
+        };
+
+        Ok(result)
+    }
 }
 
 #[cfg(target_arch = "wasm32")]
-pub use client::retrieve;
-#[cfg(target_arch = "wasm32")]
-pub use client::retrieve_metadata;
-#[cfg(target_arch = "wasm32")]
-pub use client::store;
+pub use client::{retrieve, retrieve_metadata, store};
 
 #[cfg(target_arch = "wasm32")]
 mod client {
     use super::*;
-
+    use js_sys::{Array, Promise, Uint8Array};
+    use serde::Deserialize;
     use std::sync::Arc;
+    use wasm_bindgen::JsValue;
+    use wasm_bindgen_futures::{future_to_promise, JsFuture};
 
     use gloo_net::http::Request;
     use gloo_utils::errors::JsError;
-    use js_sys::{Array, Promise, Uint8Array};
-    use serde::Deserialize;
-    use wasm_bindgen::JsValue;
-    use wasm_bindgen_futures::{future_to_promise, JsFuture};
 
     use crate::constants::CARBONADO_ENDPOINT;
 
@@ -189,102 +178,6 @@ mod client {
     #[derive(Debug, Deserialize)]
     struct PostStorePromiseResult {
         value: f64,
-    }
-
-    // #[derive(Debug, Deserialize)]
-    // struct GetRetrievePromiseResult {
-    //     value: Vec<u8>,
-    // }
-
-    async fn fetch_post(url: String, body: Arc<Vec<u8>>) -> Result<JsValue, JsValue> {
-        let array = Uint8Array::new_with_length(body.len() as u32);
-        array.copy_from(&body);
-
-        let request = Request::post(&url)
-            .header("Content-Type", "application/octet-stream")
-            .header("Cache-Control", "no-cache")
-            .body(array);
-
-        let request = match request {
-            Ok(request) => request,
-            Err(e) => return Err(JsValue::from(e.to_string())),
-        };
-
-        let response = request.send().await;
-
-        match response {
-            Ok(response) => {
-                let status_code = response.status();
-                if status_code == 200 {
-                    Ok(JsValue::from(status_code))
-                } else {
-                    Err(JsValue::from(status_code))
-                }
-            }
-            Err(e) => Err(JsValue::from(e.to_string())),
-        }
-    }
-
-    async fn fetch_get_text(url: String) -> Result<JsValue, JsValue> {
-        let request = Request::get(&url)
-            .header("Content-Type", "application/octet-stream")
-            .header("Cache-Control", "no-cache")
-            .build();
-
-        let request = match request {
-            Ok(request) => request,
-            Err(e) => return Err(JsValue::from(e.to_string())),
-        };
-
-        let response = request.send().await;
-
-        match response {
-            Ok(response) => {
-                let status_code = response.status();
-                if status_code == 200 {
-                    match response.text().await {
-                        Ok(text) => Ok(JsValue::from(&text)),
-                        Err(e) => Err(JsValue::from(e.to_string())),
-                    }
-                } else {
-                    Err(JsValue::from(status_code))
-                }
-            }
-            Err(e) => Err(JsValue::from(e.to_string())),
-        }
-    }
-
-    async fn fetch_get_byte_array(url: String) -> Result<JsValue, JsValue> {
-        let request = Request::get(&url)
-            .header("Content-Type", "application/octet-stream")
-            .header("Cache-Control", "no-cache")
-            .build();
-
-        let request = match request {
-            Ok(request) => request,
-            Err(e) => return Err(JsValue::from(e.to_string())),
-        };
-
-        let response = request.send().await;
-
-        match response {
-            Ok(response) => {
-                let status_code = response.status();
-                if status_code == 200 {
-                    match response.binary().await {
-                        Ok(bytes) => {
-                            let array = Uint8Array::new_with_length(bytes.len() as u32);
-                            array.copy_from(&bytes);
-                            Ok(JsValue::from(&array))
-                        }
-                        Err(e) => Err(JsValue::from(e.to_string())),
-                    }
-                } else {
-                    Err(JsValue::from(status_code))
-                }
-            }
-            Err(e) => Err(JsValue::from(e.to_string())),
-        }
     }
 
     pub async fn store(
@@ -421,6 +314,97 @@ mod client {
         }
 
         Ok((Vec::new(), None))
+    }
+
+    async fn fetch_post(url: String, body: Arc<Vec<u8>>) -> Result<JsValue, JsValue> {
+        let array = Uint8Array::new_with_length(body.len() as u32);
+        array.copy_from(&body);
+
+        let request = Request::post(&url)
+            .header("Content-Type", "application/octet-stream")
+            .header("Cache-Control", "no-cache")
+            .body(array);
+
+        let request = match request {
+            Ok(request) => request,
+            Err(e) => return Err(JsValue::from(e.to_string())),
+        };
+
+        let response = request.send().await;
+
+        match response {
+            Ok(response) => {
+                let status_code = response.status();
+                if status_code == 200 {
+                    Ok(JsValue::from(status_code))
+                } else {
+                    Err(JsValue::from(status_code))
+                }
+            }
+            Err(e) => Err(JsValue::from(e.to_string())),
+        }
+    }
+
+    async fn fetch_get_text(url: String) -> Result<JsValue, JsValue> {
+        let request = Request::get(&url)
+            .header("Content-Type", "application/octet-stream")
+            .header("Cache-Control", "no-cache")
+            .build();
+
+        let request = match request {
+            Ok(request) => request,
+            Err(e) => return Err(JsValue::from(e.to_string())),
+        };
+
+        let response = request.send().await;
+
+        match response {
+            Ok(response) => {
+                let status_code = response.status();
+                if status_code == 200 {
+                    match response.text().await {
+                        Ok(text) => Ok(JsValue::from(&text)),
+                        Err(e) => Err(JsValue::from(e.to_string())),
+                    }
+                } else {
+                    Err(JsValue::from(status_code))
+                }
+            }
+            Err(e) => Err(JsValue::from(e.to_string())),
+        }
+    }
+
+    async fn fetch_get_byte_array(url: String) -> Result<JsValue, JsValue> {
+        let request = Request::get(&url)
+            .header("Content-Type", "application/octet-stream")
+            .header("Cache-Control", "no-cache")
+            .build();
+
+        let request = match request {
+            Ok(request) => request,
+            Err(e) => return Err(JsValue::from(e.to_string())),
+        };
+
+        let response = request.send().await;
+
+        match response {
+            Ok(response) => {
+                let status_code = response.status();
+                if status_code == 200 {
+                    match response.binary().await {
+                        Ok(bytes) => {
+                            let array = Uint8Array::new_with_length(bytes.len() as u32);
+                            array.copy_from(&bytes);
+                            Ok(JsValue::from(&array))
+                        }
+                        Err(e) => Err(JsValue::from(e.to_string())),
+                    }
+                } else {
+                    Err(JsValue::from(status_code))
+                }
+            }
+            Err(e) => Err(JsValue::from(e.to_string())),
+        }
     }
 }
 

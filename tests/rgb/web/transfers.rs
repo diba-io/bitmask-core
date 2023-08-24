@@ -8,6 +8,7 @@ use std::{assert_eq, str::FromStr, vec};
 use crate::rgb::web::utils::{new_block, send_coins};
 use bdk::blockchain::EsploraBlockchain;
 use bitcoin::{consensus, Transaction};
+use bitmask_core::web::constants::sleep;
 use bitmask_core::{
     debug, info,
     rgb::{prefetch::prefetch_resolver_txs, resolvers::ExplorerResolver},
@@ -22,6 +23,7 @@ use bitmask_core::{
     web::{
         bitcoin::{
             decrypt_wallet, encrypt_wallet, get_assets_vault, get_wallet_data, hash_password,
+            new_mnemonic,
         },
         json_parse, resolve,
         rgb::{
@@ -43,39 +45,59 @@ wasm_bindgen_test_configure!(run_in_browser);
 const ENCRYPTION_PASSWORD: &str = "hunter2";
 const SEED_PASSWORD: &str = "";
 
+pub struct TransferRounds {
+    pub send_amount: u64,
+    pub is_issuer_sender: bool,
+}
+
+impl TransferRounds {
+    pub fn with(send_amount: u64, is_issuer_sender: bool) -> Self {
+        TransferRounds {
+            send_amount,
+            is_issuer_sender,
+        }
+    }
+}
+
 #[wasm_bindgen_test]
+#[allow(unused_assignments)]
 async fn create_contract_and_transfer() {
     set_panic_hook();
-    let issuer_mnemonic =
-        "try engine hurt mushroom adapt club boring diagram barely rail cable vicious tower boss hurt";
-    let owner_mnemonic =
-        "rally ready surround evil grace autumn merry lunch husband infant forum wet possible thought drink";
-    let hash = hash_password(ENCRYPTION_PASSWORD.to_owned());
+    // let issuer_mnemonic =
+    //     "try engine hurt mushroom adapt club boring diagram barely rail cable vicious tower boss hurt";
+    // let owner_mnemonic =
+    //     "rally ready surround evil grace autumn merry lunch husband infant forum wet possible thought drink";
+    // let hash = hash_password(ENCRYPTION_PASSWORD.to_owned());
 
-    info!("Import wallet");
-    let issuer_mnemonic = resolve(encrypt_wallet(
-        issuer_mnemonic.to_owned(),
-        hash.clone(),
-        SEED_PASSWORD.to_owned(),
-    ))
-    .await;
-    let issuer_mnemonic: SecretString = json_parse(&issuer_mnemonic);
+    // info!("Import wallet");
+    // let issuer_mnemonic = resolve(encrypt_wallet(
+    //     issuer_mnemonic.to_owned(),
+    //     hash.clone(),
+    //     SEED_PASSWORD.to_owned(),
+    // ))
+    // .await;
+    // let issuer_mnemonic: SecretString = json_parse(&issuer_mnemonic);
 
-    let owner_mnemonic = resolve(encrypt_wallet(
-        owner_mnemonic.to_owned(),
-        hash.clone(),
-        SEED_PASSWORD.to_owned(),
-    ))
-    .await;
-    let owner_mnemonic: SecretString = json_parse(&owner_mnemonic);
+    // let owner_mnemonic = resolve(encrypt_wallet(
+    //     owner_mnemonic.to_owned(),
+    //     hash.clone(),
+    //     SEED_PASSWORD.to_owned(),
+    // ))
+    // .await;
+    // let owner_mnemonic: SecretString = json_parse(&owner_mnemonic);
 
-    info!("Get Issuer Vault");
-    let issuer_vault: JsValue =
-        resolve(decrypt_wallet(hash.clone(), issuer_mnemonic.to_string())).await;
+    // info!("Get Issuer Vault");
+    // let issuer_vault: JsValue =
+    //     resolve(decrypt_wallet(hash.clone(), issuer_mnemonic.to_string())).await;
+    // let issuer_vault: DecryptedWalletData = json_parse(&issuer_vault);
+
+    // info!("Get Owner Vault");
+    // let owner_vault: JsValue = resolve(decrypt_wallet(hash, owner_mnemonic.to_string())).await;
+    // let owner_vault: DecryptedWalletData = json_parse(&owner_vault);
+
+    let issuer_vault = resolve(new_mnemonic("".to_string())).await;
     let issuer_vault: DecryptedWalletData = json_parse(&issuer_vault);
-
-    info!("Get Owner Vault");
-    let owner_vault: JsValue = resolve(decrypt_wallet(hash, owner_mnemonic.to_string())).await;
+    let owner_vault = resolve(new_mnemonic("".to_string())).await;
     let owner_vault: DecryptedWalletData = json_parse(&owner_vault);
 
     info!("Create Issuer Watcher");
@@ -138,16 +160,6 @@ async fn create_contract_and_transfer() {
     let resp = send_coins(&owner_next_address.address, "1").await;
     debug!(format!("Owner Receive Bitcoin {:?}", resp));
 
-    info!("Get UTXO (Issuer)");
-    let next_utxo: JsValue = resolve(watcher_next_utxo(
-        issuer_sk.clone(),
-        watcher_name.to_string(),
-        iface.to_string(),
-    ))
-    .await;
-    let issuer_next_utxo: NextUtxoResponse = json_parse(&next_utxo);
-    debug!(format!("UTXO (Issuer): {:?}", issuer_next_utxo.utxo));
-
     info!("Get UTXO (Owner)");
     let next_utxo: JsValue = resolve(watcher_next_utxo(
         owner_sk.clone(),
@@ -156,7 +168,15 @@ async fn create_contract_and_transfer() {
     ))
     .await;
     let owner_next_utxo: NextUtxoResponse = json_parse(&next_utxo);
-    debug!(format!("UTXO (Owner): {:?}", owner_next_utxo.utxo));
+
+    info!("Get UTXO (Issuer)");
+    let next_utxo: JsValue = resolve(watcher_next_utxo(
+        issuer_sk.clone(),
+        watcher_name.to_string(),
+        iface.to_string(),
+    ))
+    .await;
+    let issuer_next_utxo: NextUtxoResponse = json_parse(&next_utxo);
 
     assert!(issuer_next_utxo.utxo.is_some());
     assert!(owner_next_utxo.utxo.is_some());
@@ -180,283 +200,194 @@ async fn create_contract_and_transfer() {
     let issue_resp: JsValue = resolve(issue_contract(issuer_sk.to_string(), issue_req)).await;
     let issuer_resp: IssueResponse = json_parse(&issue_resp);
 
-    info!("::: SEND INVOICE FIRST TIME :::");
-    info!("Create Invoice (Owner)");
-    let params = HashMap::new();
-    let owner_utxo = owner_next_utxo.utxo.unwrap().outpoint.to_string();
-    let owner_seal = format!("tapret1st:{owner_utxo}");
-    let invoice_req = InvoiceRequest {
-        contract_id: issuer_resp.contract_id.to_string(),
-        iface: issuer_resp.iface.to_string(),
-        amount: 2000,
-        seal: owner_seal,
-        params,
-    };
-    let invoice_req = serde_wasm_bindgen::to_value(&invoice_req).expect("");
-    let invoice_resp: JsValue =
-        resolve(rgb_create_invoice(owner_sk.to_string(), invoice_req)).await;
-    let invoice_resp: InvoiceResponse = json_parse(&invoice_resp);
+    let mut total_issuer = supply;
+    let mut total_owner = 0;
+    let rounds = vec![
+        TransferRounds::with(20, true),
+        TransferRounds::with(20, false),
+        // TransferRounds::with(3_000, true),
+        // TransferRounds::with(5_000, true),
+        // TransferRounds::with(20, true),
+        // TransferRounds::with(8_000, false),
+        // TransferRounds::with(9_000, true),
+        // TransferRounds::with(9_000, false),
+        // TransferRounds::with(9_000, true),
+        // TransferRounds::with(20, false),
+        // TransferRounds::with(50_000, true),
+    ];
 
-    info!("Create Payment (Issuer)");
-    debug!(format!(
-        "Invoice (Issuer): {}",
-        invoice_resp.invoice.to_string()
-    ));
+    let mut sender = String::new();
+    let mut sender_sk = String::new();
+    let mut sender_desc = String::new();
+    let mut sender_keys = vec![];
 
-    let issuer_desc = issuer_vault.public.rgb_assets_descriptor_xpub.to_string();
-    let full_transfer_req = FullRgbTransferRequest {
-        contract_id: issuer_resp.contract_id.to_string(),
-        iface: issuer_resp.iface.to_string(),
-        rgb_invoice: invoice_resp.invoice.to_string(),
-        descriptor: SecretString(issuer_desc.to_string()),
-        change_terminal: "/20/1".to_string(),
-        fee: PsbtFeeRequest::Value(1000),
-        bitcoin_changes: vec![],
-    };
+    let mut receiver = String::new();
+    let mut receiver_sk = String::new();
+    for (index, round) in rounds.into_iter().enumerate() {
+        if round.is_issuer_sender {
+            sender = "ISSUER".to_string();
+            sender_sk = issuer_sk.to_string();
+            sender_desc = issuer_vault.public.rgb_assets_descriptor_xpub.to_string();
+            sender_keys = vec![
+                SecretString(issuer_vault.private.rgb_assets_descriptor_xprv.clone()),
+                SecretString(issuer_vault.private.btc_descriptor_xprv.clone()),
+                SecretString(issuer_vault.private.btc_change_descriptor_xprv.clone()),
+            ];
 
-    let full_transfer_req = serde_wasm_bindgen::to_value(&full_transfer_req).expect("");
-    let full_transfer_resp: JsValue = resolve(full_transfer_asset(
-        issuer_sk.to_string(),
-        full_transfer_req,
-    ))
-    .await;
-    let full_transfer_resp: RgbTransferResponse = json_parse(&full_transfer_resp);
-    debug!(format!(
-        "Payment (Issuer): {:?}",
-        full_transfer_resp.consig_id
-    ));
+            receiver = "OWNER".to_string();
+            receiver_sk = owner_sk.to_string();
+        } else {
+            sender = "OWNER".to_string();
+            sender_sk = owner_sk.to_string();
+            sender_desc = owner_vault.public.rgb_assets_descriptor_xpub.to_string();
+            sender_keys = vec![
+                SecretString(owner_vault.private.rgb_assets_descriptor_xprv.clone()),
+                SecretString(owner_vault.private.btc_descriptor_xprv.clone()),
+                SecretString(owner_vault.private.btc_change_descriptor_xprv.clone()),
+            ];
 
-    info!("Sign PSBT (Issuer)");
-    let psbt_req = SignPsbtRequest {
-        psbt: full_transfer_resp.psbt,
-        descriptors: vec![
-            SecretString(issuer_vault.private.rgb_assets_descriptor_xprv.clone()),
-            SecretString(issuer_vault.private.btc_descriptor_xprv.clone()),
-            SecretString(issuer_vault.private.btc_change_descriptor_xprv.clone()),
-        ],
-    };
+            receiver = "ISSUER".to_string();
+            receiver_sk = issuer_sk.to_string();
+        }
 
-    let psbt_req = serde_wasm_bindgen::to_value(&psbt_req).expect("");
-    let psbt_resp: JsValue = resolve(psbt_sign_file(issuer_sk.to_string(), psbt_req)).await;
-    let psbt_resp: SignPsbtResponse = json_parse(&psbt_resp);
-    debug!(format!("Sign Psbt: {:?}", psbt_resp));
+        info!(format!(
+            ">>>> ROUND #{index} {sender} SEND {} units to {receiver} <<<<",
+            round.send_amount
+        ));
+        info!(format!("Get Receiver Next UTXO ({receiver})"));
+        let next_utxo: JsValue = resolve(watcher_next_utxo(
+            receiver_sk.clone(),
+            watcher_name.to_string(),
+            iface.to_string(),
+        ))
+        .await;
+        let receiver_next_utxo: NextUtxoResponse = json_parse(&next_utxo);
+        debug!(format!("UTXO ({receiver}): {:?}", receiver_next_utxo.utxo));
 
-    info!("Create new Block");
-    let resp = new_block().await;
-    debug!(format!("Block Created: {:?}", resp));
+        info!(format!("Create Invoice ({receiver})"));
+        let params = HashMap::new();
+        let receiver_utxo = receiver_next_utxo.utxo.unwrap().outpoint.to_string();
+        let receiver_seal = format!("tapret1st:{receiver_utxo}");
+        let invoice_req = InvoiceRequest {
+            contract_id: issuer_resp.contract_id.to_string(),
+            iface: issuer_resp.iface.to_string(),
+            amount: round.send_amount,
+            seal: receiver_seal,
+            params,
+        };
 
-    info!("Save Consig (Owner)");
-    let all_sks = [owner_sk.clone()];
-    for sk in all_sks {
+        let invoice_req = serde_wasm_bindgen::to_value(&invoice_req).expect("");
+        let invoice_resp: JsValue =
+            resolve(rgb_create_invoice(receiver_sk.to_string(), invoice_req)).await;
+        let invoice_resp: InvoiceResponse = json_parse(&invoice_resp);
+        debug!(format!(
+            "Invoice ({receiver}): {}",
+            invoice_resp.invoice.to_string()
+        ));
+
+        info!(format!("Create Payment ({sender})"));
+        let full_transfer_req = FullRgbTransferRequest {
+            contract_id: issuer_resp.contract_id.to_string(),
+            iface: issuer_resp.iface.to_string(),
+            rgb_invoice: invoice_resp.invoice.to_string(),
+            descriptor: SecretString(sender_desc.to_string()),
+            change_terminal: "/20/1".to_string(),
+            fee: PsbtFeeRequest::Value(1000),
+            bitcoin_changes: vec![],
+        };
+
+        let full_transfer_req = serde_wasm_bindgen::to_value(&full_transfer_req).expect("");
+        let full_transfer_resp: JsValue = resolve(full_transfer_asset(
+            sender_sk.to_string(),
+            full_transfer_req,
+        ))
+        .await;
+        let full_transfer_resp: RgbTransferResponse = json_parse(&full_transfer_resp);
+        debug!(format!(
+            "Payment ({sender}): {:?}",
+            full_transfer_resp.consig_id
+        ));
+
+        info!(format!("Sign PSBT ({sender})"));
+        let psbt_req = SignPsbtRequest {
+            psbt: full_transfer_resp.psbt,
+            descriptors: sender_keys,
+        };
+
+        let psbt_req = serde_wasm_bindgen::to_value(&psbt_req).expect("");
+        let psbt_resp: JsValue = resolve(psbt_sign_file(sender_sk.to_string(), psbt_req)).await;
+        let psbt_resp: SignPsbtResponse = json_parse(&psbt_resp);
+        debug!(format!("Sign Psbt: {:?}", psbt_resp));
+
+        info!("Create new Block");
+        let resp = new_block().await;
+        debug!(format!("Block Created: {:?}", resp));
+
+        info!(format!("Save Consig ({receiver})"));
         let save_transfer_req = RgbSaveTransferRequest {
             iface: issuer_resp.iface.clone(),
             contract_id: issuer_resp.contract_id.clone(),
             consignment: full_transfer_resp.consig.clone(),
         };
         let save_transfer_req = serde_wasm_bindgen::to_value(&save_transfer_req).expect("");
-        let save_transfer_resp = resolve(save_transfer(sk.to_string(), save_transfer_req)).await;
+        let save_transfer_resp =
+            resolve(save_transfer(receiver_sk.to_string(), save_transfer_req)).await;
         let save_transfer_resp: RgbTransferStatusResponse = json_parse(&save_transfer_resp);
         debug!(format!("Save Consig: {:?}", save_transfer_resp));
-    }
 
-    info!("Verify Consig (Both)");
-    let all_sks = [owner_sk.clone(), issuer_sk.clone()];
-    for sk in all_sks {
-        let verify_transfer_resp = resolve(verify_transfers(sk.to_string())).await;
+        info!("Verify Consig (Both)");
+        let verify_transfer_resp = resolve(verify_transfers(sender_sk.to_string())).await;
         let verify_transfer_resp: BatchRgbTransferResponse = json_parse(&verify_transfer_resp);
-        debug!(format!("Verify Consig: {:?}", verify_transfer_resp));
-    }
+        debug!(format!(
+            "Verify Consig ({sender}): {:?}",
+            verify_transfer_resp
+        ));
 
-    info!("::: SEND INVOICE SECOND TIME :::");
-    info!("Create Invoice (Owner)");
-    let params = HashMap::new();
-    let owner_seal = format!("tapret1st:{owner_utxo}");
-    let invoice_req = InvoiceRequest {
-        contract_id: issuer_resp.contract_id.to_string(),
-        iface: issuer_resp.iface.to_string(),
-        amount: 3000,
-        seal: owner_seal,
-        params,
-    };
-    let invoice_req = serde_wasm_bindgen::to_value(&invoice_req).expect("");
-    let invoice_resp: JsValue =
-        resolve(rgb_create_invoice(owner_sk.to_string(), invoice_req)).await;
-    let invoice_resp: InvoiceResponse = json_parse(&invoice_resp);
+        let verify_transfer_resp = resolve(verify_transfers(receiver_sk.to_string())).await;
+        let verify_transfer_resp: BatchRgbTransferResponse = json_parse(&verify_transfer_resp);
+        debug!(format!(
+            "Verify Consig ({receiver}): {:?}",
+            verify_transfer_resp
+        ));
 
-    info!("Create Payment (Issuer)");
-    let issuer_desc = issuer_vault.public.rgb_assets_descriptor_xpub.to_string();
-    let full_transfer_req = FullRgbTransferRequest {
-        contract_id: issuer_resp.contract_id.to_string(),
-        iface: issuer_resp.iface.to_string(),
-        rgb_invoice: invoice_resp.invoice.to_string(),
-        descriptor: SecretString(issuer_desc.to_string()),
-        change_terminal: "/20/1".to_string(),
-        fee: PsbtFeeRequest::Value(1000),
-        bitcoin_changes: vec![],
-    };
-
-    let full_transfer_req = serde_wasm_bindgen::to_value(&full_transfer_req).expect("");
-    let full_transfer_resp: JsValue = resolve(full_transfer_asset(
-        issuer_sk.to_string(),
-        full_transfer_req,
-    ))
-    .await;
-    let full_transfer_resp: RgbTransferResponse = json_parse(&full_transfer_resp);
-    debug!(format!(
-        "Payment (Issuer): {:?}",
-        full_transfer_resp.consig_id
-    ));
-
-    info!("Sign PSBT (Issuer)");
-    let psbt_req = SignPsbtRequest {
-        psbt: full_transfer_resp.psbt,
-        descriptors: vec![
-            SecretString(issuer_vault.private.rgb_assets_descriptor_xprv.clone()),
-            SecretString(issuer_vault.private.btc_descriptor_xprv.clone()),
-            SecretString(issuer_vault.private.btc_change_descriptor_xprv.clone()),
-        ],
-    };
-
-    let psbt_req = serde_wasm_bindgen::to_value(&psbt_req).expect("");
-    let psbt_resp: JsValue = resolve(psbt_sign_file(issuer_sk.to_string(), psbt_req)).await;
-    let psbt_resp: SignPsbtResponse = json_parse(&psbt_resp);
-    debug!(format!("Sign Psbt: {:?}", psbt_resp));
-
-    info!("Create new Block");
-    let resp = new_block().await;
-    debug!(format!("Block Created: {:?}", resp));
-
-    info!("Save Consig (Owner)");
-    let all_sks = [owner_sk.clone()];
-    for sk in all_sks {
-        let save_transfer_req = RgbSaveTransferRequest {
-            iface: issuer_resp.iface.clone(),
-            contract_id: issuer_resp.contract_id.clone(),
-            consignment: full_transfer_resp.consig.clone(),
+        let (sender_balance, receiver_balance) = if round.is_issuer_sender {
+            total_issuer -= round.send_amount;
+            total_owner += round.send_amount;
+            (total_issuer, total_owner)
+        } else {
+            total_issuer += round.send_amount;
+            total_owner -= round.send_amount;
+            (total_owner, total_issuer)
         };
-        let save_transfer_req = serde_wasm_bindgen::to_value(&save_transfer_req).expect("");
-        let save_transfer_resp = resolve(save_transfer(sk.to_string(), save_transfer_req)).await;
-        let save_transfer_resp: RgbTransferStatusResponse = json_parse(&save_transfer_resp);
-        debug!(format!("Save Consig: {:?}", save_transfer_resp));
+
+        info!(format!("Get Contract Balancer ({sender})"));
+        let contract_resp = resolve(get_contract(
+            sender_sk.to_string(),
+            issuer_resp.contract_id.clone(),
+        ))
+        .await;
+        let contract_resp: ContractResponse = json_parse(&contract_resp);
+        debug!(format!(
+            "Contract ({sender}): {} ({})\n {:#?}",
+            contract_resp.contract_id, contract_resp.balance, contract_resp.allocations
+        ));
+        let sender_current_balance = contract_resp.balance;
+
+        info!(format!("Get Contract Balancer ({receiver})"));
+        let contract_resp = resolve(get_contract(
+            receiver_sk.to_string(),
+            issuer_resp.contract_id.clone(),
+        ))
+        .await;
+        let contract_resp: ContractResponse = json_parse(&contract_resp);
+        debug!(format!(
+            "Contract ({receiver}): {} ({})\n {:#?}",
+            contract_resp.contract_id, contract_resp.balance, contract_resp.allocations
+        ));
+        let receiver_current_balance = contract_resp.balance;
+
+        info!(format!("<<<< ROUND #{index} Finish >>>>"));
+        assert_eq!(sender_current_balance, sender_balance);
+        assert_eq!(receiver_current_balance, receiver_balance);
     }
-
-    info!("Verify Consig (Both)");
-    let all_sks = [owner_sk.clone(), issuer_sk.clone()];
-    for sk in all_sks {
-        let verify_transfer_resp = resolve(verify_transfers(sk.to_string())).await;
-        let verify_transfer_resp: BatchRgbTransferResponse = json_parse(&verify_transfer_resp);
-        debug!(format!("Verify Consig: {:?}", verify_transfer_resp));
-    }
-
-    info!("::: SEND INVOICE TO ISSUER :::");
-    info!("Get UTXO (Issuer)");
-    let next_utxo: JsValue = resolve(watcher_next_utxo(
-        issuer_sk.clone(),
-        watcher_name.to_string(),
-        iface.to_string(),
-    ))
-    .await;
-    let issuer_next_utxo: NextUtxoResponse = json_parse(&next_utxo);
-    debug!(format!("UTXO (Issuer): {:?}", issuer_next_utxo.utxo));
-
-    info!("Create Invoice (Issuer)");
-    let params = HashMap::new();
-    let issuer_seal = issuer_next_utxo.utxo.unwrap().outpoint.to_string();
-    let issuer_seal = format!("tapret1st:{issuer_seal}");
-    let invoice_req = InvoiceRequest {
-        contract_id: issuer_resp.contract_id.to_string(),
-        iface: issuer_resp.iface.to_string(),
-        amount: 4000,
-        seal: issuer_seal,
-        params,
-    };
-    let invoice_req = serde_wasm_bindgen::to_value(&invoice_req).expect("");
-    let invoice_resp: JsValue =
-        resolve(rgb_create_invoice(issuer_sk.to_string(), invoice_req)).await;
-    let invoice_resp: InvoiceResponse = json_parse(&invoice_resp);
-
-    info!("Create Payment (owner)");
-    let owner_desc = owner_vault.public.rgb_assets_descriptor_xpub.to_string();
-    let full_transfer_req = FullRgbTransferRequest {
-        contract_id: issuer_resp.contract_id.to_string(),
-        iface: issuer_resp.iface.to_string(),
-        rgb_invoice: invoice_resp.invoice.to_string(),
-        descriptor: SecretString(owner_desc.to_string()),
-        change_terminal: "/20/1".to_string(),
-        fee: PsbtFeeRequest::Value(1000),
-        bitcoin_changes: vec![],
-    };
-
-    let full_transfer_req = serde_wasm_bindgen::to_value(&full_transfer_req).expect("");
-    let full_transfer_resp: JsValue =
-        resolve(full_transfer_asset(owner_sk.to_string(), full_transfer_req)).await;
-    let full_transfer_resp: RgbTransferResponse = json_parse(&full_transfer_resp);
-    debug!(format!(
-        "Payment (Issuer): {:?}",
-        full_transfer_resp.consig_id
-    ));
-
-    info!("Sign PSBT (Issuer)");
-    let psbt_req = SignPsbtRequest {
-        psbt: full_transfer_resp.psbt,
-        descriptors: vec![
-            SecretString(owner_vault.private.rgb_assets_descriptor_xprv.clone()),
-            SecretString(owner_vault.private.btc_descriptor_xprv.clone()),
-            SecretString(owner_vault.private.btc_change_descriptor_xprv.clone()),
-        ],
-    };
-
-    let psbt_req = serde_wasm_bindgen::to_value(&psbt_req).expect("");
-    let psbt_resp: JsValue = resolve(psbt_sign_file(owner_sk.to_string(), psbt_req)).await;
-    let psbt_resp: SignPsbtResponse = json_parse(&psbt_resp);
-    debug!(format!("Sign Psbt: {:?}", psbt_resp));
-
-    info!("Create new Block");
-    let resp = new_block().await;
-    debug!(format!("Block Created: {:?}", resp));
-
-    info!("Save Consig (Issuer)");
-    let all_sks = [issuer_sk.clone()];
-    for sk in all_sks {
-        let save_transfer_req = RgbSaveTransferRequest {
-            iface: issuer_resp.iface.clone(),
-            contract_id: issuer_resp.contract_id.clone(),
-            consignment: full_transfer_resp.consig.clone(),
-        };
-        let save_transfer_req = serde_wasm_bindgen::to_value(&save_transfer_req).expect("");
-        let save_transfer_resp = resolve(save_transfer(sk.to_string(), save_transfer_req)).await;
-        let save_transfer_resp: RgbTransferStatusResponse = json_parse(&save_transfer_resp);
-        debug!(format!("Save Consig: {:?}", save_transfer_resp));
-    }
-
-    info!("Verify Consig (Both)");
-    let all_sks = [owner_sk.clone(), issuer_sk.clone()];
-    for sk in all_sks {
-        let verify_transfer_resp = resolve(verify_transfers(sk.to_string())).await;
-        let verify_transfer_resp: BatchRgbTransferResponse = json_parse(&verify_transfer_resp);
-        debug!(format!("Verify Consig: {:?}", verify_transfer_resp));
-    }
-
-    info!("Get Contract (Issuer)");
-    let contract_resp: JsValue = resolve(get_contract(
-        issuer_sk.to_string(),
-        issuer_resp.contract_id.clone(),
-    ))
-    .await;
-    let contract_resp: ContractResponse = json_parse(&contract_resp);
-    debug!(format!(
-        "Contract {}({})\n {:#?}",
-        contract_resp.contract_id, contract_resp.balance, contract_resp.allocations
-    ));
-    info!("Get Contract (Owner)");
-    let contract_resp: JsValue = resolve(get_contract(
-        owner_sk.to_string(),
-        issuer_resp.contract_id.clone(),
-    ))
-    .await;
-    let contract_resp: ContractResponse = json_parse(&contract_resp);
-    debug!(format!(
-        "Contract {}({})\n {:#?}",
-        contract_resp.contract_id, contract_resp.balance, contract_resp.allocations
-    ));
 }
