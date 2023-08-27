@@ -243,6 +243,7 @@ pub mod bitcoin {
         })
     }
 
+    #[wasm_bindgen]
     pub fn get_new_address(descriptor: String, change_descriptor: Option<String>) -> Promise {
         set_panic_hook();
         future_to_promise(async move {
