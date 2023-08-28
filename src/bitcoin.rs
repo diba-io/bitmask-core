@@ -5,6 +5,7 @@ use ::psbt::Psbt;
 use argon2::Argon2;
 use bdk::{wallet::AddressIndex, FeeRate, LocalUtxo, SignOptions, TransactionDetails};
 use bitcoin::psbt::PartiallySignedTransaction;
+use rand::{rngs::StdRng, Rng, SeedableRng};
 use serde_encrypt::{
     serialize::impls::BincodeSerializer, shared_key::SharedKey, traits::SerdeEncryptSharedKey,
     AsSharedKey, EncryptedMessage,
@@ -353,34 +354,45 @@ pub async fn send_sats(
 pub async fn fund_vault(
     btc_descriptor_xprv: &SecretString,
     btc_change_descriptor_xprv: &SecretString,
-    assets_address: &str,
-    uda_address: &str,
-    asset_amount: u64,
-    uda_amount: u64,
+    assets_address_1: &str,
+    assets_address_2: &str,
+    uda_address_1: &str,
+    uda_address_2: &str,
     fee_rate: Option<f32>,
 ) -> Result<FundVaultDetails, BitcoinError> {
-    let assets_address = Address::from_str(assets_address)?;
-    let uda_address = Address::from_str(uda_address)?;
+    let assets_address_1 = Address::from_str(assets_address_1)?;
+    let assets_address_2 = Address::from_str(assets_address_2)?;
+    let uda_address_1 = Address::from_str(uda_address_1)?;
+    let uda_address_2 = Address::from_str(uda_address_2)?;
+
+    let mut rng = StdRng::from_entropy();
+
+    let asset_invoice_1 = SatsInvoice {
+        address: assets_address_1,
+        amount: rng.gen_range(600..1500),
+    };
+    let asset_invoice_2 = SatsInvoice {
+        address: assets_address_2,
+        amount: rng.gen_range(600..1500),
+    };
+    let uda_invoice_1 = SatsInvoice {
+        address: uda_address_1,
+        amount: rng.gen_range(600..1500),
+    };
+    let uda_invoice_2 = SatsInvoice {
+        address: uda_address_2,
+        amount: rng.gen_range(600..1500),
+    };
 
     let wallet = get_wallet(btc_descriptor_xprv, Some(btc_change_descriptor_xprv)).await?;
-
-    let asset_invoice = SatsInvoice {
-        address: assets_address,
-        amount: asset_amount,
-    };
-    let uda_invoice = SatsInvoice {
-        address: uda_address,
-        amount: uda_amount,
-    };
-
     let fee_rate = fee_rate.map(FeeRate::from_sat_per_vb);
 
     let asset_tx_details = create_transaction(
         vec![
-            asset_invoice.clone(),
-            asset_invoice,
-            uda_invoice.clone(),
-            uda_invoice,
+            asset_invoice_1,
+            asset_invoice_2,
+            uda_invoice_1,
+            uda_invoice_2,
         ],
         &wallet,
         fee_rate,

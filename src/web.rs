@@ -244,6 +244,25 @@ pub mod bitcoin {
     }
 
     #[wasm_bindgen]
+    pub fn get_new_address(descriptor: String, change_descriptor: Option<String>) -> Promise {
+        set_panic_hook();
+        future_to_promise(async move {
+            let change_descriptor = change_descriptor.map(SecretString);
+            match crate::bitcoin::get_new_address(
+                &SecretString(descriptor),
+                change_descriptor.as_ref(),
+            )
+            .await
+            {
+                Ok(result) => Ok(JsValue::from_string(
+                    serde_json::to_string(&result).unwrap(),
+                )),
+                Err(err) => Err(JsValue::from_string(err.to_string())),
+            }
+        })
+    }
+
+    #[wasm_bindgen]
     pub fn send_sats(
         descriptor: String,
         change_descriptor: String,
@@ -303,10 +322,10 @@ pub mod bitcoin {
     pub fn fund_vault(
         descriptor: String,
         change_descriptor: String,
-        address: String,
-        uda_address: String,
-        asset_amount: u64,
-        uda_amount: u64,
+        asset_address_1: String,
+        asset_address_2: String,
+        uda_address_1: String,
+        uda_address_2: String,
         fee_rate: Option<f32>,
     ) -> Promise {
         set_panic_hook();
@@ -315,10 +334,10 @@ pub mod bitcoin {
             match crate::bitcoin::fund_vault(
                 &SecretString(descriptor),
                 &SecretString(change_descriptor),
-                &address,
-                &uda_address,
-                asset_amount,
-                uda_amount,
+                &asset_address_1,
+                &asset_address_2,
+                &uda_address_1,
+                &uda_address_2,
                 fee_rate,
             )
             .await
