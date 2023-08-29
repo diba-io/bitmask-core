@@ -29,6 +29,7 @@ async fn allow_create_invoice() -> anyhow::Result<()> {
         iface,
         amount,
         seal,
+        "regtest",
         params,
         &mut stock,
     );

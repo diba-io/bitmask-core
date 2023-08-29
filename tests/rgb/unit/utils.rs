@@ -135,8 +135,16 @@ pub fn create_fake_invoice(contract_id: ContractId, seal: &str, stock: &mut Stoc
     let amount = 1;
     let iface = "RGB20";
     let params = HashMap::new();
-    create_invoice(&contract_id.to_string(), iface, amount, seal, params, stock)
-        .expect("create_invoice failed")
+    create_invoice(
+        &contract_id.to_string(),
+        iface,
+        amount,
+        seal,
+        "regtest",
+        params,
+        stock,
+    )
+    .expect("create_invoice failed")
 }
 
 #[allow(dead_code)]

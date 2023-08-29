@@ -10,7 +10,8 @@ pub use bitcoin::{util::address::Address, Txid};
 use rgbstd::interface::rgb21::Allocation as AllocationUDA;
 
 use crate::validators::{
-    has_media_types, is_descriptor, is_tapret_seal, is_terminal_path, RGBContext,
+    verify_descriptor, verify_media_types, verify_rgb_invoice, verify_tapret_seal,
+    verify_terminal_path, RGBContext,
 };
 
 #[derive(Serialize, Deserialize)]
@@ -129,13 +130,13 @@ pub struct IssueRequest {
     pub precision: u8,
     /// Seal of the initial owner
     #[garde(ascii)]
-    #[garde(custom(is_tapret_seal))]
+    #[garde(custom(verify_tapret_seal))]
     pub seal: String,
     /// The name of the iface (ex: RGB20)
     #[garde(alphanumeric)]
     pub iface: String,
     /// contract metadata (only RGB21/UDA)
-    #[garde(custom(has_media_types))]
+    #[garde(custom(verify_media_types))]
     pub meta: Option<IssueMetaRequest>,
 }
 
@@ -157,7 +158,7 @@ pub struct SelfIssueRequest {
     #[garde(length(min = 0, max = u8::MAX))]
     pub description: String,
     /// contract metadata (only RGB21/UDA)
-    #[garde(custom(has_media_types))]
+    #[garde(custom(verify_media_types))]
     pub meta: Option<IssueMetaRequest>,
 }
 
@@ -447,7 +448,7 @@ pub struct InvoiceRequest {
     pub amount: u64,
     /// Blinded UTXO
     #[garde(ascii)]
-    #[garde(custom(is_tapret_seal))]
+    #[garde(custom(verify_tapret_seal))]
     pub seal: String,
     /// Query parameters
     #[garde(skip)]
@@ -508,13 +509,13 @@ pub struct PsbtRequest {
 #[garde(context(RGBContext))]
 pub struct PsbtInputRequest {
     /// Asset or Bitcoin Descriptor
-    #[garde(custom(is_descriptor))]
+    #[garde(custom(verify_descriptor))]
     pub descriptor: SecretString,
     /// Asset or Bitcoin UTXO
     #[garde(ascii)]
     pub utxo: String,
     /// Asset or Bitcoin UTXO Terminal (ex. /0/0)
-    #[garde(custom(is_terminal_path))]
+    #[garde(custom(verify_terminal_path))]
     pub utxo_terminal: String,
     /// Asset or Bitcoin Tweak
     #[garde(skip)]
@@ -577,13 +578,14 @@ pub struct RgbTransferRequest {
     /// RGB Invoice
     #[garde(ascii)]
     #[garde(length(min = 0, max = 512))]
+    #[garde(custom(verify_rgb_invoice))]
     pub rgb_invoice: String,
     /// PSBT File Information
     #[garde(ascii)]
     #[garde(length(min = 0, max = U64))]
     pub psbt: String,
     /// Asset UTXO Terminal (ex. /0/0)
-    #[garde(custom(is_terminal_path))]
+    #[garde(custom(verify_terminal_path))]
     pub terminal: String,
 }
 
@@ -604,7 +606,7 @@ pub struct FullRgbTransferRequest {
     #[garde(length(min = 0, max = 512))]
     pub rgb_invoice: String,
     /// Asset Descriptor
-    #[garde(custom(is_descriptor))]
+    #[garde(custom(verify_descriptor))]
     pub descriptor: SecretString,
     /// Asset Terminal Change
     #[garde(ascii)]

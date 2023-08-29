@@ -430,9 +430,19 @@ pub async fn create_invoice(
         params,
     } = request;
 
+    let network = NETWORK.read().await.to_string();
+
     let mut stock = retrieve_rgb_stock(sk).await.map_err(InvoiceError::IO)?;
-    let invoice = create_rgb_invoice(&contract_id, &iface, amount, &seal, params, &mut stock)
-        .map_err(InvoiceError::Invoice)?;
+    let invoice = create_rgb_invoice(
+        &contract_id,
+        &iface,
+        amount,
+        &seal,
+        &network,
+        params,
+        &mut stock,
+    )
+    .map_err(InvoiceError::Invoice)?;
 
     store_rgb_stock(sk, stock).await.map_err(InvoiceError::IO)?;
 
@@ -664,7 +674,10 @@ async fn internal_transfer_asset(
     rgb_account: &mut RgbAccount,
     rgb_transfers: &mut RgbTransfers,
 ) -> Result<RgbTransferResponse, TransferError> {
-    if let Err(err) = request.validate(&RGBContext::default()) {
+    let network = NETWORK.read().await.to_string();
+    let context = RGBContext::with(&network);
+
+    if let Err(err) = request.validate(&context) {
         let errors = err
             .flatten()
             .into_iter()
@@ -678,13 +691,12 @@ async fn internal_transfer_asset(
     }
 
     let RgbTransferRequest {
-        rgb_invoice,
+        rgb_invoice: invoice,
         psbt,
         terminal,
     } = request;
-    let (psbt, transfer) =
-        pay_invoice(rgb_invoice.clone(), psbt, stock).map_err(TransferError::Pay)?;
 
+    let (psbt, transfer) = pay_invoice(invoice.clone(), psbt, stock).map_err(TransferError::Pay)?;
     let (outpoint, commit) = extract_commit(psbt.clone()).map_err(TransferError::Commitment)?;
     if let Some(wallet) = rgb_account.wallets.get(RGB_DEFAULT_NAME) {
         let mut wallet = wallet.to_owned();
@@ -699,11 +711,11 @@ async fn internal_transfer_asset(
         .to_strict_serialized::<{ U32 }>()
         .map_err(|err| TransferError::WrongConsig(err.to_string()))?;
 
-    let rgb_invoice = RgbInvoice::from_str(&rgb_invoice)
-        .map_err(|err| TransferError::WrongInvoice(err.to_string()))?;
-
     let bp_txid = bp::Txid::from_hex(&psbt.to_txid().to_hex())
         .map_err(|err| TransferError::WrongConsig(err.to_string()))?;
+
+    let rgb_invoice = RgbInvoice::from_str(&invoice)
+        .map_err(|err| TransferError::WrongInvoice(err.to_string()))?;
 
     let contract_id = rgb_invoice.contract.unwrap().to_string();
     let consig_id = transfer.bindle_id().to_string();
