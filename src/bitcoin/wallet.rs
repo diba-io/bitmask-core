@@ -9,7 +9,7 @@ use thiserror::Error;
 use tokio::sync::{Mutex, RwLock};
 
 use crate::{
-    constants::{BITCOIN_EXPLORER_API, NETWORK},
+    constants::{dot_env, NETWORK},
     debug,
     structs::SecretString,
 };
@@ -36,7 +36,39 @@ struct Networks {
     regtest: NetworkWallet,
 }
 
+struct Blockchains {
+    bitcoin: Arc<EsploraBlockchain>,
+    testnet: Arc<EsploraBlockchain>,
+    signet: Arc<EsploraBlockchain>,
+    regtest: Arc<EsploraBlockchain>,
+}
+
 static BDK: Lazy<Networks> = Lazy::new(Networks::default);
+static BLOCKCHAINS: Lazy<Blockchains> = Lazy::new(|| {
+    let bitcoin = Arc::new(EsploraBlockchain::new(
+        &dot_env("BITCOIN_EXPLORER_API_MAINNET"),
+        1,
+    ));
+    let testnet = Arc::new(EsploraBlockchain::new(
+        &dot_env("BITCOIN_EXPLORER_API_TESTNET"),
+        1,
+    ));
+    let signet = Arc::new(EsploraBlockchain::new(
+        &dot_env("BITCOIN_EXPLORER_API_SIGNET"),
+        1,
+    ));
+    let regtest = Arc::new(EsploraBlockchain::new(
+        &dot_env("BITCOIN_EXPLORER_API_REGTEST"),
+        1,
+    ));
+
+    Blockchains {
+        bitcoin,
+        testnet,
+        signet,
+        regtest,
+    }
+});
 
 async fn access_network_wallets<U, F, Fut>(
     network: Network,
@@ -118,9 +150,19 @@ pub async fn get_wallet(
     Ok(new_wallet)
 }
 
-pub async fn get_blockchain() -> EsploraBlockchain {
+pub async fn get_blockchain() -> Arc<EsploraBlockchain> {
+    let network_lock = NETWORK.read().await;
+    let network = network_lock.to_owned();
+    drop(network_lock);
+
     debug!("Getting blockchain");
-    EsploraBlockchain::new(&BITCOIN_EXPLORER_API.read().await, 1)
+
+    match network {
+        Network::Bitcoin => BLOCKCHAINS.bitcoin.clone(),
+        Network::Testnet => BLOCKCHAINS.testnet.clone(),
+        Network::Signet => BLOCKCHAINS.signet.clone(),
+        Network::Regtest => BLOCKCHAINS.regtest.clone(),
+    }
 }
 
 pub async fn sync_wallet(wallet: &MemoryWallet) -> Result<(), BitcoinWalletError> {

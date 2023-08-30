@@ -123,7 +123,7 @@ async fn self_invoice(
     Ok((StatusCode::OK, Json(invoice_res)))
 }
 
-async fn _psbt(
+async fn psbt(
     TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
     Json(psbt_req): Json<PsbtRequest>,
 ) -> Result<impl IntoResponse, AppError> {
@@ -136,7 +136,8 @@ async fn _psbt(
     Ok((StatusCode::OK, Json(psbt_res)))
 }
 
-async fn _sign_psbt(
+#[axum_macros::debug_handler]
+async fn sign_psbt(
     TypedHeader(_auth): TypedHeader<Authorization<Bearer>>,
     Json(psbt_req): Json<SignPsbtRequest>,
 ) -> Result<impl IntoResponse, AppError> {
@@ -605,8 +606,8 @@ async fn main() -> Result<()> {
         .route("/selfissue", post(self_issue))
         .route("/invoice", post(invoice))
         .route("/selfinvoice", post(self_invoice))
-        // .route("/psbt", post(psbt))
-        // .route("/sign", post(sign_psbt))
+        .route("/psbt", post(psbt))
+        .route("/sign", post(sign_psbt))
         .route("/pay", post(pay))
         .route("/selfpay", post(self_pay))
         .route("/accept", post(accept))
