@@ -106,7 +106,6 @@ pub async fn allow_save_read_remove_transfers() -> Result<()> {
     for sk in all_sks {
         let request = RgbSaveTransferRequest {
             iface: issuer_resp.iface.clone(),
-            contract_id: issuer_resp.contract_id.clone(),
             consignment: transfer.consig.clone(),
         };
         let save_resp = save_transfer(&sk, request).await;
@@ -268,7 +267,6 @@ pub async fn allow_save_and_accept_all_transfers() -> Result<()> {
     for sk in all_sks {
         let request = RgbSaveTransferRequest {
             iface: issuer_resp.iface.clone(),
-            contract_id: issuer_resp.contract_id.clone(),
             consignment: transfer.consig.clone(),
         };
         let save_resp = save_transfer(&sk, request).await;

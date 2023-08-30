@@ -805,18 +805,13 @@ pub async fn save_transfer(
         return Err(SaveTransferError::Validation(errors));
     }
 
-    let RgbSaveTransferRequest {
-        contract_id,
-        iface,
-        consignment,
-    } = request;
+    let RgbSaveTransferRequest { iface, consignment } = request;
 
     let mut rgb_transfers = retrieve_transfers(sk)
         .await
         .map_err(SaveTransferError::IO)?;
 
-    let (txid, transfer) = extract_transfer(contract_id.clone(), consignment)
-        .map_err(SaveTransferError::WrongConsig)?;
+    let (txid, transfer) = extract_transfer(consignment).map_err(SaveTransferError::WrongConsig)?;
 
     let consig = transfer
         .to_strict_serialized::<{ U32 }>()
@@ -832,6 +827,7 @@ pub async fn save_transfer(
         is_send: false,
     };
 
+    let contract_id = transfer.contract_id().to_string();
     if let Some(transfers) = rgb_transfers.transfers.get(&contract_id.clone()) {
         let mut new_transfer = transfers.to_owned();
         new_transfer.push(rgb_transfer);
