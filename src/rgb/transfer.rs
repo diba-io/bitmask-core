@@ -6,7 +6,7 @@ use amplify::{
 };
 use bitcoin_30::psbt::Psbt as PSBT;
 use bitcoin_hashes::hex::FromHex;
-use bp::{seals::txout::CloseMethod, Txid};
+use bp::{seals::txout::CloseMethod, Chain, Txid};
 use indexmap::IndexMap;
 use psbt::{serialize::Serialize, Psbt};
 use rgbstd::{
@@ -30,6 +30,8 @@ pub enum NewInvoiceError {
     WrongContract(String),
     /// '{0}' is an invalid seal definition
     WrongSeal(String),
+    /// Network cannot be decoded. {0}
+    WrongNetwork(String),
     /// {0} is unspecified or wrong contract id
     NoContract(String),
     /// There are no contracts defined in Stash
@@ -63,6 +65,8 @@ pub enum AcceptTransferError {
     WrongContract(String),
     /// Consignment cannot be decoded. {0}
     WrongConsig(String),
+    /// Network cannot be decoded. {0}
+    WrongNetwork(String),
     /// The Consignment is invalid. Details: {0:?}
     InvalidConsig(Vec<String>),
     /// The Consignment is invalid (Unexpected behavior on validation).
@@ -74,6 +78,7 @@ pub fn create_invoice(
     iface: &str,
     amount: u64,
     seal: &str,
+    network: &str,
     params: HashMap<String, String>,
     stock: &mut Stock,
 ) -> Result<RgbInvoice, NewInvoiceError> {
@@ -95,6 +100,9 @@ pub fn create_invoice(
     //     return Err(NewInvoiceError::NoContract(contract_id.to_string()));
     // };
 
+    let chain =
+        Chain::from_str(network).map_err(|op| NewInvoiceError::WrongNetwork(op.to_string()))?;
+
     let seal = ExplicitSeal::<Txid>::from_str(seal)
         .map_err(|_| NewInvoiceError::WrongIface(seal.to_string()))?;
     let seal = GraphSeal::new(seal.method, seal.txid, seal.vout);
@@ -113,7 +121,7 @@ pub fn create_invoice(
         assignment: None,
         beneficiary: seal.to_concealed_seal().into(),
         owned_state: TypedState::Amount(amount),
-        chain: None,
+        chain: Some(chain),
         unknown_query: query,
         expiry: None,
     };
