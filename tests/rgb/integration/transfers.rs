@@ -1969,7 +1969,6 @@ async fn allow_consecutive_full_transfer_bidirectional() -> anyhow::Result<()> {
             ],
         };
         let resp = sign_psbt_file(request).await;
-        // println!("{:#?}", resp);
         assert!(resp.is_ok());
 
         let request = AcceptRequest {
@@ -2033,7 +2032,6 @@ async fn allow_consecutive_full_transfer_bidirectional() -> anyhow::Result<()> {
                 ],
             };
             let resp = sign_psbt_file(request).await;
-            // println!("{:#?}", resp);
             assert!(resp.is_ok());
 
             let request = AcceptRequest {

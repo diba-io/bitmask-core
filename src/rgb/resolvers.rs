@@ -38,28 +38,23 @@ impl rgb::Resolver for ExplorerResolver {
         &mut self,
         scripts: BTreeMap<DeriveInfo, bitcoin_30::ScriptBuf>,
     ) -> Result<BTreeSet<rgb::prelude::Utxo>, String> {
+        use bitcoin_scripts::address::{AddressCompat, AddressNetwork};
+        use bp::ScriptPubkey;
+        use esplora_block::FromHex;
         use std::collections::HashSet;
 
         let mut utxos = bset![];
         let explorer_client = esplora_block::Builder::new(&self.explorer_url)
             .build_blocking()
             .expect("service unavaliable");
-        // TODO: Remove that after bitcoin v.30 full compatibility
 
-        let script_list = scripts
-            .into_iter()
-            .map(|(d, sc)| {
-                (
-                    d,
-                    Script::from_str(&sc.to_hex_string()).expect("invalid script"),
-                )
-            })
-            .collect::<HashSet<_>>()
-            .into_iter();
+        for (derive, script) in scripts {
+            // TODO: Remove that after bitcoin v.30 full compatibility
+            let script_compatible =
+                Script::from_hex(&script.as_script().to_hex_string()).expect("invalid script");
 
-        for (derive, script) in script_list {
             let mut related_txs = explorer_client
-                .scripthash_txs(&script, None)
+                .scripthash_txs(&script_compatible, None)
                 .expect("Service unavaliable");
             let n_confirmed = related_txs.iter().filter(|tx| tx.status.confirmed).count();
             // esplora pages on 25 confirmed transactions. If there are 25 or more we
@@ -67,7 +62,7 @@ impl rgb::Resolver for ExplorerResolver {
             if n_confirmed >= 25 {
                 loop {
                     let new_related_txs = explorer_client
-                        .scripthash_txs(&script, Some(related_txs.last().unwrap().txid))
+                        .scripthash_txs(&script_compatible, Some(related_txs.last().unwrap().txid))
                         .expect("Service unavaliable");
                     let n = new_related_txs.len();
                     related_txs.extend(new_related_txs);
@@ -80,7 +75,7 @@ impl rgb::Resolver for ExplorerResolver {
 
             related_txs.into_iter().for_each(|tx| {
                 for (index, vout) in tx.vout.iter().enumerate() {
-                    if vout.scriptpubkey != script {
+                    if vout.scriptpubkey != script_compatible {
                         continue;
                     }
 

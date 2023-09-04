@@ -88,7 +88,7 @@ use self::{
         prefetch_resolver_user_utxo_status, prefetch_resolver_utxos, prefetch_resolver_waddress,
         prefetch_resolver_wutxo,
     },
-    psbt::{fee_estimate, save_commit, CreatePsbtError},
+    psbt::{save_commit, CreatePsbtError, EstimateFeeError},
     structs::{RgbAccount, RgbTransfer, RgbTransfers},
     transfer::{extract_transfer, AcceptTransferError, NewInvoiceError, NewPaymentError},
     wallet::{
@@ -464,10 +464,14 @@ pub enum TransferError {
     NoContract,
     /// Iface is required in this operation. Please, use the correct iface contract.
     NoIface,
+    /// FeeRate is supported in this operation. Please, use the absolute fee value.
+    NoFeeRate,
     /// Auto merge fail in this opration
     WrongAutoMerge(String),
     /// Occurs an error in create step. {0}
     Create(CreatePsbtError),
+    /// Occurs an error in estimate fee step. {0}
+    Estimate(EstimateFeeError),
     /// Occurs an error in commitment step. {0}
     Commitment(DbcPsbtError),
     /// Occurs an error in payment step. {0}
@@ -515,11 +519,11 @@ async fn internal_create_psbt(
 
     let PsbtRequest {
         asset_inputs,
-        asset_descriptor_change,
         asset_terminal_change,
         bitcoin_inputs,
         bitcoin_changes,
         fee,
+        ..
     } = request;
 
     let mut all_inputs = asset_inputs.clone();
@@ -531,15 +535,7 @@ async fn internal_create_psbt(
     // Retrieve transaction fee
     let fee = match fee {
         PsbtFeeRequest::Value(fee) => fee,
-        PsbtFeeRequest::FeeRate(fee_rate) => fee_estimate(
-            asset_inputs,
-            asset_descriptor_change,
-            asset_terminal_change.clone(),
-            bitcoin_inputs,
-            bitcoin_changes.clone(),
-            fee_rate,
-            resolver,
-        ),
+        PsbtFeeRequest::FeeRate(_) => return Err(TransferError::NoFeeRate),
     };
 
     let wallet = rgb_account.wallets.get("default");
@@ -600,19 +596,18 @@ pub async fn full_transfer_asset(
         _ => return Err(TransferError::NoWatcher),
     };
 
-    let (asset_inputs, bitcoin_inputs, bitcoin_changes) =
+    let (asset_inputs, bitcoin_inputs, bitcoin_changes, fee_value) =
         prebuild_transfer_asset(request.clone(), &mut stock, &mut rgb_wallet, &mut resolver)
             .await?;
 
     let FullRgbTransferRequest {
         rgb_invoice,
         change_terminal,
-        fee,
         ..
     } = request;
 
     let psbt_req = PsbtRequest {
-        fee,
+        fee: PsbtFeeRequest::Value(fee_value),
         asset_inputs,
         bitcoin_inputs,
         bitcoin_changes,
@@ -1387,7 +1382,7 @@ pub async fn watcher_address(
     name: &str,
     address: &str,
 ) -> Result<WatcherUtxoResponse, WatcherError> {
-    let rgb_account = retrieve_account(sk).await.map_err(WatcherError::IO)?;
+    let mut rgb_account = retrieve_account(sk).await.map_err(WatcherError::IO)?;
 
     let mut resp = WatcherUtxoResponse::default();
     if let Some(wallet) = rgb_account.wallets.get(name) {
@@ -1406,6 +1401,14 @@ pub async fn watcher_address(
             .into_iter()
             .map(|utxo| utxo.outpoint.to_string())
             .collect();
+
+        rgb_account
+            .wallets
+            .insert(RGB_DEFAULT_NAME.to_string(), wallet);
+
+        store_account(sk, rgb_account)
+            .await
+            .map_err(WatcherError::IO)?;
     };
 
     Ok(resp)
@@ -1560,6 +1563,7 @@ pub async fn watcher_unspent_utxos(
         ..Default::default()
     };
 
+    sync_wallet(iface_index, &mut wallet, &mut resolver);
     prefetch_resolver_utxos(
         iface_index,
         &mut wallet,
@@ -1568,7 +1572,6 @@ pub async fn watcher_unspent_utxos(
     )
     .await;
     prefetch_resolver_user_utxo_status(iface_index, &mut wallet, &mut resolver, true).await;
-    sync_wallet(iface_index, &mut wallet, &mut resolver);
 
     let utxos: HashSet<UtxoResponse> = next_utxos(iface_index, wallet.clone(), &mut resolver)
         .map_err(|op| WatcherError::Validation(op.to_string()))?

@@ -85,6 +85,7 @@ pub fn get_address(
     wallet: RgbWallet,
     network: AddressNetwork,
 ) -> Result<AddressTerminal, anyhow::Error> {
+    let index = index + 1;
     let scripts = wallet.descr.derive(iface_index, 0..index);
     let addresses: Vec<AddressTerminal> = scripts
         .into_iter()
@@ -219,9 +220,7 @@ pub fn sync_wallet(iface_index: u32, wallet: &mut RgbWallet, resolver: &mut impl
     let step = 20;
     let index = 0;
 
-    let scripts = wallet.descr.derive(iface_index, index..step);
-    let new_scripts = scripts.into_iter().map(|(d, sc)| (d, sc)).collect();
-
+    let new_scripts = wallet.descr.derive(iface_index, index..step);
     let new_utxos = resolver
         .resolve_utxo(new_scripts)
         .expect("service unavalible");
@@ -273,7 +272,7 @@ where
 
     if let Some((d, sc)) = script {
         let mut scripts = BTreeMap::new();
-        scripts.insert(d, sc);
+        scripts.insert(d.clone(), sc);
 
         let new_utxos = &resolver.resolve_utxo(scripts).expect("service unavalible");
         for utxo in new_utxos {

@@ -57,6 +57,8 @@ pub enum BitcoinError {
     /// Wrong Encrypted Descriptor Version
     #[error("Wrong Version: Encrypted descriptor is the wrong version. The version byte was: {0}")]
     WrongEncryptedDescriptorVersion(u8),
+    #[error("Wrong Descriptor: Wallet supports only taproot descriptor")]
+    WrongDescriptor,
     /// Upgrade unnecessary
     #[error("Descriptor does not need to be upgraded")]
     UpgradeUnnecessary,
@@ -296,13 +298,9 @@ pub async fn get_new_address(
     info!("get_new_address");
 
     let wallet = get_wallet(descriptor, change_descriptor).await?;
-    let address = wallet
-        .lock()
-        .await
-        .get_address(AddressIndex::New)?
-        .to_string();
+    let address = wallet.lock().await.get_address(AddressIndex::New)?;
     info!(format!("address: {address}"));
-    Ok(address)
+    Ok(address.to_string())
 }
 
 pub async fn validate_address(address: &Address) -> Result<(), BitcoinError> {
