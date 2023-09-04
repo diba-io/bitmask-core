@@ -1,14 +1,11 @@
 #![cfg(not(target_arch = "wasm32"))]
 use crate::rgb::integration::utils::{
     create_new_invoice, create_new_psbt_v2, create_new_transfer, issuer_issue_contract_v2,
-    send_some_coins, UtxoFilter, ISSUER_MNEMONIC, OWNER_MNEMONIC,
+    send_some_coins, UtxoFilter,
 };
 use bdk::wallet::AddressIndex;
 use bitmask_core::{
-    bitcoin::{
-        fund_vault, get_new_address, get_wallet, new_mnemonic, save_mnemonic, sign_psbt_file,
-        sync_wallet,
-    },
+    bitcoin::{fund_vault, get_new_address, get_wallet, new_mnemonic, sign_psbt_file, sync_wallet},
     rgb::{accept_transfer, create_watcher, full_transfer_asset, get_contract},
     structs::{
         AcceptRequest, FullRgbTransferRequest, PsbtFeeRequest, PsbtInputRequest, SecretString,
@@ -19,16 +16,8 @@ use bitmask_core::{
 #[tokio::test]
 async fn create_dustless_transfer_with_fee_value() -> anyhow::Result<()> {
     // 1. Initial Setup
-    let issuer_keys = save_mnemonic(
-        &SecretString(ISSUER_MNEMONIC.to_string()),
-        &SecretString("".to_string()),
-    )
-    .await?;
-    let owner_keys = save_mnemonic(
-        &SecretString(OWNER_MNEMONIC.to_string()),
-        &SecretString("".to_string()),
-    )
-    .await?;
+    let issuer_keys = new_mnemonic(&SecretString("".to_string())).await?;
+    let owner_keys = new_mnemonic(&SecretString("".to_string())).await?;
 
     let issuer_resp = issuer_issue_contract_v2(
         1,
@@ -39,7 +28,7 @@ async fn create_dustless_transfer_with_fee_value() -> anyhow::Result<()> {
         None,
         Some("0.00001".to_string()),
         Some(UtxoFilter::with_amount_equal_than(1000)),
-        None,
+        Some(issuer_keys.clone()),
     )
     .await?;
     let issuer_resp = issuer_resp[0].clone();
@@ -49,7 +38,7 @@ async fn create_dustless_transfer_with_fee_value() -> anyhow::Result<()> {
         1,
         owner_keys.clone(),
         None,
-        Some(issuer_resp.clone().contract.legacy),
+        Some(issuer_resp.clone().contract.strict),
     )
     .await?;
 
@@ -111,6 +100,9 @@ async fn create_dustless_transfer_with_fee_value() -> anyhow::Result<()> {
     let resp = sign_psbt_file(request).await;
     assert!(resp.is_ok());
 
+    let whatever_address = "bcrt1p76gtucrxhmn8s5622r859dpnmkj0kgfcel9xy0sz6yj84x6ppz2qk5hpsw";
+    send_some_coins(whatever_address, "0.1").await;
+
     let request = AcceptRequest {
         consignment: transfer_resp.consig.clone(),
         force: false,
@@ -145,13 +137,8 @@ async fn create_dustless_transfer_with_fee_rate() -> anyhow::Result<()> {
     )
     .await?;
 
-    let btc_address_2 = get_new_address(
-        &SecretString(owner_keys.public.rgb_assets_descriptor_xpub.clone()),
-        None,
-    )
-    .await?;
-
-    let default_coins = "0.0001";
+    // Min amount of satoshis
+    let default_coins = "0.00010000";
     send_some_coins(&btc_address_1, default_coins).await;
 
     let btc_descriptor_xprv = SecretString(issuer_keys.private.btc_descriptor_xprv.clone());
@@ -196,7 +183,8 @@ async fn create_dustless_transfer_with_fee_rate() -> anyhow::Result<()> {
     )
     .await?;
 
-    send_some_coins(&btc_address_2, default_coins).await;
+    let whatever_address = "bcrt1p76gtucrxhmn8s5622r859dpnmkj0kgfcel9xy0sz6yj84x6ppz2qk5hpsw";
+    send_some_coins(whatever_address, default_coins).await;
 
     let issuer_resp = issuer_issue_contract_v2(
         1,
@@ -230,7 +218,7 @@ async fn create_dustless_transfer_with_fee_rate() -> anyhow::Result<()> {
         rgb_invoice: owner_resp.invoice.to_string(),
         descriptor: SecretString(issuer_keys.public.rgb_assets_descriptor_xpub.to_string()),
         change_terminal: "/20/1".to_string(),
-        fee: PsbtFeeRequest::FeeRate(2.1),
+        fee: PsbtFeeRequest::FeeRate(1.1),
         bitcoin_changes: vec![],
     };
 
@@ -245,6 +233,7 @@ async fn create_dustless_transfer_with_fee_rate() -> anyhow::Result<()> {
         .to_vec(),
     };
     let resp = sign_psbt_file(request).await;
+    // println!("{:?}", resp);
     assert!(resp.is_ok());
 
     let request = AcceptRequest {

@@ -39,6 +39,9 @@ use crate::{
     trace,
 };
 
+// Minimum amount of satoshis to funding vault
+const MIN_FUNDS_SATS: u64 = 10000;
+
 impl SerdeEncryptSharedKey for DecryptedWalletData {
     type S = BincodeSerializer<Self>;
 }
@@ -65,6 +68,9 @@ pub enum BitcoinError {
     /// Wrong network
     #[error("Address provided is on the wrong network!")]
     WrongNetwork,
+    /// Wrong Encrypted Descriptor Format
+    #[error("Insufficient satoshis to create funding wallet. Minimum: {0} sats")]
+    InsufficientFundSats(u64),
     /// Drain wallet unable to finalize PSBT
     #[error("Drain wallet was unable to finalize PSBT")]
     DrainWalletUnfinalizedPsbt,
@@ -358,6 +364,14 @@ pub async fn fund_vault(
     uda_address_2: &str,
     fee_rate: Option<f32>,
 ) -> Result<FundVaultDetails, BitcoinError> {
+    let wallet = get_wallet(btc_descriptor_xprv, Some(btc_change_descriptor_xprv)).await?;
+    let fee_rate = fee_rate.map(FeeRate::from_sat_per_vb);
+
+    let balance = wallet.lock().await.get_balance()?;
+    if balance.confirmed < MIN_FUNDS_SATS {
+        return Err(BitcoinError::InsufficientFundSats(MIN_FUNDS_SATS));
+    };
+
     let assets_address_1 = Address::from_str(assets_address_1)?;
     let assets_address_2 = Address::from_str(assets_address_2)?;
     let uda_address_1 = Address::from_str(uda_address_1)?;
@@ -381,9 +395,6 @@ pub async fn fund_vault(
         address: uda_address_2,
         amount: rng.gen_range(600..1500),
     };
-
-    let wallet = get_wallet(btc_descriptor_xprv, Some(btc_change_descriptor_xprv)).await?;
-    let fee_rate = fee_rate.map(FeeRate::from_sat_per_vb);
 
     let asset_tx_details = create_transaction(
         vec![

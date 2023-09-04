@@ -31,7 +31,7 @@ use wallet::{
 };
 
 use crate::{
-    info,
+    debug, info,
     rgb::{constants::RGB_PSBT_TAPRET, structs::AddressAmount},
     structs::{AssetType, PsbtInputRequest},
 };
@@ -287,6 +287,14 @@ pub enum EstimateFeeError {
     WrongTerminal(String),
     /// The Pre-PSBT is invalid. {0}
     PreBuildFail(String),
+    /// Insufficient funds (expected: {input} sats / current: {output} sats)
+    Inflation {
+        /// Amount spent: input amounts
+        input: u64,
+
+        /// Amount sent: sum of output value + transaction fee
+        output: u64,
+    },
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -303,6 +311,7 @@ pub fn estimate_fee_tx<T>(
 where
     T: ResolveTx + Resolver,
 {
+    info!("Estimate Fee (RGB)");
     // Define Feerate
     let fee_rate = FeeRate::from_sat_per_vb(fee_rate);
     let mut psbt_inputs = assets_inputs.clone();
@@ -348,7 +357,17 @@ where
         bitcoin_addresses.push(recipient);
     }
 
-    let change = psbt_inputs_total - total_psbt_output - amount_change.unwrap_or_default();
+    let change = match psbt_inputs_total
+        .checked_sub(total_psbt_output + amount_change.unwrap_or_default())
+    {
+        Some(change) => change,
+        None => {
+            return Err(EstimateFeeError::Inflation {
+                input: psbt_inputs_total,
+                output: total_psbt_output + amount_change.unwrap_or_default(),
+            })
+        }
+    };
 
     // Pre-build PSBT
     let global_descriptor: Descriptor<DerivationAccount> = Descriptor::from_str(&descriptor_pub)
@@ -392,22 +411,26 @@ where
     // Over-simplification of bdk fee calculation:
     // https://github.com/bitcoindevkit/bdk/blob/2867e88b64b4a8cf7136cc562ec61c077737a087/crates/bdk/src/wallet/mod.rs#L1009-L1131
     // https://github.com/bitcoindevkit/bdk/blob/2867e88b64b4a8cf7136cc562ec61c077737a087/crates/bdk/src/wallet/coin_selection.rs#L398-L630
-    let mut fee = fee_rate.fee_wu(pre_psbt.to_unsigned_tx().weight());
+    let max_w = global_descriptor
+        .max_satisfaction_weight()
+        .map_err(|op| EstimateFeeError::WrongDescriptor(op.to_string()))?;
+    let mut fee = fee_rate.fee_wu(pre_psbt.into_unsigned_tx().weight());
+    fee += fee_rate.fee_wu(TXIN_BASE_WEIGHT + max_w) * inputs.len() as u64;
     fee += fee_rate.fee_wu(2);
-    fee += fee_rate.fee_wu(
-        (TXIN_BASE_WEIGHT
-            + global_descriptor
-                .max_satisfaction_weight()
-                .unwrap_or_default())
-            * inputs.len(),
-    );
 
-    info!(format!(
-        "Remaining/Change (Fee): {change}/{} ({fee})",
-        amount_change.unwrap_or_default()
-    ));
+    // Change Amount
+    let (change, fee) = match change.checked_sub(fee) {
+        Some(change) => {
+            debug!(format!("Change/Fee {change} ({fee})"));
+            (change, fee)
+        }
+        None => {
+            debug!(format!("No Change/Fee {change} ({fee})"));
+            (0, fee)
+        }
+    };
 
-    Ok((change - fee, fee))
+    Ok((change, fee))
 }
 
 pub trait PsbtInputEx<T> {

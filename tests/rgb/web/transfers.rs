@@ -430,7 +430,7 @@ async fn create_transfer_with_fee_rate() {
         "Issuer Show Address {}",
         issuer_next_address.address
     ));
-    let resp = send_coins(&issuer_next_address.address, "0.00010000").await;
+    let resp = send_coins(&issuer_next_address.address, "0.00007000").await;
     debug!(format!("Issuer Receive Bitcoin {:?}", resp));
 
     info!("Create Owner Watcher");

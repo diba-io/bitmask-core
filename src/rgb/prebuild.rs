@@ -302,9 +302,10 @@ pub async fn prebuild_transfer_asset(
             (change_value, fee_value)
         }
         PsbtFeeRequest::FeeRate(fee_rate) => {
-            let total_spendable = rnd_amount + total_bitcoin_spend;
+            // Increase dust limit to avoid dust change
+            let total_spendable = rnd_amount + total_bitcoin_spend + DUST_LIMIT_SATOSHI;
             for utxo in all_unspents {
-                if bitcoin_total > total_spendable {
+                if total_spendable < bitcoin_total {
                     break;
                 } else {
                     let TerminalPath { app, index } = utxo.derivation.terminal;
@@ -353,9 +354,10 @@ pub async fn prebuild_transfer_asset(
 
     let total_spendable = fee_value + rnd_amount + total_bitcoin_spend;
     if bitcoin_total < total_spendable {
-        let mut errors = BTreeMap::new();
-        errors.insert("bitcoin".to_string(), "insufficient satoshis".to_string());
-        return Err(TransferError::Validation(errors));
+        return Err(TransferError::Inflation {
+            input: bitcoin_total,
+            output: total_spendable,
+        });
     } else if change_value > 0 {
         let network = NETWORK.read().await.to_string();
         let network = Network::from_str(&network)

@@ -466,6 +466,14 @@ pub enum TransferError {
     NoIface,
     /// FeeRate is supported in this operation. Please, use the absolute fee value.
     NoFeeRate,
+    /// Insufficient funds (expected: {input} sats / current: {output} sats)
+    Inflation {
+        /// Amount spent: input amounts
+        input: u64,
+
+        /// Amount sent: sum of output value + transaction fee
+        output: u64,
+    },
     /// Auto merge fail in this opration
     WrongAutoMerge(String),
     /// Occurs an error in create step. {0}
