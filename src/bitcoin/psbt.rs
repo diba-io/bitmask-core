@@ -1,5 +1,5 @@
 use bdk::{blockchain::Blockchain, psbt::PsbtUtils, SignOptions, TransactionDetails};
-use bitcoin::{consensus::serialize, util::psbt::PartiallySignedTransaction};
+use bitcoin::{consensus::serialize, hashes::hex::ToHex, util::psbt::PartiallySignedTransaction};
 use thiserror::Error;
 
 use crate::{
@@ -35,7 +35,7 @@ pub async fn sign_psbt(
         debug!("Signed PSBT:", base64::encode(&serialize(&psbt)));
         let fee_amount = psbt.fee_amount().expect("fee amount on PSBT is known");
         let tx = psbt.extract_tx();
-        debug!("tx:", base64::encode(&serialize(&tx.clone())));
+        debug!("tx:", &serialize(&tx.clone()).to_hex());
         let blockchain = get_blockchain().await;
         blockchain.broadcast(&tx).await?;
 
@@ -105,7 +105,7 @@ pub async fn sign_psbt_with_multiple_wallets(
         debug!("Signed PSBT:", base64::encode(&serialize(&psbt)));
         let fee_amount = psbt.fee_amount().expect("fee amount on PSBT is known");
         let tx = psbt.extract_tx();
-        debug!("tx:", base64::encode(&serialize(&tx.clone())));
+        debug!("tx:", &serialize(&tx.clone()).to_hex());
         let blockchain = get_blockchain().await;
         blockchain.broadcast(&tx).await?;
 

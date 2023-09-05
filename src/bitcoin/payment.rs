@@ -50,6 +50,7 @@ pub async fn create_transaction(
         for invoice in invoices {
             builder.add_recipient(invoice.address.script_pubkey(), invoice.amount);
         }
+
         builder.ordering(TxOrdering::Untouched); // TODO: Remove after implementing wallet persistence
         builder.enable_rbf().fee_rate(fee_rate.unwrap_or_default());
         builder.finish()?

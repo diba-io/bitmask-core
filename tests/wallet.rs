@@ -65,7 +65,6 @@ async fn create_wallet() -> Result<()> {
         decrypted_wallet.private.btc_descriptor_xprv
     );
     println!("Address (Bitcoin): {}", main_btc_wallet.address);
-    // println!("Address (RGB): {}", main_rgb_wallet.address);
 
     Ok(())
 }

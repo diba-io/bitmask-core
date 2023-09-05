@@ -300,8 +300,6 @@ pub async fn prefetch_resolver_utxos(
     explorer: &mut ExplorerResolver,
     limit: Option<u32>,
 ) {
-    // use crate::debug;
-    use std::collections::HashSet;
     let esplora_client: EsploraBlockchain =
         EsploraBlockchain::new(&explorer.explorer_url, 1).with_concurrency(6);
 
@@ -312,24 +310,14 @@ pub async fn prefetch_resolver_utxos(
     }
 
     let scripts = wallet.descr.derive(iface_index, index..step);
-    let new_scripts: BTreeMap<DeriveInfo, ScriptBuf> =
-        scripts.into_iter().map(|(d, sc)| (d, sc)).collect();
-
-    let script_list = new_scripts
-        .into_iter()
-        .map(|(d, sc)| {
-            (
-                d,
-                Script::from_str(&sc.to_hex_string()).expect("invalid script"),
-            )
-        })
-        .collect::<HashSet<_>>()
-        .into_iter();
-
     let mut new_utxos = bset![];
-    for (derive, script) in script_list {
+    for (derive, script) in scripts {
+        // TODO: Remove that after bitcoin v.30 full compatibility
+        let script_compatible =
+            Script::from_str(&script.as_script().to_hex_string()).expect("invalid script");
+
         let mut related_txs = esplora_client
-            .scripthash_txs(&script, None)
+            .scripthash_txs(&script_compatible, None)
             .await
             .expect("Service unavaliable");
         let n_confirmed = related_txs.iter().filter(|tx| tx.status.confirmed).count();
@@ -338,7 +326,7 @@ pub async fn prefetch_resolver_utxos(
         if n_confirmed >= 25 {
             loop {
                 let new_related_txs = esplora_client
-                    .scripthash_txs(&script, Some(related_txs.last().unwrap().txid))
+                    .scripthash_txs(&script_compatible, Some(related_txs.last().unwrap().txid))
                     .await
                     .expect("Service unavaliable");
                 let n = new_related_txs.len();
@@ -352,7 +340,7 @@ pub async fn prefetch_resolver_utxos(
 
         related_txs.into_iter().for_each(|tx| {
             for (index, vout) in tx.vout.iter().enumerate() {
-                if vout.scriptpubkey != script {
+                if vout.scriptpubkey != script_compatible {
                     continue;
                 }
 
@@ -441,16 +429,15 @@ pub async fn prefetch_resolver_waddress(
         let mut scripts = BTreeMap::new();
         scripts.insert(d, sc);
 
-        let script_list = scripts.into_iter().map(|(d, sc)| {
-            (
-                d,
-                Script::from_str(&sc.to_hex_string()).expect("invalid script"),
-            )
-        });
-
         let mut new_utxos = bset![];
-        for (derive, script) in script_list {
-            let txs = match esplora_client.scripthash_txs(&script, none!()).await {
+        for (derive, script) in scripts {
+            // TODO: Remove that after bitcoin v.30 full compatibility
+            let script_compatible =
+                Script::from_str(&script.to_hex_string()).expect("invalid script");
+            let txs = match esplora_client
+                .scripthash_txs(&script_compatible, none!())
+                .await
+            {
                 Ok(txs) => txs,
                 _ => vec![],
             };
@@ -460,7 +447,7 @@ pub async fn prefetch_resolver_waddress(
                     .vout
                     .clone()
                     .into_iter()
-                    .position(|txout| txout.scriptpubkey == script);
+                    .position(|txout| txout.scriptpubkey == script_compatible);
                 if let Some(index) = index {
                     let index = index;
 

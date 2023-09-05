@@ -318,8 +318,10 @@ pub struct ReIssueResponse {
 pub enum AssetType {
     #[serde(rename = "bitcoin")]
     Bitcoin = 0,
+    #[serde(rename = "change")]
+    Change = 1,
     #[serde(rename = "contract")]
-    Contract = 9,
+    Contract = 10,
     #[serde(rename = "rgb20")]
     RGB20 = 20,
     #[serde(rename = "rgb21")]
