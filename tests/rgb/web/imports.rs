@@ -36,19 +36,18 @@ const SEED_PASSWORD: &str = "";
 async fn import_fungible_from_genesis() {
     set_panic_hook();
     let mnemonic = env!("TEST_WALLET_SEED", "TEST_WALLET_SEED variable not set");
-    let hash = hash_password(ENCRYPTION_PASSWORD.to_owned());
+    hash_password(ENCRYPTION_PASSWORD.to_owned());
 
     info!("Import wallet");
     let mnemonic_data_str = resolve(encrypt_wallet(
         mnemonic.to_owned(),
-        hash.clone(),
         SEED_PASSWORD.to_owned(),
     ))
     .await;
     let mnemonic_data: SecretString = json_parse(&mnemonic_data_str);
 
     info!("Get vault properties");
-    let vault_str: JsValue = resolve(decrypt_wallet(hash, mnemonic_data.0.clone())).await;
+    let vault_str: JsValue = resolve(decrypt_wallet(mnemonic_data.0.clone())).await;
     let wallet_data: DecryptedWalletData = json_parse(&vault_str);
 
     info!("Import Genesis (Fungible)");
@@ -69,19 +68,18 @@ async fn import_fungible_from_genesis() {
 async fn import_uda_from_genesis() {
     set_panic_hook();
     let mnemonic = env!("TEST_WALLET_SEED", "TEST_WALLET_SEED variable not set");
-    let hash = hash_password(ENCRYPTION_PASSWORD.to_owned());
+    hash_password(ENCRYPTION_PASSWORD.to_owned());
 
     info!("Import wallet");
     let mnemonic_data_str = resolve(encrypt_wallet(
         mnemonic.to_owned(),
-        hash.clone(),
         SEED_PASSWORD.to_owned(),
     ))
     .await;
     let mnemonic_data: SecretString = json_parse(&mnemonic_data_str);
 
     info!("Get vault properties");
-    let vault_str: JsValue = resolve(decrypt_wallet(hash, mnemonic_data.0.clone())).await;
+    let vault_str: JsValue = resolve(decrypt_wallet(mnemonic_data.0.clone())).await;
     let wallet_data: DecryptedWalletData = json_parse(&vault_str);
 
     info!("Import Genesis (UDA)");
@@ -102,19 +100,18 @@ async fn import_uda_from_genesis() {
 async fn import_two_contracts() {
     set_panic_hook();
     let mnemonic = env!("TEST_WALLET_SEED", "TEST_WALLET_SEED variable not set");
-    let hash = hash_password(ENCRYPTION_PASSWORD.to_owned());
+    hash_password(ENCRYPTION_PASSWORD.to_owned());
 
     info!("Import wallet");
     let mnemonic_data_str = resolve(encrypt_wallet(
         mnemonic.to_owned(),
-        hash.clone(),
         SEED_PASSWORD.to_owned(),
     ))
     .await;
     let mnemonic_data: SecretString = json_parse(&mnemonic_data_str);
 
     info!("Get vault properties");
-    let vault_str: JsValue = resolve(decrypt_wallet(hash, mnemonic_data.0.clone())).await;
+    let vault_str: JsValue = resolve(decrypt_wallet(mnemonic_data.0.clone())).await;
     let wallet_data: DecryptedWalletData = json_parse(&vault_str);
     let sk = &wallet_data.private.nostr_prv;
 
@@ -144,12 +141,11 @@ async fn asset_transfer() {
     set_panic_hook();
 
     let mnemonic = env!("TEST_WALLET_SEED", "TEST_WALLET_SEED variable not set");
-    let hash = hash_password(ENCRYPTION_PASSWORD.to_owned());
+    hash_password(ENCRYPTION_PASSWORD.to_owned());
 
     // Import wallet
     let mnemonic_data_str = resolve(encrypt_wallet(
         mnemonic.to_owned(),
-        hash.clone(),
         SEED_PASSWORD.to_owned(),
     ))
     .await;
@@ -157,8 +153,7 @@ async fn asset_transfer() {
     let mnemonic_data: SecretString = json_parse(&mnemonic_data_str);
 
     // Get vault properties
-    let wallet_data_str: JsValue =
-        resolve(decrypt_wallet(hash, mnemonic_data.0.clone().clone())).await;
+    let wallet_data_str: JsValue = resolve(decrypt_wallet(mnemonic_data.0.clone().clone())).await;
     let wallet_data: DecryptedWalletData = json_parse(&wallet_data_str);
 
     info!("Get Wallets");

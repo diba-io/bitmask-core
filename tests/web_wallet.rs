@@ -32,16 +32,15 @@ async fn create_wallet() {
     set_panic_hook();
 
     info!("Mnemonic string is 24 words long");
-    let hash = hash_password(ENCRYPTION_PASSWORD.to_owned());
-    let mnemonic: JsValue = resolve(new_wallet(hash.clone(), SEED_PASSWORD.to_owned())).await;
+    hash_password(ENCRYPTION_PASSWORD.to_owned());
+    let mnemonic: JsValue = resolve(new_wallet(SEED_PASSWORD.to_owned())).await;
 
     assert!(!mnemonic.is_undefined());
     assert!(mnemonic.is_string());
 
     let mnemonic_data: SecretString = json_parse(&mnemonic);
 
-    let encrypted_wallet_str: JsValue =
-        resolve(decrypt_wallet(hash, mnemonic_data.0.clone())).await;
+    let encrypted_wallet_str: JsValue = resolve(decrypt_wallet(mnemonic_data.0.clone())).await;
     let encrypted_wallet_data: DecryptedWalletData = json_parse(&encrypted_wallet_str);
 
     assert_eq!(encrypted_wallet_data.mnemonic.split(' ').count(), 24);
@@ -54,10 +53,9 @@ async fn import_and_open_wallet() {
     set_panic_hook();
 
     info!("Import wallet");
-    let hash = hash_password(ENCRYPTION_PASSWORD.to_owned());
+    hash_password(ENCRYPTION_PASSWORD.to_owned());
     let mnemonic_data_str = resolve(encrypt_wallet(
         MNEMONIC.to_owned(),
-        hash.clone(),
         SEED_PASSWORD.to_owned(),
     ))
     .await;
@@ -65,8 +63,7 @@ async fn import_and_open_wallet() {
     let mnemonic_data: SecretString = json_parse(&mnemonic_data_str);
 
     info!("Get encrypted wallet properties");
-    let encrypted_wallet_str: JsValue =
-        resolve(decrypt_wallet(hash, mnemonic_data.0.clone())).await;
+    let encrypted_wallet_str: JsValue = resolve(decrypt_wallet(mnemonic_data.0.clone())).await;
     let encrypted_wallet_data: DecryptedWalletData = json_parse(&encrypted_wallet_str);
 
     assert_eq!(
@@ -105,33 +102,30 @@ async fn import_test_wallet() {
     let mnemonic = env!("TEST_WALLET_SEED", "TEST_WALLET_SEED variable not set");
 
     info!("Import wallet");
-    let hash0 = hash_password(ENCRYPTION_PASSWORD.to_owned());
+    hash_password(ENCRYPTION_PASSWORD.to_owned());
     let mnemonic_data_str = resolve(encrypt_wallet(
         mnemonic.to_owned(),
-        hash0.clone(),
         SEED_PASSWORD.to_owned(),
     ))
     .await;
     let mnemonic_data: SecretString = json_parse(&mnemonic_data_str);
 
     info!("Get vault properties");
-    let vault_str: JsValue = resolve(decrypt_wallet(hash0.clone(), mnemonic_data.0.clone())).await;
+    let vault_str: JsValue = resolve(decrypt_wallet(mnemonic_data.0.clone())).await;
     let _encrypted_wallet_data: DecryptedWalletData = json_parse(&vault_str);
 
     info!("Import wallet once more");
-    let hash1 = hash_password(ENCRYPTION_PASSWORD.to_owned());
-    assert_eq!(&hash0, &hash1, "hashes match");
+    hash_password(ENCRYPTION_PASSWORD.to_owned());
 
     let mnemonic_data_str = resolve(encrypt_wallet(
         mnemonic.to_owned(),
-        hash1.clone(),
         SEED_PASSWORD.to_owned(),
     ))
     .await;
     let mnemonic_data: SecretString = json_parse(&mnemonic_data_str);
 
     info!("Get vault properties");
-    let vault_str: JsValue = resolve(decrypt_wallet(hash1, mnemonic_data.0.clone())).await;
+    let vault_str: JsValue = resolve(decrypt_wallet(mnemonic_data.0.clone())).await;
     let encrypted_wallet_data: DecryptedWalletData = json_parse(&vault_str);
 
     info!("Get wallet data");
