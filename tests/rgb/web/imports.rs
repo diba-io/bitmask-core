@@ -58,7 +58,7 @@ async fn import_fungible_from_genesis() {
     };
 
     let req = serde_wasm_bindgen::to_value(&contract_import).expect("oh no!");
-    let resp = resolve(import_contract(sk.clone(), req)).await;
+    let resp = resolve(import_contract(req)).await;
     let resp: ContractResponse = json_parse(&resp);
 
     assert_eq!("RGB20", resp.iface);
@@ -90,7 +90,7 @@ async fn import_uda_from_genesis() {
     };
 
     let req = serde_wasm_bindgen::to_value(&contract_import).expect("oh no!");
-    let resp = resolve(import_contract(sk.clone(), req)).await;
+    let resp = resolve(import_contract(req)).await;
     let resp: ContractResponse = json_parse(&resp);
 
     assert_eq!("RGB21", resp.iface);
@@ -121,7 +121,7 @@ async fn import_two_contracts() {
         data: FUNGIBLE_CONTRACT.to_string(),
     };
     let req = serde_wasm_bindgen::to_value(&contract_import).expect("oh no!");
-    let resp: JsValue = resolve(import_contract((&sk).to_string(), req)).await;
+    let resp: JsValue = resolve(import_contract(req)).await;
     let resp: ContractResponse = json_parse(&resp);
     assert_eq!("RGB20", resp.iface);
 
@@ -131,7 +131,7 @@ async fn import_two_contracts() {
         data: UDA_CONTRACT.to_string(),
     };
     let req = serde_wasm_bindgen::to_value(&contract_import).expect("oh no!");
-    let resp: JsValue = resolve(import_contract((&sk).to_string(), req)).await;
+    let resp: JsValue = resolve(import_contract(req)).await;
     let resp: ContractResponse = json_parse(&resp);
     assert_eq!("RGB21", resp.iface);
 }
@@ -158,13 +158,13 @@ async fn asset_transfer() {
 
     info!("Get Wallets");
     let assets_wallet = resolve(get_wallet_data(
-        wallet_data.public.rgb_assets_descriptor_xpub.clone(),
+        wallet_data.public.rgb_assets_descriptor_xpub.to_string(),
         None,
     ))
     .await;
     let assets_wallet: WalletData = json_parse(&assets_wallet);
     let udas_wallet = resolve(get_wallet_data(
-        wallet_data.public.rgb_udas_descriptor_xpub.clone(),
+        wallet_data.public.rgb_udas_descriptor_xpub.to_string(),
         None,
     ))
     .await;
@@ -172,8 +172,8 @@ async fn asset_transfer() {
 
     info!("Check Asset Vault");
     let vault_details = resolve(get_assets_vault(
-        wallet_data.public.rgb_assets_descriptor_xpub.clone(),
-        wallet_data.public.rgb_udas_descriptor_xpub.clone(),
+        wallet_data.public.rgb_assets_descriptor_xpub.to_string(),
+        wallet_data.public.rgb_udas_descriptor_xpub.to_string(),
     ))
     .await;
     let vault_details: FundVaultDetails = json_parse(&vault_details);

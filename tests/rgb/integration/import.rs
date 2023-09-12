@@ -1,9 +1,8 @@
 #![cfg(not(target_arch = "wasm32"))]
-use crate::rgb::integration::utils::{issuer_issue_contract, ISSUER_MNEMONIC};
+use crate::rgb::integration::utils::issuer_issue_contract;
 use bitmask_core::{
-    bitcoin::{new_mnemonic, save_mnemonic},
     rgb::import,
-    structs::{AssetType, ImportRequest, SecretString},
+    structs::{AssetType, ImportRequest},
 };
 
 #[tokio::test]
@@ -11,15 +10,12 @@ async fn allow_import_fungibles_from_genesis() -> anyhow::Result<()> {
     let issuer_resp = issuer_issue_contract("RGB20", 5, false, true, None).await;
     assert!(issuer_resp.is_ok());
 
-    let another_vault = new_mnemonic(&SecretString("".to_string())).await?;
-
-    let sk = &another_vault.private.nostr_prv;
     let contract_import = ImportRequest {
         import: AssetType::RGB20,
         data: issuer_resp?.genesis.strict,
     };
 
-    let import_resp = import(sk, contract_import).await;
+    let import_resp = import(contract_import).await;
     assert!(import_resp.is_ok());
 
     Ok(())
@@ -30,15 +26,12 @@ async fn allow_import_fungibles_from_contract() -> anyhow::Result<()> {
     let issuer_resp = issuer_issue_contract("RGB20", 5, false, true, None).await;
     assert!(issuer_resp.is_ok());
 
-    let another_vault = new_mnemonic(&SecretString("".to_string())).await?;
-
-    let sk = &another_vault.private.nostr_prv;
     let contract_import = ImportRequest {
         import: AssetType::RGB20,
         data: issuer_resp?.contract.armored,
     };
 
-    let import_resp = import(sk, contract_import).await;
+    let import_resp = import(contract_import).await;
     assert!(import_resp.is_ok());
 
     Ok(())
@@ -46,76 +39,48 @@ async fn allow_import_fungibles_from_contract() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn allow_import_fungibles_from_genesis_data() -> anyhow::Result<()> {
-    let issuer_keys = save_mnemonic(
-        &SecretString(ISSUER_MNEMONIC.to_string()),
-        &SecretString("".to_string()),
-    )
-    .await?;
-
-    let sk = &issuer_keys.private.nostr_prv;
     let contract_import = ImportRequest {
         import: AssetType::RGB20,
         data: FUNGIBLE_GENESIS.to_string(),
     };
 
-    let import_resp = import(sk, contract_import).await;
+    let import_resp = import(contract_import).await;
     assert!(import_resp.is_ok());
     Ok(())
 }
 
 #[tokio::test]
 async fn allow_import_uda_from_genesis_data() -> anyhow::Result<()> {
-    let issuer_keys = save_mnemonic(
-        &SecretString(ISSUER_MNEMONIC.to_string()),
-        &SecretString("".to_string()),
-    )
-    .await?;
-
-    let sk = &issuer_keys.private.nostr_prv;
     let contract_import = ImportRequest {
         import: AssetType::RGB21,
         data: UDA_GENESIS.to_string(),
     };
 
-    let import_resp = import(sk, contract_import).await;
+    let import_resp = import(contract_import).await;
     assert!(import_resp.is_ok());
     Ok(())
 }
 
 #[tokio::test]
 async fn allow_import_fungible_contract_data() -> anyhow::Result<()> {
-    let issuer_keys = save_mnemonic(
-        &SecretString(ISSUER_MNEMONIC.to_string()),
-        &SecretString("".to_string()),
-    )
-    .await?;
-
-    let sk = &issuer_keys.private.nostr_prv;
     let contract_import = ImportRequest {
         import: AssetType::RGB20,
         data: FUNGIBLE_CONTRACT.to_string(),
     };
 
-    let import_resp = import(sk, contract_import).await;
+    let import_resp = import(contract_import).await;
     assert!(import_resp.is_ok());
     Ok(())
 }
 
 #[tokio::test]
 async fn allow_import_uda_contract_data() -> anyhow::Result<()> {
-    let issuer_keys = save_mnemonic(
-        &SecretString(ISSUER_MNEMONIC.to_string()),
-        &SecretString("".to_string()),
-    )
-    .await?;
-
-    let sk = &issuer_keys.private.nostr_prv;
     let contract_import = ImportRequest {
         import: AssetType::RGB21,
         data: UDA_CONTRACT.to_string(),
     };
 
-    let import_resp = import(sk, contract_import).await;
+    let import_resp = import(contract_import).await;
     assert!(import_resp.is_ok());
     Ok(())
 }

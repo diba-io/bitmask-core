@@ -44,7 +44,7 @@ pub enum StorageError {
     Reconcile(String, String),
 }
 
-pub async fn store_stock(sk: &str, name: &str, stock: &Stock) -> Result<(), StorageError> {
+pub async fn store_stock(name: &str, stock: &Stock) -> Result<(), StorageError> {
     let data = stock
         .to_strict_serialized::<U32>()
         .map_err(|op| StorageError::StrictWrite(name.to_string(), op.to_string()))?;
@@ -54,7 +54,6 @@ pub async fn store_stock(sk: &str, name: &str, stock: &Stock) -> Result<(), Stor
         .to_lowercase();
 
     store(
-        sk,
         &format!("{hashed_name}.c15"),
         &data,
         false,
@@ -64,11 +63,7 @@ pub async fn store_stock(sk: &str, name: &str, stock: &Stock) -> Result<(), Stor
     .map_err(|op| StorageError::CarbonadoWrite(name.to_string(), op.to_string()))
 }
 
-pub async fn store_wallets(
-    sk: &str,
-    name: &str,
-    rgb_wallets: &RgbAccount,
-) -> Result<(), StorageError> {
+pub async fn store_wallets(name: &str, rgb_wallets: &RgbAccount) -> Result<(), StorageError> {
     let data = to_allocvec(rgb_wallets)
         .map_err(|op| StorageError::StrictWrite(name.to_string(), op.to_string()))?;
 
@@ -77,7 +72,6 @@ pub async fn store_wallets(
         .to_lowercase();
 
     store(
-        sk,
         &format!("{hashed_name}.c15"),
         &data,
         false,
@@ -87,11 +81,7 @@ pub async fn store_wallets(
     .map_err(|op| StorageError::CarbonadoWrite(name.to_string(), op.to_string()))
 }
 
-pub async fn store_transfers(
-    sk: &str,
-    name: &str,
-    rgb_transfers: &RgbTransfers,
-) -> Result<(), StorageError> {
+pub async fn store_transfers(name: &str, rgb_transfers: &RgbTransfers) -> Result<(), StorageError> {
     let data = to_allocvec(rgb_transfers)
         .map_err(|op| StorageError::StrictWrite(name.to_string(), op.to_string()))?;
 
@@ -100,7 +90,6 @@ pub async fn store_transfers(
         .to_lowercase();
 
     store(
-        sk,
         &format!("{hashed_name}.c15"),
         &data,
         true,
@@ -110,12 +99,12 @@ pub async fn store_transfers(
     .map_err(|op| StorageError::CarbonadoWrite(name.to_string(), op.to_string()))
 }
 
-pub async fn retrieve_stock(sk: &str, name: &str) -> Result<Stock, StorageError> {
+pub async fn retrieve_stock(name: &str) -> Result<Stock, StorageError> {
     let hashed_name = blake3::hash(format!("{LIB_ID_RGB}-{name}").as_bytes())
         .to_hex()
         .to_lowercase();
 
-    let (data, _) = retrieve(sk, &format!("{hashed_name}.c15"), vec![])
+    let (data, _) = retrieve(&format!("{hashed_name}.c15"), vec![])
         .await
         .map_err(|op| StorageError::CarbonadoRetrieve(name.to_string(), op.to_string()))?;
 
@@ -131,12 +120,12 @@ pub async fn retrieve_stock(sk: &str, name: &str) -> Result<Stock, StorageError>
     }
 }
 
-pub async fn retrieve_wallets(sk: &str, name: &str) -> Result<RgbAccount, StorageError> {
+pub async fn retrieve_wallets(name: &str) -> Result<RgbAccount, StorageError> {
     let hashed_name = blake3::hash(format!("{LIB_ID_RGB}-{name}").as_bytes())
         .to_hex()
         .to_lowercase();
 
-    let (data, _) = retrieve(sk, &format!("{hashed_name}.c15"), vec![])
+    let (data, _) = retrieve(&format!("{hashed_name}.c15"), vec![])
         .await
         .map_err(|op| StorageError::CarbonadoRetrieve(name.to_string(), op.to_string()))?;
 
@@ -149,12 +138,12 @@ pub async fn retrieve_wallets(sk: &str, name: &str) -> Result<RgbAccount, Storag
     }
 }
 
-pub async fn retrieve_transfers(sk: &str, name: &str) -> Result<RgbTransfers, StorageError> {
+pub async fn retrieve_transfers(name: &str) -> Result<RgbTransfers, StorageError> {
     let hashed_name = blake3::hash(format!("{LIB_ID_RGB}-{name}").as_bytes())
         .to_hex()
         .to_lowercase();
 
-    let (data, _) = retrieve(sk, &format!("{hashed_name}.c15"), vec![])
+    let (data, _) = retrieve(&format!("{hashed_name}.c15"), vec![])
         .await
         .map_err(|op| StorageError::CarbonadoRetrieve(name.to_string(), op.to_string()))?;
 
@@ -167,7 +156,7 @@ pub async fn retrieve_transfers(sk: &str, name: &str) -> Result<RgbTransfers, St
     }
 }
 
-pub async fn store_fork_wallets(sk: &str, name: &str, changes: &[u8]) -> Result<(), StorageError> {
+pub async fn store_fork_wallets(name: &str, changes: &[u8]) -> Result<(), StorageError> {
     let hashed_name = blake3::hash(format!("{LIB_ID_RGB}-{name}").as_bytes())
         .to_hex()
         .to_lowercase();
@@ -187,7 +176,7 @@ pub async fn store_fork_wallets(sk: &str, name: &str, changes: &[u8]) -> Result<
     // reconcile(&mut original_version, raw_data)
     //     .map_err(|op| StorageError::Reconcile(name.to_string(), op.to_string()))?;
 
-    let (original_bytes, _) = retrieve(sk, original_name, vec![])
+    let (original_bytes, _) = retrieve(original_name, vec![])
         .await
         .map_err(|op| StorageError::CarbonadoRetrieve(name.to_string(), op.to_string()))?;
 
@@ -212,7 +201,6 @@ pub async fn store_fork_wallets(sk: &str, name: &str, changes: &[u8]) -> Result<
         .map_err(|op| StorageError::StrictWrite(name.to_string(), op.to_string()))?;
 
     store(
-        sk,
         main_name,
         &data,
         true,
@@ -224,7 +212,7 @@ pub async fn store_fork_wallets(sk: &str, name: &str, changes: &[u8]) -> Result<
     Ok(())
 }
 
-pub async fn retrieve_fork_wallets(sk: &str, name: &str) -> Result<LocalRgbAccount, StorageError> {
+pub async fn retrieve_fork_wallets(name: &str) -> Result<LocalRgbAccount, StorageError> {
     let hashed_name = blake3::hash(format!("{LIB_ID_RGB}-{name}").as_bytes())
         .to_hex()
         .to_lowercase();
@@ -232,7 +220,7 @@ pub async fn retrieve_fork_wallets(sk: &str, name: &str) -> Result<LocalRgbAccou
     let main_name = &format!("{hashed_name}.c15");
     let original_name = &format!("{hashed_name}-diff.c15");
 
-    let (data, _) = retrieve(sk, main_name, vec![])
+    let (data, _) = retrieve(main_name, vec![])
         .await
         .map_err(|op| StorageError::CarbonadoRetrieve(name.to_string(), op.to_string()))?;
 
@@ -254,7 +242,6 @@ pub async fn retrieve_fork_wallets(sk: &str, name: &str) -> Result<LocalRgbAccou
         let original_version = fork_version.save();
 
         store(
-            sk,
             original_name,
             &original_version,
             true,

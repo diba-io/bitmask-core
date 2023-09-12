@@ -1,8 +1,7 @@
 #![cfg(not(target_arch = "wasm32"))]
 use anyhow::Result;
 use bitmask_core::{
-    bitcoin::{drain_wallet, get_wallet_data, new_mnemonic, save_mnemonic},
-    structs::SecretString,
+    drain_wallet, get_wallet_data, new_mnemonic, save_mnemonic, structs::SecretString,
 };
 
 use crate::rgb::integration::utils::{send_some_coins, OWNER_MNEMONIC};
@@ -18,10 +17,8 @@ pub async fn drain() -> Result<()> {
     .await?;
 
     let old_wallet_data = get_wallet_data(
-        &SecretString(old_keys.public.btc_descriptor_xpub.clone()),
-        Some(&SecretString(
-            old_keys.public.btc_change_descriptor_xpub.clone(),
-        )),
+        &old_keys.public.btc_descriptor_xpub.clone(),
+        Some(&old_keys.public.btc_change_descriptor_xpub.clone()),
     )
     .await?;
 
@@ -30,20 +27,16 @@ pub async fn drain() -> Result<()> {
     send_some_coins(&old_wallet_data.address, "0.1").await;
 
     let new_wallet_data = get_wallet_data(
-        &SecretString(new_keys.public.btc_descriptor_xpub.clone()),
-        Some(&SecretString(
-            new_keys.public.btc_change_descriptor_xpub.clone(),
-        )),
+        &new_keys.public.btc_descriptor_xpub.clone(),
+        Some(&new_keys.public.btc_change_descriptor_xpub.clone()),
     )
     .await?;
 
     // 2. Drain sats from original wallet to new wallet
     let drain_wallet_details = drain_wallet(
         &new_wallet_data.address,
-        &SecretString(old_keys.private.btc_descriptor_xprv.clone()),
-        Some(&SecretString(
-            old_keys.private.btc_change_descriptor_xprv.clone(),
-        )),
+        &old_keys.private.btc_descriptor_xprv.clone(),
+        Some(&old_keys.private.btc_change_descriptor_xprv.clone()),
         Some(2.0),
     )
     .await?;

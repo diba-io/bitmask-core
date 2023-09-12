@@ -8,10 +8,10 @@ use bitmask_core::structs::FileMetadata;
 use bitmask_core::structs::ReIssueResponse;
 use bitmask_core::structs::WatcherRequest;
 use bitmask_core::{
-    bitcoin::save_mnemonic,
     constants::{storage_keys::ASSETS_STOCK, BITMASK_ENDPOINT, NETWORK},
     info,
     rgb::constants::RGB_OLDEST_VERSION,
+    save_mnemonic,
     structs::{ContractsResponse, ReIssueRequest, SecretString},
     web::{
         carbonado::{retrieve_metadata, store},
@@ -43,12 +43,12 @@ async fn allow_re_issue_rgb_contracts() -> anyhow::Result<()> {
 
     // 0. Create Watcher
     info!("0. Create Watcher");
-    let issuer_sk = &issuer_keys.private.nostr_prv;
+    let issuer_sk = &issuer_keys.private.nostr_prv.0;
     let client = Client::new();
     let endpoint = format!("{bitmask_endpoint}/watcher");
     let watch_req = WatcherRequest {
         name: "default".to_string(),
-        xpub: issuer_keys.public.watcher_xpub.clone(),
+        xpub: issuer_keys.public.watcher_xpub.0.clone(),
         force: true,
     };
     let resp = client
@@ -70,20 +70,9 @@ async fn allow_re_issue_rgb_contracts() -> anyhow::Result<()> {
     // 1. Retrieve metadata
     info!("1. Retrieve metadata");
     let fake_file_name = "fake-name.c15";
-    resolve(store(
-        issuer_sk.to_string(),
-        fake_file_name.to_string(),
-        input,
-        false,
-        None,
-    ))
-    .await;
+    resolve(store(fake_file_name.to_string(), input, false, None)).await;
 
-    let resp: JsValue = resolve(retrieve_metadata(
-        issuer_sk.to_string(),
-        fake_file_name.to_string(),
-    ))
-    .await;
+    let resp: JsValue = resolve(retrieve_metadata(fake_file_name.to_string())).await;
     let file_header: FileMetadata = json_parse(&resp);
 
     // 2. Retrieve contracts
@@ -101,18 +90,14 @@ async fn allow_re_issue_rgb_contracts() -> anyhow::Result<()> {
 
         // 3. ReIssue contracts
         info!("3. ReIssue contracts");
-        let resp: JsValue = resolve(reissue_contract(issuer_sk.to_string(), reissue_req)).await;
+        let resp: JsValue = resolve(reissue_contract(reissue_req)).await;
 
         let resp: ReIssueResponse = json_parse(&resp);
         assert!(!resp.contracts.is_empty());
 
         // 4. Get File Information
         info!("4. Get File Information");
-        let resp: JsValue = resolve(retrieve_metadata(
-            issuer_sk.to_string(),
-            file_name.to_string(),
-        ))
-        .await;
+        let resp: JsValue = resolve(retrieve_metadata(file_name.to_string())).await;
 
         let file_header: FileMetadata = json_parse(&resp);
         assert_eq!(RGB_STRICT_TYPE_VERSION.to_vec(), file_header.metadata);

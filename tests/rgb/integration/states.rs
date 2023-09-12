@@ -1,7 +1,7 @@
 #![cfg(not(target_arch = "wasm32"))]
 use bitmask_core::{
-    bitcoin::{save_mnemonic, sign_psbt_file},
     rgb::{accept_transfer, create_watcher, get_contract},
+    save_mnemonic, sign_psbt_file,
     structs::{AcceptRequest, DecryptedWalletData, SecretString, SignPsbtRequest, WatcherRequest},
 };
 
@@ -76,18 +76,12 @@ async fn check_fungible_state_after_accept_consig() -> anyhow::Result<()> {
         issuer_keys.clone(),
     )
     .await?;
-    let transfer_resp =
-        &create_new_transfer(issuer_keys.clone(), owner_resp.clone(), psbt_resp).await?;
+    let transfer_resp = &create_new_transfer(owner_resp.clone(), psbt_resp).await?;
 
     // 2. Sign and Publish TX (Issuer side)
-    let issuer_sk = issuer_keys.private.nostr_prv.to_string();
-    let owner_sk = owner_keys.clone().private.nostr_prv.to_string();
     let request = SignPsbtRequest {
         psbt: transfer_resp.psbt.clone(),
-        descriptors: [SecretString(
-            issuer_keys.private.rgb_assets_descriptor_xprv.clone(),
-        )]
-        .to_vec(),
+        descriptors: [issuer_keys.private.rgb_assets_descriptor_xprv.clone()].to_vec(),
     };
     let resp = sign_psbt_file(request).await;
     assert!(resp.is_ok());
@@ -98,7 +92,7 @@ async fn check_fungible_state_after_accept_consig() -> anyhow::Result<()> {
         consignment: transfer_resp.clone().consig,
         force: true,
     };
-    let resp = accept_transfer(&issuer_sk, request).await;
+    let resp = accept_transfer(request).await;
     assert!(resp.is_ok());
     assert!(resp?.valid);
 
@@ -107,13 +101,13 @@ async fn check_fungible_state_after_accept_consig() -> anyhow::Result<()> {
         consignment: transfer_resp.consig.clone(),
         force: false,
     };
-    let resp = accept_transfer(&owner_sk, request).await;
+    let resp = accept_transfer(request).await;
     assert!(resp.is_ok());
     assert!(resp?.valid);
 
     // 5. Retrieve Contract (Issuer Side)
     let contract_id = &issuer_resp.contract_id;
-    let resp = get_contract(&issuer_sk, contract_id).await;
+    let resp = get_contract(contract_id).await;
     assert!(resp.is_ok());
     assert_eq!(4, resp?.balance);
 
@@ -121,14 +115,14 @@ async fn check_fungible_state_after_accept_consig() -> anyhow::Result<()> {
     let watcher_name = "default";
     let create_watch_req = WatcherRequest {
         name: watcher_name.to_string(),
-        xpub: owner_keys.clone().public.watcher_xpub.clone(),
+        xpub: owner_keys.clone().public.watcher_xpub.to_string(),
         force: true,
     };
-    create_watcher(&owner_sk, create_watch_req).await?;
+    create_watcher(create_watch_req).await?;
 
     // 7. Retrieve Contract (Owner Side)
     let contract_id = &issuer_resp.contract_id;
-    let resp = get_contract(&owner_sk, contract_id).await;
+    let resp = get_contract(contract_id).await;
     assert!(resp.is_ok());
     assert_eq!(1, resp?.balance);
 
@@ -179,18 +173,12 @@ async fn check_uda_state_after_accept_consig() -> anyhow::Result<()> {
         issuer_keys.clone(),
     )
     .await?;
-    let transfer_resp =
-        &create_new_transfer(issuer_keys.clone(), owner_resp.clone(), psbt_resp).await?;
+    let transfer_resp = &create_new_transfer(owner_resp.clone(), psbt_resp).await?;
 
     // 2. Sign and Publish TX (Issuer side)
-    let issuer_sk = issuer_keys.private.nostr_prv.to_string();
-    let owner_sk = owner_keys.clone().private.nostr_prv.to_string();
     let request = SignPsbtRequest {
         psbt: transfer_resp.psbt.clone(),
-        descriptors: [SecretString(
-            issuer_keys.private.rgb_udas_descriptor_xprv.clone(),
-        )]
-        .to_vec(),
+        descriptors: [issuer_keys.private.rgb_udas_descriptor_xprv.clone()].to_vec(),
     };
     let resp = sign_psbt_file(request).await;
     assert!(resp.is_ok());
@@ -201,7 +189,7 @@ async fn check_uda_state_after_accept_consig() -> anyhow::Result<()> {
         consignment: transfer_resp.consig.clone(),
         force: false,
     };
-    let resp = accept_transfer(&issuer_sk, request).await;
+    let resp = accept_transfer(request).await;
     assert!(resp.is_ok());
     assert!(resp?.valid);
 
@@ -210,13 +198,13 @@ async fn check_uda_state_after_accept_consig() -> anyhow::Result<()> {
         consignment: transfer_resp.consig.clone(),
         force: false,
     };
-    let resp = accept_transfer(&owner_sk, request).await;
+    let resp = accept_transfer(request).await;
     assert!(resp.is_ok());
     assert!(resp?.valid);
 
     // 5. Retrieve Contract (Issuer Side)
     let contract_id = &issuer_resp.contract_id;
-    let resp = get_contract(&issuer_sk, contract_id).await;
+    let resp = get_contract(contract_id).await;
     assert!(resp.is_ok());
     assert_eq!(0, resp?.balance);
 
@@ -224,14 +212,14 @@ async fn check_uda_state_after_accept_consig() -> anyhow::Result<()> {
     let watcher_name = "default";
     let create_watch_req = WatcherRequest {
         name: watcher_name.to_string(),
-        xpub: owner_keys.clone().public.watcher_xpub.clone(),
+        xpub: owner_keys.clone().public.watcher_xpub.to_string(),
         force: true,
     };
-    create_watcher(&owner_sk, create_watch_req).await?;
+    create_watcher(create_watch_req).await?;
 
     // 7. Retrieve Contract (Owner Side)
     let contract_id = &issuer_resp.contract_id;
-    let resp = get_contract(&owner_sk, contract_id).await;
+    let resp = get_contract(contract_id).await;
     assert!(resp.is_ok());
     assert_eq!(1, resp?.balance);
 

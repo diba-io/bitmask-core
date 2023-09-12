@@ -32,107 +32,101 @@ pub enum RgbPersistenceError {
     WriteRgbTransfers(String),
 }
 
-pub async fn retrieve_stock(sk: &str) -> Result<Stock, RgbPersistenceError> {
-    let stock = retrieve_rgb_stock(sk, ASSETS_STOCK)
+pub async fn retrieve_stock() -> Result<Stock, RgbPersistenceError> {
+    let stock = retrieve_rgb_stock(ASSETS_STOCK)
         .await
         .map_err(|op| RgbPersistenceError::RetrieveStock(op.to_string()))?;
 
     Ok(stock)
 }
 
-pub async fn retrieve_transfers(sk: &str) -> Result<RgbTransfers, RgbPersistenceError> {
-    let rgb_account = retrieve_rgb_transfers(sk, ASSETS_TRANSFERS)
+pub async fn retrieve_transfers() -> Result<RgbTransfers, RgbPersistenceError> {
+    let rgb_account = retrieve_rgb_transfers(ASSETS_TRANSFERS)
         .await
         .map_err(|op| RgbPersistenceError::RetrieveRgbTransfers(op.to_string()))?;
 
     Ok(rgb_account)
 }
 
-pub async fn retrieve_account(sk: &str) -> Result<RgbAccount, RgbPersistenceError> {
-    let rgb_account = retrieve_wallets(sk, ASSETS_WALLETS)
+pub async fn retrieve_account() -> Result<RgbAccount, RgbPersistenceError> {
+    let rgb_account = retrieve_wallets(ASSETS_WALLETS)
         .await
         .map_err(|op| RgbPersistenceError::RetrieveRgbAccount(op.to_string()))?;
 
     Ok(rgb_account)
 }
 
-pub async fn retrieve_local_account(sk: &str) -> Result<LocalRgbAccount, RgbPersistenceError> {
-    let rgb_account = retrieve_fork_wallets(sk, ASSETS_WALLETS)
+pub async fn retrieve_local_account() -> Result<LocalRgbAccount, RgbPersistenceError> {
+    let rgb_account = retrieve_fork_wallets(ASSETS_WALLETS)
         .await
         .map_err(|op| RgbPersistenceError::RetrieveRgbAccountFork(op.to_string()))?;
 
     Ok(rgb_account)
 }
 
-pub async fn retrieve_stock_account(sk: &str) -> Result<(Stock, RgbAccount), RgbPersistenceError> {
-    Ok((retrieve_stock(sk).await?, retrieve_account(sk).await?))
+pub async fn retrieve_stock_account() -> Result<(Stock, RgbAccount), RgbPersistenceError> {
+    Ok((retrieve_stock().await?, retrieve_account().await?))
 }
 
-pub async fn retrieve_stock_transfers(
-    sk: &str,
-) -> Result<(Stock, RgbTransfers), RgbPersistenceError> {
-    Ok((retrieve_stock(sk).await?, retrieve_transfers(sk).await?))
+pub async fn retrieve_stock_transfers() -> Result<(Stock, RgbTransfers), RgbPersistenceError> {
+    Ok((retrieve_stock().await?, retrieve_transfers().await?))
 }
 
 pub async fn retrieve_stock_account_transfers(
-    sk: &str,
 ) -> Result<(Stock, RgbAccount, RgbTransfers), RgbPersistenceError> {
     Ok((
-        retrieve_stock(sk).await?,
-        retrieve_account(sk).await?,
-        retrieve_transfers(sk).await?,
+        retrieve_stock().await?,
+        retrieve_account().await?,
+        retrieve_transfers().await?,
     ))
 }
 
-pub async fn store_stock(sk: &str, stock: Stock) -> Result<(), RgbPersistenceError> {
-    store_rgb_stock(sk, ASSETS_STOCK, &stock)
+pub async fn store_stock(stock: Stock) -> Result<(), RgbPersistenceError> {
+    store_rgb_stock(ASSETS_STOCK, &stock)
         .await
         .map_err(|op| RgbPersistenceError::WriteStock(op.to_string()))
 }
 
-pub async fn store_transfers(sk: &str, transfers: RgbTransfers) -> Result<(), RgbPersistenceError> {
-    store_rgb_transfer(sk, ASSETS_TRANSFERS, &transfers)
+pub async fn store_transfers(transfers: RgbTransfers) -> Result<(), RgbPersistenceError> {
+    store_rgb_transfer(ASSETS_TRANSFERS, &transfers)
         .await
         .map_err(|op| RgbPersistenceError::WriteRgbTransfers(op.to_string()))
 }
 
-pub async fn store_account(sk: &str, account: RgbAccount) -> Result<(), RgbPersistenceError> {
-    store_wallets(sk, ASSETS_WALLETS, &account)
+pub async fn store_account(account: RgbAccount) -> Result<(), RgbPersistenceError> {
+    store_wallets(ASSETS_WALLETS, &account)
         .await
         .map_err(|op| RgbPersistenceError::WriteRgbAccount(op.to_string()))
 }
 
-pub async fn store_local_account(sk: &str, changes: Vec<u8>) -> Result<(), RgbPersistenceError> {
-    store_fork_wallets(sk, ASSETS_WALLETS, &changes)
+pub async fn store_local_account(changes: Vec<u8>) -> Result<(), RgbPersistenceError> {
+    store_fork_wallets(ASSETS_WALLETS, &changes)
         .await
         .map_err(|op| RgbPersistenceError::WriteRgbAccountFork(op.to_string()))
 }
 
 pub async fn store_stock_account(
-    sk: &str,
     stock: Stock,
     account: RgbAccount,
 ) -> Result<(), RgbPersistenceError> {
-    store_stock(sk, stock).await?;
-    store_account(sk, account).await
+    store_stock(stock).await?;
+    store_account(account).await
 }
 
 pub async fn store_stock_transfers(
-    sk: &str,
     stock: Stock,
     transfers: RgbTransfers,
 ) -> Result<(), RgbPersistenceError> {
-    store_stock(sk, stock).await?;
-    store_transfers(sk, transfers).await
+    store_stock(stock).await?;
+    store_transfers(transfers).await
 }
 
 pub async fn store_stock_account_transfers(
-    sk: &str,
     stock: Stock,
     account: RgbAccount,
     transfers: RgbTransfers,
 ) -> Result<(), RgbPersistenceError> {
-    store_stock(sk, stock).await?;
-    store_account(sk, account).await?;
-    store_transfers(sk, transfers).await
+    store_stock(stock).await?;
+    store_account(account).await?;
+    store_transfers(transfers).await
 }

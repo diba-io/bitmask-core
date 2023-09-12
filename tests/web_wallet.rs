@@ -40,7 +40,7 @@ async fn create_wallet() {
 
     let mnemonic_data: SecretString = json_parse(&mnemonic);
 
-    let encrypted_wallet_str: JsValue = resolve(decrypt_wallet(mnemonic_data.0.clone())).await;
+    let encrypted_wallet_str: JsValue = resolve(decrypt_wallet(mnemonic_data.to_string())).await;
     let encrypted_wallet_data: DecryptedWalletData = json_parse(&encrypted_wallet_str);
 
     assert_eq!(encrypted_wallet_data.mnemonic.split(' ').count(), 24);
@@ -63,19 +63,28 @@ async fn import_and_open_wallet() {
     let mnemonic_data: SecretString = json_parse(&mnemonic_data_str);
 
     info!("Get encrypted wallet properties");
-    let encrypted_wallet_str: JsValue = resolve(decrypt_wallet(mnemonic_data.0.clone())).await;
+    let encrypted_wallet_str: JsValue = resolve(decrypt_wallet(mnemonic_data.to_string())).await;
     let encrypted_wallet_data: DecryptedWalletData = json_parse(&encrypted_wallet_str);
 
     assert_eq!(
-        encrypted_wallet_data.private.btc_descriptor_xprv, DESCRIPTOR,
+        encrypted_wallet_data
+            .private
+            .btc_descriptor_xprv
+            .to_string(),
+        DESCRIPTOR,
         "expected receive descriptor matches loaded wallet"
     );
     assert_eq!(
-        encrypted_wallet_data.private.btc_change_descriptor_xprv, CHANGE_DESCRIPTOR,
+        encrypted_wallet_data
+            .private
+            .btc_change_descriptor_xprv
+            .to_string(),
+        CHANGE_DESCRIPTOR,
         "expected change descriptor matches loaded wallet"
     );
     assert_eq!(
-        encrypted_wallet_data.public.xpubkh, PUBKEY_HASH,
+        encrypted_wallet_data.public.xpubkh.to_string(),
+        PUBKEY_HASH,
         "expected xpubkh matches loaded wallet"
     );
 
@@ -111,7 +120,7 @@ async fn import_test_wallet() {
     let mnemonic_data: SecretString = json_parse(&mnemonic_data_str);
 
     info!("Get vault properties");
-    let vault_str: JsValue = resolve(decrypt_wallet(mnemonic_data.0.clone())).await;
+    let vault_str: JsValue = resolve(decrypt_wallet(mnemonic_data.to_string())).await;
     let _encrypted_wallet_data: DecryptedWalletData = json_parse(&vault_str);
 
     info!("Import wallet once more");
@@ -125,17 +134,20 @@ async fn import_test_wallet() {
     let mnemonic_data: SecretString = json_parse(&mnemonic_data_str);
 
     info!("Get vault properties");
-    let vault_str: JsValue = resolve(decrypt_wallet(mnemonic_data.0.clone())).await;
+    let vault_str: JsValue = resolve(decrypt_wallet(mnemonic_data.to_string())).await;
     let encrypted_wallet_data: DecryptedWalletData = json_parse(&vault_str);
 
     info!("Get wallet data");
     let wallet_str: JsValue = resolve(get_wallet_data(
-        encrypted_wallet_data.private.btc_descriptor_xprv.clone(),
+        encrypted_wallet_data
+            .private
+            .btc_descriptor_xprv
+            .to_string(),
         Some(
             encrypted_wallet_data
                 .private
                 .btc_change_descriptor_xprv
-                .clone(),
+                .to_string(),
         ),
     ))
     .await;
@@ -168,11 +180,14 @@ async fn import_test_wallet() {
 
     info!("Test sending a transaction back to itself for a thousand sats");
     let tx_details = resolve(send_sats(
-        encrypted_wallet_data.private.btc_descriptor_xprv.clone(),
+        encrypted_wallet_data
+            .private
+            .btc_descriptor_xprv
+            .to_string(),
         encrypted_wallet_data
             .private
             .btc_change_descriptor_xprv
-            .clone(),
+            .to_string(),
         wallet_data.address,
         1_000,
         Some(1.1),

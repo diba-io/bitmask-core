@@ -3,14 +3,11 @@ use std::env;
 
 use anyhow::Result;
 use bitmask_core::{
-    bitcoin::{
-        decrypt_wallet, encrypt_wallet, get_wallet_data, hash_password, new_wallet, send_sats,
-        BitcoinError,
-    },
     constants::{get_network, switch_network},
+    decrypt_wallet, encrypt_wallet, get_wallet_data, hash_password, new_wallet, send_sats,
     structs::SecretString,
     util::init_logging,
-    warn,
+    warn, BitcoinError,
 };
 use log::info;
 
@@ -51,11 +48,8 @@ async fn create_wallet() -> Result<()> {
     let encrypted_descriptors = new_wallet(&SecretString(SEED_PASSWORD.to_owned())).await?;
     let decrypted_wallet = decrypt_wallet(&encrypted_descriptors)?;
 
-    let main_btc_wallet = get_wallet_data(
-        &SecretString(decrypted_wallet.private.btc_descriptor_xprv.clone()),
-        None,
-    )
-    .await?;
+    let main_btc_wallet =
+        get_wallet_data(&decrypted_wallet.private.btc_descriptor_xprv.clone(), None).await?;
     // let main_rgb_wallet =
     //     get_wallet_data(&decrypted_wallet.private.rgb_assets_descriptor_xprv, None).await?;
 
@@ -88,16 +82,10 @@ async fn import_wallet() -> Result<()> {
     let encrypted_descriptors = encrypt_wallet(&main_mnemonic, &seed_password).await?;
     let main_vault = decrypt_wallet(&encrypted_descriptors)?;
 
-    let main_btc_wallet = get_wallet_data(
-        &SecretString(main_vault.private.btc_descriptor_xprv.clone()),
-        None,
-    )
-    .await?;
-    let main_rgb_wallet = get_wallet_data(
-        &SecretString(main_vault.private.rgb_assets_descriptor_xprv.clone()),
-        None,
-    )
-    .await?;
+    let main_btc_wallet =
+        get_wallet_data(&main_vault.private.btc_descriptor_xprv.clone(), None).await?;
+    let main_rgb_wallet =
+        get_wallet_data(&main_vault.private.rgb_assets_descriptor_xprv.clone(), None).await?;
 
     println!("Descriptor: {}", main_vault.private.btc_descriptor_xprv);
     println!("Address (Bitcoin): {}", main_btc_wallet.address);
@@ -116,13 +104,12 @@ async fn get_wallet_balance() -> Result<()> {
     let encrypted_descriptors = encrypt_wallet(&main_mnemonic, &seed_password).await?;
     let main_vault = decrypt_wallet(&encrypted_descriptors)?;
 
-    let btc_wallet = get_wallet_data(
-        &SecretString(main_vault.private.btc_descriptor_xprv.clone()),
-        None,
-    )
-    .await?;
+    let btc_wallet = get_wallet_data(&main_vault.private.btc_descriptor_xprv.clone(), None).await?;
 
-    warn!("Descriptor:", main_vault.private.btc_descriptor_xprv);
+    warn!(
+        "Descriptor:",
+        main_vault.private.btc_descriptor_xprv.to_string()
+    );
     warn!("Address:", btc_wallet.address);
     warn!("Wallet Balance:", btc_wallet.balance.confirmed.to_string());
 
@@ -145,8 +132,8 @@ async fn wrong_network() -> Result<()> {
     let main_vault = decrypt_wallet(&encrypted_descriptors)?;
 
     let result = send_sats(
-        &SecretString(main_vault.private.btc_descriptor_xprv.to_owned()),
-        &SecretString(main_vault.private.btc_change_descriptor_xprv.to_owned()),
+        &main_vault.private.btc_descriptor_xprv.to_owned(),
+        &main_vault.private.btc_change_descriptor_xprv.to_owned(),
         "bc1pgxpvg7cz0s3akgl9vhv687rzya7frskenukgx3gwuh6q3un5wqgq7xmnhe",
         1000,
         Some(1.0),

@@ -58,18 +58,16 @@ async fn allow_issue_and_list_contracts() {
     let watcher_name = "default";
     let create_watch_req = WatcherRequest {
         name: watcher_name.to_string(),
-        xpub: issuer_keys.public.watcher_xpub.clone(),
+        xpub: issuer_keys.public.watcher_xpub.0.clone(),
         force: true,
     };
 
     let create_watch_req = serde_wasm_bindgen::to_value(&create_watch_req).expect("");
-    let watcher_resp: JsValue =
-        resolve(create_watcher(sk.to_string(), create_watch_req.clone())).await;
+    let watcher_resp: JsValue = resolve(create_watcher(create_watch_req.clone())).await;
     let watcher_resp: WatcherResponse = json_parse(&watcher_resp);
 
     info!("Get Address");
     let next_address: JsValue = resolve(watcher_next_address(
-        sk.to_string(),
         watcher_name.to_string(),
         iface.to_string(),
     ))
@@ -79,7 +77,6 @@ async fn allow_issue_and_list_contracts() {
 
     info!("Get UTXO");
     let next_address: JsValue = resolve(watcher_next_utxo(
-        sk.to_string(),
         watcher_name.to_string(),
         iface.to_string(),
     ))
@@ -104,10 +101,10 @@ async fn allow_issue_and_list_contracts() {
     };
 
     let issue_req = serde_wasm_bindgen::to_value(&issue_req).expect("");
-    let issue_resp: JsValue = resolve(issue_contract(sk.to_string(), issue_req)).await;
+    let issue_resp: JsValue = resolve(issue_contract(issue_req)).await;
 
     info!("List Contracts");
-    let list_contracts_resp: JsValue = resolve(list_contracts(sk.to_string())).await;
+    let list_contracts_resp: JsValue = resolve(list_contracts()).await;
     let list_contracts_resp: ContractsResponse = json_parse(&list_contracts_resp);
     info!(format!("Show Contracts {:?}", list_contracts_resp));
 }

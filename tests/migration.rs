@@ -2,10 +2,8 @@
 
 use anyhow::Result;
 use bitmask_core::{
-    bitcoin::{decrypt_wallet, hash_password, upgrade_wallet},
-    constants::switch_network,
-    structs::SecretString,
-    util::init_logging,
+    constants::switch_network, decrypt_wallet, hash_password, structs::SecretString,
+    upgrade_wallet, util::init_logging,
 };
 use log::{debug, info};
 
@@ -43,7 +41,7 @@ async fn migration_v4() -> Result<()> {
     let wallet = decrypt_wallet(&upgraded_descriptor)?;
 
     assert_eq!(
-        wallet.public.xpub, "tpubD6NzVbkrYhZ4Xxrh54Ew5kjkagEfUhS3aCNqRJmUuNfnTXhK4LGXyUzZ5kxgn8f2txjnFtypnoYfRQ9Y8P2nhSNXffxVKutJgxNPxgmwpUR",
+        wallet.public.xpub.to_string(), "tpubD6NzVbkrYhZ4Xxrh54Ew5kjkagEfUhS3aCNqRJmUuNfnTXhK4LGXyUzZ5kxgn8f2txjnFtypnoYfRQ9Y8P2nhSNXffxVKutJgxNPxgmwpUR",
         "Upgraded wallet should upgrade the descriptor"
     );
 
@@ -78,7 +76,7 @@ async fn migration_v5() -> Result<()> {
     let wallet = decrypt_wallet(&upgraded_descriptor)?;
 
     assert_eq!(
-        wallet.public.xpub, "tpubD6NzVbkrYhZ4XJmEMNjxuARFrP5kME8ndqpk9M2QeqtuTv2kTrm87a93Td47bHRRCrSSVvVEu3trvwthVswtPNwK2Kyc9PpudxC1MZrPuNL",
+        wallet.public.xpub.to_string(), "tpubD6NzVbkrYhZ4XJmEMNjxuARFrP5kME8ndqpk9M2QeqtuTv2kTrm87a93Td47bHRRCrSSVvVEu3trvwthVswtPNwK2Kyc9PpudxC1MZrPuNL",
         "Upgraded wallet should upgrade the descriptor"
     );
 

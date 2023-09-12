@@ -10,6 +10,8 @@ pub use server::{handle_file, retrieve, retrieve_metadata, store};
 
 #[cfg(not(target_arch = "wasm32"))]
 mod server {
+    use crate::bitcoin::NOSTR_SK;
+
     use super::*;
 
     use std::{
@@ -20,35 +22,40 @@ mod server {
     use tokio::fs;
 
     pub async fn store(
-        sk: &str,
         name: &str,
         input: &[u8],
         _force: bool,
         metadata: Option<Vec<u8>>,
     ) -> Result<(), CarbonadoError> {
         let level = 15;
-        let sk = hex::decode(sk)?;
-        let secret_key = SecretKey::from_slice(&sk)?;
+
+        let sk = NOSTR_SK
+            .get()
+            .ok_or(CarbonadoError::NoSecretKey)?
+            .as_slice();
+        let secret_key = SecretKey::from_slice(sk)?;
         let public_key = PublicKey::from_secret_key_global(&secret_key);
         let pk = public_key.serialize();
         let pk_hex = hex::encode(pk);
 
         let meta: Option<[u8; 8]> = metadata.map(|m| m.try_into().expect("invalid metadata size"));
-        let (body, _encode_info) = carbonado::file::encode(&sk, Some(&pk), input, level, meta)?;
+        let (body, _encode_info) = carbonado::file::encode(sk, Some(&pk), input, level, meta)?;
         let filepath = handle_file(&pk_hex, name, body.len()).await?;
         fs::write(filepath, body).await?;
         Ok(())
     }
 
     pub async fn retrieve(
-        sk: &str,
         name: &str,
         alt_names: Vec<&String>,
     ) -> Result<(Vec<u8>, Option<Vec<u8>>), CarbonadoError> {
         use crate::rgb::constants::RGB_STRICT_TYPE_VERSION;
 
-        let sk = hex::decode(sk)?;
-        let secret_key = SecretKey::from_slice(&sk)?;
+        let sk = NOSTR_SK
+            .get()
+            .ok_or(CarbonadoError::NoSecretKey)?
+            .as_slice();
+        let secret_key = SecretKey::from_slice(sk)?;
         let public_key = PublicKey::from_secret_key_global(&secret_key);
         let pk = public_key.to_hex();
 
@@ -61,7 +68,7 @@ mod server {
 
         let filepath = handle_file(&pk, &final_name, 0).await?;
         if let Ok(bytes) = fs::read(filepath).await {
-            let (header, decoded) = carbonado::file::decode(&sk, &bytes)?;
+            let (header, decoded) = carbonado::file::decode(sk, &bytes)?;
             return Ok((decoded, header.metadata.map(|m| m.to_vec())));
         }
 
@@ -70,7 +77,7 @@ mod server {
         for alt_name in alt_names {
             let filepath = handle_file(&pk, &alt_name, 0).await?;
             if let Ok(bytes) = fs::read(filepath).await {
-                let (header, decoded) = carbonado::file::decode(&sk, &bytes)?;
+                let (header, decoded) = carbonado::file::decode(sk, &bytes)?;
                 if let Some(metadata) = header.metadata {
                     if metadata == RGB_STRICT_TYPE_VERSION {
                         return Ok((decoded, header.metadata.map(|m| m.to_vec())));
@@ -119,9 +126,12 @@ mod server {
         Ok(filepath)
     }
 
-    pub async fn retrieve_metadata(sk: &str, name: &str) -> Result<FileMetadata, CarbonadoError> {
-        let sk = hex::decode(sk)?;
-        let secret_key = SecretKey::from_slice(&sk)?;
+    pub async fn retrieve_metadata(name: &str) -> Result<FileMetadata, CarbonadoError> {
+        let sk = NOSTR_SK
+            .get()
+            .ok_or(CarbonadoError::NoSecretKey)?
+            .as_slice();
+        let secret_key = SecretKey::from_slice(sk)?;
         let public_key = PublicKey::from_secret_key_global(&secret_key);
         let pk = public_key.to_hex();
 
@@ -136,7 +146,7 @@ mod server {
         let filepath = handle_file(&pk, &final_name, 0).await?;
         let bytes = fs::read(filepath).await?;
 
-        let (header, _) = carbonado::file::decode(&sk, &bytes)?;
+        let (header, _) = carbonado::file::decode(sk, &bytes)?;
 
         let result = FileMetadata {
             filename: header.file_name(),
@@ -162,7 +172,7 @@ mod client {
     use gloo_net::http::Request;
     use gloo_utils::errors::JsError;
 
-    use crate::constants::CARBONADO_ENDPOINT;
+    use crate::{bitcoin::NOSTR_SK, constants::CARBONADO_ENDPOINT};
 
     fn js_to_error(js_value: JsValue) -> CarbonadoError {
         CarbonadoError::JsError(js_to_js_error(js_value))
@@ -181,21 +191,23 @@ mod client {
     }
 
     pub async fn store(
-        sk: &str,
         name: &str,
         input: &[u8],
         force: bool,
         metadata: Option<Vec<u8>>,
     ) -> Result<(), CarbonadoError> {
         let level = 15;
-        let sk = hex::decode(sk)?;
-        let secret_key = SecretKey::from_slice(&sk)?;
+        let sk = NOSTR_SK
+            .get()
+            .ok_or(CarbonadoError::NoSecretKey)?
+            .as_slice();
+        let secret_key = SecretKey::from_slice(sk)?;
         let public_key = PublicKey::from_secret_key_global(&secret_key);
         let pk = public_key.serialize();
         let pk_hex = hex::encode(pk);
 
         let meta: Option<[u8; 8]> = metadata.map(|m| m.try_into().expect("invalid metadata size"));
-        let (body, _encode_info) = carbonado::file::encode(&sk, Some(&pk), input, level, meta)?;
+        let (body, _encode_info) = carbonado::file::encode(sk, Some(&pk), input, level, meta)?;
         let body = Arc::new(body);
         let network = NETWORK.read().await.to_string();
 
@@ -228,9 +240,12 @@ mod client {
         }
     }
 
-    pub async fn retrieve_metadata(sk: &str, name: &str) -> Result<FileMetadata, CarbonadoError> {
-        let sk = hex::decode(sk)?;
-        let secret_key = SecretKey::from_slice(&sk)?;
+    pub async fn retrieve_metadata(name: &str) -> Result<FileMetadata, CarbonadoError> {
+        let sk = NOSTR_SK
+            .get()
+            .ok_or(CarbonadoError::NoSecretKey)?
+            .as_slice();
+        let secret_key = SecretKey::from_slice(sk)?;
         let public_key = PublicKey::from_secret_key_global(&secret_key);
         let pk = public_key.to_hex();
 
@@ -256,14 +271,16 @@ mod client {
     }
 
     pub async fn retrieve(
-        sk: &str,
         name: &str,
         alt_names: Vec<&String>,
     ) -> Result<(Vec<u8>, Option<Vec<u8>>), CarbonadoError> {
         use carbonado::file::Header;
 
-        let sk = hex::decode(sk)?;
-        let secret_key = SecretKey::from_slice(&sk)?;
+        let sk = NOSTR_SK
+            .get()
+            .ok_or(CarbonadoError::NoSecretKey)?
+            .as_slice();
+        let secret_key = SecretKey::from_slice(sk)?;
         let public_key = PublicKey::from_secret_key_global(&secret_key);
         let pk = public_key.to_hex();
 
@@ -286,7 +303,7 @@ mod client {
         let encoded = array.to_vec();
 
         if encoded.len() > Header::len() {
-            let (header, decoded) = carbonado::file::decode(&sk, &encoded)?;
+            let (header, decoded) = carbonado::file::decode(sk, &encoded)?;
             return Ok((decoded, header.metadata.map(|m| m.to_vec())));
         }
 
@@ -308,7 +325,7 @@ mod client {
             let encoded = array.to_vec();
 
             if encoded.len() > Header::len() {
-                let (header, decoded) = carbonado::file::decode(&sk, &encoded)?;
+                let (header, decoded) = carbonado::file::decode(sk, &encoded)?;
                 return Ok((decoded, header.metadata.map(|m| m.to_vec())));
             }
         }

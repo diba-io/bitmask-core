@@ -105,22 +105,17 @@ async fn create_transfer_with_fee_value() {
     let watcher_name = "default";
     let issuer_watcher_req = WatcherRequest {
         name: watcher_name.to_string(),
-        xpub: issuer_vault.public.watcher_xpub.clone(),
+        xpub: issuer_vault.public.watcher_xpub.to_string(),
         force: false,
     };
 
     let issuer_sk = &issuer_vault.private.nostr_prv;
     let issuer_watcher_req = serde_wasm_bindgen::to_value(&issuer_watcher_req).expect("");
-    let watcher_resp: JsValue = resolve(create_watcher(
-        issuer_sk.clone(),
-        issuer_watcher_req.clone(),
-    ))
-    .await;
+    let watcher_resp: JsValue = resolve(create_watcher(issuer_watcher_req.clone())).await;
     let watcher_resp: WatcherResponse = json_parse(&watcher_resp);
 
     info!("Get Address");
     let next_address: JsValue = resolve(watcher_next_address(
-        issuer_sk.clone(),
         watcher_name.to_string(),
         iface.to_string(),
     ))
@@ -136,21 +131,16 @@ async fn create_transfer_with_fee_value() {
     info!("Create Owner Watcher");
     let owner_watcher_req = WatcherRequest {
         name: watcher_name.to_string(),
-        xpub: owner_vault.public.watcher_xpub.clone(),
+        xpub: owner_vault.public.watcher_xpub.to_string(),
         force: false,
     };
     let owner_sk = &owner_vault.private.nostr_prv;
     let owner_watcher_req = serde_wasm_bindgen::to_value(&owner_watcher_req).expect("");
-    let watcher_resp: JsValue = resolve(create_watcher(
-        owner_sk.to_string(),
-        owner_watcher_req.clone(),
-    ))
-    .await;
+    let watcher_resp: JsValue = resolve(create_watcher(owner_watcher_req.clone())).await;
     let watcher_resp: WatcherResponse = json_parse(&watcher_resp);
 
     info!("Get Address");
     let owner_next_address: JsValue = resolve(watcher_next_address(
-        owner_sk.to_string(),
         watcher_name.to_string(),
         iface.to_string(),
     ))
@@ -162,7 +152,6 @@ async fn create_transfer_with_fee_value() {
 
     info!("Get UTXO (Owner)");
     let next_utxo: JsValue = resolve(watcher_next_utxo(
-        owner_sk.clone(),
         watcher_name.to_string(),
         iface.to_string(),
     ))
@@ -171,7 +160,6 @@ async fn create_transfer_with_fee_value() {
 
     info!("Get UTXO (Issuer)");
     let next_utxo: JsValue = resolve(watcher_next_utxo(
-        issuer_sk.clone(),
         watcher_name.to_string(),
         iface.to_string(),
     ))
@@ -197,7 +185,7 @@ async fn create_transfer_with_fee_value() {
     };
 
     let issue_req = serde_wasm_bindgen::to_value(&issue_req).expect("");
-    let issue_resp: JsValue = resolve(issue_contract(issuer_sk.to_string(), issue_req)).await;
+    let issue_resp: JsValue = resolve(issue_contract(issue_req)).await;
     let issuer_resp: IssueResponse = json_parse(&issue_resp);
 
     let mut total_issuer = supply;
@@ -229,9 +217,9 @@ async fn create_transfer_with_fee_value() {
             sender_sk = issuer_sk.to_string();
             sender_desc = issuer_vault.public.rgb_assets_descriptor_xpub.to_string();
             sender_keys = vec![
-                SecretString(issuer_vault.private.rgb_assets_descriptor_xprv.clone()),
-                SecretString(issuer_vault.private.btc_descriptor_xprv.clone()),
-                SecretString(issuer_vault.private.btc_change_descriptor_xprv.clone()),
+                SecretString(issuer_vault.private.rgb_assets_descriptor_xprv.to_string()),
+                SecretString(issuer_vault.private.btc_descriptor_xprv.to_string()),
+                SecretString(issuer_vault.private.btc_change_descriptor_xprv.to_string()),
             ];
 
             receiver = "OWNER".to_string();
@@ -241,9 +229,9 @@ async fn create_transfer_with_fee_value() {
             sender_sk = owner_sk.to_string();
             sender_desc = owner_vault.public.rgb_assets_descriptor_xpub.to_string();
             sender_keys = vec![
-                SecretString(owner_vault.private.rgb_assets_descriptor_xprv.clone()),
-                SecretString(owner_vault.private.btc_descriptor_xprv.clone()),
-                SecretString(owner_vault.private.btc_change_descriptor_xprv.clone()),
+                SecretString(owner_vault.private.rgb_assets_descriptor_xprv.to_string()),
+                SecretString(owner_vault.private.btc_descriptor_xprv.to_string()),
+                SecretString(owner_vault.private.btc_change_descriptor_xprv.to_string()),
             ];
 
             receiver = "ISSUER".to_string();
@@ -256,7 +244,6 @@ async fn create_transfer_with_fee_value() {
         ));
         info!(format!("Get Receiver Next UTXO ({receiver})"));
         let next_utxo: JsValue = resolve(watcher_next_utxo(
-            receiver_sk.clone(),
             watcher_name.to_string(),
             iface.to_string(),
         ))
@@ -277,8 +264,7 @@ async fn create_transfer_with_fee_value() {
         };
 
         let invoice_req = serde_wasm_bindgen::to_value(&invoice_req).expect("");
-        let invoice_resp: JsValue =
-            resolve(rgb_create_invoice(receiver_sk.to_string(), invoice_req)).await;
+        let invoice_resp: JsValue = resolve(rgb_create_invoice(invoice_req)).await;
         let invoice_resp: InvoiceResponse = json_parse(&invoice_resp);
         debug!(format!(
             "Invoice ({receiver}): {}",
@@ -297,11 +283,7 @@ async fn create_transfer_with_fee_value() {
         };
 
         let full_transfer_req = serde_wasm_bindgen::to_value(&full_transfer_req).expect("");
-        let full_transfer_resp: JsValue = resolve(full_transfer_asset(
-            sender_sk.to_string(),
-            full_transfer_req,
-        ))
-        .await;
+        let full_transfer_resp: JsValue = resolve(full_transfer_asset(full_transfer_req)).await;
         let full_transfer_resp: RgbTransferResponse = json_parse(&full_transfer_resp);
         debug!(format!(
             "Payment ({sender}): {:?}",
@@ -315,7 +297,7 @@ async fn create_transfer_with_fee_value() {
         };
 
         let psbt_req = serde_wasm_bindgen::to_value(&psbt_req).expect("");
-        let psbt_resp: JsValue = resolve(psbt_sign_file(sender_sk.to_string(), psbt_req)).await;
+        let psbt_resp: JsValue = resolve(psbt_sign_file(psbt_req)).await;
         let psbt_resp: SignPsbtResponse = json_parse(&psbt_resp);
         debug!(format!("Sign Psbt: {:?}", psbt_resp));
 
@@ -329,20 +311,19 @@ async fn create_transfer_with_fee_value() {
             consignment: full_transfer_resp.consig.clone(),
         };
         let save_transfer_req = serde_wasm_bindgen::to_value(&save_transfer_req).expect("");
-        let save_transfer_resp =
-            resolve(save_transfer(receiver_sk.to_string(), save_transfer_req)).await;
+        let save_transfer_resp = resolve(save_transfer(save_transfer_req)).await;
         let save_transfer_resp: RgbTransferStatusResponse = json_parse(&save_transfer_resp);
         debug!(format!("Save Consig: {:?}", save_transfer_resp));
 
         info!("Verify Consig (Both)");
-        let verify_transfer_resp = resolve(verify_transfers(sender_sk.to_string())).await;
+        let verify_transfer_resp = resolve(verify_transfers()).await;
         let verify_transfer_resp: BatchRgbTransferResponse = json_parse(&verify_transfer_resp);
         debug!(format!(
             "Verify Consig ({sender}): {:?}",
             verify_transfer_resp
         ));
 
-        let verify_transfer_resp = resolve(verify_transfers(receiver_sk.to_string())).await;
+        let verify_transfer_resp = resolve(verify_transfers()).await;
         let verify_transfer_resp: BatchRgbTransferResponse = json_parse(&verify_transfer_resp);
         debug!(format!(
             "Verify Consig ({receiver}): {:?}",
@@ -360,11 +341,7 @@ async fn create_transfer_with_fee_value() {
         };
 
         info!(format!("Get Contract Balancer ({sender})"));
-        let contract_resp = resolve(get_contract(
-            sender_sk.to_string(),
-            issuer_resp.contract_id.clone(),
-        ))
-        .await;
+        let contract_resp = resolve(get_contract(issuer_resp.contract_id.clone())).await;
         let contract_resp: ContractResponse = json_parse(&contract_resp);
         debug!(format!(
             "Contract ({sender}): {} ({})\n {:#?}",
@@ -373,11 +350,7 @@ async fn create_transfer_with_fee_value() {
         let sender_current_balance = contract_resp.balance;
 
         info!(format!("Get Contract Balancer ({receiver})"));
-        let contract_resp = resolve(get_contract(
-            receiver_sk.to_string(),
-            issuer_resp.contract_id.clone(),
-        ))
-        .await;
+        let contract_resp = resolve(get_contract(issuer_resp.contract_id.clone())).await;
         let contract_resp: ContractResponse = json_parse(&contract_resp);
         debug!(format!(
             "Contract ({receiver}): {} ({})\n {:#?}",
@@ -405,22 +378,17 @@ async fn create_transfer_with_fee_rate() {
     let watcher_name = "default";
     let issuer_watcher_req = WatcherRequest {
         name: watcher_name.to_string(),
-        xpub: issuer_vault.public.watcher_xpub.clone(),
+        xpub: issuer_vault.public.watcher_xpub.to_string(),
         force: false,
     };
 
     let issuer_sk = &issuer_vault.private.nostr_prv;
     let issuer_watcher_req = serde_wasm_bindgen::to_value(&issuer_watcher_req).expect("");
-    let watcher_resp: JsValue = resolve(create_watcher(
-        issuer_sk.clone(),
-        issuer_watcher_req.clone(),
-    ))
-    .await;
+    let watcher_resp: JsValue = resolve(create_watcher(issuer_watcher_req.clone())).await;
     let watcher_resp: WatcherResponse = json_parse(&watcher_resp);
 
     info!("Get Address");
     let next_address: JsValue = resolve(watcher_next_address(
-        issuer_sk.clone(),
         watcher_name.to_string(),
         iface.to_string(),
     ))
@@ -436,21 +404,16 @@ async fn create_transfer_with_fee_rate() {
     info!("Create Owner Watcher");
     let owner_watcher_req = WatcherRequest {
         name: watcher_name.to_string(),
-        xpub: owner_vault.public.watcher_xpub.clone(),
+        xpub: owner_vault.public.watcher_xpub.to_string(),
         force: false,
     };
     let owner_sk = &owner_vault.private.nostr_prv;
     let owner_watcher_req = serde_wasm_bindgen::to_value(&owner_watcher_req).expect("");
-    let watcher_resp: JsValue = resolve(create_watcher(
-        owner_sk.to_string(),
-        owner_watcher_req.clone(),
-    ))
-    .await;
+    let watcher_resp: JsValue = resolve(create_watcher(owner_watcher_req.clone())).await;
     let watcher_resp: WatcherResponse = json_parse(&watcher_resp);
 
     info!("Get Address");
     let owner_next_address: JsValue = resolve(watcher_next_address(
-        owner_sk.to_string(),
         watcher_name.to_string(),
         iface.to_string(),
     ))
@@ -462,7 +425,6 @@ async fn create_transfer_with_fee_rate() {
 
     info!("Get UTXO (Owner)");
     let next_utxo: JsValue = resolve(watcher_next_utxo(
-        owner_sk.clone(),
         watcher_name.to_string(),
         iface.to_string(),
     ))
@@ -471,7 +433,6 @@ async fn create_transfer_with_fee_rate() {
 
     info!("Get UTXO (Issuer)");
     let next_utxo: JsValue = resolve(watcher_next_utxo(
-        issuer_sk.clone(),
         watcher_name.to_string(),
         iface.to_string(),
     ))
@@ -497,7 +458,7 @@ async fn create_transfer_with_fee_rate() {
     };
 
     let issue_req = serde_wasm_bindgen::to_value(&issue_req).expect("");
-    let issue_resp: JsValue = resolve(issue_contract(issuer_sk.to_string(), issue_req)).await;
+    let issue_resp: JsValue = resolve(issue_contract(issue_req)).await;
     let issuer_resp: IssueResponse = json_parse(&issue_resp);
 
     let mut total_issuer = supply;
@@ -517,9 +478,9 @@ async fn create_transfer_with_fee_rate() {
             sender_sk = issuer_sk.to_string();
             sender_desc = issuer_vault.public.rgb_assets_descriptor_xpub.to_string();
             sender_keys = vec![
-                SecretString(issuer_vault.private.rgb_assets_descriptor_xprv.clone()),
-                SecretString(issuer_vault.private.btc_descriptor_xprv.clone()),
-                SecretString(issuer_vault.private.btc_change_descriptor_xprv.clone()),
+                SecretString(issuer_vault.private.rgb_assets_descriptor_xprv.to_string()),
+                SecretString(issuer_vault.private.btc_descriptor_xprv.to_string()),
+                SecretString(issuer_vault.private.btc_change_descriptor_xprv.to_string()),
             ];
 
             receiver = "OWNER".to_string();
@@ -529,9 +490,9 @@ async fn create_transfer_with_fee_rate() {
             sender_sk = owner_sk.to_string();
             sender_desc = owner_vault.public.rgb_assets_descriptor_xpub.to_string();
             sender_keys = vec![
-                SecretString(owner_vault.private.rgb_assets_descriptor_xprv.clone()),
-                SecretString(owner_vault.private.btc_descriptor_xprv.clone()),
-                SecretString(owner_vault.private.btc_change_descriptor_xprv.clone()),
+                SecretString(owner_vault.private.rgb_assets_descriptor_xprv.to_string()),
+                SecretString(owner_vault.private.btc_descriptor_xprv.to_string()),
+                SecretString(owner_vault.private.btc_change_descriptor_xprv.to_string()),
             ];
 
             receiver = "ISSUER".to_string();
@@ -544,7 +505,6 @@ async fn create_transfer_with_fee_rate() {
         ));
         info!(format!("Get Receiver Next UTXO ({receiver})"));
         let next_utxo: JsValue = resolve(watcher_next_utxo(
-            receiver_sk.clone(),
             watcher_name.to_string(),
             iface.to_string(),
         ))
@@ -565,8 +525,7 @@ async fn create_transfer_with_fee_rate() {
         };
 
         let invoice_req = serde_wasm_bindgen::to_value(&invoice_req).expect("");
-        let invoice_resp: JsValue =
-            resolve(rgb_create_invoice(receiver_sk.to_string(), invoice_req)).await;
+        let invoice_resp: JsValue = resolve(rgb_create_invoice(invoice_req)).await;
         let invoice_resp: InvoiceResponse = json_parse(&invoice_resp);
         debug!(format!(
             "Invoice ({receiver}): {}",
@@ -585,11 +544,7 @@ async fn create_transfer_with_fee_rate() {
         };
 
         let full_transfer_req = serde_wasm_bindgen::to_value(&full_transfer_req).expect("");
-        let full_transfer_resp: JsValue = resolve(full_transfer_asset(
-            sender_sk.to_string(),
-            full_transfer_req,
-        ))
-        .await;
+        let full_transfer_resp: JsValue = resolve(full_transfer_asset(full_transfer_req)).await;
         let full_transfer_resp: RgbTransferResponse = json_parse(&full_transfer_resp);
         debug!(format!(
             "Payment ({sender}): {:?}",
@@ -603,7 +558,7 @@ async fn create_transfer_with_fee_rate() {
         };
 
         let psbt_req = serde_wasm_bindgen::to_value(&psbt_req).expect("");
-        let psbt_resp: JsValue = resolve(psbt_sign_file(sender_sk.to_string(), psbt_req)).await;
+        let psbt_resp: JsValue = resolve(psbt_sign_file(psbt_req)).await;
         let psbt_resp: SignPsbtResponse = json_parse(&psbt_resp);
         debug!(format!("Sign Psbt: {:?}", psbt_resp));
 
@@ -617,20 +572,19 @@ async fn create_transfer_with_fee_rate() {
             consignment: full_transfer_resp.consig.clone(),
         };
         let save_transfer_req = serde_wasm_bindgen::to_value(&save_transfer_req).expect("");
-        let save_transfer_resp =
-            resolve(save_transfer(receiver_sk.to_string(), save_transfer_req)).await;
+        let save_transfer_resp = resolve(save_transfer(save_transfer_req)).await;
         let save_transfer_resp: RgbTransferStatusResponse = json_parse(&save_transfer_resp);
         debug!(format!("Save Consig: {:?}", save_transfer_resp));
 
         info!("Verify Consig (Both)");
-        let verify_transfer_resp = resolve(verify_transfers(sender_sk.to_string())).await;
+        let verify_transfer_resp = resolve(verify_transfers()).await;
         let verify_transfer_resp: BatchRgbTransferResponse = json_parse(&verify_transfer_resp);
         debug!(format!(
             "Verify Consig ({sender}): {:?}",
             verify_transfer_resp
         ));
 
-        let verify_transfer_resp = resolve(verify_transfers(receiver_sk.to_string())).await;
+        let verify_transfer_resp = resolve(verify_transfers()).await;
         let verify_transfer_resp: BatchRgbTransferResponse = json_parse(&verify_transfer_resp);
         debug!(format!(
             "Verify Consig ({receiver}): {:?}",
@@ -648,11 +602,7 @@ async fn create_transfer_with_fee_rate() {
         };
 
         info!(format!("Get Contract Balancer ({sender})"));
-        let contract_resp = resolve(get_contract(
-            sender_sk.to_string(),
-            issuer_resp.contract_id.clone(),
-        ))
-        .await;
+        let contract_resp = resolve(get_contract(issuer_resp.contract_id.clone())).await;
         let contract_resp: ContractResponse = json_parse(&contract_resp);
         debug!(format!(
             "Contract ({sender}): {} ({})\n {:#?}",
@@ -661,11 +611,7 @@ async fn create_transfer_with_fee_rate() {
         let sender_current_balance = contract_resp.balance;
 
         info!(format!("Get Contract Balancer ({receiver})"));
-        let contract_resp = resolve(get_contract(
-            receiver_sk.to_string(),
-            issuer_resp.contract_id.clone(),
-        ))
-        .await;
+        let contract_resp = resolve(get_contract(issuer_resp.contract_id.clone())).await;
         let contract_resp: ContractResponse = json_parse(&contract_resp);
         debug!(format!(
             "Contract ({receiver}): {} ({})\n {:#?}",

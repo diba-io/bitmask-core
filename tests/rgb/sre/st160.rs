@@ -5,10 +5,10 @@ use bitmask_core::carbonado::{retrieve_metadata, store};
 use bitmask_core::rgb::constants::RGB_STRICT_TYPE_VERSION;
 use bitmask_core::structs::WatcherRequest;
 use bitmask_core::{
-    bitcoin::save_mnemonic,
     carbonado::retrieve,
     constants::{storage_keys::ASSETS_STOCK, BITMASK_ENDPOINT, NETWORK},
     rgb::{constants::RGB_OLDEST_VERSION, reissue_contract},
+    save_mnemonic,
     structs::{ContractsResponse, ReIssueRequest, SecretString},
 };
 use hex::FromHex;
@@ -31,7 +31,7 @@ async fn allow_re_issue_rgb_contracts() -> anyhow::Result<()> {
     let endpoint = format!("{bitmask_endpoint}/watcher");
     let watch_req = WatcherRequest {
         name: "default".to_string(),
-        xpub: issuer_keys.public.watcher_xpub.clone(),
+        xpub: issuer_keys.public.watcher_xpub.to_string(),
         force: true,
     };
     let resp = client
@@ -46,15 +46,15 @@ async fn allow_re_issue_rgb_contracts() -> anyhow::Result<()> {
     let file_name = ASSETS_STOCK.to_string();
     let input = Vec::<u8>::from_hex(STOCK_ST_120)?;
 
-    let resp = store_in_server(issuer_sk, &file_name, &input, None).await;
+    let resp = store_in_server(&issuer_sk.0, &file_name, &input, None).await;
     assert!(resp.is_ok());
 
     // 1. Retrieve metadata
     let fake_file_name = "fake-name.c15";
-    let resp = store(issuer_sk, fake_file_name, &input, false, None).await;
+    let resp = store(fake_file_name, &input, false, None).await;
     assert!(resp.is_ok());
 
-    let resp = retrieve_metadata(issuer_sk, fake_file_name).await;
+    let resp = retrieve_metadata(fake_file_name).await;
     assert!(resp.is_ok());
 
     // 2. Retrieve contracts
@@ -62,7 +62,7 @@ async fn allow_re_issue_rgb_contracts() -> anyhow::Result<()> {
     if file_header.metadata == RGB_OLDEST_VERSION {
         let endpoint = format!("{bitmask_endpoint}/contracts");
 
-        let result = client.get(&endpoint).bearer_auth(issuer_sk).send().await?;
+        let result = client.get(&endpoint).send().await?;
 
         let resp = result.json::<ContractsResponse>().await?;
         let reissue_req = ReIssueRequest {
@@ -70,11 +70,11 @@ async fn allow_re_issue_rgb_contracts() -> anyhow::Result<()> {
         };
 
         // 2. ReIssue contracts
-        let reissue_resp = reissue_contract(issuer_sk, reissue_req).await;
+        let reissue_resp = reissue_contract(reissue_req).await;
         assert!(reissue_resp.is_ok());
 
         // 3. Get File Information
-        let (_, header) = retrieve(issuer_sk, &file_name, vec![]).await?;
+        let (_, header) = retrieve(&file_name, vec![]).await?;
         let header = header.unwrap();
         assert!(!header.is_empty());
         assert_eq!(RGB_STRICT_TYPE_VERSION.to_vec(), header);

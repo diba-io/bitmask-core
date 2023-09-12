@@ -27,4 +27,6 @@ pub enum CarbonadoError {
     AllEndpointsFailed,
     /// Debug: {0}
     Debug(String),
+    /// No secret key available in memory
+    NoSecretKey,
 }

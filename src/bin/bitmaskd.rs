@@ -15,9 +15,9 @@ use axum::{
 };
 use bitcoin_30::secp256k1::{ecdh::SharedSecret, PublicKey, SecretKey};
 use bitmask_core::{
-    bitcoin::{save_mnemonic, sign_psbt_file},
     carbonado::handle_file,
     constants::{get_marketplace_seed, get_network, get_udas_utxo, switch_network},
+    hash_password,
     rgb::{
         accept_transfer, clear_watcher as rgb_clear_watcher, create_invoice, create_psbt,
         create_watcher, full_transfer_asset, import as rgb_import, issue_contract, list_contracts,
@@ -26,6 +26,7 @@ use bitmask_core::{
         watcher_address, watcher_details as rgb_watcher_details, watcher_next_address,
         watcher_next_utxo, watcher_utxo,
     },
+    save_mnemonic, sign_psbt_file,
     structs::{
         AcceptRequest, FileMetadata, FullRgbTransferRequest, ImportRequest, InvoiceRequest,
         IssueRequest, PsbtFeeRequest, PsbtRequest, ReIssueRequest, RgbRemoveTransferRequest,
@@ -37,36 +38,22 @@ use log::{debug, error, info};
 use tokio::fs;
 use tower_http::cors::CorsLayer;
 
-async fn issue(
-    TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
-    Json(request): Json<IssueRequest>,
-) -> Result<impl IntoResponse, AppError> {
+async fn issue(Json(request): Json<IssueRequest>) -> Result<impl IntoResponse, AppError> {
     info!("POST /issue {request:?}");
 
-    let nostr_hex_sk = auth.token();
-    let issue_res = issue_contract(nostr_hex_sk, request).await?;
+    let issue_res = issue_contract(request).await?;
     Ok((StatusCode::OK, Json(issue_res)))
 }
 
-async fn reissue(
-    TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
-    Json(request): Json<ReIssueRequest>,
-) -> Result<impl IntoResponse, AppError> {
+async fn reissue(Json(request): Json<ReIssueRequest>) -> Result<impl IntoResponse, AppError> {
     info!("POST /reissue {request:?}");
 
-    let nostr_hex_sk = auth.token();
-    let issue_res = reissue_contract(nostr_hex_sk, request).await?;
+    let issue_res = reissue_contract(request).await?;
     Ok((StatusCode::OK, Json(issue_res)))
 }
 
 async fn self_issue(Json(issue): Json<SelfIssueRequest>) -> Result<impl IntoResponse, AppError> {
     info!("POST /self_issue {issue:?}");
-    let issuer_keys = save_mnemonic(
-        &SecretString(get_marketplace_seed().await),
-        &SecretString("".to_string()),
-    )
-    .await?;
-    let sk = issuer_keys.private.nostr_prv.as_ref();
 
     let issue_seal = format!("tapret1st:{}", get_udas_utxo().await);
     let request = IssueRequest {
@@ -80,19 +67,15 @@ async fn self_issue(Json(issue): Json<SelfIssueRequest>) -> Result<impl IntoResp
         meta: issue.meta,
     };
 
-    let issue_res = issue_contract(sk, request).await?;
+    let issue_res = issue_contract(request).await?;
 
     Ok((StatusCode::OK, Json(issue_res)))
 }
 
-async fn invoice(
-    TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
-    Json(invoice): Json<InvoiceRequest>,
-) -> Result<impl IntoResponse, AppError> {
+async fn invoice(Json(invoice): Json<InvoiceRequest>) -> Result<impl IntoResponse, AppError> {
     info!("POST /invoice {invoice:?}");
 
-    let nostr_hex_sk = auth.token();
-    let invoice_res = create_invoice(nostr_hex_sk, invoice).await?;
+    let invoice_res = create_invoice(invoice).await?;
 
     Ok((StatusCode::OK, Json(invoice_res)))
 }
@@ -101,13 +84,6 @@ async fn self_invoice(
     Json(self_invoice): Json<SelfInvoiceRequest>,
 ) -> Result<impl IntoResponse, AppError> {
     info!("POST /self_invoice {self_invoice:?}");
-
-    let issuer_keys = save_mnemonic(
-        &SecretString(get_marketplace_seed().await),
-        &SecretString("".to_string()),
-    )
-    .await?;
-    let nostr_hex_sk = issuer_keys.private.nostr_prv.as_ref();
 
     let invoice_seal = format!("tapret1st:{}", get_udas_utxo().await);
 
@@ -118,28 +94,20 @@ async fn self_invoice(
         seal: invoice_seal.to_owned(),
         params: self_invoice.params,
     };
-    let invoice_res = create_invoice(nostr_hex_sk, invoice).await?;
+    let invoice_res = create_invoice(invoice).await?;
 
     Ok((StatusCode::OK, Json(invoice_res)))
 }
 
-async fn _psbt(
-    TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
-    Json(psbt_req): Json<PsbtRequest>,
-) -> Result<impl IntoResponse, AppError> {
+async fn _psbt(Json(psbt_req): Json<PsbtRequest>) -> Result<impl IntoResponse, AppError> {
     info!("POST /psbt {psbt_req:?}");
 
-    let nostr_hex_sk = auth.token();
-
-    let psbt_res = create_psbt(nostr_hex_sk, psbt_req).await?;
+    let psbt_res = create_psbt(psbt_req).await?;
 
     Ok((StatusCode::OK, Json(psbt_res)))
 }
 
-async fn _sign_psbt(
-    TypedHeader(_auth): TypedHeader<Authorization<Bearer>>,
-    Json(psbt_req): Json<SignPsbtRequest>,
-) -> Result<impl IntoResponse, AppError> {
+async fn _sign_psbt(Json(psbt_req): Json<SignPsbtRequest>) -> Result<impl IntoResponse, AppError> {
     info!("POST /sign {psbt_req:?}");
     let psbt_res = sign_psbt_file(psbt_req).await?;
 
@@ -147,15 +115,10 @@ async fn _sign_psbt(
 }
 
 #[axum_macros::debug_handler]
-async fn pay(
-    TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
-    Json(pay_req): Json<RgbTransferRequest>,
-) -> Result<impl IntoResponse, AppError> {
+async fn pay(Json(pay_req): Json<RgbTransferRequest>) -> Result<impl IntoResponse, AppError> {
     info!("POST /pay {pay_req:?}");
 
-    let nostr_hex_sk = auth.token();
-
-    let transfer_res = transfer_asset(nostr_hex_sk, pay_req).await?;
+    let transfer_res = transfer_asset(pay_req).await?;
 
     Ok((StatusCode::OK, Json(transfer_res)))
 }
@@ -172,8 +135,6 @@ async fn self_pay(
     )
     .await?;
 
-    let nostr_hex_sk = issuer_keys.private.nostr_prv.as_ref();
-
     let fee = self_pay_req
         .fee
         .map_or(PsbtFeeRequest::Value(1000), PsbtFeeRequest::Value);
@@ -182,25 +143,21 @@ async fn self_pay(
         contract_id: self_pay_req.contract_id,
         iface: self_pay_req.iface,
         rgb_invoice: self_pay_req.rgb_invoice,
-        descriptor: SecretString(issuer_keys.public.rgb_udas_descriptor_xpub.clone()),
+        descriptor: issuer_keys.public.rgb_udas_descriptor_xpub.clone(),
         fee,
         change_terminal: self_pay_req.terminal,
         bitcoin_changes: self_pay_req.bitcoin_changes,
     };
 
-    let transfer_res = full_transfer_asset(nostr_hex_sk, request).await?;
+    let transfer_res = full_transfer_asset(request).await?;
 
     Ok((StatusCode::OK, Json(transfer_res)))
 }
 
-async fn accept(
-    TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
-    Json(accept_req): Json<AcceptRequest>,
-) -> Result<impl IntoResponse, AppError> {
+async fn accept(Json(accept_req): Json<AcceptRequest>) -> Result<impl IntoResponse, AppError> {
     info!("POST /accept {accept_req:?}");
 
-    let nostr_hex_sk = auth.token();
-    let transfer_res = accept_transfer(nostr_hex_sk, accept_req).await?;
+    let transfer_res = accept_transfer(accept_req).await?;
 
     Ok((StatusCode::OK, Json(transfer_res)))
 }
@@ -208,196 +165,140 @@ async fn accept(
 async fn self_accept(Json(accept_req): Json<AcceptRequest>) -> Result<impl IntoResponse, AppError> {
     info!("POST /self_accept {accept_req:?}");
 
-    let issuer_keys = save_mnemonic(
-        &SecretString(get_marketplace_seed().await),
-        &SecretString("".to_string()),
-    )
-    .await?;
-
-    let nostr_hex_sk = issuer_keys.private.nostr_prv.as_ref();
-    let transfer_res = accept_transfer(nostr_hex_sk, accept_req).await?;
+    let transfer_res = accept_transfer(accept_req).await?;
 
     Ok((StatusCode::OK, Json(transfer_res)))
 }
 
-async fn contracts(
-    TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
-) -> Result<impl IntoResponse, AppError> {
+async fn contracts() -> Result<impl IntoResponse, AppError> {
     info!("GET /contracts");
 
-    let nostr_hex_sk = auth.token();
-
-    let contracts_res = list_contracts(nostr_hex_sk).await?;
+    let contracts_res = list_contracts().await?;
 
     Ok((StatusCode::OK, Json(contracts_res)))
 }
 
-async fn contract_detail(
-    TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
-    Path(name): Path<String>,
-) -> Result<impl IntoResponse, AppError> {
+async fn contract_detail(Path(name): Path<String>) -> Result<impl IntoResponse, AppError> {
     info!("GET /contract/{name:?}");
 
-    let nostr_hex_sk = auth.token();
-
-    let contracts_res = list_contracts(nostr_hex_sk).await?;
+    let contracts_res = list_contracts().await?;
 
     Ok((StatusCode::OK, Json(contracts_res)))
 }
 
-async fn interfaces(
-    TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
-) -> Result<impl IntoResponse, AppError> {
+async fn interfaces() -> Result<impl IntoResponse, AppError> {
     info!("GET /interfaces");
 
-    let nostr_hex_sk = auth.token();
-
-    let interfaces_res = list_interfaces(nostr_hex_sk).await?;
+    let interfaces_res = list_interfaces().await?;
 
     Ok((StatusCode::OK, Json(interfaces_res)))
 }
 
-async fn schemas(
-    TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
-) -> Result<impl IntoResponse, AppError> {
+async fn schemas() -> Result<impl IntoResponse, AppError> {
     info!("GET /schemas");
 
-    let nostr_hex_sk = auth.token();
-
-    let schemas_res = list_schemas(nostr_hex_sk).await?;
+    let schemas_res = list_schemas().await?;
 
     Ok((StatusCode::OK, Json(schemas_res)))
 }
 
-async fn import(
-    TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
-    Json(import_req): Json<ImportRequest>,
-) -> Result<impl IntoResponse, AppError> {
+async fn import(Json(import_req): Json<ImportRequest>) -> Result<impl IntoResponse, AppError> {
     info!("POST /import {import_req:?}");
 
-    let nostr_hex_sk = auth.token();
-    let import_res = rgb_import(nostr_hex_sk, import_req).await?;
+    let import_res = rgb_import(import_req).await?;
 
     Ok((StatusCode::OK, Json(import_res)))
 }
 
-async fn watcher(
-    TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
-    Json(request): Json<WatcherRequest>,
-) -> Result<impl IntoResponse, AppError> {
+async fn watcher(Json(request): Json<WatcherRequest>) -> Result<impl IntoResponse, AppError> {
     info!("POST /watcher {request:?}");
 
-    let nostr_hex_sk = auth.token();
-    let resp = create_watcher(nostr_hex_sk, request).await?;
+    let resp = create_watcher(request).await?;
 
     Ok((StatusCode::OK, Json(resp)))
 }
 
-async fn watcher_details(
-    TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
-    Path(name): Path<String>,
-) -> Result<impl IntoResponse, AppError> {
+async fn watcher_details(Path(name): Path<String>) -> Result<impl IntoResponse, AppError> {
     info!("GET /watcher/{name:?}");
 
-    let nostr_hex_sk = auth.token();
-    let resp = rgb_watcher_details(nostr_hex_sk, &name).await?;
+    let resp = rgb_watcher_details(&name).await?;
 
     Ok((StatusCode::OK, Json(resp)))
 }
 
-async fn clear_watcher(
-    TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
-    Path(name): Path<String>,
-) -> Result<impl IntoResponse, AppError> {
+async fn clear_watcher(Path(name): Path<String>) -> Result<impl IntoResponse, AppError> {
     info!("DELETE /watcher/{name:?}");
 
-    let nostr_hex_sk = auth.token();
-    let resp = rgb_clear_watcher(nostr_hex_sk, &name).await?;
+    let resp = rgb_clear_watcher(&name).await?;
 
     Ok((StatusCode::OK, Json(resp)))
 }
 
 async fn next_address(
-    TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
     Path((name, asset)): Path<(String, String)>,
 ) -> Result<impl IntoResponse, AppError> {
     info!("GET /watcher/{name:?}/address");
     info!("GET /watcher/{name:?}/{asset:?}/address");
 
-    let nostr_hex_sk = auth.token();
-    let resp = watcher_next_address(nostr_hex_sk, &name, &asset).await?;
+    let resp = watcher_next_address(&name, &asset).await?;
 
     Ok((StatusCode::OK, Json(resp)))
 }
 
 async fn next_utxo(
-    TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
     Path((name, asset)): Path<(String, String)>,
 ) -> Result<impl IntoResponse, AppError> {
     info!("GET /watcher/{name:?}/{asset:?}/utxo");
 
-    let nostr_hex_sk = auth.token();
-    let resp = watcher_next_utxo(nostr_hex_sk, &name, &asset).await?;
+    let resp = watcher_next_utxo(&name, &asset).await?;
 
     Ok((StatusCode::OK, Json(resp)))
 }
 
 async fn register_address(
-    TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
     Path((name, address)): Path<(String, String)>,
 ) -> Result<impl IntoResponse, AppError> {
     info!("PUT /watcher/{name:?}/address/{address:?}");
 
-    let nostr_hex_sk = auth.token();
-    let resp = watcher_address(nostr_hex_sk, &name, &address).await?;
+    let resp = watcher_address(&name, &address).await?;
 
     Ok((StatusCode::OK, Json(resp)))
 }
 
 async fn register_utxo(
-    TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
     Path((name, utxo)): Path<(String, String)>,
 ) -> Result<impl IntoResponse, AppError> {
     info!("PUT /watcher/{name:?}/utxo/{utxo:?}");
 
-    let nostr_hex_sk = auth.token();
-    let resp = watcher_utxo(nostr_hex_sk, &name, &utxo).await?;
+    let resp = watcher_utxo(&name, &utxo).await?;
 
     Ok((StatusCode::OK, Json(resp)))
 }
 
-async fn list_transfers(
-    TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
-    Path(contract_id): Path<String>,
-) -> Result<impl IntoResponse, AppError> {
+async fn list_transfers(Path(contract_id): Path<String>) -> Result<impl IntoResponse, AppError> {
     info!("GET /transfers/{contract_id:?}");
 
-    let nostr_hex_sk = auth.token();
-    let transfers_res = list_rgb_transfers(nostr_hex_sk, contract_id).await?;
+    let transfers_res = list_rgb_transfers(contract_id).await?;
 
     Ok((StatusCode::OK, Json(transfers_res)))
 }
 
 async fn save_transfer(
-    TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
     Json(request): Json<RgbSaveTransferRequest>,
 ) -> Result<impl IntoResponse, AppError> {
     info!("POST /transfers {request:?}");
 
-    let nostr_hex_sk = auth.token();
-    let import_res = save_rgb_transfer(nostr_hex_sk, request).await?;
+    let import_res = save_rgb_transfer(request).await?;
 
     Ok((StatusCode::OK, Json(import_res)))
 }
 
 async fn remove_transfer(
-    TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
     Json(request): Json<RgbRemoveTransferRequest>,
 ) -> Result<impl IntoResponse, AppError> {
     info!("DELETE /transfers {request:?}");
 
-    let nostr_hex_sk = auth.token();
-    let import_res = remove_rgb_transfer(nostr_hex_sk, request).await?;
+    let import_res = remove_rgb_transfer(request).await?;
 
     Ok((StatusCode::OK, Json(import_res)))
 }
@@ -598,6 +499,9 @@ async fn main() -> Result<()> {
     }
 
     pretty_env_logger::init();
+
+    let sk = env::var("NOSTR_SK")?;
+    hash_password(&SecretString(sk));
 
     let mut app = Router::new()
         .route("/issue", post(issue))

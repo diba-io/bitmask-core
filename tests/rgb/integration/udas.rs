@@ -4,8 +4,8 @@ use crate::rgb::integration::utils::{
     issuer_issue_contract_v2, UtxoFilter, ISSUER_MNEMONIC, OWNER_MNEMONIC,
 };
 use bitmask_core::{
-    bitcoin::{save_mnemonic, sign_psbt_file},
     rgb::accept_transfer,
+    save_mnemonic, sign_psbt_file,
     structs::{AcceptRequest, SecretString, SignPsbtRequest},
 };
 
@@ -51,15 +51,11 @@ async fn allow_beneficiary_accept_transfer() -> anyhow::Result<()> {
         issuer_keys.clone(),
     )
     .await?;
-    let transfer_resp = create_new_transfer(issuer_keys.clone(), owner_resp, psbt_resp).await?;
+    let transfer_resp = create_new_transfer(owner_resp, psbt_resp).await?;
 
-    let sk = issuer_keys.private.nostr_prv.to_string();
     let request = SignPsbtRequest {
         psbt: transfer_resp.psbt,
-        descriptors: [SecretString(
-            issuer_keys.private.rgb_udas_descriptor_xprv.clone(),
-        )]
-        .to_vec(),
+        descriptors: [issuer_keys.private.rgb_udas_descriptor_xprv.clone()].to_vec(),
     };
     let resp = sign_psbt_file(request).await;
     assert!(resp.is_ok());
@@ -69,7 +65,7 @@ async fn allow_beneficiary_accept_transfer() -> anyhow::Result<()> {
         force: false,
     };
 
-    let resp = accept_transfer(&sk, request).await;
+    let resp = accept_transfer(request).await;
     assert!(resp.is_ok());
     assert!(resp?.valid);
 

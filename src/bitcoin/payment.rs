@@ -21,22 +21,22 @@ use crate::{
 pub enum BitcoinPaymentError {
     /// Payjoin error response
     #[error("Error performing payjoin: {0}")]
-    PayjoinError(String),
+    Payjoin(String),
     /// BitMask Core Bitcoin Psbt error
     #[error(transparent)]
-    BitcoinPsbtError(#[from] BitcoinPsbtError),
+    BitcoinPsbt(#[from] BitcoinPsbtError),
     /// BDK error
     #[error(transparent)]
-    BdkError(#[from] bdk::Error),
+    Bdk(#[from] bdk::Error),
     /// Payjoin Request error
     #[error(transparent)]
-    PayjoinGetRequestError(#[from] payjoin::send::CreateRequestError),
+    PayjoinGetRequest(#[from] payjoin::send::CreateRequestError),
     /// Payjoin Send error
     #[error(transparent)]
-    PayjoinSendError(#[from] payjoin::send::ValidationError),
+    PayjoinSend(#[from] payjoin::send::ValidationError),
     /// Reqwest error
     #[error(transparent)]
-    ReqwestError(#[from] reqwest::Error),
+    Reqwest(#[from] reqwest::Error),
 }
 
 pub async fn create_transaction(
@@ -135,7 +135,7 @@ pub async fn create_payjoin(
     info!(format!("Response: {res}"));
 
     if res.contains("errorCode") {
-        return Err(BitcoinPaymentError::PayjoinError(format!("{res:?}")));
+        return Err(BitcoinPaymentError::Payjoin(format!("{res:?}")));
     }
 
     let payjoin_psbt = ctx.process_response(&mut res.as_bytes())?;

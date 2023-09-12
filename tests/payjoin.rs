@@ -4,10 +4,8 @@ use std::env;
 
 use anyhow::Result;
 use bitmask_core::{
-    bitcoin::{decrypt_wallet, encrypt_wallet, get_wallet_data, hash_password, send_sats},
-    constants::switch_network,
-    structs::SecretString,
-    util::init_logging,
+    constants::switch_network, decrypt_wallet, encrypt_wallet, get_wallet_data, hash_password,
+    send_sats, structs::SecretString, util::init_logging,
 };
 use log::{debug, info};
 
@@ -33,9 +31,9 @@ async fn payjoin() -> Result<()> {
     let vault = decrypt_wallet(&encrypted_descriptors)?;
 
     let wallet = get_wallet_data(
-        &SecretString(vault.private.btc_descriptor_xprv.clone()),
+        &SecretString(vault.private.btc_descriptor_xprv.to_string()),
         Some(&SecretString(
-            vault.private.btc_change_descriptor_xprv.clone(),
+            vault.private.btc_change_descriptor_xprv.to_string(),
         )),
     )
     .await?;
@@ -47,8 +45,8 @@ async fn payjoin() -> Result<()> {
     let amount = 1000;
 
     match send_sats(
-        &SecretString(vault.private.btc_descriptor_xprv.clone()),
-        &SecretString(vault.private.btc_change_descriptor_xprv.clone()),
+        &SecretString(vault.private.btc_descriptor_xprv.to_string()),
+        &SecretString(vault.private.btc_change_descriptor_xprv.to_string()),
         &destination,
         amount,
         Some(1.1),

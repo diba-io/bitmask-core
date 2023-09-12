@@ -5,12 +5,14 @@ use crate::rgb::integration::utils::{
 };
 use bdk::wallet::AddressIndex;
 use bitmask_core::{
-    bitcoin::{fund_vault, get_new_address, get_wallet, new_mnemonic, sign_psbt_file, sync_wallet},
+    fund_vault, get_new_address, get_wallet, new_mnemonic,
     rgb::{accept_transfer, create_watcher, full_transfer_asset, get_contract},
+    sign_psbt_file,
     structs::{
         AcceptRequest, FullRgbTransferRequest, PsbtFeeRequest, PsbtInputRequest, SecretString,
         SignPsbtRequest, WatcherRequest,
     },
+    sync_wallet,
 };
 
 #[tokio::test]
@@ -43,9 +45,8 @@ async fn create_dustless_transfer_with_fee_value() -> anyhow::Result<()> {
     .await?;
 
     // 2. Get UTXO RGB with insufficient stats
-    let issuer_sk = &issuer_keys.private.nostr_prv;
     let contract_id = &issuer_resp.contract_id;
-    let issuer_contract = get_contract(issuer_sk, contract_id).await?;
+    let issuer_contract = get_contract(contract_id).await?;
     let new_alloc = issuer_contract
         .allocations
         .into_iter()
@@ -69,7 +70,7 @@ async fn create_dustless_transfer_with_fee_value() -> anyhow::Result<()> {
     let btc_utxo = issuer_vault.lock().await.list_unspent()?;
     let btc_utxo = btc_utxo.first().unwrap();
     let bitcoin_inputs = [PsbtInputRequest {
-        descriptor: SecretString(issuer_btc_desc.to_owned()),
+        descriptor: issuer_btc_desc.clone(),
         utxo: btc_utxo.outpoint.to_string(),
         utxo_terminal: "/0/0".to_string(),
         ..Default::default()
@@ -85,15 +86,13 @@ async fn create_dustless_transfer_with_fee_value() -> anyhow::Result<()> {
         None,
     )
     .await?;
-    let transfer_resp =
-        &create_new_transfer(issuer_keys.clone(), owner_resp.clone(), psbt_resp).await?;
+    let transfer_resp = &create_new_transfer(owner_resp.clone(), psbt_resp).await?;
 
-    let sk = issuer_keys.private.nostr_prv.to_string();
     let request = SignPsbtRequest {
         psbt: transfer_resp.psbt.clone(),
         descriptors: [
-            SecretString(issuer_keys.private.rgb_assets_descriptor_xprv.clone()),
-            SecretString(issuer_keys.private.btc_descriptor_xprv.clone()),
+            issuer_keys.private.rgb_assets_descriptor_xprv.clone(),
+            issuer_keys.private.btc_descriptor_xprv.clone(),
         ]
         .to_vec(),
     };
@@ -108,7 +107,7 @@ async fn create_dustless_transfer_with_fee_value() -> anyhow::Result<()> {
         force: false,
     };
 
-    let resp = accept_transfer(&sk, request).await;
+    let resp = accept_transfer(request).await;
     assert!(resp.is_ok());
     assert!(resp?.valid);
     Ok(())
@@ -122,52 +121,35 @@ async fn create_dustless_transfer_with_fee_rate() -> anyhow::Result<()> {
 
     // Create Watcher
     let watcher_name = "default";
-    let issuer_sk = &issuer_keys.private.nostr_prv;
     let create_watch_req = WatcherRequest {
         name: watcher_name.to_string(),
-        xpub: issuer_keys.public.watcher_xpub.clone(),
+        xpub: issuer_keys.public.watcher_xpub.to_string(),
         force: true,
     };
 
-    create_watcher(issuer_sk, create_watch_req.clone()).await?;
+    create_watcher(create_watch_req.clone()).await?;
 
-    let btc_address_1 = get_new_address(
-        &SecretString(issuer_keys.public.btc_descriptor_xpub.clone()),
-        None,
-    )
-    .await?;
+    let btc_address_1 =
+        get_new_address(&issuer_keys.public.btc_descriptor_xpub.clone(), None).await?;
 
     // Min amount of satoshis
     let default_coins = "0.00010000";
     send_some_coins(&btc_address_1, default_coins).await;
 
-    let btc_descriptor_xprv = SecretString(issuer_keys.private.btc_descriptor_xprv.clone());
-    let btc_change_descriptor_xprv =
-        SecretString(issuer_keys.private.btc_change_descriptor_xprv.clone());
+    let btc_descriptor_xprv = issuer_keys.private.btc_descriptor_xprv.clone();
+    let btc_change_descriptor_xprv = issuer_keys.private.btc_change_descriptor_xprv.clone();
 
-    let assets_address_1 = get_new_address(
-        &SecretString(issuer_keys.public.rgb_assets_descriptor_xpub.clone()),
-        None,
-    )
-    .await?;
+    let assets_address_1 =
+        get_new_address(&issuer_keys.public.rgb_assets_descriptor_xpub.clone(), None).await?;
 
-    let assets_address_2 = get_new_address(
-        &SecretString(issuer_keys.public.rgb_assets_descriptor_xpub.clone()),
-        None,
-    )
-    .await?;
+    let assets_address_2 =
+        get_new_address(&issuer_keys.public.rgb_assets_descriptor_xpub.clone(), None).await?;
 
-    let uda_address_1 = get_new_address(
-        &SecretString(issuer_keys.public.rgb_udas_descriptor_xpub.clone()),
-        None,
-    )
-    .await?;
+    let uda_address_1 =
+        get_new_address(&issuer_keys.public.rgb_udas_descriptor_xpub.clone(), None).await?;
 
-    let uda_address_2 = get_new_address(
-        &SecretString(issuer_keys.public.rgb_udas_descriptor_xpub.clone()),
-        None,
-    )
-    .await?;
+    let uda_address_2 =
+        get_new_address(&issuer_keys.public.rgb_udas_descriptor_xpub.clone(), None).await?;
 
     let btc_wallet = get_wallet(&btc_descriptor_xprv, Some(&btc_change_descriptor_xprv)).await?;
     sync_wallet(&btc_wallet).await?;
@@ -211,7 +193,6 @@ async fn create_dustless_transfer_with_fee_rate() -> anyhow::Result<()> {
     )
     .await?;
 
-    let sk = issuer_keys.private.nostr_prv.to_string();
     let request = FullRgbTransferRequest {
         contract_id: issuer_resp.contract_id,
         iface: issuer_resp.iface,
@@ -222,13 +203,13 @@ async fn create_dustless_transfer_with_fee_rate() -> anyhow::Result<()> {
         bitcoin_changes: vec![],
     };
 
-    let transfer_resp = full_transfer_asset(&sk, request).await?;
+    let transfer_resp = full_transfer_asset(request).await?;
     let request = SignPsbtRequest {
         psbt: transfer_resp.psbt.clone(),
         descriptors: [
-            SecretString(issuer_keys.private.rgb_assets_descriptor_xprv.clone()),
-            SecretString(issuer_keys.private.btc_descriptor_xprv.clone()),
-            SecretString(issuer_keys.private.btc_change_descriptor_xprv.clone()),
+            issuer_keys.private.rgb_assets_descriptor_xprv.clone(),
+            issuer_keys.private.btc_descriptor_xprv.clone(),
+            issuer_keys.private.btc_change_descriptor_xprv.clone(),
         ]
         .to_vec(),
     };
@@ -241,7 +222,7 @@ async fn create_dustless_transfer_with_fee_rate() -> anyhow::Result<()> {
         force: false,
     };
 
-    let resp = accept_transfer(&sk, request).await;
+    let resp = accept_transfer(request).await;
     assert!(resp.is_ok());
     assert!(resp?.valid);
     Ok(())

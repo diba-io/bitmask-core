@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{pin::Pin, str::FromStr};
 
 use bdk::{
     bitcoin::{
@@ -13,8 +13,9 @@ use bitcoin::KeyPair;
 use bitcoin_hashes::{sha256, Hash};
 use miniscript_crate::DescriptorPublicKey;
 use nostr_sdk::prelude::{FromSkStr, ToBech32};
+use once_cell::sync::OnceCell;
 use thiserror::Error;
-use zeroize::Zeroize;
+use zeroize::{Zeroize, Zeroizing};
 
 use crate::{
     constants::{BTC_PATH, NETWORK},
@@ -79,38 +80,48 @@ fn get_descriptor(
     }
 }
 
-fn xprv_desc(xprv: &ExtendedPrivKey, path: &str, change: u32) -> Result<String, BitcoinKeysError> {
+fn xprv_desc(
+    xprv: &ExtendedPrivKey,
+    path: &str,
+    change: u32,
+) -> Result<SecretString, BitcoinKeysError> {
     let xprv = get_descriptor(xprv, path, change)?;
 
-    Ok(format!("tr({xprv})"))
+    Ok(SecretString(format!("tr({xprv})")))
 }
 
-fn xpub_desc(xprv: &ExtendedPrivKey, path: &str, change: u32) -> Result<String, BitcoinKeysError> {
+fn xpub_desc(
+    xprv: &ExtendedPrivKey,
+    path: &str,
+    change: u32,
+) -> Result<SecretString, BitcoinKeysError> {
     let secp = Secp256k1::new();
     let xprv = get_descriptor(xprv, path, change)?;
     let xpub = xprv.to_public(&secp)?;
 
-    Ok(format!("tr({xpub})"))
+    Ok(SecretString(format!("tr({xpub})")))
 }
 
 fn watcher_xpub(
     xprv: &ExtendedPrivKey,
     path: &str,
     change: u32,
-) -> Result<String, BitcoinKeysError> {
+) -> Result<SecretString, BitcoinKeysError> {
     let secp = Secp256k1::new();
     let xprv = get_descriptor(xprv, path, change)?;
     let xpub = xprv.to_public(&secp)?;
 
     if let DescriptorPublicKey::XPub(desc) = xpub {
-        Ok(desc.xkey.to_string())
+        Ok(SecretString(desc.xkey.to_string()))
     } else {
         Err(BitcoinKeysError::UnexpectedWatcherXpubDescriptor)
     }
 }
 
+pub static NOSTR_SK: OnceCell<Pin<Zeroizing<[u8; 32]>>> = OnceCell::new();
+
 // For NIP-06 Nostr signing and Carbonado encryption key derivation
-fn nostr_keypair(xprv: &ExtendedPrivKey) -> Result<(String, String), BitcoinKeysError> {
+fn nostr_keypair(xprv: &ExtendedPrivKey) -> Result<(SecretString, SecretString), BitcoinKeysError> {
     pub const NOSTR_PATH: &str = "m/44'/1237'/0'/0/0";
     let deriv_descriptor = DerivationPath::from_str(NOSTR_PATH)?;
     let secp = Secp256k1::new();
@@ -118,10 +129,17 @@ fn nostr_keypair(xprv: &ExtendedPrivKey) -> Result<(String, String), BitcoinKeys
     let keypair =
         KeyPair::from_seckey_slice(&secp, nostr_sk.private_key.secret_bytes().as_slice())?;
 
-    Ok((
-        hex::encode(nostr_sk.private_key.secret_bytes()),
-        hex::encode(keypair.x_only_public_key().0.serialize()),
-    ))
+    let mut sk = nostr_sk.private_key.secret_bytes();
+    let _ = NOSTR_SK.set(Pin::new(Zeroizing::new(sk)));
+
+    let sk_str = SecretString(hex::encode(sk));
+    sk.zeroize();
+
+    let mut pk = keypair.x_only_public_key().0.serialize();
+    let pk_str = SecretString(hex::encode(pk));
+    pk.zeroize();
+
+    Ok((sk_str, pk_str))
 }
 
 pub async fn new_mnemonic(
@@ -152,11 +170,13 @@ pub async fn get_mnemonic(
 
     let network = NETWORK.read().await;
     let xprv = ExtendedPrivKey::new_master(*network, &seed)?;
-    let xprvkh = sha256::Hash::hash(&xprv.to_priv().to_bytes()).to_string();
+    let mut xprvkh_bytes = xprv.to_priv().to_bytes();
+    let xprvkh = SecretString(sha256::Hash::hash(&xprvkh_bytes).to_string());
+    xprvkh_bytes.zeroize();
 
     let secp = Secp256k1::new();
     let xpub = ExtendedPubKey::from_priv(&secp, &xprv);
-    let xpubkh = xpub.to_pub().pubkey_hash().to_string();
+    let xpubkh = SecretString(xpub.to_pub().pubkey_hash().to_string());
 
     let btc_path = BTC_PATH.read().await;
 
@@ -172,9 +192,9 @@ pub async fn get_mnemonic(
     let watcher_xpub = watcher_xpub(&xprv, &btc_path, 0)?;
 
     let (nostr_prv, nostr_pub) = nostr_keypair(&xprv)?;
-    let nostr_keys = nostr_sdk::Keys::from_sk_str(&nostr_prv)?;
-    let nostr_nsec = nostr_keys.secret_key()?.to_bech32()?;
-    let nostr_npub = nostr_keys.public_key().to_bech32()?;
+    let nostr_keys = nostr_sdk::Keys::from_sk_str(&nostr_prv.0)?;
+    let nostr_nsec = SecretString(nostr_keys.secret_key()?.to_bech32()?);
+    let nostr_npub = SecretString(nostr_keys.public_key().to_bech32()?);
 
     let private = PrivateWalletData {
         xprvkh,
@@ -187,7 +207,7 @@ pub async fn get_mnemonic(
     };
 
     let public = PublicWalletData {
-        xpub: xpub.to_string(),
+        xpub: SecretString(xpub.to_string()),
         xpubkh,
         watcher_xpub,
         btc_descriptor_xpub,

@@ -1,11 +1,11 @@
 #![cfg(not(target_arch = "wasm32"))]
 use anyhow::Result;
 use bitmask_core::{
-    bitcoin::{save_mnemonic, sign_psbt_file},
     rgb::{
         create_watcher, list_transfers, remove_transfer, save_transfer, verify_transfers,
         watcher_next_address,
     },
+    save_mnemonic, sign_psbt_file,
     structs::{
         DecryptedWalletData, RgbRemoveTransferRequest, RgbSaveTransferRequest, SecretString,
         SignPsbtRequest, TransferType, TxStatus, WatcherRequest,
@@ -36,18 +36,18 @@ pub async fn allow_save_read_remove_transfers() -> Result<()> {
     let issuer_sk = issuer_keys.private.nostr_prv.to_string();
     let create_watch_req = WatcherRequest {
         name: watcher_name.to_string(),
-        xpub: issuer_keys.public.watcher_xpub.clone(),
+        xpub: issuer_keys.public.watcher_xpub.to_string(),
         force: true,
     };
-    create_watcher(&issuer_sk, create_watch_req.clone()).await?;
+    create_watcher(create_watch_req.clone()).await?;
 
     let owner_sk = owner_keys.private.nostr_prv.to_string();
     let create_watch_req = WatcherRequest {
         name: watcher_name.to_string(),
-        xpub: owner_keys.public.watcher_xpub.clone(),
+        xpub: owner_keys.public.watcher_xpub.to_string(),
         force: true,
     };
-    create_watcher(&owner_sk, create_watch_req.clone()).await?;
+    create_watcher(create_watch_req.clone()).await?;
 
     // 2. Issuer Contract
     let issuer_resp = issuer_issue_contract_v2(
@@ -83,19 +83,11 @@ pub async fn allow_save_read_remove_transfers() -> Result<()> {
         issuer_keys.clone(),
     )
     .await?;
-    let transfer_resp = &create_new_transfer(
-        issuer_keys.clone(),
-        owner_invoice.clone(),
-        psbt_resp.clone(),
-    )
-    .await?;
+    let transfer_resp = &create_new_transfer(owner_invoice.clone(), psbt_resp.clone()).await?;
 
     let request = SignPsbtRequest {
         psbt: transfer_resp.psbt.clone(),
-        descriptors: [SecretString(
-            issuer_keys.private.rgb_assets_descriptor_xprv.clone(),
-        )]
-        .to_vec(),
+        descriptors: [issuer_keys.private.rgb_assets_descriptor_xprv.clone()].to_vec(),
     };
     let resp = sign_psbt_file(request).await;
     assert!(resp.is_ok());
@@ -103,12 +95,12 @@ pub async fn allow_save_read_remove_transfers() -> Result<()> {
     // 5. Save Consig (Owner Side)
     let transfer = transfer_resp.clone();
     let all_sks = [owner_sk.clone()];
-    for sk in all_sks {
+    for _sk in all_sks {
         let request = RgbSaveTransferRequest {
             iface: issuer_resp.iface.clone(),
             consignment: transfer.consig.clone(),
         };
-        let save_resp = save_transfer(&sk, request).await;
+        let save_resp = save_transfer(request).await;
         assert!(save_resp.is_ok());
     }
 
@@ -118,7 +110,7 @@ pub async fn allow_save_read_remove_transfers() -> Result<()> {
     for sk in all_sks {
         let is_issuer = sk == issuer_sk;
 
-        let list_resp = list_transfers(&sk, contract_id.clone()).await;
+        let list_resp = list_transfers(contract_id.clone()).await;
         assert!(list_resp.is_ok());
 
         let list_resp = list_resp?;
@@ -138,13 +130,13 @@ pub async fn allow_save_read_remove_transfers() -> Result<()> {
     }
 
     // 7. Check Consig Status After Block (Both Sides)
-    let address = watcher_next_address(&owner_sk, watcher_name, "RGB20").await?;
+    let address = watcher_next_address(watcher_name, "RGB20").await?;
     send_some_coins(&address.address, "0.1").await;
 
     let contract_id = issuer_resp.contract_id.clone();
     let all_sks = [issuer_sk.clone(), owner_sk.clone()];
-    for sk in all_sks {
-        let list_resp = list_transfers(&sk, contract_id.clone()).await;
+    for _sk in all_sks {
+        let list_resp = list_transfers(contract_id.clone()).await;
         assert!(list_resp.is_ok());
 
         let list_resp = list_resp?;
@@ -160,15 +152,15 @@ pub async fn allow_save_read_remove_transfers() -> Result<()> {
     // 8. Remove Consig (Both Sides)
     let contract_id = issuer_resp.contract_id.clone();
     let all_sks = [issuer_sk.clone(), owner_sk.clone()];
-    for sk in all_sks {
+    for _sk in all_sks {
         let req = RgbRemoveTransferRequest {
             contract_id: contract_id.clone(),
             consig_ids: vec![transfer.consig_id.clone()],
         };
-        let list_resp = remove_transfer(&sk, req).await;
+        let list_resp = remove_transfer(req).await;
         assert!(list_resp.is_ok());
 
-        let list_resp = list_transfers(&sk, contract_id.clone()).await;
+        let list_resp = list_transfers(contract_id.clone()).await;
         assert!(list_resp.is_ok());
 
         let list_resp = list_resp?;
@@ -197,18 +189,18 @@ pub async fn allow_save_and_accept_all_transfers() -> Result<()> {
     let issuer_sk = issuer_keys.private.nostr_prv.to_string();
     let create_watch_req = WatcherRequest {
         name: watcher_name.to_string(),
-        xpub: issuer_keys.public.watcher_xpub.clone(),
+        xpub: issuer_keys.public.watcher_xpub.to_string(),
         force: true,
     };
-    create_watcher(&issuer_sk, create_watch_req.clone()).await?;
+    create_watcher(create_watch_req.clone()).await?;
 
     let owner_sk = owner_keys.private.nostr_prv.to_string();
     let create_watch_req = WatcherRequest {
         name: watcher_name.to_string(),
-        xpub: owner_keys.public.watcher_xpub.clone(),
+        xpub: owner_keys.public.watcher_xpub.to_string(),
         force: true,
     };
-    create_watcher(&owner_sk, create_watch_req.clone()).await?;
+    create_watcher(create_watch_req.clone()).await?;
 
     // 2. Issuer Contract
     let issuer_resp = issuer_issue_contract_v2(
@@ -244,19 +236,11 @@ pub async fn allow_save_and_accept_all_transfers() -> Result<()> {
         issuer_keys.clone(),
     )
     .await?;
-    let transfer_resp = &create_new_transfer(
-        issuer_keys.clone(),
-        owner_invoice.clone(),
-        psbt_resp.clone(),
-    )
-    .await?;
+    let transfer_resp = &create_new_transfer(owner_invoice.clone(), psbt_resp.clone()).await?;
 
     let request = SignPsbtRequest {
         psbt: transfer_resp.psbt.clone(),
-        descriptors: [SecretString(
-            issuer_keys.private.rgb_assets_descriptor_xprv.clone(),
-        )]
-        .to_vec(),
+        descriptors: [issuer_keys.private.rgb_assets_descriptor_xprv.clone()].to_vec(),
     };
     let resp = sign_psbt_file(request).await;
     assert!(resp.is_ok());
@@ -264,23 +248,23 @@ pub async fn allow_save_and_accept_all_transfers() -> Result<()> {
     // 5. Save Consig (Owner Side)
     let transfer = transfer_resp.clone();
     let all_sks = [owner_sk.clone()];
-    for sk in all_sks {
+    for _sk in all_sks {
         let request = RgbSaveTransferRequest {
             iface: issuer_resp.iface.clone(),
             consignment: transfer.consig.clone(),
         };
-        let save_resp = save_transfer(&sk, request).await;
+        let save_resp = save_transfer(request).await;
         assert!(save_resp.is_ok());
     }
 
     // 6. Check Consig Status After Block (Both Sides)
-    let address = watcher_next_address(&owner_sk, watcher_name, "RGB20").await?;
+    let address = watcher_next_address(watcher_name, "RGB20").await?;
     send_some_coins(&address.address, "0.1").await;
 
     // 7. Check Consig Status (Both Sides)
     let all_sks = [issuer_sk.clone(), owner_sk.clone()];
-    for sk in all_sks {
-        let list_resp = verify_transfers(&sk).await;
+    for _sk in all_sks {
+        let list_resp = verify_transfers().await;
         assert!(list_resp.is_ok());
 
         let list_resp = list_resp?;

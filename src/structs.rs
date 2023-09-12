@@ -41,27 +41,27 @@ pub struct SecretString(pub String);
 #[derive(Serialize, Deserialize, Clone, Debug, Zeroize, ZeroizeOnDrop)]
 #[serde(rename_all = "camelCase")]
 pub struct PrivateWalletData {
-    pub xprvkh: String,
-    pub btc_descriptor_xprv: String,
-    pub btc_change_descriptor_xprv: String,
-    pub rgb_assets_descriptor_xprv: String,
-    pub rgb_udas_descriptor_xprv: String,
-    pub nostr_prv: String,
-    pub nostr_nsec: String,
+    pub xprvkh: SecretString,
+    pub btc_descriptor_xprv: SecretString,
+    pub btc_change_descriptor_xprv: SecretString,
+    pub rgb_assets_descriptor_xprv: SecretString,
+    pub rgb_udas_descriptor_xprv: SecretString,
+    pub nostr_prv: SecretString,
+    pub nostr_nsec: SecretString,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Zeroize, ZeroizeOnDrop)]
 #[serde(rename_all = "camelCase")]
 pub struct PublicWalletData {
-    pub xpub: String,
-    pub xpubkh: String,
-    pub watcher_xpub: String,
-    pub btc_descriptor_xpub: String,
-    pub btc_change_descriptor_xpub: String,
-    pub rgb_assets_descriptor_xpub: String,
-    pub rgb_udas_descriptor_xpub: String,
-    pub nostr_pub: String,
-    pub nostr_npub: String,
+    pub xpub: SecretString,
+    pub xpubkh: SecretString,
+    pub watcher_xpub: SecretString,
+    pub btc_descriptor_xpub: SecretString,
+    pub btc_change_descriptor_xpub: SecretString,
+    pub rgb_assets_descriptor_xpub: SecretString,
+    pub rgb_udas_descriptor_xpub: SecretString,
+    pub nostr_pub: SecretString,
+    pub nostr_npub: SecretString,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Zeroize, ZeroizeOnDrop)]
