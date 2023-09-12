@@ -1,17 +1,18 @@
-use std::str::FromStr;
+use std::{pin::Pin, str::FromStr};
 
 use ::bitcoin::util::address::Address;
 use ::psbt::Psbt;
 use argon2::Argon2;
 use bdk::{wallet::AddressIndex, FeeRate, LocalUtxo, SignOptions, TransactionDetails};
 use bitcoin::psbt::PartiallySignedTransaction;
+use once_cell::sync::OnceCell;
 use rand::{rngs::StdRng, Rng, SeedableRng};
 use serde_encrypt::{
     serialize::impls::BincodeSerializer, shared_key::SharedKey, traits::SerdeEncryptSharedKey,
     AsSharedKey, EncryptedMessage,
 };
 use thiserror::Error;
-use zeroize::Zeroize;
+use zeroize::{Zeroize, Zeroizing};
 
 mod assets;
 mod keys;
@@ -77,6 +78,9 @@ pub enum BitcoinError {
     /// Drain wallet was unable to find tx details
     #[error("No wallet transaction details were found when draining wallet")]
     DrainWalletNoTxDetails,
+    /// No hash available. Has wallet been unlocked?
+    #[error("No hash available. Has wallet been unlocked?")]
+    NoHashAvailable,
     /// BitMask Core Bitcoin Keys error
     #[error(transparent)]
     BitcoinKeysError(#[from] BitcoinKeysError),
@@ -112,10 +116,13 @@ pub enum BitcoinError {
 /// Bitcoin Wallet Operations
 const BITMASK_ARGON2_SALT: &[u8] = b"DIBA BitMask Password Hash"; // Never change this
 
-pub fn hash_password(password: &SecretString) -> SecretString {
+static PASSWORD_HASH: OnceCell<Pin<Zeroizing<[u8; 32]>>> = OnceCell::new();
+
+pub fn hash_password(password: &SecretString) {
     use argon2::{Algorithm, Params, Version};
 
     let mut output_key_material = [0u8; 32];
+    let mut hash = Zeroizing::new([0u8; 32]);
     Argon2::new(Algorithm::Argon2id, Version::V0x13, Params::default())
         .hash_password_into(
             password.0.as_bytes(),
@@ -124,18 +131,15 @@ pub fn hash_password(password: &SecretString) -> SecretString {
         )
         .expect("Password hashed with Argon2id");
 
-    let hash = SecretString(hex::encode(output_key_material));
+    hash.copy_from_slice(&output_key_material);
     output_key_material.zeroize();
-    hash
+
+    let _ = PASSWORD_HASH.set(Pin::new(hash));
 }
 
 pub fn decrypt_wallet(
-    hash: &SecretString,
     encrypted_descriptors: &SecretString,
 ) -> Result<DecryptedWalletData, BitcoinError> {
-    let mut shared_key: [u8; 32] = hex::decode(&hash.0)?
-        .try_into()
-        .expect("hash is of fixed size");
     let encrypted_descriptors: Vec<u8> = hex::decode(&encrypted_descriptors.0)?;
     let (version_prefix, encrypted_descriptors) = encrypted_descriptors.split_at(5);
 
@@ -153,45 +157,65 @@ pub fn decrypt_wallet(
 
     let encrypted_message = EncryptedMessage::deserialize(encrypted_descriptors.to_owned())?;
 
-    let decrypted_wallet_data =
-        DecryptedWalletData::decrypt_owned(&encrypted_message, &SharedKey::from_array(shared_key))?;
+    let shared_key: Pin<&[u8; 32]> = PASSWORD_HASH
+        .get()
+        .ok_or(BitcoinError::NoHashAvailable)?
+        .as_ref();
 
-    shared_key.zeroize();
+    let decrypted_wallet_data = DecryptedWalletData::decrypt_owned(
+        &encrypted_message,
+        &SharedKey::from_array(*shared_key),
+    )?;
+
+    // shared_key.zeroize();
 
     Ok(decrypted_wallet_data)
 }
 
+pub async fn encrypt_wallet(
+    mnemonic_phrase: &SecretString,
+    seed_password: &SecretString,
+) -> Result<SecretString, BitcoinError> {
+    let shared_key: Pin<&[u8; 32]> = PASSWORD_HASH
+        .get()
+        .ok_or(BitcoinError::NoHashAvailable)?
+        .as_ref();
+
+    let wallet_data = save_mnemonic(mnemonic_phrase, seed_password).await?;
+    let encrypted_message = wallet_data.encrypt(&SharedKey::from_array(*shared_key))?;
+    let encrypted_descriptors = versioned_descriptor(encrypted_message);
+    Ok(encrypted_descriptors)
+}
+
 pub async fn upgrade_wallet(
-    hash: &SecretString,
     encrypted_descriptors: &SecretString,
     seed_password: &SecretString,
 ) -> Result<SecretString, BitcoinError> {
-    // read hash digest and consume hasher
-    let shared_key: [u8; 32] = hex::decode(&hash.0)?
-        .try_into()
-        .expect("hash is of fixed size");
+    let shared_key: Pin<&[u8; 32]> = PASSWORD_HASH
+        .get()
+        .ok_or(BitcoinError::NoHashAvailable)?
+        .as_ref();
     let encrypted_descriptors: Vec<u8> = hex::decode(&encrypted_descriptors.0)?;
     let encrypted_message = EncryptedMessage::deserialize(encrypted_descriptors)?;
 
-    match DecryptedWalletData::decrypt_owned(&encrypted_message, &SharedKey::from_array(shared_key))
-    {
+    match DecryptedWalletData::decrypt_owned(
+        &encrypted_message,
+        &SharedKey::from_array(*shared_key),
+    ) {
         Ok(_data) => Err(BitcoinError::UpgradeUnnecessary),
         Err(_err) => {
             // If there's a deserialization error, attempt to recover just the mnemnonic.
             let recovered_wallet_data = EncryptedWalletDataV04::decrypt_owned(
                 &encrypted_message,
-                &SharedKey::from_array(shared_key),
+                &SharedKey::from_array(*shared_key),
             )?;
 
             // println!("Recovered wallet data: {recovered_wallet_data:?}"); // Keep commented out for security
             // todo!("Add later version migrations here");
 
-            let upgraded_descriptor = encrypt_wallet(
-                &SecretString(recovered_wallet_data.mnemonic),
-                hash,
-                seed_password,
-            )
-            .await?;
+            let upgraded_descriptor =
+                encrypt_wallet(&SecretString(recovered_wallet_data.mnemonic), seed_password)
+                    .await?;
 
             Ok(upgraded_descriptor)
         }
@@ -210,33 +234,15 @@ pub fn versioned_descriptor(encrypted_message: EncryptedMessage) -> SecretString
     encrypted
 }
 
-pub async fn new_wallet(
-    hash: &SecretString,
-    seed_password: &SecretString,
-) -> Result<SecretString, BitcoinError> {
-    let mut shared_key: [u8; 32] = hex::decode(&hash.0)?
-        .try_into()
-        .expect("hash is of fixed size");
+pub async fn new_wallet(seed_password: &SecretString) -> Result<SecretString, BitcoinError> {
+    let shared_key: Pin<&[u8; 32]> = PASSWORD_HASH
+        .get()
+        .ok_or(BitcoinError::NoHashAvailable)?
+        .as_ref();
     let wallet_data = new_mnemonic(seed_password).await?;
-    let encrypted_message = wallet_data.encrypt(&SharedKey::from_array(shared_key))?;
+    let encrypted_message = wallet_data.encrypt(&SharedKey::from_array(*shared_key))?;
     let encrypted_descriptors = versioned_descriptor(encrypted_message);
 
-    shared_key.zeroize();
-    Ok(encrypted_descriptors)
-}
-
-pub async fn encrypt_wallet(
-    mnemonic_phrase: &SecretString,
-    hash: &SecretString,
-    seed_password: &SecretString,
-) -> Result<SecretString, BitcoinError> {
-    let shared_key: [u8; 32] = hex::decode(&hash.0)?
-        .try_into()
-        .expect("hash is of fixed size");
-
-    let wallet_data = save_mnemonic(mnemonic_phrase, seed_password).await?;
-    let encrypted_message = wallet_data.encrypt(&SharedKey::from_array(shared_key))?;
-    let encrypted_descriptors = versioned_descriptor(encrypted_message);
     Ok(encrypted_descriptors)
 }
 

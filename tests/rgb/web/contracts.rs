@@ -34,19 +34,18 @@ const SEED_PASSWORD: &str = "";
 async fn allow_issue_and_list_contracts() {
     set_panic_hook();
     let mnemonic = env!("TEST_WALLET_SEED", "TEST_WALLET_SEED variable not set");
-    let hash = hash_password(ENCRYPTION_PASSWORD.to_owned());
+    hash_password(ENCRYPTION_PASSWORD.to_owned());
 
     info!("Import Seed");
     let mnemonic_data_str = resolve(encrypt_wallet(
         mnemonic.to_owned(),
-        hash.clone(),
         SEED_PASSWORD.to_owned(),
     ))
     .await;
     let mnemonic_data: SecretString = json_parse(&mnemonic_data_str);
 
     info!("Get Vault");
-    let issuer_keys: JsValue = resolve(decrypt_wallet(hash, mnemonic_data.0.clone())).await;
+    let issuer_keys: JsValue = resolve(decrypt_wallet(mnemonic_data.0.clone())).await;
 
     info!("Get Keys");
     let issuer_keys: DecryptedWalletData = json_parse(&issuer_keys);
