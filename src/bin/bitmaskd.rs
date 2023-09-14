@@ -16,7 +16,7 @@ use axum::{
 use bitcoin_30::secp256k1::{ecdh::SharedSecret, PublicKey, SecretKey};
 use bitmask_core::{
     bitcoin::{save_mnemonic, sign_and_publish_psbt_file},
-    carbonado::handle_file,
+    carbonado::{handle_file, public_retrieve, public_store, store},
     constants::{
         get_marketplace_nostr_key, get_marketplace_seed, get_network, get_udas_utxo, switch_network,
     },
@@ -495,6 +495,48 @@ async fn co_force_store(
     Ok((StatusCode::OK, TypedHeader(cc)))
 }
 
+async fn co_public_store(
+    Path(name): Path<String>,
+    body: Bytes,
+) -> Result<impl IntoResponse, AppError> {
+    let incoming_header = carbonado::file::Header::try_from(&body)?;
+    let body_len = incoming_header.encoded_len - incoming_header.padding_len;
+    info!("POST /carbonado/public/{name}, {body_len} bytes");
+
+    let filepath = public_store(&name, &body, None).await?;
+    match OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .open(&filepath)
+    {
+        Ok(file) => {
+            let present_header = match carbonado::file::Header::try_from(&file) {
+                Ok(header) => header,
+                _ => carbonado::file::Header::try_from(&body)?,
+            };
+            let present_len = present_header.encoded_len - present_header.padding_len;
+            debug!("body len: {body_len} present_len: {present_len}");
+            let resp = fs::write(&filepath, &body).await;
+            debug!("file override status {}", resp.is_ok());
+        }
+        Err(err) => match err.kind() {
+            ErrorKind::NotFound => {
+                debug!("no file found, writing {body_len} bytes.");
+                fs::write(&filepath, &body).await?;
+            }
+            _ => {
+                error!("error in POST /carbonado/public/{name}: {err}");
+                return Err(err.into());
+            }
+        },
+    }
+
+    let cc = CacheControl::new().with_no_cache();
+
+    Ok((StatusCode::OK, TypedHeader(cc)))
+}
+
 async fn co_retrieve(
     Path((pk, name)): Path<(String, String)>,
 ) -> Result<impl IntoResponse, AppError> {
@@ -557,26 +599,19 @@ async fn co_metadata(
     Ok((StatusCode::OK, Json(metadata)))
 }
 
-async fn co_marketplace_retrieve(Path(name): Path<String>) -> Result<impl IntoResponse, AppError> {
-    info!("GET /marketplace/{name}");
+async fn co_public_retrieve(Path(name): Path<String>) -> Result<impl IntoResponse, AppError> {
+    info!("GET /public/{name}");
 
-    let marketplace_key: String = get_marketplace_nostr_key().await;
-    let filepath = &handle_file(&marketplace_key, &name, 0).await?;
-    let fullpath = filepath.to_string_lossy();
-    let bytes = fs::read(filepath).await;
+    let result = public_retrieve(&name, vec![]).await;
     let cc = CacheControl::new().with_no_cache();
 
-    match bytes {
-        Ok(bytes) => {
+    match result {
+        Ok((bytes, _)) => {
             debug!("read {0} bytes.", bytes.len());
             Ok((StatusCode::OK, TypedHeader(cc), bytes))
         }
         Err(e) => {
-            debug!(
-                "file read error {0} .Details: {1}.",
-                fullpath,
-                e.to_string()
-            );
+            debug!("file read error {0} .Details: {1}.", name, e.to_string());
             Ok((StatusCode::OK, TypedHeader(cc), Vec::<u8>::new()))
         }
     }
@@ -658,7 +693,8 @@ async fn main() -> Result<()> {
         .route("/transfers/", delete(remove_transfer))
         .route("/key/:pk", get(key))
         .route("/carbonado/status", get(status))
-        .route("/carbonado/marketplace/:name", get(co_marketplace_retrieve))
+        .route("/carbonado/public/:name", get(co_public_retrieve))
+        .route("/carbonado/public/:name", post(co_public_store))
         .route("/carbonado/:pk/:name", get(co_retrieve))
         .route("/carbonado/:pk/:name", post(co_store))
         .route("/carbonado/:pk/:name/force", post(co_force_store))

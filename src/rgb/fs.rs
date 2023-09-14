@@ -33,6 +33,8 @@ pub enum RgbPersistenceError {
     RetrieveRgbTransfers(String),
     // Retrieve Offers Error. {0}
     RetrieveRgbOffers(String),
+    // Retrieve Public Offers Error. {0}
+    RetrievePublicOffers(String),
     // Retrieve Bids Error. {0}
     RetrieveRgbBids(String),
     // Store Stock Error. {0}
@@ -43,6 +45,8 @@ pub enum RgbPersistenceError {
     WriteRgbAccountFork(String),
     // Store Transfers Error. {0}
     WriteRgbTransfers(String),
+    // Store Offers (Fork) Error. {0}
+    WriteRgbOffersFork(String),
 }
 
 pub async fn retrieve_stock(sk: &str) -> Result<Stock, RgbPersistenceError> {
@@ -80,7 +84,7 @@ pub async fn retrieve_local_account(sk: &str) -> Result<LocalRgbAccount, RgbPers
 pub async fn retrieve_public_offers() -> Result<LocalRgbOffers, RgbPersistenceError> {
     let stock = retrieve_rgb_public_offers(MARKETPLACE_OFFERS)
         .await
-        .map_err(|op| RgbPersistenceError::RetrieveRgbOffers(op.to_string()))?;
+        .map_err(|op| RgbPersistenceError::RetrievePublicOffers(op.to_string()))?;
 
     Ok(stock)
 }
@@ -160,7 +164,7 @@ pub async fn store_bids(sk: &str, rgb_bids: RgbBids) -> Result<(), RgbPersistenc
 pub async fn store_public_offers(changes: Vec<u8>) -> Result<(), RgbPersistenceError> {
     store_rgb_public_offers(MARKETPLACE_OFFERS, &changes)
         .await
-        .map_err(|op| RgbPersistenceError::WriteRgbAccountFork(op.to_string()))
+        .map_err(|op| RgbPersistenceError::WriteRgbOffersFork(op.to_string()))
 }
 
 pub async fn store_stock_account(

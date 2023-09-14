@@ -29,6 +29,8 @@ pub enum StorageError {
     ChangesRetrieve(String, String),
     /// Changes '{0}' write causes error. {1}
     ChangesWrite(String, String),
+    /// Fork '{0}' read causes error. {1}
+    ForkRead(String, String),
     /// Fork '{0}' write causes error. {1}
     ForkWrite(String, String),
     /// Merge '{0}' write causes error. {1}
@@ -361,6 +363,8 @@ pub async fn retrieve_public_offers(name: &str) -> Result<LocalRgbOffers, Storag
         .to_lowercase();
 
     let main_name = &format!("{hashed_name}.c15");
+    let original_name = &format!("{hashed_name}-diff.c15");
+
     let (data, _) = public_retrieve(main_name, vec![])
         .await
         .map_err(|op| StorageError::CarbonadoRetrieve(name.to_string(), op.to_string()))?;
@@ -380,6 +384,14 @@ pub async fn retrieve_public_offers(name: &str) -> Result<LocalRgbOffers, Storag
 
         let mut fork_version = original_version.fork();
 
+        public_store(
+            original_name,
+            &fork_version.save(),
+            Some(RGB_STRICT_TYPE_VERSION.to_vec()),
+        )
+        .await
+        .map_err(|op| StorageError::CarbonadoWrite(name.to_string(), op.to_string()))?;
+
         Ok(LocalRgbOffers {
             doc: fork_version.save(),
             rgb_offers,
@@ -393,13 +405,14 @@ pub async fn store_public_offers(name: &str, changes: &[u8]) -> Result<(), Stora
         .to_lowercase();
 
     let main_name = &format!("{hashed_name}.c15");
+    let original_name = &format!("{hashed_name}-diff.c15");
 
-    let (original_bytes, _) = public_retrieve(main_name, vec![])
+    let (original_bytes, _) = public_retrieve(original_name, vec![])
         .await
         .map_err(|op| StorageError::CarbonadoRetrieve(name.to_string(), op.to_string()))?;
 
     let mut original_version = automerge::AutoCommit::load(&original_bytes)
-        .map_err(|op| StorageError::StrictRetrieve(name.to_string(), op.to_string()))?;
+        .map_err(|op| StorageError::ForkRead(name.to_string(), op.to_string()))?;
 
     let mut fork_version = automerge::AutoCommit::load(changes)
         .map_err(|op| StorageError::ChangesRetrieve(name.to_string(), op.to_string()))?;

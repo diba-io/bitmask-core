@@ -368,6 +368,7 @@ pub async fn prebuild_transfer_asset(
             .map_err(|err| TransferError::WrongNetwork(err.to_string()))?;
 
         let network = AddressNetwork::from(network);
+        // TODO: Use New Address
         let change_address = get_address(1, 0, rgb_wallet.clone(), network)
             .map_err(|err| TransferError::WrongNetwork(err.to_string()))?
             .address;
@@ -390,7 +391,6 @@ pub async fn prebuild_seller_swap(
         Vec<PsbtInputRequest>,
         Vec<PsbtInputRequest>,
         Vec<String>,
-        u64,
     ),
     RgbSwapError,
 > {
@@ -616,20 +616,19 @@ pub async fn prebuild_seller_swap(
         }
     }
 
-    let fee_value = 0;
     let change_value = bitcoin_total - total_spendable;
-    let total_spendable = fee_value + rnd_amount + total_bitcoin_spend;
     if bitcoin_total < total_spendable {
         return Err(RgbSwapError::Inflation {
             input: bitcoin_total,
             output: total_spendable,
         });
-    } else if change_value > 0 {
+    } else if change_value > DUST_LIMIT_SATOSHI {
         let network = NETWORK.read().await.to_string();
         let network = Network::from_str(&network)
             .map_err(|err| RgbSwapError::WrongNetwork(err.to_string()))?;
 
         let network = AddressNetwork::from(network);
+        // TODO: Use New Address
         let change_address = get_address(1, 0, rgb_wallet.clone(), network)
             .map_err(|err| RgbSwapError::WrongNetwork(err.to_string()))?
             .address;
@@ -643,7 +642,6 @@ pub async fn prebuild_seller_swap(
         assets_inputs,
         bitcoin_inputs,
         bitcoin_changes,
-        fee_value,
     ))
 }
 
@@ -690,25 +688,34 @@ pub async fn prebuild_buyer_swap(
 
     // Retrieve Bitcoin UTXOs
     let mut bitcoin_inputs = vec![];
-    let bitcoin_indexes = [AssetType::Bitcoin, AssetType::Change];
-    for bitcoin_index in bitcoin_indexes {
-        let bitcoin_index = bitcoin_index as u32;
-        sync_wallet(bitcoin_index, rgb_wallet, resolver);
+
+    let only_bitcoin = [AssetType::Bitcoin, AssetType::Change];
+    let derive_indexes = [
+        AssetType::Bitcoin,
+        AssetType::Change,
+        AssetType::RGB20,
+        AssetType::RGB21,
+    ];
+    for derive_type in derive_indexes {
+        let derive_index = derive_type.clone() as u32;
+        sync_wallet(derive_index, rgb_wallet, resolver);
         prefetch_resolver_utxos(
-            bitcoin_index,
+            derive_index,
             rgb_wallet,
             resolver,
             Some(BITCOIN_DEFAULT_FETCH_LIMIT),
         )
         .await;
-        prefetch_resolver_user_utxo_status(bitcoin_index, rgb_wallet, resolver, false).await;
+        prefetch_resolver_user_utxo_status(derive_index, rgb_wallet, resolver, false).await;
 
-        let mut unspent_utxos =
-            next_utxos(bitcoin_index, rgb_wallet.clone(), resolver).map_err(|_| {
-                RgbSwapError::IO(RgbPersistenceError::RetrieveRgbAccount("".to_string()))
-            })?;
+        if only_bitcoin.contains(&derive_type) {
+            let mut unspent_utxos = next_utxos(derive_index, rgb_wallet.clone(), resolver)
+                .map_err(|_| {
+                    RgbSwapError::IO(RgbPersistenceError::RetrieveRgbAccount("".to_string()))
+                })?;
 
-        all_unspents.append(&mut unspent_utxos);
+            all_unspents.append(&mut unspent_utxos);
+        }
     }
 
     let mut bitcoin_total = 0;
@@ -791,8 +798,6 @@ pub async fn prebuild_buyer_swap(
     };
 
     let total_spendable = fee_value + offer.bitcoin_price;
-
-    let fee_value = 0;
     if bitcoin_total < total_spendable {
         return Err(RgbSwapError::Inflation {
             input: bitcoin_total,

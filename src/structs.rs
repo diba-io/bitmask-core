@@ -313,7 +313,7 @@ pub struct ReIssueResponse {
     pub contracts: Vec<IssueResponse>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Eq, PartialEq, Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub enum AssetType {
     #[serde(rename = "bitcoin")]
@@ -565,7 +565,16 @@ pub struct SignPsbtRequest {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct SignPsbtResponse {
+pub struct SignedPsbtResponse {
+    /// PSBT is signed?
+    pub sign: bool,
+    /// PSBT signed
+    pub psbt: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PublishedPsbtResponse {
     /// PSBT is signed?
     pub sign: bool,
     /// Transaction id
@@ -1116,12 +1125,39 @@ pub struct RgbSwapBuyerResponse {
     pub bid_id: String,
     /// The Offer ID
     pub offer_id: String,
-    /// The Consig ID
-    pub consig_id: String,
-    /// Final Consig (encoded in base64)
-    pub final_consig: String,
+    /// Buyer Invoice
+    pub invoice: String,
     /// Final PSBT (encoded in base64)
-    pub final_psbt: String,
+    pub swap_psbt: String,
     /// Fee Value
     pub fee_value: u64,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug, Display, Default, Validate)]
+#[garde(context(RGBContext))]
+#[serde(rename_all = "camelCase")]
+#[display("")]
+pub struct RgbSwapTransferRequest {
+    /// Offer ID
+    #[garde(ascii)]
+    #[garde(length(min = 0, max = 100))]
+    pub offer_id: String,
+    /// Bid ID
+    #[garde(ascii)]
+    #[garde(length(min = 0, max = 100))]
+    pub bid_id: String,
+    /// Swap PSBT
+    #[garde(ascii)]
+    pub swap_psbt: String,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug, Display, Default)]
+#[display("")]
+pub struct RgbSwapTransferResponse {
+    /// Transfer ID
+    pub consig_id: String,
+    /// Final Consig
+    pub final_consig: String,
+    /// Final PSBT
+    pub final_psbt: String,
 }

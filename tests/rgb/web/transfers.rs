@@ -16,9 +16,9 @@ use bitmask_core::{
         AssetType, BatchRgbTransferResponse, ContractResponse, ContractsResponse,
         DecryptedWalletData, FullRgbTransferRequest, FundVaultDetails, ImportRequest,
         InvoiceRequest, InvoiceResponse, IssueRequest, IssueResponse, NextAddressResponse,
-        NextUtxoResponse, PsbtFeeRequest, RgbSaveTransferRequest, RgbTransferRequest,
-        RgbTransferResponse, RgbTransferStatusResponse, SecretString, SignPsbtRequest,
-        SignPsbtResponse, WalletData, WatcherRequest, WatcherResponse,
+        NextUtxoResponse, PsbtFeeRequest, PublishedPsbtResponse, RgbSaveTransferRequest,
+        RgbTransferRequest, RgbTransferResponse, RgbTransferStatusResponse, SecretString,
+        SignPsbtRequest, WalletData, WatcherRequest, WatcherResponse,
     },
     web::{
         bitcoin::{
@@ -316,7 +316,7 @@ async fn create_transfer_with_fee_value() {
 
         let psbt_req = serde_wasm_bindgen::to_value(&psbt_req).expect("");
         let psbt_resp: JsValue = resolve(psbt_sign_file(sender_sk.to_string(), psbt_req)).await;
-        let psbt_resp: SignPsbtResponse = json_parse(&psbt_resp);
+        let psbt_resp: PublishedPsbtResponse = json_parse(&psbt_resp);
         debug!(format!("Sign Psbt: {:?}", psbt_resp));
 
         info!("Create new Block");
@@ -604,7 +604,7 @@ async fn create_transfer_with_fee_rate() {
 
         let psbt_req = serde_wasm_bindgen::to_value(&psbt_req).expect("");
         let psbt_resp: JsValue = resolve(psbt_sign_file(sender_sk.to_string(), psbt_req)).await;
-        let psbt_resp: SignPsbtResponse = json_parse(&psbt_resp);
+        let psbt_resp: PublishedPsbtResponse = json_parse(&psbt_resp);
         debug!(format!("Sign Psbt: {:?}", psbt_resp));
 
         info!("Create new Block");

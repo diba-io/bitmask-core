@@ -46,7 +46,7 @@ mod server {
         name: &str,
         input: &[u8],
         metadata: Option<Vec<u8>>,
-    ) -> Result<(), CarbonadoError> {
+    ) -> Result<PathBuf, CarbonadoError> {
         let marketplace_key: String = get_marketplace_nostr_key().await;
 
         let level = 15;
@@ -59,8 +59,8 @@ mod server {
         let meta: Option<[u8; 8]> = metadata.map(|m| m.try_into().expect("invalid metadata size"));
         let (body, _encode_info) = carbonado::file::encode(&sk, Some(&pk), input, level, meta)?;
         let filepath = handle_file(&pk_hex, name, body.len()).await?;
-        fs::write(filepath, body).await?;
-        Ok(())
+        fs::write(filepath.clone(), body).await?;
+        Ok(filepath)
     }
 
     pub async fn retrieve(
@@ -214,7 +214,7 @@ mod server {
 }
 
 #[cfg(target_arch = "wasm32")]
-pub use client::{public_retrieve, retrieve, retrieve_metadata, store};
+pub use client::{public_retrieve, public_store, retrieve, retrieve_metadata, store};
 
 #[cfg(target_arch = "wasm32")]
 mod client {
@@ -228,7 +228,7 @@ mod client {
     use gloo_net::http::Request;
     use gloo_utils::errors::JsError;
 
-    use crate::constants::{get_marketplace_nostr_key, CARBONADO_ENDPOINT};
+    use crate::constants::CARBONADO_ENDPOINT;
 
     fn js_to_error(js_value: JsValue) -> CarbonadoError {
         CarbonadoError::JsError(js_to_js_error(js_value))
@@ -292,6 +292,14 @@ mod client {
         } else {
             Err(CarbonadoError::AllEndpointsFailed)
         }
+    }
+
+    pub async fn public_store(
+        _name: &str,
+        _input: &[u8],
+        _metadata: Option<Vec<u8>>,
+    ) -> Result<(), CarbonadoError> {
+        todo!()
     }
 
     pub async fn retrieve_metadata(sk: &str, name: &str) -> Result<FileMetadata, CarbonadoError> {
@@ -383,68 +391,10 @@ mod client {
     }
 
     pub async fn public_retrieve(
-        name: &str,
-        alt_names: Vec<&String>,
+        _name: &str,
+        _alt_names: Vec<&String>,
     ) -> Result<(Vec<u8>, Option<Vec<u8>>), CarbonadoError> {
-        use carbonado::file::Header;
-
-        let marketplace_key: String = get_marketplace_nostr_key()
-            .await
-            .try_into()
-            .map_err(|_| CarbonadoError::WrongNostrPrivateKey)?;
-
-        let sk = hex::decode(marketplace_key)?;
-        let secret_key = SecretKey::from_slice(&sk)?;
-        let public_key = PublicKey::from_secret_key_global(&secret_key);
-        let pk = public_key.to_hex();
-
-        let network = NETWORK.read().await.to_string();
-        let endpoints = CARBONADO_ENDPOINT.read().await.to_string();
-        let endpoints: Vec<&str> = endpoints.split(',').collect();
-
-        let requests = Array::new();
-        for endpoint in endpoints.iter() {
-            let url = format!("{endpoint}/marketplace/{network}-{name}");
-            let fetch_fn = future_to_promise(fetch_get_byte_array(url));
-            requests.push(&fetch_fn);
-        }
-
-        let result = JsFuture::from(Promise::any(&JsValue::from(requests)))
-            .await
-            .map_err(js_to_error)?;
-
-        let array = Uint8Array::from(result);
-        let encoded = array.to_vec();
-
-        if encoded.len() > Header::len() {
-            let (header, decoded) = carbonado::file::decode(&sk, &encoded)?;
-            return Ok((decoded, header.metadata.map(|m| m.to_vec())));
-        }
-
-        // Check alternative names
-        for alt_name in alt_names {
-            let requests = Array::new();
-            for endpoint in endpoints.iter() {
-                let url = format!("{endpoint}/{pk}/{network}-{alt_name}");
-
-                let fetch_fn = future_to_promise(fetch_get_byte_array(url));
-                requests.push(&fetch_fn);
-            }
-
-            let result = JsFuture::from(Promise::any(&JsValue::from(requests)))
-                .await
-                .map_err(js_to_error)?;
-
-            let array = Uint8Array::from(result);
-            let encoded = array.to_vec();
-
-            if encoded.len() > Header::len() {
-                let (header, decoded) = carbonado::file::decode(&sk, &encoded)?;
-                return Ok((decoded, header.metadata.map(|m| m.to_vec())));
-            }
-        }
-
-        Ok((Vec::new(), None))
+        todo!()
     }
 
     async fn fetch_post(url: String, body: Arc<Vec<u8>>) -> Result<JsValue, JsValue> {

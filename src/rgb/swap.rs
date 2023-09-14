@@ -1,8 +1,12 @@
 use autosurgeon::{reconcile, Hydrate, Reconcile};
+use bitcoin::psbt::{PartiallySignedTransaction, Psbt};
 use bitcoin_scripts::address::AddressCompat;
 use garde::Validate;
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
+use std::{
+    cmp,
+    collections::{btree_map, BTreeMap},
+};
 
 use crate::{structs::AllocationDetail, validators::RGBContext};
 
@@ -120,7 +124,7 @@ pub struct RgbBid {
     #[garde(ascii)]
     pub buyer_psbt: String,
     #[garde(ascii)]
-    pub buyer_outpoint: String,
+    pub buyer_invoice: String,
 }
 
 impl RgbBid {
@@ -173,7 +177,7 @@ pub struct RgbSwap {
 #[derive(Clone, Serialize, Deserialize, Reconcile, Hydrate, Default, Debug)]
 pub struct RgbOffers {
     pub offers: BTreeMap<AssetId, Vec<RgbOffer>>,
-    pub bids: BTreeMap<OfferId, Vec<BidId>>,
+    pub bids: BTreeMap<OfferId, BTreeMap<BidId, RgbBid>>,
 }
 
 #[derive(Clone, Serialize, Deserialize, Reconcile, Hydrate, Default, Debug)]
@@ -186,6 +190,7 @@ pub struct RgbBids {
 pub enum RgbOfferErrors {
     IO(RgbPersistenceError),
     NoOffer(String),
+    NoBid(String),
     AutoMerge(String),
 }
 
@@ -204,6 +209,23 @@ pub async fn get_public_offer(offer_id: OfferId) -> Result<RgbOffer, RgbOfferErr
     };
 
     Ok(offer)
+}
+
+pub async fn get_public_bid(offer_id: OfferId, bid_id: BidId) -> Result<RgbBid, RgbOfferErrors> {
+    let LocalRgbOffers { doc: _, rgb_offers } =
+        retrieve_public_offers().await.map_err(RgbOfferErrors::IO)?;
+
+    let public_bids = match rgb_offers.bids.get(&offer_id) {
+        Some(bids) => bids,
+        _ => return Err(RgbOfferErrors::NoOffer(offer_id)),
+    };
+
+    let public_bid = match public_bids.get(&bid_id) {
+        Some(bid) => bid.clone(),
+        _ => return Err(RgbOfferErrors::NoBid(bid_id)),
+    };
+
+    Ok(public_bid)
 }
 
 pub async fn publish_offer(new_offer: RgbOffer) -> Result<(), RgbOfferErrors> {
@@ -229,6 +251,7 @@ pub async fn publish_offer(new_offer: RgbOffer) -> Result<(), RgbOfferErrors> {
     // TODO: Add change verification (accept only addition operation)
     reconcile(&mut local_copy, rgb_offers)
         .map_err(|op| RgbOfferErrors::AutoMerge(op.to_string()))?;
+
     store_public_offers(local_copy.save())
         .await
         .map_err(RgbOfferErrors::IO)?;
@@ -246,22 +269,113 @@ pub async fn publish_bid(new_bid: RgbBid) -> Result<(), RgbOfferErrors> {
     let mut local_copy = automerge::AutoCommit::load(&doc)
         .map_err(|op| RgbOfferErrors::AutoMerge(op.to_string()))?;
 
+    let RgbBid {
+        bid_id, offer_id, ..
+    } = new_bid.clone();
+
     if let Some(bids) = rgb_offers.bids.get(&new_bid.offer_id) {
         let mut avaliable_bids = bids.to_owned();
-        avaliable_bids.push(new_bid.bid_id);
-        rgb_offers.bids.insert(new_bid.offer_id, avaliable_bids);
+        avaliable_bids.insert(bid_id, new_bid);
+        rgb_offers.bids.insert(offer_id.clone(), avaliable_bids);
     } else {
         rgb_offers
             .bids
-            .insert(new_bid.offer_id, vec![new_bid.bid_id]);
+            .insert(offer_id.clone(), bmap! { bid_id => new_bid });
     }
 
     // TODO: Add change verification (accept only addition operation)
     reconcile(&mut local_copy, rgb_offers)
         .map_err(|op| RgbOfferErrors::AutoMerge(op.to_string()))?;
+
     store_public_offers(local_copy.save())
         .await
         .map_err(RgbOfferErrors::IO)?;
 
     Ok(())
+}
+
+#[derive(Clone, Eq, PartialEq, Debug, Display, Error, From)]
+#[display(doc_comments)]
+pub enum PsbtSwapExError {
+    /// The Input PSBT is invalid (Unexpected behavior).
+    Inconclusive,
+}
+
+pub trait PsbtSwapEx<T> {
+    type Error: std::error::Error;
+
+    /// Join this [`PartiallySignedTransaction`] with `other` PSBT as described by BIP 174.
+    ///
+    /// The join method emulate the same behavior of the rpc method `joinpsbts`
+    /// See: https://developer.bitcoin.org/reference/rpc/joinpsbts.html
+    fn join(self, other: T) -> Result<T, Self::Error>;
+}
+
+impl PsbtSwapEx<PartiallySignedTransaction> for PartiallySignedTransaction {
+    type Error = PsbtSwapExError;
+
+    fn join(
+        self,
+        other: PartiallySignedTransaction,
+    ) -> Result<PartiallySignedTransaction, Self::Error> {
+        // BIP 174: The Combiner must remove any duplicate key-value pairs, in accordance with
+        //          the specification. It can pick arbitrarily when conflicts occur.
+
+        // Keeping the highest version
+        let mut new_psbt = Psbt::from(self).clone();
+        new_psbt.version = cmp::max(new_psbt.version, other.version);
+
+        // Merging xpubs
+        for (xpub, (fingerprint1, derivation1)) in other.xpub {
+            match new_psbt.xpub.entry(xpub) {
+                btree_map::Entry::Vacant(entry) => {
+                    entry.insert((fingerprint1, derivation1));
+                }
+                btree_map::Entry::Occupied(mut entry) => {
+                    // Here in case of the conflict we select the version with algorithm:
+                    // 1) if everything is equal we do nothing
+                    // 2) report an error if
+                    //    - derivation paths are equal and fingerprints are not
+                    //    - derivation paths are of the same length, but not equal
+                    //    - derivation paths has different length, but the shorter one
+                    //      is not the strict suffix of the longer one
+                    // 3) choose longest derivation otherwise
+
+                    let (fingerprint2, derivation2) = entry.get().clone();
+
+                    if (derivation1 == derivation2 && fingerprint1 == fingerprint2)
+                        || (derivation1.len() < derivation2.len()
+                            && derivation1[..]
+                                == derivation2[derivation2.len() - derivation1.len()..])
+                    {
+                        continue;
+                    } else if derivation2[..]
+                        == derivation1[derivation1.len() - derivation2.len()..]
+                    {
+                        entry.insert((fingerprint1, derivation1));
+                        continue;
+                    }
+                    return Err(PsbtSwapExError::Inconclusive);
+                }
+            }
+        }
+
+        new_psbt.proprietary.extend(other.proprietary);
+        new_psbt.unknown.extend(other.unknown);
+
+        new_psbt.inputs.extend(other.inputs);
+        new_psbt.outputs.extend(other.outputs);
+
+        // Transaction
+        new_psbt.unsigned_tx.version =
+            cmp::max(new_psbt.unsigned_tx.version, other.unsigned_tx.version);
+
+        new_psbt.unsigned_tx.lock_time =
+            cmp::max(new_psbt.unsigned_tx.lock_time, other.unsigned_tx.lock_time);
+
+        new_psbt.unsigned_tx.input.extend(other.unsigned_tx.input);
+        new_psbt.unsigned_tx.output.extend(other.unsigned_tx.output);
+
+        Ok(new_psbt.clone())
+    }
 }

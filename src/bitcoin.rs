@@ -2,9 +2,10 @@ use std::str::FromStr;
 
 use ::bitcoin::util::address::Address;
 use ::psbt::Psbt;
+use amplify::hex::ToHex;
 use argon2::Argon2;
 use bdk::{wallet::AddressIndex, FeeRate, LocalUtxo, SignOptions, TransactionDetails};
-use bitcoin::psbt::PartiallySignedTransaction;
+use bitcoin::{consensus::encode, psbt::PartiallySignedTransaction};
 use rand::{rngs::StdRng, Rng, SeedableRng};
 use serde_encrypt::{
     serialize::impls::BincodeSerializer, shared_key::SharedKey, traits::SerdeEncryptSharedKey,
@@ -23,7 +24,10 @@ pub use crate::bitcoin::{
     assets::dust_tx,
     keys::{new_mnemonic, save_mnemonic, BitcoinKeysError},
     payment::{create_payjoin, create_transaction, BitcoinPaymentError},
-    psbt::{multi_sign_and_publish_psbt, sign_and_publish_psbt as sign_psbt, BitcoinPsbtError},
+    psbt::{
+        multi_sign_and_publish_psbt, multi_sign_psbt, sign_and_publish_psbt, sign_psbt,
+        BitcoinPsbtError,
+    },
     wallet::{
         get_blockchain, get_wallet, sync_wallet, sync_wallets, BitcoinWalletError, MemoryWallet,
     },
@@ -33,13 +37,12 @@ use crate::{
     constants::{DIBA_DESCRIPTOR, DIBA_DESCRIPTOR_VERSION, DIBA_MAGIC_NO, NETWORK},
     debug, info,
     structs::{
-        DecryptedWalletData, EncryptedWalletDataV04, FundVaultDetails, SatsInvoice, SecretString,
-        SignPsbtRequest, SignPsbtResponse, WalletData, WalletTransaction,
+        DecryptedWalletData, EncryptedWalletDataV04, FundVaultDetails, PublishedPsbtResponse,
+        SatsInvoice, SecretString, SignPsbtRequest, SignedPsbtResponse, WalletData,
+        WalletTransaction,
     },
     trace,
 };
-
-use self::psbt::multi_sign_psbt;
 
 // Minimum amount of satoshis to funding vault
 const MIN_FUNDS_SATS: u64 = 10000;
@@ -474,7 +477,7 @@ pub async fn get_assets_vault(
     })
 }
 
-pub async fn sign_psbt_file(request: SignPsbtRequest) -> Result<SignPsbtResponse, BitcoinError> {
+pub async fn sign_psbt_file(request: SignPsbtRequest) -> Result<SignedPsbtResponse, BitcoinError> {
     let SignPsbtRequest { psbt, descriptors } = request;
 
     let original_psbt = Psbt::from_str(&psbt)?;
@@ -487,13 +490,18 @@ pub async fn sign_psbt_file(request: SignPsbtRequest) -> Result<SignPsbtResponse
     }
 
     let psbt_signed = multi_sign_psbt(wallets, final_psbt).await?;
-    let txid = psbt_signed.extract_tx().txid().to_string();
-    Ok(SignPsbtResponse { sign: true, txid })
+
+    let psbt_bytes = encode::serialize(&psbt_signed);
+    let psbt_hex = psbt_bytes.to_hex();
+    Ok(SignedPsbtResponse {
+        sign: true,
+        psbt: psbt_hex,
+    })
 }
 
 pub async fn sign_and_publish_psbt_file(
     request: SignPsbtRequest,
-) -> Result<SignPsbtResponse, BitcoinError> {
+) -> Result<PublishedPsbtResponse, BitcoinError> {
     let SignPsbtRequest { psbt, descriptors } = request;
 
     let original_psbt = Psbt::from_str(&psbt)?;
@@ -507,11 +515,11 @@ pub async fn sign_and_publish_psbt_file(
 
     let sign = multi_sign_and_publish_psbt(wallets, final_psbt).await?;
     let resp = match sign.transaction {
-        Some(tx) => SignPsbtResponse {
+        Some(tx) => PublishedPsbtResponse {
             sign: true,
             txid: tx.txid().to_string(),
         },
-        _ => SignPsbtResponse {
+        _ => PublishedPsbtResponse {
             sign: false,
             txid: String::new(),
         },
