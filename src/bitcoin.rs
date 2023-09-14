@@ -23,7 +23,7 @@ pub use crate::bitcoin::{
     assets::dust_tx,
     keys::{new_mnemonic, save_mnemonic, BitcoinKeysError},
     payment::{create_payjoin, create_transaction, BitcoinPaymentError},
-    psbt::{sign_psbt, sign_psbt_with_multiple_wallets, BitcoinPsbtError},
+    psbt::{multi_sign_and_publish_psbt, sign_and_publish_psbt as sign_psbt, BitcoinPsbtError},
     wallet::{
         get_blockchain, get_wallet, sync_wallet, sync_wallets, BitcoinWalletError, MemoryWallet,
     },
@@ -38,6 +38,8 @@ use crate::{
     },
     trace,
 };
+
+use self::psbt::multi_sign_psbt;
 
 // Minimum amount of satoshis to funding vault
 const MIN_FUNDS_SATS: u64 = 10000;
@@ -484,7 +486,26 @@ pub async fn sign_psbt_file(request: SignPsbtRequest) -> Result<SignPsbtResponse
         wallets.push(wallet);
     }
 
-    let sign = sign_psbt_with_multiple_wallets(wallets, final_psbt).await?;
+    let psbt_signed = multi_sign_psbt(wallets, final_psbt).await?;
+    let txid = psbt_signed.extract_tx().txid().to_string();
+    Ok(SignPsbtResponse { sign: true, txid })
+}
+
+pub async fn sign_and_publish_psbt_file(
+    request: SignPsbtRequest,
+) -> Result<SignPsbtResponse, BitcoinError> {
+    let SignPsbtRequest { psbt, descriptors } = request;
+
+    let original_psbt = Psbt::from_str(&psbt)?;
+    let final_psbt = PartiallySignedTransaction::from(original_psbt);
+
+    let mut wallets = vec![];
+    for descriptor in descriptors {
+        let wallet = get_wallet(&descriptor, None).await?;
+        wallets.push(wallet);
+    }
+
+    let sign = multi_sign_and_publish_psbt(wallets, final_psbt).await?;
     let resp = match sign.transaction {
         Some(tx) => SignPsbtResponse {
             sign: true,

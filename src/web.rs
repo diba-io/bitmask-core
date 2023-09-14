@@ -444,7 +444,7 @@ pub mod rgb {
 
         future_to_promise(async move {
             let psbt_req: SignPsbtRequest = serde_wasm_bindgen::from_value(request).unwrap();
-            match crate::bitcoin::sign_psbt_file(psbt_req).await {
+            match crate::bitcoin::sign_and_publish_psbt_file(psbt_req).await {
                 Ok(result) => Ok(JsValue::from_string(
                     serde_json::to_string(&result).unwrap(),
                 )),

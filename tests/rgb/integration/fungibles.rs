@@ -4,7 +4,7 @@ use crate::rgb::integration::utils::{
     ISSUER_MNEMONIC, OWNER_MNEMONIC,
 };
 use bitmask_core::{
-    bitcoin::{save_mnemonic, sign_psbt_file},
+    bitcoin::{save_mnemonic, sign_and_publish_psbt_file},
     rgb::accept_transfer,
     structs::{AcceptRequest, SecretString, SignPsbtRequest},
 };
@@ -62,7 +62,7 @@ async fn allow_beneficiary_accept_transfer() -> anyhow::Result<()> {
         )]
         .to_vec(),
     };
-    let resp = sign_psbt_file(request).await;
+    let resp = sign_and_publish_psbt_file(request).await;
     assert!(resp.is_ok());
 
     let request = AcceptRequest {

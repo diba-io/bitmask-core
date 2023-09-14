@@ -5,7 +5,10 @@ use crate::rgb::integration::utils::{
 };
 use bdk::wallet::AddressIndex;
 use bitmask_core::{
-    bitcoin::{fund_vault, get_new_address, get_wallet, new_mnemonic, sign_psbt_file, sync_wallet},
+    bitcoin::{
+        fund_vault, get_new_address, get_wallet, new_mnemonic, sign_and_publish_psbt_file,
+        sync_wallet,
+    },
     rgb::{accept_transfer, create_watcher, full_transfer_asset, get_contract},
     structs::{
         AcceptRequest, FullRgbTransferRequest, PsbtFeeRequest, PsbtInputRequest, SecretString,
@@ -97,7 +100,7 @@ async fn create_dustless_transfer_with_fee_value() -> anyhow::Result<()> {
         ]
         .to_vec(),
     };
-    let resp = sign_psbt_file(request).await;
+    let resp = sign_and_publish_psbt_file(request).await;
     assert!(resp.is_ok());
 
     let whatever_address = "bcrt1p76gtucrxhmn8s5622r859dpnmkj0kgfcel9xy0sz6yj84x6ppz2qk5hpsw";
@@ -232,7 +235,7 @@ async fn create_dustless_transfer_with_fee_rate() -> anyhow::Result<()> {
         ]
         .to_vec(),
     };
-    let resp = sign_psbt_file(request).await;
+    let resp = sign_and_publish_psbt_file(request).await;
     // println!("{:?}", resp);
     assert!(resp.is_ok());
 

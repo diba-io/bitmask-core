@@ -15,7 +15,7 @@ use axum::{
 };
 use bitcoin_30::secp256k1::{ecdh::SharedSecret, PublicKey, SecretKey};
 use bitmask_core::{
-    bitcoin::{save_mnemonic, sign_psbt_file},
+    bitcoin::{save_mnemonic, sign_and_publish_psbt_file},
     carbonado::handle_file,
     constants::{
         get_marketplace_nostr_key, get_marketplace_seed, get_network, get_udas_utxo, switch_network,
@@ -143,7 +143,7 @@ async fn _sign_psbt(
     Json(psbt_req): Json<SignPsbtRequest>,
 ) -> Result<impl IntoResponse, AppError> {
     info!("POST /sign {psbt_req:?}");
-    let psbt_res = sign_psbt_file(psbt_req).await?;
+    let psbt_res = sign_and_publish_psbt_file(psbt_req).await?;
 
     Ok((StatusCode::OK, Json(psbt_res)))
 }

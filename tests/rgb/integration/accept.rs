@@ -1,7 +1,7 @@
 #![cfg(not(target_arch = "wasm32"))]
 use anyhow::Result;
 use bitmask_core::{
-    bitcoin::{save_mnemonic, sign_psbt_file},
+    bitcoin::{save_mnemonic, sign_and_publish_psbt_file},
     rgb::{
         create_watcher, list_transfers, remove_transfer, save_transfer, verify_transfers,
         watcher_next_address,
@@ -97,7 +97,7 @@ pub async fn allow_save_read_remove_transfers() -> Result<()> {
         )]
         .to_vec(),
     };
-    let resp = sign_psbt_file(request).await;
+    let resp = sign_and_publish_psbt_file(request).await;
     assert!(resp.is_ok());
 
     // 5. Save Consig (Owner Side)
@@ -258,7 +258,7 @@ pub async fn allow_save_and_accept_all_transfers() -> Result<()> {
         )]
         .to_vec(),
     };
-    let resp = sign_psbt_file(request).await;
+    let resp = sign_and_publish_psbt_file(request).await;
     assert!(resp.is_ok());
 
     // 5. Save Consig (Owner Side)
