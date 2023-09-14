@@ -25,6 +25,8 @@ pub enum CarbonadoError {
     SerdeWasm(#[from] serde_wasm_bindgen::Error),
     /// All endpoints failed error
     AllEndpointsFailed,
+    /// Wrong Nostr private key
+    WrongNostrPrivateKey,
     /// Debug: {0}
     Debug(String),
 }

@@ -87,6 +87,7 @@ pub fn create_psbt(
     psbt_inputs: Vec<PsbtInputRequest>,
     psbt_outputs: Vec<String>,
     bitcoin_fee: u64,
+    sighash: Option<EcdsaSighashType>,
     terminal_change: Option<String>,
     wallet: Option<RgbWallet>,
     tx_resolver: &impl ResolveTx,
@@ -124,6 +125,7 @@ pub fn create_psbt(
         let new_input = InputDescriptor::resolve_psbt_input(
             psbt_input,
             global_descriptor.clone(),
+            sighash,
             wallet.clone(),
             tx_resolver,
         )
@@ -379,6 +381,7 @@ where
         let new_input = InputDescriptor::resolve_psbt_input(
             psbt_input,
             global_descriptor.clone(),
+            None,
             Some(wallet.clone()),
             resolver,
         )
@@ -439,6 +442,7 @@ pub trait PsbtInputEx<T> {
     fn resolve_psbt_input(
         psbt_input: PsbtInputRequest,
         descriptor: Descriptor<DerivationAccount>,
+        sighash: Option<EcdsaSighashType>,
         wallet: Option<RgbWallet>,
         tx_resolver: &impl ResolveTx,
     ) -> Result<T, Self::Error>;
@@ -450,10 +454,17 @@ impl PsbtInputEx<InputDescriptor> for InputDescriptor {
     fn resolve_psbt_input(
         psbt_input: PsbtInputRequest,
         descriptor: Descriptor<DerivationAccount>,
+        sighash: Option<EcdsaSighashType>,
         wallet: Option<RgbWallet>,
         tx_resolver: &impl ResolveTx,
     ) -> Result<Self, Self::Error> {
         let outpoint: OutPoint = psbt_input.utxo.parse().expect("invalid outpoint parse");
+
+        let sighash = match sighash {
+            Some(ty) => ty,
+            None => EcdsaSighashType::All,
+        };
+
         let mut input: InputDescriptor = InputDescriptor {
             outpoint,
             terminal: psbt_input
@@ -462,7 +473,7 @@ impl PsbtInputEx<InputDescriptor> for InputDescriptor {
                 .map_err(|_| PsbtInputError::WrongTerminal)?,
             seq_no: SeqNo::default(),
             tweak: None,
-            sighash_type: EcdsaSighashType::All,
+            sighash_type: sighash,
         };
 
         // Verify TapTweak (User Input or Watcher inspect)

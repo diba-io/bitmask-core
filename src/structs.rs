@@ -1033,3 +1033,89 @@ pub struct UtxoSpentStatus {
     pub block_height: TxStatus,
     pub spent_height: TxStatus,
 }
+
+#[derive(Clone, Serialize, Deserialize, Debug, Display, Default, Validate)]
+#[garde(context(RGBContext))]
+#[serde(rename_all = "camelCase")]
+#[display("")]
+pub struct RgbSwapSellerRequest {
+    /// The Contract ID
+    #[garde(ascii)]
+    #[garde(length(min = 0, max = 100))]
+    pub contract_id: String,
+    /// The Contract Interface
+    #[garde(ascii)]
+    #[garde(length(min = 0, max = 32))]
+    pub iface: String,
+    /// Contract Amount
+    #[garde(range(min = u64::MIN, max = u64::MAX))]
+    pub contract_amount: u64,
+    /// Bitcoin Price (in sats)
+    #[garde(range(min = u64::MIN, max = u64::MAX))]
+    pub bitcoin_price: u64,
+    /// Universal Descriptor
+    #[garde(custom(verify_descriptor))]
+    pub descriptor: SecretString,
+    /// Asset Terminal Change
+    #[garde(ascii)]
+    pub change_terminal: String,
+    /// Bitcoin Change Addresses (format: {address}:{amount})
+    #[garde(length(min = 0, max = 999))]
+    pub bitcoin_changes: Vec<String>,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug, Display, Default)]
+#[serde(rename_all = "camelCase")]
+#[display("")]
+pub struct RgbSwapSellerResponse {
+    /// The Contract ID
+    pub offer_id: String,
+    /// The Contract ID
+    pub contract_id: String,
+    /// Contract Amount
+    pub contract_amount: u64,
+    /// Bitcoin Price
+    pub bitcoin_price: u64,
+    /// Seller Address
+    pub seller_address: String,
+    /// Seller PSBT (encoded in base64)
+    pub seller_psbt: String,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug, Display, Default, Validate)]
+#[garde(context(RGBContext))]
+#[serde(rename_all = "camelCase")]
+#[display("")]
+pub struct RgbSwapBuyerRequest {
+    /// The Offer ID
+    #[garde(ascii)]
+    #[garde(length(min = 0, max = 100))]
+    pub offer_id: String,
+    /// Asset Amount
+    #[garde(range(min = u64::MIN, max = u64::MAX))]
+    pub asset_amount: u64,
+    /// Universal Descriptor
+    #[garde(custom(verify_descriptor))]
+    pub descriptor: SecretString,
+    /// Bitcoin Terminal Change
+    #[garde(ascii)]
+    pub change_terminal: String,
+    /// Bitcoin Fee
+    #[garde(dive)]
+    pub fee: PsbtFeeRequest,
+    /// PSBT Seller Side (base64)
+    #[garde(ascii)]
+    pub seller_psbt: String,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug, Display, Default)]
+#[serde(rename_all = "camelCase")]
+#[display("")]
+pub struct RgbSwapBuyerResponse {
+    /// The Offer ID
+    pub offer_id: String,
+    /// Final PSBT (encoded in base64)
+    pub final_psbt: String,
+    /// Fee Value
+    pub fee_value: u64,
+}

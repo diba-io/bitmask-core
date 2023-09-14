@@ -5,13 +5,18 @@ use postcard::{from_bytes, to_allocvec};
 use rgbstd::{persistence::Stock, stl::LIB_ID_RGB};
 use strict_encoding::{StrictDeserialize, StrictSerialize};
 
+use crate::carbonado::public_store;
 use crate::rgb::crdt::LocalRgbAccount;
 use crate::rgb::crdt::RawRgbAccount;
 use crate::rgb::structs::RgbTransfers;
 use crate::{
-    carbonado::{retrieve, store},
+    carbonado::{public_retrieve, retrieve, store},
     rgb::{constants::RGB_STRICT_TYPE_VERSION, structs::RgbAccount},
 };
+
+use super::crdt::LocalRgbOffers;
+use super::swap::RgbBids;
+use super::swap::RgbOffers;
 
 #[derive(Debug, Clone, Eq, PartialEq, Display, From, Error)]
 #[display(doc_comments)]
@@ -19,7 +24,7 @@ pub enum StorageError {
     /// File '{0}' retrieve causes error. {1}
     FileRetrieve(String, String),
     /// File '{0}' write causes error. {1}
-    WriteRetrieve(String, String),
+    FileWrite(String, String),
     /// Changes '{0}' retrieve causes error. {1}
     ChangesRetrieve(String, String),
     /// Changes '{0}' write causes error. {1}
@@ -44,6 +49,7 @@ pub enum StorageError {
     Reconcile(String, String),
 }
 
+// User Carbonado Operations
 pub async fn store_stock(sk: &str, name: &str, stock: &Stock) -> Result<(), StorageError> {
     let data = stock
         .to_strict_serialized::<U32>()
@@ -93,6 +99,48 @@ pub async fn store_transfers(
     rgb_transfers: &RgbTransfers,
 ) -> Result<(), StorageError> {
     let data = to_allocvec(rgb_transfers)
+        .map_err(|op| StorageError::StrictWrite(name.to_string(), op.to_string()))?;
+
+    let hashed_name = blake3::hash(format!("{LIB_ID_RGB}-{name}").as_bytes())
+        .to_hex()
+        .to_lowercase();
+
+    store(
+        sk,
+        &format!("{hashed_name}.c15"),
+        &data,
+        true,
+        Some(RGB_STRICT_TYPE_VERSION.to_vec()),
+    )
+    .await
+    .map_err(|op| StorageError::CarbonadoWrite(name.to_string(), op.to_string()))
+}
+
+pub async fn store_offers(
+    sk: &str,
+    name: &str,
+    rgb_offers: &RgbOffers,
+) -> Result<(), StorageError> {
+    let data = to_allocvec(rgb_offers)
+        .map_err(|op| StorageError::StrictWrite(name.to_string(), op.to_string()))?;
+
+    let hashed_name = blake3::hash(format!("{LIB_ID_RGB}-{name}").as_bytes())
+        .to_hex()
+        .to_lowercase();
+
+    store(
+        sk,
+        &format!("{hashed_name}.c15"),
+        &data,
+        true,
+        Some(RGB_STRICT_TYPE_VERSION.to_vec()),
+    )
+    .await
+    .map_err(|op| StorageError::CarbonadoWrite(name.to_string(), op.to_string()))
+}
+
+pub async fn store_bids(sk: &str, name: &str, rgb_bids: &RgbBids) -> Result<(), StorageError> {
+    let data = to_allocvec(rgb_bids)
         .map_err(|op| StorageError::StrictWrite(name.to_string(), op.to_string()))?;
 
     let hashed_name = blake3::hash(format!("{LIB_ID_RGB}-{name}").as_bytes())
@@ -167,6 +215,43 @@ pub async fn retrieve_transfers(sk: &str, name: &str) -> Result<RgbTransfers, St
     }
 }
 
+pub async fn retrieve_offers(sk: &str, name: &str) -> Result<RgbOffers, StorageError> {
+    let hashed_name = blake3::hash(format!("{LIB_ID_RGB}-{name}").as_bytes())
+        .to_hex()
+        .to_lowercase();
+
+    let (data, _) = retrieve(sk, &format!("{hashed_name}.c15"), vec![])
+        .await
+        .map_err(|op| StorageError::CarbonadoRetrieve(name.to_string(), op.to_string()))?;
+
+    if data.is_empty() {
+        Ok(RgbOffers::default())
+    } else {
+        let rgb_offers = from_bytes(&data)
+            .map_err(|op| StorageError::StrictRetrieve(name.to_string(), op.to_string()))?;
+        Ok(rgb_offers)
+    }
+}
+
+pub async fn retrieve_bids(sk: &str, name: &str) -> Result<RgbBids, StorageError> {
+    let hashed_name = blake3::hash(format!("{LIB_ID_RGB}-{name}").as_bytes())
+        .to_hex()
+        .to_lowercase();
+
+    let (data, _) = retrieve(sk, &format!("{hashed_name}.c15"), vec![])
+        .await
+        .map_err(|op| StorageError::CarbonadoRetrieve(name.to_string(), op.to_string()))?;
+
+    if data.is_empty() {
+        Ok(RgbBids::default())
+    } else {
+        let rgb_bids = from_bytes(&data)
+            .map_err(|op| StorageError::StrictRetrieve(name.to_string(), op.to_string()))?;
+        Ok(rgb_bids)
+    }
+}
+
+// CDRT Operations
 pub async fn store_fork_wallets(sk: &str, name: &str, changes: &[u8]) -> Result<(), StorageError> {
     let hashed_name = blake3::hash(format!("{LIB_ID_RGB}-{name}").as_bytes())
         .to_hex()
@@ -206,7 +291,7 @@ pub async fn store_fork_wallets(sk: &str, name: &str, changes: &[u8]) -> Result<
 
     let mut latest_version = automerge::AutoCommit::new();
     reconcile(&mut latest_version, raw_merged)
-        .map_err(|op| StorageError::WriteRetrieve(name.to_string(), op.to_string()))?;
+        .map_err(|op| StorageError::FileWrite(name.to_string(), op.to_string()))?;
 
     let data = to_allocvec(&merged)
         .map_err(|op| StorageError::StrictWrite(name.to_string(), op.to_string()))?;
@@ -268,4 +353,69 @@ pub async fn retrieve_fork_wallets(sk: &str, name: &str) -> Result<LocalRgbAccou
             rgb_account,
         })
     }
+}
+
+pub async fn retrieve_public_offers(name: &str) -> Result<LocalRgbOffers, StorageError> {
+    let hashed_name = blake3::hash(format!("{LIB_ID_RGB}-{name}").as_bytes())
+        .to_hex()
+        .to_lowercase();
+
+    let main_name = &format!("{hashed_name}.c15");
+    let (data, _) = public_retrieve(main_name, vec![])
+        .await
+        .map_err(|op| StorageError::CarbonadoRetrieve(name.to_string(), op.to_string()))?;
+
+    if data.is_empty() {
+        Ok(LocalRgbOffers {
+            doc: automerge::AutoCommit::new().save(),
+            rgb_offers: RgbOffers::default(),
+        })
+    } else {
+        let mut original_version = automerge::AutoCommit::new();
+        let rgb_offers: RgbOffers = from_bytes(&data)
+            .map_err(|op| StorageError::StrictRetrieve(name.to_string(), op.to_string()))?;
+
+        reconcile(&mut original_version, rgb_offers.clone())
+            .map_err(|op| StorageError::Reconcile(name.to_string(), op.to_string()))?;
+
+        let mut fork_version = original_version.fork();
+
+        Ok(LocalRgbOffers {
+            doc: fork_version.save(),
+            rgb_offers,
+        })
+    }
+}
+
+pub async fn store_public_offers(name: &str, changes: &[u8]) -> Result<(), StorageError> {
+    let hashed_name = blake3::hash(format!("{LIB_ID_RGB}-{name}").as_bytes())
+        .to_hex()
+        .to_lowercase();
+
+    let main_name = &format!("{hashed_name}.c15");
+
+    let (original_bytes, _) = public_retrieve(main_name, vec![])
+        .await
+        .map_err(|op| StorageError::CarbonadoRetrieve(name.to_string(), op.to_string()))?;
+
+    let mut original_version = automerge::AutoCommit::load(&original_bytes)
+        .map_err(|op| StorageError::StrictRetrieve(name.to_string(), op.to_string()))?;
+
+    let mut fork_version = automerge::AutoCommit::load(changes)
+        .map_err(|op| StorageError::ChangesRetrieve(name.to_string(), op.to_string()))?;
+
+    original_version
+        .merge(&mut fork_version)
+        .map_err(|op| StorageError::MergeWrite(name.to_string(), op.to_string()))?;
+
+    let public_offers: RgbOffers = hydrate(&original_version).unwrap();
+
+    let data = to_allocvec(&public_offers)
+        .map_err(|op| StorageError::StrictWrite(name.to_string(), op.to_string()))?;
+
+    public_store(main_name, &data, Some(RGB_STRICT_TYPE_VERSION.to_vec()))
+        .await
+        .map_err(|op| StorageError::CarbonadoWrite(name.to_string(), op.to_string()))?;
+
+    Ok(())
 }

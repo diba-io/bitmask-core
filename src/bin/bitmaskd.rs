@@ -17,7 +17,9 @@ use bitcoin_30::secp256k1::{ecdh::SharedSecret, PublicKey, SecretKey};
 use bitmask_core::{
     bitcoin::{save_mnemonic, sign_psbt_file},
     carbonado::handle_file,
-    constants::{get_marketplace_seed, get_network, get_udas_utxo, switch_network},
+    constants::{
+        get_marketplace_nostr_key, get_marketplace_seed, get_network, get_udas_utxo, switch_network,
+    },
     rgb::{
         accept_transfer, clear_watcher as rgb_clear_watcher, create_invoice, create_psbt,
         create_watcher, full_transfer_asset, import as rgb_import, issue_contract, list_contracts,
@@ -555,6 +557,31 @@ async fn co_metadata(
     Ok((StatusCode::OK, Json(metadata)))
 }
 
+async fn co_marketplace_retrieve(Path(name): Path<String>) -> Result<impl IntoResponse, AppError> {
+    info!("GET /marketplace/{name}");
+
+    let marketplace_key: String = get_marketplace_nostr_key().await.try_into()?;
+    let filepath = &handle_file(&marketplace_key, &name, 0).await?;
+    let fullpath = filepath.to_string_lossy();
+    let bytes = fs::read(filepath).await;
+    let cc = CacheControl::new().with_no_cache();
+
+    match bytes {
+        Ok(bytes) => {
+            debug!("read {0} bytes.", bytes.len());
+            Ok((StatusCode::OK, TypedHeader(cc), bytes))
+        }
+        Err(e) => {
+            debug!(
+                "file read error {0} .Details: {1}.",
+                fullpath,
+                e.to_string()
+            );
+            Ok((StatusCode::OK, TypedHeader(cc), Vec::<u8>::new()))
+        }
+    }
+}
+
 const BMC_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 async fn status() -> Result<impl IntoResponse, AppError> {
@@ -631,6 +658,7 @@ async fn main() -> Result<()> {
         .route("/transfers/", delete(remove_transfer))
         .route("/key/:pk", get(key))
         .route("/carbonado/status", get(status))
+        .route("/carbonado/marketplace/:name", get(co_marketplace_retrieve))
         .route("/carbonado/:pk/:name", get(co_retrieve))
         .route("/carbonado/:pk/:name", post(co_store))
         .route("/carbonado/:pk/:name/force", post(co_force_store))
