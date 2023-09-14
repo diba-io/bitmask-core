@@ -47,8 +47,10 @@ pub struct RgbOffer {
     pub offer_id: OfferId,
     #[garde(skip)]
     pub offer_status: RgbOrderStatus,
-    #[garde(skip)]
+    #[garde(ascii)]
     pub contract_id: AssetId,
+    #[garde(ascii)]
+    pub iface: String,
     #[garde(range(min = u64::MIN, max = u64::MAX))]
     pub asset_amount: u64,
     #[garde(range(min = u64::MIN, max = u64::MAX))]
@@ -61,6 +63,7 @@ pub struct RgbOffer {
 impl RgbOffer {
     pub(crate) fn new(
         contract_id: String,
+        iface: String,
         allocations: Vec<AllocationDetail>,
         seller_address: AddressCompat,
         bitcoin_price: u64,
@@ -87,6 +90,7 @@ impl RgbOffer {
             offer_id: hasher.finalize().to_hex().to_string(),
             offer_status: RgbOrderStatus::Open,
             contract_id,
+            iface,
             asset_amount,
             bitcoin_price,
             seller_psbt: psbt,
@@ -260,12 +264,4 @@ pub async fn publish_bid(new_bid: RgbBid) -> Result<(), RgbOfferErrors> {
         .map_err(RgbOfferErrors::IO)?;
 
     Ok(())
-}
-
-pub fn validate_swap(_offer: RgbOffer, _bid: RgbBid) -> Result<(), RgbOfferErrors> {
-    todo!()
-}
-
-pub fn create_swap(_offer: RgbOffer, _bid: RgbBid) -> Result<RgbSwap, RgbOfferErrors> {
-    todo!()
 }

@@ -20,7 +20,7 @@ use rgbstd::{
 };
 use rgbwallet::{psbt::DbcPsbtError, RgbInvoice};
 use std::{
-    collections::{BTreeMap, HashSet},
+    collections::{BTreeMap, HashMap, HashSet},
     str::FromStr,
 };
 use strict_encoding::{tn, StrictSerialize};
@@ -93,7 +93,7 @@ use self::{
     },
     psbt::{save_commit, CreatePsbtError, EstimateFeeError},
     structs::{RgbAccount, RgbTransfer, RgbTransfers},
-    swap::{get_public_offer, publish_bid, publish_offer, RgbOffer, RgbOfferErrors},
+    swap::{get_public_offer, publish_bid, publish_offer, RgbBid, RgbOffer, RgbOfferErrors},
     transfer::{extract_transfer, AcceptTransferError, NewInvoiceError, NewPaymentError},
     wallet::{
         create_wallet, next_address, next_utxo, next_utxos, register_address, register_utxo,
@@ -417,6 +417,19 @@ pub async fn create_invoice(
     sk: &str,
     request: InvoiceRequest,
 ) -> Result<InvoiceResponse, InvoiceError> {
+    let mut stock = retrieve_rgb_stock(sk).await.map_err(InvoiceError::IO)?;
+    let invoice = internal_create_invoice(request, &mut stock).await?;
+    store_rgb_stock(sk, stock).await.map_err(InvoiceError::IO)?;
+
+    Ok(InvoiceResponse {
+        invoice: invoice.to_string(),
+    })
+}
+
+async fn internal_create_invoice(
+    request: InvoiceRequest,
+    stock: &mut Stock,
+) -> Result<RgbInvoice, InvoiceError> {
     if let Err(err) = request.validate(&RGBContext::default()) {
         let errors = err
             .flatten()
@@ -436,23 +449,10 @@ pub async fn create_invoice(
 
     let network = NETWORK.read().await.to_string();
 
-    let mut stock = retrieve_rgb_stock(sk).await.map_err(InvoiceError::IO)?;
-    let invoice = create_rgb_invoice(
-        &contract_id,
-        &iface,
-        amount,
-        &seal,
-        &network,
-        params,
-        &mut stock,
-    )
-    .map_err(InvoiceError::Invoice)?;
+    let invoice = create_rgb_invoice(&contract_id, &iface, amount, &seal, &network, params, stock)
+        .map_err(InvoiceError::Invoice)?;
 
-    store_rgb_stock(sk, stock).await.map_err(InvoiceError::IO)?;
-
-    Ok(InvoiceResponse {
-        invoice: invoice.to_string(),
-    })
+    Ok(invoice)
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Display, From, Error)]
@@ -740,6 +740,10 @@ pub enum RgbSwapError {
     Estimate(EstimateFeeError),
     /// Occurs an error in publish offer step. {0}
     Marketplace(RgbOfferErrors),
+    /// Occurs an error in invoice step. {0}
+    Invoice(InvoiceError),
+    /// Occurs an error in transfer step. {0}
+    Transfer(TransferError),
     /// Bitcoin network cannot be decoded. {0}
     WrongNetwork(String),
     /// Bitcoin address cannot be decoded. {0}
@@ -831,6 +835,7 @@ pub async fn create_offer_seller(
 
     let new_offer = RgbOffer::new(
         contract_id.clone(),
+        iface.clone(),
         allocations,
         seller_address,
         bitcoin_price,
@@ -886,7 +891,7 @@ pub async fn create_offer_buyer(
         ..Default::default()
     };
 
-    let (stock, mut rgb_account, rgb_transfers) = retrieve_stock_account_transfers(sk)
+    let (mut stock, mut rgb_account, mut rgb_transfers) = retrieve_stock_account_transfers(sk)
         .await
         .map_err(RgbSwapError::IO)?;
 
@@ -918,7 +923,7 @@ pub async fn create_offer_buyer(
         bitcoin_inputs,
         bitcoin_changes,
         asset_descriptor_change: None,
-        asset_terminal_change: Some(change_terminal),
+        asset_terminal_change: Some(change_terminal.clone()),
     };
 
     let buyer_psbt = internal_create_psbt(
@@ -950,9 +955,53 @@ pub async fn create_offer_buyer(
         .map_err(|op| RgbSwapError::WrongPsbtSwap(op.to_string()))?;
     let final_psbt = Serialize::serialize(&final_psbt).to_hex();
 
+    let RgbOffer { iface, .. } = offer.clone();
+
+    let RgbBid {
+        bid_id,
+        offer_id,
+        asset_amount,
+        buyer_outpoint,
+        ..
+    } = new_bid.clone();
+
+    let invoice_req = InvoiceRequest {
+        iface,
+        contract_id: contract_id.to_string(),
+        amount: asset_amount,
+        seal: buyer_outpoint,
+        params: HashMap::new(),
+    };
+    let buyer_invoice = internal_create_invoice(invoice_req, &mut stock)
+        .await
+        .map_err(RgbSwapError::Invoice)?;
+
+    let transfer_req = RgbTransferRequest {
+        psbt: final_psbt,
+        rgb_invoice: buyer_invoice.to_string(),
+        terminal: change_terminal,
+    };
+
+    let RgbTransferResponse {
+        consig_id,
+        consig,
+        psbt,
+        ..
+    } = internal_transfer_asset(
+        transfer_req,
+        &mut stock,
+        &mut rgb_account,
+        &mut rgb_transfers,
+    )
+    .await
+    .map_err(RgbSwapError::Transfer)?;
+
     let resp = RgbSwapBuyerResponse {
-        offer_id: new_bid.clone().offer_id,
-        final_psbt,
+        bid_id,
+        offer_id,
+        consig_id,
+        final_consig: consig,
+        final_psbt: psbt,
         fee_value,
     };
 

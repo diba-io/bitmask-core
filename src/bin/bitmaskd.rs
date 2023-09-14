@@ -560,7 +560,7 @@ async fn co_metadata(
 async fn co_marketplace_retrieve(Path(name): Path<String>) -> Result<impl IntoResponse, AppError> {
     info!("GET /marketplace/{name}");
 
-    let marketplace_key: String = get_marketplace_nostr_key().await.try_into()?;
+    let marketplace_key: String = get_marketplace_nostr_key().await;
     let filepath = &handle_file(&marketplace_key, &name, 0).await?;
     let fullpath = filepath.to_string_lossy();
     let bytes = fs::read(filepath).await;

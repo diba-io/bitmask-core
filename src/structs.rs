@@ -1112,8 +1112,14 @@ pub struct RgbSwapBuyerRequest {
 #[serde(rename_all = "camelCase")]
 #[display("")]
 pub struct RgbSwapBuyerResponse {
+    /// The Bid ID
+    pub bid_id: String,
     /// The Offer ID
     pub offer_id: String,
+    /// The Consig ID
+    pub consig_id: String,
+    /// Final Consig (encoded in base64)
+    pub final_consig: String,
     /// Final PSBT (encoded in base64)
     pub final_psbt: String,
     /// Fee Value
