@@ -1047,7 +1047,7 @@ pub struct UtxoSpentStatus {
 #[garde(context(RGBContext))]
 #[serde(rename_all = "camelCase")]
 #[display("")]
-pub struct RgbSwapSellerRequest {
+pub struct RgbOfferRequest {
     /// The Contract ID
     #[garde(ascii)]
     #[garde(length(min = 0, max = 100))]
@@ -1076,7 +1076,7 @@ pub struct RgbSwapSellerRequest {
 #[derive(Clone, Serialize, Deserialize, Debug, Display, Default)]
 #[serde(rename_all = "camelCase")]
 #[display("")]
-pub struct RgbSwapSellerResponse {
+pub struct RgbOfferResponse {
     /// The Contract ID
     pub offer_id: String,
     /// The Contract ID
@@ -1095,7 +1095,7 @@ pub struct RgbSwapSellerResponse {
 #[garde(context(RGBContext))]
 #[serde(rename_all = "camelCase")]
 #[display("")]
-pub struct RgbSwapBuyerRequest {
+pub struct RgbBidRequest {
     /// The Offer ID
     #[garde(ascii)]
     #[garde(length(min = 0, max = 100))]
@@ -1120,7 +1120,7 @@ pub struct RgbSwapBuyerRequest {
 #[derive(Clone, Serialize, Deserialize, Debug, Display, Default)]
 #[serde(rename_all = "camelCase")]
 #[display("")]
-pub struct RgbSwapBuyerResponse {
+pub struct RgbBidResponse {
     /// The Bid ID
     pub bid_id: String,
     /// The Offer ID
@@ -1137,7 +1137,7 @@ pub struct RgbSwapBuyerResponse {
 #[garde(context(RGBContext))]
 #[serde(rename_all = "camelCase")]
 #[display("")]
-pub struct RgbSwapTransferRequest {
+pub struct RgbSwapRequest {
     /// Offer ID
     #[garde(ascii)]
     #[garde(length(min = 0, max = 100))]
@@ -1153,7 +1153,7 @@ pub struct RgbSwapTransferRequest {
 
 #[derive(Clone, Serialize, Deserialize, Debug, Display, Default)]
 #[display("")]
-pub struct RgbSwapTransferResponse {
+pub struct RgbSwapResponse {
     /// Transfer ID
     pub consig_id: String,
     /// Final Consig

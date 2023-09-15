@@ -10,9 +10,9 @@ use bitmask_core::{
         create_watcher, get_contract,
     },
     structs::{
-        AcceptRequest, IssueResponse, PsbtFeeRequest, RgbSwapBuyerRequest, RgbSwapBuyerResponse,
-        RgbSwapSellerRequest, RgbSwapSellerResponse, RgbSwapTransferRequest,
-        RgbSwapTransferResponse, SecretString, SignPsbtRequest, SignedPsbtResponse, WatcherRequest,
+        AcceptRequest, IssueResponse, PsbtFeeRequest, RgbBidRequest, RgbBidResponse,
+        RgbOfferRequest, RgbOfferResponse, RgbSwapRequest, RgbSwapResponse, SecretString,
+        SignPsbtRequest, SignedPsbtResponse, WatcherRequest,
     },
 };
 
@@ -134,7 +134,7 @@ async fn create_scriptless_swap() -> anyhow::Result<()> {
     let seller_sk = seller_keys.private.nostr_prv.clone();
     let bitcoin_price: u64 = 100000;
     let seller_asset_desc = seller_keys.public.rgb_assets_descriptor_xpub.clone();
-    let seller_swap_req = RgbSwapSellerRequest {
+    let seller_swap_req = RgbOfferRequest {
         contract_id: contract_id.clone(),
         iface,
         contract_amount,
@@ -148,7 +148,7 @@ async fn create_scriptless_swap() -> anyhow::Result<()> {
     assert!(seller_swap_resp.is_ok());
 
     // 7. Create Buyer Swap Side
-    let RgbSwapSellerResponse {
+    let RgbOfferResponse {
         offer_id,
         contract_amount,
         seller_psbt,
@@ -157,7 +157,7 @@ async fn create_scriptless_swap() -> anyhow::Result<()> {
 
     let buyer_sk = buyer_keys.private.nostr_prv.clone();
     let buyer_btc_desc = buyer_keys.public.btc_descriptor_xpub.clone();
-    let buyer_swap_req = RgbSwapBuyerRequest {
+    let buyer_swap_req = RgbBidRequest {
         offer_id: offer_id.clone(),
         asset_amount: contract_amount,
         descriptor: SecretString(buyer_btc_desc),
@@ -170,7 +170,7 @@ async fn create_scriptless_swap() -> anyhow::Result<()> {
     assert!(buyer_swap_resp.is_ok());
 
     // 8. Sign the Buyer Side
-    let RgbSwapBuyerResponse {
+    let RgbBidResponse {
         bid_id, swap_psbt, ..
     } = buyer_swap_resp?;
     let request = SignPsbtRequest {
@@ -183,11 +183,11 @@ async fn create_scriptless_swap() -> anyhow::Result<()> {
     let buyer_psbt_resp = sign_psbt_file(request).await;
     assert!(buyer_psbt_resp.is_ok());
 
-    // 9.Create Swap PSBT
+    // 9. Create Swap PSBT
     let SignedPsbtResponse {
         psbt: swap_psbt, ..
     } = buyer_psbt_resp?;
-    let final_swap_req = RgbSwapTransferRequest {
+    let final_swap_req = RgbSwapRequest {
         offer_id,
         bid_id,
         swap_psbt,
@@ -197,7 +197,7 @@ async fn create_scriptless_swap() -> anyhow::Result<()> {
     assert!(final_swap_resp.is_ok());
 
     // 8. Sign the Final PSBT
-    let RgbSwapTransferResponse {
+    let RgbSwapResponse {
         final_consig,
         final_psbt,
         ..

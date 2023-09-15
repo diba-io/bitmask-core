@@ -17,7 +17,7 @@ use crate::{
     constants::NETWORK,
     structs::{
         AllocationDetail, AllocationValue, AssetType, FullRgbTransferRequest, PsbtFeeRequest,
-        PsbtInputRequest, RgbSwapBuyerRequest, RgbSwapSellerRequest, SecretString,
+        PsbtInputRequest, RgbBidRequest, RgbOfferRequest, SecretString,
     },
     validators::RGBContext,
 };
@@ -381,7 +381,7 @@ pub async fn prebuild_transfer_asset(
 }
 
 pub async fn prebuild_seller_swap(
-    request: RgbSwapSellerRequest,
+    request: RgbOfferRequest,
     stock: &mut Stock,
     rgb_wallet: &mut RgbWallet,
     resolver: &mut ExplorerResolver,
@@ -409,7 +409,7 @@ pub async fn prebuild_seller_swap(
         RgbSwapError::Validation(errors)
     })?;
 
-    let RgbSwapSellerRequest {
+    let RgbOfferRequest {
         descriptor,
         iface: iface_name,
         contract_amount: target_amount,
@@ -646,7 +646,7 @@ pub async fn prebuild_seller_swap(
 }
 
 pub async fn prebuild_buyer_swap(
-    request: RgbSwapBuyerRequest,
+    request: RgbBidRequest,
     rgb_wallet: &mut RgbWallet,
     resolver: &mut ExplorerResolver,
 ) -> Result<(RgbBid, Vec<PsbtInputRequest>, Vec<String>, u64), RgbSwapError> {
@@ -659,7 +659,7 @@ pub async fn prebuild_buyer_swap(
         return Err(RgbSwapError::Validation(errors));
     }
 
-    let RgbSwapBuyerRequest {
+    let RgbBidRequest {
         descriptor,
         offer_id,
         fee,

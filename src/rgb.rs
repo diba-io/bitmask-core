@@ -61,13 +61,12 @@ use crate::{
         ImportRequest, InterfaceDetail, InterfacesResponse, InvoiceRequest, InvoiceResponse,
         IssueMetaRequest, IssueMetadata, IssueRequest, IssueResponse, NewCollectible,
         NextAddressResponse, NextUtxoResponse, NextUtxosResponse, PsbtFeeRequest, PsbtRequest,
-        PsbtResponse, ReIssueRequest, ReIssueResponse, RgbInvoiceResponse,
-        RgbRemoveTransferRequest, RgbSaveTransferRequest, RgbSwapBuyerRequest,
-        RgbSwapBuyerResponse, RgbSwapSellerRequest, RgbSwapSellerResponse, RgbSwapTransferRequest,
-        RgbSwapTransferResponse, RgbTransferDetail, RgbTransferRequest, RgbTransferResponse,
-        RgbTransferStatusResponse, RgbTransfersResponse, SchemaDetail, SchemasResponse,
-        TransferType, TxStatus, UDADetail, UtxoResponse, WatcherDetailResponse, WatcherRequest,
-        WatcherResponse, WatcherUtxoResponse,
+        PsbtResponse, ReIssueRequest, ReIssueResponse, RgbBidRequest, RgbBidResponse,
+        RgbInvoiceResponse, RgbOfferRequest, RgbOfferResponse, RgbRemoveTransferRequest,
+        RgbSaveTransferRequest, RgbSwapRequest, RgbSwapResponse, RgbTransferDetail,
+        RgbTransferRequest, RgbTransferResponse, RgbTransferStatusResponse, RgbTransfersResponse,
+        SchemaDetail, SchemasResponse, TransferType, TxStatus, UDADetail, UtxoResponse,
+        WatcherDetailResponse, WatcherRequest, WatcherResponse, WatcherUtxoResponse,
     },
     validators::RGBContext,
 };
@@ -858,8 +857,8 @@ pub enum RgbSwapError {
 
 pub async fn create_offer_seller(
     sk: &str,
-    request: RgbSwapSellerRequest,
-) -> Result<RgbSwapSellerResponse, RgbSwapError> {
+    request: RgbOfferRequest,
+) -> Result<RgbOfferResponse, RgbSwapError> {
     if let Err(err) = request.validate(&RGBContext::default()) {
         let errors = err
             .flatten()
@@ -894,7 +893,7 @@ pub async fn create_offer_seller(
         .wallets
         .insert(RGB_DEFAULT_NAME.to_owned(), rgb_wallet.clone());
 
-    let RgbSwapSellerRequest {
+    let RgbOfferRequest {
         contract_id,
         contract_amount,
         bitcoin_price,
@@ -943,7 +942,7 @@ pub async fn create_offer_seller(
         seller_psbt.psbt.clone(),
     );
 
-    let resp = RgbSwapSellerResponse {
+    let resp = RgbOfferResponse {
         offer_id: new_offer.clone().offer_id,
         contract_id: contract_id.clone(),
         contract_amount,
@@ -976,8 +975,8 @@ pub async fn create_offer_seller(
 
 pub async fn create_offer_buyer(
     sk: &str,
-    request: RgbSwapBuyerRequest,
-) -> Result<RgbSwapBuyerResponse, RgbSwapError> {
+    request: RgbBidRequest,
+) -> Result<RgbBidResponse, RgbSwapError> {
     if let Err(err) = request.validate(&RGBContext::default()) {
         let errors = err
             .flatten()
@@ -1001,7 +1000,7 @@ pub async fn create_offer_buyer(
         _ => return Err(RgbSwapError::NoWatcher),
     };
 
-    let RgbSwapBuyerRequest {
+    let RgbBidRequest {
         offer_id,
         change_terminal,
         ..
@@ -1097,7 +1096,7 @@ pub async fn create_offer_buyer(
     let invoice = invoice.to_string();
     new_bid.buyer_invoice = invoice.clone();
 
-    let resp = RgbSwapBuyerResponse {
+    let resp = RgbBidResponse {
         bid_id,
         offer_id,
         invoice,
@@ -1120,8 +1119,8 @@ pub async fn create_offer_buyer(
 
 pub async fn create_swap_transfer(
     sk: &str,
-    request: RgbSwapTransferRequest,
-) -> Result<RgbSwapTransferResponse, RgbSwapError> {
+    request: RgbSwapRequest,
+) -> Result<RgbSwapResponse, RgbSwapError> {
     if let Err(err) = request.validate(&RGBContext::default()) {
         let errors = err
             .flatten()
@@ -1140,7 +1139,7 @@ pub async fn create_swap_transfer(
         .await
         .map_err(RgbSwapError::IO)?;
 
-    let RgbSwapTransferRequest {
+    let RgbSwapRequest {
         offer_id,
         bid_id,
         swap_psbt,
@@ -1185,7 +1184,7 @@ pub async fn create_swap_transfer(
         .await
         .map_err(RgbSwapError::IO)?;
 
-    Ok(RgbSwapTransferResponse {
+    Ok(RgbSwapResponse {
         consig_id,
         final_consig,
         final_psbt,
