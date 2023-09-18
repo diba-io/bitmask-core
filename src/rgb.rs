@@ -59,8 +59,8 @@ use crate::{
         ContractMetadata, ContractResponse, ContractsResponse, FullRgbTransferRequest,
         ImportRequest, InterfaceDetail, InterfacesResponse, InvoiceRequest, InvoiceResponse,
         IssueMetaRequest, IssueMetadata, IssueRequest, IssueResponse, NewCollectible,
-        NextAddressResponse, NextUtxoResponse, NextUtxosResponse, PsbtFeeRequest, PsbtRequest,
-        PsbtResponse, ReIssueRequest, ReIssueResponse, RgbInvoiceResponse,
+        NextAddressResponse, NextUtxoResponse, NextUtxosResponse, OverListContractsRequest,
+        PsbtFeeRequest, PsbtRequest, PsbtResponse, ReIssueResponse, RgbInvoiceResponse,
         RgbRemoveTransferRequest, RgbSaveTransferRequest, RgbTransferDetail, RgbTransferRequest,
         RgbTransferResponse, RgbTransferStatusResponse, RgbTransfersResponse, SchemaDetail,
         SchemasResponse, TransferType, TxStatus, UDADetail, UtxoResponse, WatcherDetailResponse,
@@ -192,6 +192,7 @@ pub async fn issue_contract(sk: &str, request: IssueRequest) -> Result<IssueResp
         ticker,
         name,
         description,
+        hidden: bool,
         supply,
         precision: _,
         balance: _,
@@ -238,7 +239,7 @@ pub async fn issue_contract(sk: &str, request: IssueRequest) -> Result<IssueResp
 
 pub async fn reissue_contract(
     sk: &str,
-    request: ReIssueRequest,
+    request: OverListContractsRequest,
 ) -> Result<ReIssueResponse, IssueError> {
     if let Err(err) = request.validate(&RGBContext::default()) {
         let errors = err
@@ -396,6 +397,39 @@ pub async fn reissue_contract(
     Ok(ReIssueResponse {
         contracts: reissue_resp,
     })
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Display, From, Error)]
+#[display(doc_comments)]
+pub enum HideOrUnhideError {
+    /// Some request data is missing. {0:?}
+    Validation(BTreeMap<String, String>),
+    /// Retrieve I/O or connectivity error. {0:?}
+    IO(RgbPersistenceError),
+    /// Contract is required in this operation. Please, import or issue a Contract.
+    NoContract,
+    /// Iface is required in this operation. Please, use the correct iface contract.
+    NoIface,
+    /// Auto merge fail in this opration
+    WrongAutoMerge(String),
+    /// Bitcoin network be decoded. {0}
+    WrongNetwork(String),
+    /// Occurs an error in export step. {0}
+    Export(ExportContractError),
+}
+
+pub async fn hide_contracts(
+    sk: &str,
+    request: OverListContractsRequest,
+) -> Result<bool, HideOrUnhideError> {
+    todo!()
+}
+
+pub async fn unhide_contracts(
+    sk: &str,
+    request: OverListContractsRequest,
+) -> Result<bool, HideOrUnhideError> {
+    todo!()
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Display, From, Error)]

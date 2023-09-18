@@ -337,6 +337,7 @@ where
         ticker: specs.ticker().into(),
         name: specs.name().into(),
         description,
+        hidden: false, // TODO: that must change
         precision: 0,
         supply,
         balance,

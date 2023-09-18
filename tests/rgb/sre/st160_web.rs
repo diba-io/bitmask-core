@@ -12,7 +12,7 @@ use bitmask_core::{
     constants::{storage_keys::ASSETS_STOCK, BITMASK_ENDPOINT, NETWORK},
     info,
     rgb::constants::RGB_OLDEST_VERSION,
-    structs::{ContractsResponse, ReIssueRequest, SecretString},
+    structs::{ContractsResponse, OverListContractsRequest, SecretString},
     web::{
         carbonado::{retrieve_metadata, store},
         json_parse, resolve,
@@ -94,7 +94,7 @@ async fn allow_re_issue_rgb_contracts() -> anyhow::Result<()> {
         let result = client.get(&endpoint).bearer_auth(issuer_sk).send().await?;
 
         let resp = result.json::<ContractsResponse>().await?;
-        let reissue_req = ReIssueRequest {
+        let reissue_req = OverListContractsRequest {
             contracts: resp.contracts,
         };
         let reissue_req = serde_wasm_bindgen::to_value(&reissue_req).expect("oh no!");

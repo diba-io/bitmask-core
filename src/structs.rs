@@ -166,7 +166,7 @@ pub struct SelfIssueRequest {
 #[serde(rename_all = "camelCase")]
 #[derive(Validate)]
 #[garde(context(RGBContext))]
-pub struct ReIssueRequest {
+pub struct OverListContractsRequest {
     /// previous contracts
     #[garde(skip)]
     pub contracts: Vec<ContractResponse>,
@@ -365,6 +365,8 @@ pub struct ContractResponse {
     pub created: i64,
     /// Description of the asset
     pub description: String,
+    /// Is the contract hidden for the user?
+    pub hidden: bool,
     /// Amount of the asset
     pub supply: u64,
     /// Precision of the asset

@@ -1,6 +1,6 @@
 use crate::structs::{
     AcceptRequest, FullRgbTransferRequest, ImportRequest, InvoiceRequest, IssueRequest,
-    PsbtRequest, ReIssueRequest, RgbRemoveTransferRequest, RgbSaveTransferRequest,
+    OverListContractsRequest, PsbtRequest, RgbRemoveTransferRequest, RgbSaveTransferRequest,
     RgbTransferRequest, SecretString, SignPsbtRequest, WatcherRequest,
 };
 // use crate::{carbonado, lightning, rgb};
@@ -398,8 +398,40 @@ pub mod rgb {
         set_panic_hook();
 
         future_to_promise(async move {
-            let req: ReIssueRequest = serde_wasm_bindgen::from_value(request).unwrap();
+            let req: OverListContractsRequest = serde_wasm_bindgen::from_value(request).unwrap();
             match crate::rgb::reissue_contract(&nostr_hex_sk, req).await {
+                Ok(result) => Ok(JsValue::from_string(
+                    serde_json::to_string(&result).unwrap(),
+                )),
+                Err(err) => Err(JsValue::from_string(err.to_string())),
+            }
+        })
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    #[wasm_bindgen]
+    pub fn hide_contracts(nostr_hex_sk: String, request: JsValue) -> Promise {
+        set_panic_hook();
+
+        future_to_promise(async move {
+            let req: OverListContractsRequest = serde_wasm_bindgen::from_value(request).unwrap();
+            match crate::rgb::hide_contracts(&nostr_hex_sk, req).await {
+                Ok(result) => Ok(JsValue::from_string(
+                    serde_json::to_string(&result).unwrap(),
+                )),
+                Err(err) => Err(JsValue::from_string(err.to_string())),
+            }
+        })
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    #[wasm_bindgen]
+    pub fn un_hide_contracts(nostr_hex_sk: String, request: JsValue) -> Promise {
+        set_panic_hook();
+
+        future_to_promise(async move {
+            let req: OverListContractsRequest = serde_wasm_bindgen::from_value(request).unwrap();
+            match crate::rgb::unhide_contracts(&nostr_hex_sk, req).await {
                 Ok(result) => Ok(JsValue::from_string(
                     serde_json::to_string(&result).unwrap(),
                 )),

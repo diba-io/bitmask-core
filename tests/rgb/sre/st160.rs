@@ -9,7 +9,7 @@ use bitmask_core::{
     carbonado::retrieve,
     constants::{storage_keys::ASSETS_STOCK, BITMASK_ENDPOINT, NETWORK},
     rgb::{constants::RGB_OLDEST_VERSION, reissue_contract},
-    structs::{ContractsResponse, ReIssueRequest, SecretString},
+    structs::{ContractsResponse, OverListContractsRequest, SecretString},
 };
 use hex::FromHex;
 use nostr_sdk::key::{PublicKey, SecretKey};
@@ -65,7 +65,7 @@ async fn allow_re_issue_rgb_contracts() -> anyhow::Result<()> {
         let result = client.get(&endpoint).bearer_auth(issuer_sk).send().await?;
 
         let resp = result.json::<ContractsResponse>().await?;
-        let reissue_req = ReIssueRequest {
+        let reissue_req = OverListContractsRequest {
             contracts: resp.contracts,
         };
 

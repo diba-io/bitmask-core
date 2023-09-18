@@ -28,9 +28,10 @@ use bitmask_core::{
     },
     structs::{
         AcceptRequest, FileMetadata, FullRgbTransferRequest, ImportRequest, InvoiceRequest,
-        IssueRequest, PsbtFeeRequest, PsbtRequest, ReIssueRequest, RgbRemoveTransferRequest,
-        RgbSaveTransferRequest, RgbTransferRequest, SecretString, SelfFullRgbTransferRequest,
-        SelfInvoiceRequest, SelfIssueRequest, SignPsbtRequest, WatcherRequest,
+        IssueRequest, OverListContractsRequest, PsbtFeeRequest, PsbtRequest,
+        RgbRemoveTransferRequest, RgbSaveTransferRequest, RgbTransferRequest, SecretString,
+        SelfFullRgbTransferRequest, SelfInvoiceRequest, SelfIssueRequest, SignPsbtRequest,
+        WatcherRequest,
     },
 };
 use log::{debug, error, info};
@@ -50,7 +51,7 @@ async fn issue(
 
 async fn reissue(
     TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
-    Json(request): Json<ReIssueRequest>,
+    Json(request): Json<OverListContractsRequest>,
 ) -> Result<impl IntoResponse, AppError> {
     info!("POST /reissue {request:?}");
 
