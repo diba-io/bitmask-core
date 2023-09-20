@@ -1057,7 +1057,7 @@ pub struct UtxoSpentStatus {
 #[derive(Clone, Serialize, Deserialize, Debug, Display, Default, Validate)]
 #[garde(context(RGBContext))]
 #[serde(rename_all = "camelCase")]
-#[display("")]
+#[display("{contract_id}:{contract_amount} ** {change_terminal}")]
 pub struct RgbOfferRequest {
     /// The Contract ID
     #[garde(ascii)]
@@ -1086,7 +1086,7 @@ pub struct RgbOfferRequest {
 
 #[derive(Clone, Serialize, Deserialize, Debug, Display, Default)]
 #[serde(rename_all = "camelCase")]
-#[display("")]
+#[display("{offer_id}:{contract_amount} = {bitcoin_price}")]
 pub struct RgbOfferResponse {
     /// The Contract ID
     pub offer_id: String,
@@ -1105,7 +1105,7 @@ pub struct RgbOfferResponse {
 #[derive(Clone, Serialize, Deserialize, Debug, Display, Default, Validate)]
 #[garde(context(RGBContext))]
 #[serde(rename_all = "camelCase")]
-#[display("")]
+#[display("{offer_id}:{asset_amount} ** {change_terminal}")]
 pub struct RgbBidRequest {
     /// The Offer ID
     #[garde(ascii)]
@@ -1130,7 +1130,7 @@ pub struct RgbBidRequest {
 
 #[derive(Clone, Serialize, Deserialize, Debug, Display, Default)]
 #[serde(rename_all = "camelCase")]
-#[display("")]
+#[display("{bid_id} ~ {offer_id}")]
 pub struct RgbBidResponse {
     /// The Bid ID
     pub bid_id: String,
@@ -1147,7 +1147,7 @@ pub struct RgbBidResponse {
 #[derive(Clone, Serialize, Deserialize, Debug, Display, Default, Validate)]
 #[garde(context(RGBContext))]
 #[serde(rename_all = "camelCase")]
-#[display("")]
+#[display("{offer_id} ~ {bid_id}")]
 pub struct RgbSwapRequest {
     /// Offer ID
     #[garde(ascii)]
@@ -1163,7 +1163,8 @@ pub struct RgbSwapRequest {
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug, Display, Default)]
-#[display("")]
+#[serde(rename_all = "camelCase")]
+#[display("{consig_id}")]
 pub struct RgbSwapResponse {
     /// Transfer ID
     pub consig_id: String,
@@ -1174,14 +1175,40 @@ pub struct RgbSwapResponse {
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug, Display, Default)]
-#[display("")]
+#[serde(rename_all = "camelCase")]
+#[display("{offers:?}")]
 pub struct RgbPublicOfferReponse {
     /// Offers
-    pub offers: Vec<RgbOfferDetail>,
+    pub offers: Vec<RgbPublicOfferDetail>,
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug, Display, Default)]
-#[display("")]
+#[serde(rename_all = "camelCase")]
+#[display("{offer_id} ~ {contract_id}:{asset_amount} = {bitcoin_price}")]
+pub struct RgbPublicOfferDetail {
+    /// Offer ID
+    offer_id: String,
+    /// Contract ID
+    contract_id: String,
+    /// Asset/Contract Amount
+    asset_amount: u64,
+    /// Bitcoin Price
+    bitcoin_price: u64,
+}
+
+impl From<RgbOffer> for RgbPublicOfferDetail {
+    fn from(value: RgbOffer) -> Self {
+        Self {
+            contract_id: value.contract_id,
+            offer_id: value.offer_id,
+            asset_amount: value.asset_amount,
+            bitcoin_price: value.bitcoin_price,
+        }
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct RgbOfferBidsReponse {
     /// Offers
     pub offers: Vec<RgbOfferDetail>,
@@ -1189,8 +1216,23 @@ pub struct RgbOfferBidsReponse {
     pub bids: Vec<RgbBidDetail>,
 }
 
+#[derive(Clone, Serialize, Deserialize, Debug, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct RgbOffersReponse {
+    /// Offers
+    pub offers: Vec<RgbOfferDetail>,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct RgbBidsReponse {
+    /// Bids
+    pub bids: Vec<RgbBidDetail>,
+}
+
 #[derive(Clone, Serialize, Deserialize, Debug, Display, Default)]
-#[display("")]
+#[serde(rename_all = "camelCase")]
+#[display("{offer_id} ~ {contract_id}:{asset_amount} = {bitcoin_price}")]
 pub struct RgbOfferDetail {
     contract_id: String,
     offer_id: String,
@@ -1212,7 +1254,8 @@ impl From<RgbOffer> for RgbOfferDetail {
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug, Display, Default)]
-#[display("")]
+#[serde(rename_all = "camelCase")]
+#[display("{bid_id} ~ {contract_id}:{asset_amount} = {bitcoin_price}")]
 pub struct RgbBidDetail {
     contract_id: String,
     bid_id: String,

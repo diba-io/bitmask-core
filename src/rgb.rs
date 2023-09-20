@@ -62,12 +62,13 @@ use crate::{
         IssueMetaRequest, IssueMetadata, IssueRequest, IssueResponse, NewCollectible,
         NextAddressResponse, NextUtxoResponse, NextUtxosResponse, PsbtFeeRequest, PsbtRequest,
         PsbtResponse, ReIssueRequest, ReIssueResponse, RgbBidDetail, RgbBidRequest, RgbBidResponse,
-        RgbInvoiceResponse, RgbOfferBidsReponse, RgbOfferDetail, RgbOfferRequest, RgbOfferResponse,
-        RgbPublicOfferReponse, RgbRemoveTransferRequest, RgbSaveTransferRequest, RgbSwapRequest,
-        RgbSwapResponse, RgbTransferDetail, RgbTransferInternalParams, RgbTransferRequest,
-        RgbTransferResponse, RgbTransferStatusResponse, RgbTransfersResponse, SchemaDetail,
-        SchemasResponse, TransferType, TxStatus, UDADetail, UtxoResponse, WatcherDetailResponse,
-        WatcherRequest, WatcherResponse, WatcherUtxoResponse,
+        RgbBidsReponse, RgbInvoiceResponse, RgbOfferBidsReponse, RgbOfferDetail, RgbOfferRequest,
+        RgbOfferResponse, RgbOffersReponse, RgbPublicOfferDetail, RgbPublicOfferReponse,
+        RgbRemoveTransferRequest, RgbSaveTransferRequest, RgbSwapRequest, RgbSwapResponse,
+        RgbTransferDetail, RgbTransferInternalParams, RgbTransferRequest, RgbTransferResponse,
+        RgbTransferStatusResponse, RgbTransfersResponse, SchemaDetail, SchemasResponse,
+        TransferType, TxStatus, UDADetail, UtxoResponse, WatcherDetailResponse, WatcherRequest,
+        WatcherResponse, WatcherUtxoResponse,
     },
     validators::RGBContext,
 };
@@ -1749,7 +1750,7 @@ pub async fn list_transfers(sk: &str, contract_id: String) -> Result<RgbTransfer
     Ok(RgbTransfersResponse { transfers })
 }
 
-pub async fn list_offers(sk: &str) -> Result<RgbOfferBidsReponse> {
+pub async fn list_my_orders(sk: &str) -> Result<RgbOfferBidsReponse> {
     let rgb_offers = retrieve_offers(sk).await?;
     let rgb_bids = retrieve_bids(sk).await?;
 
@@ -1768,6 +1769,29 @@ pub async fn list_offers(sk: &str) -> Result<RgbOfferBidsReponse> {
     Ok(RgbOfferBidsReponse { offers, bids })
 }
 
+pub async fn list_my_offers(sk: &str) -> Result<RgbOffersReponse> {
+    let rgb_offers = retrieve_offers(sk).await?;
+
+    let mut offers = vec![];
+    rgb_offers
+        .offers
+        .into_iter()
+        .for_each(|(_, offs)| offers.extend(offs.into_iter().map(RgbOfferDetail::from)));
+
+    Ok(RgbOffersReponse { offers })
+}
+
+pub async fn list_my_bids(sk: &str) -> Result<RgbBidsReponse> {
+    let rgb_bids = retrieve_bids(sk).await?;
+    let mut bids = vec![];
+    rgb_bids
+        .bids
+        .into_iter()
+        .for_each(|(_, bs)| bids.extend(bs.into_iter().map(RgbBidDetail::from)));
+
+    Ok(RgbBidsReponse { bids })
+}
+
 pub async fn list_public_offers(_sk: &str) -> Result<RgbPublicOfferReponse> {
     let rgb_public_offers = retrieve_public_offers().await?;
 
@@ -1776,7 +1800,7 @@ pub async fn list_public_offers(_sk: &str) -> Result<RgbPublicOfferReponse> {
         .rgb_offers
         .offers
         .into_iter()
-        .for_each(|(_, offs)| offers.extend(offs.into_iter().map(RgbOfferDetail::from)));
+        .for_each(|(_, offs)| offers.extend(offs.into_iter().map(RgbPublicOfferDetail::from)));
 
     Ok(RgbPublicOfferReponse { offers })
 }
