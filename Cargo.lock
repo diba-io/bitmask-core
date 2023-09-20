@@ -385,9 +385,9 @@ dependencies = [
 
 [[package]]
 name = "baid58"
-version = "0.4.1"
+version = "0.4.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "052064cc0caa02b62c88f06a7237304fb297873c78b6e95addecc3c5ddfce4ae"
+checksum = "bc0585242d87ed976e05db6ae86a0f771f140104a4b6c91b4c3e43b9b2357486"
 dependencies = [
  "base58",
  "blake3",
@@ -644,6 +644,7 @@ dependencies = [
  "autosurgeon",
  "axum",
  "axum-macros",
+ "baid58",
  "base64-compat",
  "base85",
  "bdk",

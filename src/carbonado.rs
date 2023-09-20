@@ -295,11 +295,35 @@ mod client {
     }
 
     pub async fn public_store(
-        _name: &str,
-        _input: &[u8],
+        name: &str,
+        input: &[u8],
         _metadata: Option<Vec<u8>>,
     ) -> Result<(), CarbonadoError> {
-        todo!()
+        let body = Arc::new(input.to_vec());
+        let network = NETWORK.read().await.to_string();
+        let endpoints = CARBONADO_ENDPOINT.read().await.to_string();
+        let endpoints: Vec<&str> = endpoints.split(',').collect();
+        let requests = Array::new();
+
+        for endpoint in endpoints {
+            let url = format!("{endpoint}/public/{network}-{name}");
+            let fetch_fn = future_to_promise(fetch_post(url, body.clone()));
+            requests.push(&fetch_fn);
+        }
+
+        let results = JsFuture::from(Promise::all_settled(&JsValue::from(requests)))
+            .await
+            .map_err(js_to_error)?;
+
+        info!(format!("Store results: {results:?}"));
+
+        let results = serde_wasm_bindgen::from_value::<Vec<PostStorePromiseResult>>(results)?;
+        let success = results.iter().any(|result| result.value == 200.0);
+        if success {
+            Ok(())
+        } else {
+            Err(CarbonadoError::AllEndpointsFailed)
+        }
     }
 
     pub async fn retrieve_metadata(sk: &str, name: &str) -> Result<FileMetadata, CarbonadoError> {
@@ -391,10 +415,36 @@ mod client {
     }
 
     pub async fn public_retrieve(
-        _name: &str,
+        name: &str,
         _alt_names: Vec<&String>,
     ) -> Result<(Vec<u8>, Option<Vec<u8>>), CarbonadoError> {
-        todo!()
+        use carbonado::file::Header;
+
+        let network = NETWORK.read().await.to_string();
+        let endpoints = CARBONADO_ENDPOINT.read().await.to_string();
+        let endpoints: Vec<&str> = endpoints.split(',').collect();
+
+        let requests = Array::new();
+        for endpoint in endpoints.iter() {
+            let url = format!("{endpoint}/public/{network}-{name}");
+            let fetch_fn = future_to_promise(fetch_get_byte_array(url));
+            requests.push(&fetch_fn);
+        }
+
+        let result = JsFuture::from(Promise::any(&JsValue::from(requests)))
+            .await
+            .map_err(js_to_error)?;
+
+        let array = Uint8Array::from(result);
+        let encoded = array.to_vec();
+
+        if encoded.len() > Header::len() {
+            let (header, body) = encoded.split_at(Header::len());
+            let header = Header::try_from(header)?;
+            return Ok((body.to_vec(), header.metadata.map(|m| m.to_vec())));
+        }
+
+        Ok((Vec::new(), None))
     }
 
     async fn fetch_post(url: String, body: Arc<Vec<u8>>) -> Result<JsValue, JsValue> {

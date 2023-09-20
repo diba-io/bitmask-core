@@ -1,23 +1,42 @@
+use amplify::{
+    confinement::{Confined, U32},
+    hex::FromHex,
+    Array, Bytes32, RawArray,
+};
 use autosurgeon::{reconcile, Hydrate, Reconcile};
+use baid58::{Baid58ParseError, FromBaid58, ToBaid58};
 use bitcoin::psbt::{PartiallySignedTransaction, Psbt};
 use bitcoin_scripts::address::AddressCompat;
+use bp::Txid;
+use core::fmt::Display;
 use garde::Validate;
+use rgbstd::{
+    containers::{Bindle, Transfer},
+    validation::{AnchoredBundle, ConsignmentApi},
+};
 use serde::{Deserialize, Serialize};
 use std::{
     cmp,
     collections::{btree_map, BTreeMap},
+    fmt::{self, Formatter},
+    str::FromStr,
+};
+use strict_encoding::{
+    StrictDecode, StrictDeserialize, StrictDumb, StrictEncode, StrictSerialize, StrictType,
 };
 
 use crate::{structs::AllocationDetail, validators::RGBContext};
 
 use super::{
+    constants::LIB_NAME_BITMASK,
     crdt::LocalRgbOffers,
     fs::{retrieve_public_offers, store_public_offers, RgbPersistenceError},
 };
 
-pub type AssetId = String;
-pub type OfferId = String;
-pub type BidId = String;
+type AssetId = String;
+type OfferId = String;
+type BidId = String;
+type TransferId = String;
 
 #[derive(
     Eq,
@@ -42,7 +61,7 @@ pub enum RgbOrderStatus {
     Fill,
 }
 
-#[derive(Clone, Serialize, Deserialize, Validate, Reconcile, Hydrate, Debug, Display)]
+#[derive(Clone, Serialize, Deserialize, Validate, Reconcile, Hydrate, Debug, Display, Default)]
 #[garde(context(RGBContext))]
 #[display("{offer_id} / {contract_id}:{asset_amount} / {bitcoin_price}")]
 pub struct RgbOffer {
@@ -63,6 +82,8 @@ pub struct RgbOffer {
     pub seller_psbt: String,
     #[garde(ascii)]
     pub seller_address: String,
+    #[garde(skip)]
+    pub transfer_id: Option<String>,
 }
 impl RgbOffer {
     pub(crate) fn new(
@@ -90,8 +111,11 @@ impl RgbOffer {
             hasher.update(asset_utxo.as_bytes());
         }
 
+        let id = Array::from_array(hasher.finalize().into());
+        let order_id = OrderId(id);
+
         RgbOffer {
-            offer_id: hasher.finalize().to_hex().to_string(),
+            offer_id: order_id.to_string(),
             offer_status: RgbOrderStatus::Open,
             contract_id,
             iface,
@@ -99,6 +123,7 @@ impl RgbOffer {
             bitcoin_price,
             seller_psbt: psbt,
             seller_address: seller_address.to_string(),
+            ..Default::default()
         }
     }
 }
@@ -125,6 +150,8 @@ pub struct RgbBid {
     pub buyer_psbt: String,
     #[garde(ascii)]
     pub buyer_invoice: String,
+    #[garde(skip)]
+    pub transfer_id: Option<String>,
 }
 
 impl RgbBid {
@@ -144,8 +171,11 @@ impl RgbBid {
             hasher.update(allocation.as_bytes());
         }
 
+        let id = Array::from_array(hasher.finalize().into());
+        let order_id = OrderId(id);
+
         RgbBid {
-            bid_id: hasher.finalize().to_string(),
+            bid_id: order_id.to_string(),
             bid_status: RgbOrderStatus::Open,
             offer_id,
             contract_id,
@@ -154,24 +184,6 @@ impl RgbBid {
             ..Default::default()
         }
     }
-}
-
-#[derive(Clone, Serialize, Deserialize, Validate, Debug, Display)]
-#[garde(context(RGBContext))]
-#[display("{bid_id} / {offer_id}")]
-pub struct RgbSwap {
-    #[garde(ascii)]
-    #[garde(length(min = 0, max = 100))]
-    pub offer_id: OfferId,
-    #[garde(ascii)]
-    #[garde(length(min = 0, max = 100))]
-    pub bid_id: BidId,
-    #[garde(range(min = u64::MIN, max = u64::MAX))]
-    pub fee: u64,
-    #[garde(ascii)]
-    pub swap_psbt: String,
-    #[garde(ascii)]
-    pub consignment: String,
 }
 
 #[derive(Clone, Serialize, Deserialize, Reconcile, Hydrate, Default, Debug)]
@@ -294,6 +306,130 @@ pub async fn publish_bid(new_bid: RgbBid) -> Result<(), RgbOfferErrors> {
     Ok(())
 }
 
+pub async fn remove_offers(offers: Vec<RgbOffer>) -> Result<(), RgbOfferErrors> {
+    let LocalRgbOffers {
+        doc,
+        mut rgb_offers,
+    } = retrieve_public_offers().await.map_err(RgbOfferErrors::IO)?;
+
+    let mut local_copy = automerge::AutoCommit::load(&doc)
+        .map_err(|op| RgbOfferErrors::AutoMerge(op.to_string()))?;
+
+    let current_public_offers = rgb_offers.clone();
+    for offer in offers {
+        if let Some(public_offers) = current_public_offers.offers.get(&offer.contract_id) {
+            let public_offers = public_offers.to_owned();
+            if public_offers.iter().any(|x| x.offer_id == offer.offer_id) {
+                let others = public_offers
+                    .iter()
+                    .filter(|x| x.offer_id != offer.offer_id)
+                    .map(|x| x.to_owned())
+                    .collect();
+                rgb_offers.offers.insert(offer.contract_id, others);
+                rgb_offers.bids.remove(&offer.offer_id);
+            }
+        }
+    }
+
+    // TODO: Add change verification (accept only addition operation)
+    reconcile(&mut local_copy, rgb_offers)
+        .map_err(|op| RgbOfferErrors::AutoMerge(op.to_string()))?;
+
+    store_public_offers(local_copy.save())
+        .await
+        .map_err(RgbOfferErrors::IO)?;
+
+    Ok(())
+}
+
+pub async fn mark_transfer_offer(
+    offer_id: OfferId,
+    consig_id: TransferId,
+    rgb_offers: &mut RgbOffers,
+) -> Result<(), RgbOfferErrors> {
+    let offers = rgb_offers.offers.clone();
+    for (contract_id, mut my_offers) in offers {
+        if let Some(position) = my_offers.iter().position(|x| x.offer_id == offer_id) {
+            let mut offer = my_offers.swap_remove(position);
+            offer.transfer_id = Some(consig_id.to_owned());
+
+            my_offers.insert(position, offer);
+            rgb_offers.offers.insert(contract_id, my_offers);
+            break;
+        }
+    }
+    Ok(())
+}
+
+pub async fn mark_transfer_bid(
+    bid_id: BidId,
+    consig_id: TransferId,
+    rgb_bids: &mut RgbBids,
+) -> Result<(), RgbOfferErrors> {
+    let bids = rgb_bids.bids.clone();
+    for (contract_id, mut my_bids) in bids {
+        if let Some(position) = my_bids.iter().position(|x| x.bid_id == bid_id) {
+            let mut offer = my_bids.swap_remove(position);
+            offer.transfer_id = Some(consig_id.to_owned());
+
+            my_bids.insert(position, offer);
+            rgb_bids.bids.insert(contract_id, my_bids);
+            break;
+        }
+    }
+    Ok(())
+}
+
+pub async fn mark_offer_fill(
+    transfer_id: TransferId,
+    rgb_offers: &mut RgbOffers,
+) -> Result<Option<RgbOffer>, RgbOfferErrors> {
+    let mut offer_filled = None;
+    let offers = rgb_offers.offers.clone();
+    for (contract_id, mut my_offers) in offers {
+        if let Some(position) = my_offers
+            .clone()
+            .into_iter()
+            .position(|x| x.transfer_id.unwrap_or_default() == transfer_id)
+        {
+            let mut offer = my_offers.swap_remove(position);
+            offer.offer_status = RgbOrderStatus::Fill;
+
+            offer_filled = Some(offer.clone());
+            my_offers.insert(position, offer);
+            rgb_offers.offers.insert(contract_id, my_offers);
+
+            break;
+        }
+    }
+    Ok(offer_filled)
+}
+
+pub async fn mark_bid_fill(
+    transfer_id: TransferId,
+    rgb_bids: &mut RgbBids,
+) -> Result<Option<RgbBid>, RgbOfferErrors> {
+    let mut bid_filled = None;
+    let bids = rgb_bids.bids.clone();
+    for (contract_id, mut my_bids) in bids {
+        if let Some(position) = my_bids
+            .clone()
+            .into_iter()
+            .position(|x| x.transfer_id.unwrap_or_default() == transfer_id)
+        {
+            let mut bid = my_bids.swap_remove(position);
+            bid.bid_status = RgbOrderStatus::Fill;
+
+            bid_filled = Some(bid.clone());
+            my_bids.insert(position, bid);
+            rgb_bids.bids.insert(contract_id, my_bids);
+
+            break;
+        }
+    }
+    Ok(bid_filled)
+}
+
 #[derive(Clone, Eq, PartialEq, Debug, Display, Error, From)]
 #[display(doc_comments)]
 pub enum PsbtSwapExError {
@@ -378,4 +514,134 @@ impl PsbtSwapEx<PartiallySignedTransaction> for PartiallySignedTransaction {
 
         Ok(new_psbt.clone())
     }
+}
+
+/// Swap Order identifier.
+///
+/// Interface identifier commits to all of the interface data.
+#[derive(
+    Wrapper,
+    Copy,
+    Clone,
+    Ord,
+    PartialOrd,
+    Eq,
+    PartialEq,
+    Hash,
+    Debug,
+    From,
+    StrictType,
+    StrictDumb,
+    StrictEncode,
+    StrictDecode,
+)]
+#[wrapper(Deref, BorrowSlice, Hex, Index, RangeOps)]
+#[strict_type(lib = LIB_NAME_BITMASK)]
+#[cfg_attr(
+    feature = "serde",
+    derive(Serialize, Deserialize),
+    serde(crate = "serde_crate", transparent)
+)]
+pub struct OrderId(
+    #[from]
+    #[from([u8; 32])]
+    Bytes32,
+);
+
+impl ToBaid58<32> for OrderId {
+    const HRI: &'static str = "so";
+    fn to_baid58_payload(&self) -> [u8; 32] {
+        self.to_raw_array()
+    }
+}
+impl FromBaid58<32> for OrderId {}
+impl Display for OrderId {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        if f.sign_minus() {
+            write!(f, "urn:diba:{::<}", self.to_baid58())
+        } else {
+            write!(f, "urn:diba:{::<#}", self.to_baid58())
+        }
+    }
+}
+impl FromStr for OrderId {
+    type Err = Baid58ParseError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Self::from_baid58_str(s.trim_start_matches("urn:diba:"))
+    }
+}
+
+#[derive(Clone, Debug, StrictType, StrictDumb, StrictEncode, StrictDecode)]
+#[strict_type(lib = LIB_NAME_BITMASK)]
+#[cfg_attr(
+    feature = "serde",
+    derive(Serialize, Deserialize),
+    serde(crate = "serde_crate", rename_all = "camelCase")
+)]
+pub struct TransferSwap {
+    pub offer_id: OrderId,
+    pub bid_id: OrderId,
+    pub consig: Transfer,
+}
+
+impl StrictSerialize for TransferSwap {}
+impl StrictDeserialize for TransferSwap {}
+
+impl TransferSwap {
+    pub fn with(offer_id: &str, bid_id: &str, transfer: Transfer) -> Self {
+        let offer_id = OrderId::from_str(offer_id).expect("Invalid rgb offer Id");
+        let bid_id = OrderId::from_str(bid_id).expect("Invalid rgb bid Id");
+
+        Self {
+            offer_id,
+            bid_id,
+            consig: transfer,
+        }
+    }
+}
+
+#[derive(Clone, Eq, PartialEq, Debug, Display, Error, From)]
+#[display(doc_comments)]
+// TODO: Complete errors
+pub enum TransferSwapError {
+    /// Consignment data have an invalid hexadecimal format.
+    WrongHex,
+    /// ContractID cannot be decoded. {0}
+    WrongContract(String),
+    /// Consignment cannot be decoded. {0}
+    WrongConsig(String),
+    /// Network cannot be decoded. {0}
+    WrongNetwork(String),
+    /// The Consignment is invalid. Details: {0:?}
+    InvalidConsig(Vec<String>),
+    /// The Consignment is invalid (Unexpected behavior on validation).
+    Inconclusive,
+}
+
+pub fn extract_transfer(
+    transfer: String,
+) -> Result<(Txid, Bindle<Transfer>, OrderId, OrderId), TransferSwapError> {
+    let serialized = Vec::<u8>::from_hex(&transfer).map_err(|_| TransferSwapError::WrongHex)?;
+    let confined = Confined::try_from_iter(serialized.iter().copied())
+        .map_err(|err| TransferSwapError::WrongConsig(err.to_string()))?;
+
+    let transfer_swap = TransferSwap::from_strict_serialized::<{ U32 }>(confined)
+        .map_err(|err| TransferSwapError::WrongConsig(err.to_string()))?;
+
+    let transfer = transfer_swap.consig;
+    for (bundle_id, _) in transfer.terminals() {
+        if transfer.known_transitions_by_bundle_id(bundle_id).is_none() {
+            return Err(TransferSwapError::Inconclusive);
+        };
+        if let Some(AnchoredBundle { anchor, bundle: _ }) = transfer.anchored_bundle(bundle_id) {
+            return Ok((
+                anchor.txid,
+                Bindle::new(transfer),
+                transfer_swap.offer_id,
+                transfer_swap.bid_id,
+            ));
+        }
+    }
+
+    Err(TransferSwapError::Inconclusive)
 }

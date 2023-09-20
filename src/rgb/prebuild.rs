@@ -1,5 +1,6 @@
 use std::{collections::BTreeMap, str::FromStr};
 
+use amplify::{confinement::Confined, hex::FromHex};
 use bitcoin::Network;
 use bitcoin_scripts::address::AddressNetwork;
 use garde::Validate;
@@ -26,21 +27,19 @@ use crate::rgb::{
     constants::{BITCOIN_DEFAULT_FETCH_LIMIT, RGB_DEFAULT_FETCH_LIMIT},
     contract::export_contract,
     fs::RgbPersistenceError,
+    prefetch::prefetch_resolver_txs,
     prefetch::{
         prefetch_resolver_allocations, prefetch_resolver_user_utxo_status, prefetch_resolver_utxos,
     },
     psbt::estimate_fee_tx,
     resolvers::ExplorerResolver,
     structs::AddressAmount,
+    structs::RgbExtractTransfer,
+    swap::{extract_transfer as extract_swap_transfer, get_public_offer, RgbBid},
+    transfer::extract_transfer,
     wallet::sync_wallet,
     wallet::{get_address, next_utxos},
-    TransferError,
-};
-
-use super::{
-    prefetch::prefetch_resolver_txs,
-    swap::{get_public_offer, RgbBid},
-    RgbSwapError,
+    RgbSwapError, SaveTransferError, TransferError,
 };
 
 pub const DUST_LIMIT_SATOSHI: u64 = 546;
@@ -815,4 +814,35 @@ pub async fn prebuild_buyer_swap(
     );
 
     Ok((new_bid, bitcoin_inputs, bitcoin_changes, fee_value))
+}
+
+pub fn prebuild_extract_transfer(
+    consignment: &str,
+) -> Result<RgbExtractTransfer, SaveTransferError> {
+    let serialized = Vec::<u8>::from_hex(consignment).expect("");
+    let confined = Confined::try_from_iter(serialized.iter().copied()).expect("");
+
+    let (tx_id, transfer, offer_id, bid_id) = match extract_transfer(consignment.to_owned()) {
+        Ok((txid, tranfer)) => (txid, tranfer, None, None),
+        _ => match extract_swap_transfer(consignment.to_owned()) {
+            Ok((txid, tranfer, offer_id, bid_id)) => (
+                txid,
+                tranfer,
+                Some(offer_id.to_string()),
+                Some(bid_id.to_string()),
+            ),
+            Err(err) => return Err(SaveTransferError::WrongConsigSwap(err)),
+        },
+    };
+
+    let contract_id = transfer.contract_id().to_string();
+    Ok(RgbExtractTransfer {
+        consig_id: transfer.id().to_string(),
+        contract_id,
+        tx_id,
+        transfer,
+        offer_id,
+        bid_id,
+        strict: confined,
+    })
 }

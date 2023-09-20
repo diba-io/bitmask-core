@@ -9,9 +9,12 @@ pub use bdk::{Balance, BlockTime, TransactionDetails};
 pub use bitcoin::{util::address::Address, Txid};
 use rgbstd::interface::rgb21::Allocation as AllocationUDA;
 
-use crate::validators::{
-    verify_descriptor, verify_media_types, verify_rgb_invoice, verify_tapret_seal,
-    verify_terminal_path, RGBContext,
+use crate::{
+    rgb::swap::{RgbBid, RgbOffer},
+    validators::{
+        verify_descriptor, verify_media_types, verify_rgb_invoice, verify_tapret_seal,
+        verify_terminal_path, RGBContext,
+    },
 };
 
 #[derive(Serialize, Deserialize)]
@@ -581,6 +584,13 @@ pub struct PublishedPsbtResponse {
     pub txid: String,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct RgbTransferInternalParams {
+    pub offer_id: Option<String>,
+    pub bid_id: Option<String>,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 #[derive(Validate)]
@@ -1032,6 +1042,7 @@ pub struct BatchRgbTransferItem {
     pub iface: String,
     pub status: TxStatus,
     pub is_accept: bool,
+    pub is_mine: bool,
 }
 
 #[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize, Debug, Display)]
@@ -1160,4 +1171,66 @@ pub struct RgbSwapResponse {
     pub final_consig: String,
     /// Final PSBT
     pub final_psbt: String,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug, Display, Default)]
+#[display("")]
+pub struct RgbPublicOfferReponse {
+    /// Offers
+    pub offers: Vec<RgbOfferDetail>,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug, Display, Default)]
+#[display("")]
+pub struct RgbOfferBidsReponse {
+    /// Offers
+    pub offers: Vec<RgbOfferDetail>,
+    /// bids
+    pub bids: Vec<RgbBidDetail>,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug, Display, Default)]
+#[display("")]
+pub struct RgbOfferDetail {
+    contract_id: String,
+    offer_id: String,
+    status: String,
+    asset_amount: u64,
+    bitcoin_price: u64,
+}
+
+impl From<RgbOffer> for RgbOfferDetail {
+    fn from(value: RgbOffer) -> Self {
+        Self {
+            contract_id: value.contract_id,
+            offer_id: value.offer_id,
+            status: value.offer_status.to_string(),
+            asset_amount: value.asset_amount,
+            bitcoin_price: value.bitcoin_price,
+        }
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug, Display, Default)]
+#[display("")]
+pub struct RgbBidDetail {
+    contract_id: String,
+    bid_id: String,
+    offer_id: String,
+    status: String,
+    asset_amount: u64,
+    bitcoin_price: u64,
+}
+
+impl From<RgbBid> for RgbBidDetail {
+    fn from(value: RgbBid) -> Self {
+        Self {
+            contract_id: value.contract_id,
+            offer_id: value.offer_id,
+            status: value.bid_status.to_string(),
+            asset_amount: value.asset_amount,
+            bitcoin_price: value.bitcoin_amount,
+            bid_id: value.bid_id,
+        }
+    }
 }

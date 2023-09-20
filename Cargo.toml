@@ -89,6 +89,7 @@ blake3 = "1.4.1"
 base85 = "2.0.0"
 automerge = "0.5.1"
 autosurgeon = "0.8"
+baid58 = "0.4.4"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 bdk = { version = "0.28.2", features = [
