@@ -1,6 +1,7 @@
 use std::{collections::BTreeMap, str::FromStr};
 
 use amplify::{confinement::Confined, hex::FromHex};
+use bech32::{decode, FromBase32};
 use bitcoin::Network;
 use bitcoin_scripts::address::AddressNetwork;
 use garde::Validate;
@@ -819,9 +820,16 @@ pub async fn prebuild_buyer_swap(
 pub fn prebuild_extract_transfer(
     consignment: &str,
 ) -> Result<RgbExtractTransfer, SaveTransferError> {
-    let serialized = Vec::<u8>::from_hex(consignment).expect("");
-    let confined = Confined::try_from_iter(serialized.iter().copied()).expect("");
+    let serialized = if consignment.starts_with("rgb1") {
+        let (_, serialized, _) =
+            decode(consignment).expect("invalid serialized contract/genesis (bech32m format)");
+        Vec::<u8>::from_base32(&serialized)
+            .expect("invalid hexadecimal contract/genesis (bech32m format)")
+    } else {
+        Vec::<u8>::from_hex(consignment).expect("invalid hexadecimal contract/genesis")
+    };
 
+    let confined = Confined::try_from_iter(serialized.iter().copied()).expect("");
     let (tx_id, transfer, offer_id, bid_id) = match extract_transfer(consignment.to_owned()) {
         Ok((txid, tranfer)) => (txid, tranfer, None, None),
         _ => match extract_swap_transfer(consignment.to_owned()) {

@@ -365,10 +365,9 @@ pub async fn retrieve_public_offers(name: &str) -> Result<LocalRgbOffers, Storag
     let main_name = &format!("{hashed_name}.c15");
     let original_name = &format!("{hashed_name}-diff.c15");
 
-    let (data, _) = public_retrieve(main_name, vec![])
+    let (data, _) = public_retrieve(main_name)
         .await
         .map_err(|op| StorageError::CarbonadoRetrieve(name.to_string(), op.to_string()))?;
-
     if data.is_empty() {
         Ok(LocalRgbOffers {
             doc: automerge::AutoCommit::new().save(),
@@ -407,7 +406,7 @@ pub async fn store_public_offers(name: &str, changes: &[u8]) -> Result<(), Stora
     let main_name = &format!("{hashed_name}.c15");
     let original_name = &format!("{hashed_name}-diff.c15");
 
-    let (original_bytes, _) = public_retrieve(original_name, vec![])
+    let (original_bytes, _) = public_retrieve(original_name)
         .await
         .map_err(|op| StorageError::CarbonadoRetrieve(name.to_string(), op.to_string()))?;
 

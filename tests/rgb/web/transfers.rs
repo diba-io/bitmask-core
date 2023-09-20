@@ -28,8 +28,8 @@ use bitmask_core::{
         json_parse, resolve,
         rgb::{
             create_watcher, full_transfer_asset, get_contract, import_contract, issue_contract,
-            list_contracts, psbt_sign_file, rgb_create_invoice, save_transfer, verify_transfers,
-            watcher_next_address, watcher_next_utxo,
+            list_contracts, psbt_sign_and_publish_file, rgb_create_invoice, save_transfer,
+            verify_transfers, watcher_next_address, watcher_next_utxo,
         },
         set_panic_hook,
     },
@@ -315,7 +315,8 @@ async fn create_transfer_with_fee_value() {
         };
 
         let psbt_req = serde_wasm_bindgen::to_value(&psbt_req).expect("");
-        let psbt_resp: JsValue = resolve(psbt_sign_file(sender_sk.to_string(), psbt_req)).await;
+        let psbt_resp: JsValue =
+            resolve(psbt_sign_and_publish_file(sender_sk.to_string(), psbt_req)).await;
         let psbt_resp: PublishedPsbtResponse = json_parse(&psbt_resp);
         debug!(format!("Sign Psbt: {:?}", psbt_resp));
 
@@ -603,7 +604,8 @@ async fn create_transfer_with_fee_rate() {
         };
 
         let psbt_req = serde_wasm_bindgen::to_value(&psbt_req).expect("");
-        let psbt_resp: JsValue = resolve(psbt_sign_file(sender_sk.to_string(), psbt_req)).await;
+        let psbt_resp: JsValue =
+            resolve(psbt_sign_and_publish_file(sender_sk.to_string(), psbt_req)).await;
         let psbt_resp: PublishedPsbtResponse = json_parse(&psbt_resp);
         debug!(format!("Sign Psbt: {:?}", psbt_resp));
 

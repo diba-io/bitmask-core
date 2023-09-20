@@ -71,7 +71,7 @@ pub struct RgbExtractTransfer {
     pub contract_id: String,
     pub tx_id: Txid,
     pub transfer: Bindle<Transfer>,
-    pub strict: Confined<Vec<u8>, 1, U32>,
+    pub strict: Confined<Vec<u8>, 0, U32>,
     pub offer_id: Option<String>,
     pub bid_id: Option<String>,
 }

@@ -33,6 +33,7 @@ mod rgb {
         mod imports;
         mod stl_ids;
         mod stl_load;
+        mod swaps;
         mod transfers;
         mod utils;
     }

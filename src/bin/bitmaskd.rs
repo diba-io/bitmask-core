@@ -499,11 +499,9 @@ async fn co_public_store(
     Path(name): Path<String>,
     body: Bytes,
 ) -> Result<impl IntoResponse, AppError> {
-    let incoming_header = carbonado::file::Header::try_from(&body)?;
-    let body_len = incoming_header.encoded_len - incoming_header.padding_len;
-    info!("POST /carbonado/public/{name}, {body_len} bytes");
+    info!("POST /carbonado/public/{name}, {} bytes", body.len());
+    let (filepath, encoded) = public_store(&name, &body, None).await?;
 
-    let filepath = public_store(&name, &body, None).await?;
     match OpenOptions::new()
         .read(true)
         .write(true)
@@ -516,13 +514,13 @@ async fn co_public_store(
                 _ => carbonado::file::Header::try_from(&body)?,
             };
             let present_len = present_header.encoded_len - present_header.padding_len;
-            debug!("body len: {body_len} present_len: {present_len}");
-            let resp = fs::write(&filepath, &body).await;
+            debug!("present_len: {present_len}");
+            let resp = fs::write(&filepath, &encoded).await;
             debug!("file override status {}", resp.is_ok());
         }
         Err(err) => match err.kind() {
             ErrorKind::NotFound => {
-                debug!("no file found, writing {body_len} bytes.");
+                debug!("no file found, writing 0 bytes.");
                 fs::write(&filepath, &body).await?;
             }
             _ => {
@@ -602,7 +600,7 @@ async fn co_metadata(
 async fn co_public_retrieve(Path(name): Path<String>) -> Result<impl IntoResponse, AppError> {
     info!("GET /public/{name}");
 
-    let result = public_retrieve(&name, vec![]).await;
+    let result = public_retrieve(&name).await;
     let cc = CacheControl::new().with_no_cache();
 
     match result {

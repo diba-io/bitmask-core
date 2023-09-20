@@ -113,6 +113,7 @@ impl RgbOffer {
 
         let id = Array::from_array(hasher.finalize().into());
         let order_id = OrderId(id);
+        let order_id = format!("{order_id:.0}");
 
         RgbOffer {
             offer_id: order_id.to_string(),
@@ -173,6 +174,7 @@ impl RgbBid {
 
         let id = Array::from_array(hasher.finalize().into());
         let order_id = OrderId(id);
+        let order_id = format!("{order_id:.0}");
 
         RgbBid {
             bid_id: order_id.to_string(),
@@ -200,9 +202,13 @@ pub struct RgbBids {
 #[derive(Clone, Eq, PartialEq, Debug, Display, From, Error)]
 #[display(doc_comments)]
 pub enum RgbOfferErrors {
+    /// Occurs an error in retrieve offers. {0}
     IO(RgbPersistenceError),
+    /// Offer #{0} is not found in public orderbook.
     NoOffer(String),
+    /// Bid #{0} is not found in public orderbook.
     NoBid(String),
+    /// Occurs an error in merge step. {0}
     AutoMerge(String),
 }
 
@@ -549,7 +555,7 @@ pub struct OrderId(
 );
 
 impl ToBaid58<32> for OrderId {
-    const HRI: &'static str = "so";
+    const HRI: &'static str = "swap";
     fn to_baid58_payload(&self) -> [u8; 32] {
         self.to_raw_array()
     }

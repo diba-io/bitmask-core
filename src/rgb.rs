@@ -9,6 +9,7 @@ use bitcoin::{psbt::PartiallySignedTransaction, EcdsaSighashType, Network, Txid}
 use bitcoin_30::bip32::ExtendedPubKey;
 use bitcoin_scripts::address::AddressNetwork;
 use garde::Validate;
+
 use miniscript_crate::DescriptorPublicKey;
 use rgb::RgbDescr;
 use rgbstd::{
@@ -840,8 +841,8 @@ pub enum RgbSwapError {
     NoWatcher,
     /// Contract is required in this operation. Please, import or issue a Contract.
     NoContract,
-    /// Avaliable Utxo is required in this operation.
-    NoUtxo,
+    /// Avaliable Utxo is required in this operation. {0}
+    NoUtxo(String),
     /// Occurs an error in export step. {0}
     Export(ExportContractError),
     /// Insufficient funds (expected: {input} sats / current: {output} sats)
@@ -1036,17 +1037,14 @@ pub async fn create_offer_buyer(
     let (mut new_bid, bitcoin_inputs, bitcoin_changes, fee_value) =
         prebuild_buyer_swap(request, &mut rgb_wallet, &mut resolver).await?;
 
-    let iface_index = match offer.iface.to_uppercase().as_str() {
-        "RGB20" => AssetType::RGB20,
-        "RGB21" => AssetType::RGB21,
-        _ => AssetType::Contract,
-    } as u32;
+    let buyer_outpoint = watcher_next_utxo(sk, "default", &offer.iface.to_uppercase())
+        .await
+        .map_err(|op| RgbSwapError::NoUtxo(op.to_string()))?;
 
-    let buyer_outpoint = match next_utxo(iface_index, rgb_wallet.clone(), &mut resolver)
-        .map_err(|_| RgbSwapError::NoUtxo)?
-    {
-        Some(utxo) => utxo.outpoint.to_string(),
-        None => return Err(RgbSwapError::NoUtxo),
+    let buyer_outpoint = if let Some(utxo) = buyer_outpoint.utxo {
+        utxo.outpoint.to_string()
+    } else {
+        return Err(RgbSwapError::NoUtxo(String::new()));
     };
 
     rgb_account
@@ -2173,7 +2171,7 @@ pub async fn watcher_unspent_utxos(
     let iface_index = match iface {
         "RGB20" => 20,
         "RGB21" => 21,
-        _ => 9,
+        _ => 10,
     };
 
     let mut resolver = ExplorerResolver {

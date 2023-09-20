@@ -101,16 +101,14 @@ pub async fn prefetch_resolver_rgb(
     asset_type: Option<AssetType>,
 ) {
     use crate::rgb::import::{contract_from_armored, contract_from_other_formats};
+    use crate::rgb::prebuild::prebuild_extract_transfer;
     use amplify::confinement::U32;
     use rgbstd::contract::Genesis;
 
     let esplora_client: EsploraBlockchain =
         EsploraBlockchain::new(&explorer.explorer_url, 1).with_concurrency(6);
-    let contract = if contract.starts_with("-----BEGIN RGB CONTRACT-----") {
-        contract_from_armored(contract)
-    } else {
-        contract_from_other_formats(contract, asset_type, None)
-    };
+    let contract = prebuild_extract_transfer(contract).expect("invalid transfer");
+    let contract = contract.transfer.unbindle();
 
     for anchor_bundle in contract.bundles {
         let transaction_id = &bitcoin::Txid::from_str(&anchor_bundle.anchor.txid.to_hex())

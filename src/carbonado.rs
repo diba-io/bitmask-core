@@ -46,7 +46,7 @@ mod server {
         name: &str,
         input: &[u8],
         metadata: Option<Vec<u8>>,
-    ) -> Result<PathBuf, CarbonadoError> {
+    ) -> Result<(PathBuf, Vec<u8>), CarbonadoError> {
         let marketplace_key: String = get_marketplace_nostr_key().await;
 
         let level = 15;
@@ -59,8 +59,8 @@ mod server {
         let meta: Option<[u8; 8]> = metadata.map(|m| m.try_into().expect("invalid metadata size"));
         let (body, _encode_info) = carbonado::file::encode(&sk, Some(&pk), input, level, meta)?;
         let filepath = handle_file(&pk_hex, name, body.len()).await?;
-        fs::write(filepath.clone(), body).await?;
-        Ok(filepath)
+        fs::write(filepath.clone(), body.clone()).await?;
+        Ok((filepath, body))
     }
 
     pub async fn retrieve(
@@ -105,12 +105,7 @@ mod server {
         Ok((Vec::new(), None))
     }
 
-    pub async fn public_retrieve(
-        name: &str,
-        alt_names: Vec<&String>,
-    ) -> Result<(Vec<u8>, Option<Vec<u8>>), CarbonadoError> {
-        use crate::rgb::constants::RGB_STRICT_TYPE_VERSION;
-
+    pub async fn public_retrieve(name: &str) -> Result<(Vec<u8>, Option<Vec<u8>>), CarbonadoError> {
         let marketplace_key: String = get_marketplace_nostr_key().await;
 
         let sk = hex::decode(marketplace_key)?;
@@ -129,20 +124,6 @@ mod server {
         if let Ok(bytes) = fs::read(filepath).await {
             let (header, decoded) = carbonado::file::decode(&sk, &bytes)?;
             return Ok((decoded, header.metadata.map(|m| m.to_vec())));
-        }
-
-        // Check alternative names
-        let alt_names = alt_names.into_iter().map(|x| format!("{network}-{x}"));
-        for alt_name in alt_names {
-            let filepath = handle_file(&pk, &alt_name, 0).await?;
-            if let Ok(bytes) = fs::read(filepath).await {
-                let (header, decoded) = carbonado::file::decode(&sk, &bytes)?;
-                if let Some(metadata) = header.metadata {
-                    if metadata == RGB_STRICT_TYPE_VERSION {
-                        return Ok((decoded, header.metadata.map(|m| m.to_vec())));
-                    }
-                }
-            }
         }
 
         Ok((Vec::new(), None))
@@ -414,12 +395,7 @@ mod client {
         Ok((Vec::new(), None))
     }
 
-    pub async fn public_retrieve(
-        name: &str,
-        _alt_names: Vec<&String>,
-    ) -> Result<(Vec<u8>, Option<Vec<u8>>), CarbonadoError> {
-        use carbonado::file::Header;
-
+    pub async fn public_retrieve(name: &str) -> Result<(Vec<u8>, Option<Vec<u8>>), CarbonadoError> {
         let network = NETWORK.read().await.to_string();
         let endpoints = CARBONADO_ENDPOINT.read().await.to_string();
         let endpoints: Vec<&str> = endpoints.split(',').collect();
@@ -438,13 +414,7 @@ mod client {
         let array = Uint8Array::from(result);
         let encoded = array.to_vec();
 
-        if encoded.len() > Header::len() {
-            let (header, body) = encoded.split_at(Header::len());
-            let header = Header::try_from(header)?;
-            return Ok((body.to_vec(), header.metadata.map(|m| m.to_vec())));
-        }
-
-        Ok((Vec::new(), None))
+        Ok((encoded.to_vec(), None))
     }
 
     async fn fetch_post(url: String, body: Arc<Vec<u8>>) -> Result<JsValue, JsValue> {
