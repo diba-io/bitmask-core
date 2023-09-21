@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, str::FromStr};
+use std::{collections::BTreeMap, ops::Mul, str::FromStr};
 
 use amplify::{confinement::Confined, hex::FromHex};
 use bech32::{decode, FromBase32};
@@ -16,7 +16,8 @@ use rgbwallet::RgbInvoice;
 use strict_encoding::tn;
 
 use crate::{
-    constants::NETWORK,
+    bitcoin::get_swap_new_address,
+    constants::{get_marketplace_fee_percentage, NETWORK},
     structs::{
         AllocationDetail, AllocationValue, AssetType, FullRgbTransferRequest, PsbtFeeRequest,
         PsbtInputRequest, RgbBidRequest, RgbOfferRequest, SecretString,
@@ -36,7 +37,7 @@ use crate::rgb::{
     resolvers::ExplorerResolver,
     structs::AddressAmount,
     structs::RgbExtractTransfer,
-    swap::{extract_transfer as extract_swap_transfer, get_public_offer, RgbBid},
+    swap::{extract_transfer as extract_swap_transfer, get_public_offer, RgbBid, RgbOffer},
     transfer::extract_transfer,
     wallet::sync_wallet,
     wallet::{get_address, next_utxos},
@@ -718,9 +719,38 @@ pub async fn prebuild_buyer_swap(
         }
     }
 
+    let RgbOffer {
+        seller_address,
+        bitcoin_price,
+        ..
+    } = offer;
+
+    let offer_change = format!("{seller_address}:{bitcoin_price}");
+    let mut bitcoin_changes = vec![offer_change];
+
     let mut bitcoin_total = 0;
-    let total_spendable = offer.bitcoin_price;
-    let bitcoin_changes = vec![format!("{}:{}", offer.seller_address, offer.bitcoin_price)];
+    let mut total_spendable = offer.bitcoin_price;
+
+    // Swap Fee
+    if let Some(swap_fee_address) = get_swap_new_address()
+        .await
+        .map_err(|op| RgbSwapError::WrongSwapFee(op.to_string()))?
+    {
+        let swap_fee_perc = get_marketplace_fee_percentage().await;
+        let swap_fee_perc = if swap_fee_perc.is_empty() {
+            0
+        } else {
+            swap_fee_perc
+                .parse()
+                .map_err(|_| RgbSwapError::WrongSwapFee(swap_fee_perc))?
+        };
+        let total_swap_fee = offer.bitcoin_price.mul(swap_fee_perc) / 100;
+
+        bitcoin_changes.push(format!("{swap_fee_address}:{total_swap_fee}"));
+        total_spendable += total_swap_fee;
+    }
+
+    // Bitcoin Fees
     let (_, fee_value) = match fee.clone() {
         PsbtFeeRequest::Value(fee_value) => {
             let total_spendable = fee_value + total_spendable;

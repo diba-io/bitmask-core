@@ -54,12 +54,26 @@ pub static MARKETPLACE_SEED: Lazy<RwLock<String>> =
 pub static MARKETPLACE_NOSTR: Lazy<RwLock<String>> =
     Lazy::new(|| RwLock::new(dot_env("MARKETPLACE_NOSTR")));
 
+pub static MARKETPLACE_FEE_PERC: Lazy<RwLock<String>> =
+    Lazy::new(|| RwLock::new(dot_env("MARKETPLACE_FEE_PERC")));
+
+pub static MARKETPLACE_FEE_XPUB: Lazy<RwLock<String>> =
+    Lazy::new(|| RwLock::new(dot_env("MARKETPLACE_FEE_XPUB")));
+
 pub async fn get_marketplace_seed() -> String {
     MARKETPLACE_SEED.read().await.to_string()
 }
 
 pub async fn get_marketplace_nostr_key() -> String {
     MARKETPLACE_NOSTR.read().await.to_string()
+}
+
+pub async fn get_marketplace_fee_percentage() -> String {
+    MARKETPLACE_FEE_PERC.read().await.to_string()
+}
+
+pub async fn get_marketplace_fee_xpub() -> String {
+    MARKETPLACE_FEE_XPUB.read().await.to_string()
 }
 
 pub static UDAS_UTXO: Lazy<RwLock<String>> = Lazy::new(|| RwLock::new(dot_env("UDAS_UTXO")));

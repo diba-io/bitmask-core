@@ -6,17 +6,16 @@ use rgbstd::{persistence::Stock, stl::LIB_ID_RGB};
 use strict_encoding::{StrictDeserialize, StrictSerialize};
 
 use crate::carbonado::public_store;
-use crate::rgb::crdt::LocalRgbAccount;
-use crate::rgb::crdt::RawRgbAccount;
-use crate::rgb::structs::RgbTransfers;
+use crate::rgb::crdt::{LocalRgbAccount, LocalRgbOffers, RawRgbAccount};
+
+use crate::rgb::{
+    structs::RgbTransfers,
+    swap::{RgbBids, RgbOffers},
+};
 use crate::{
     carbonado::{public_retrieve, retrieve, store},
     rgb::{constants::RGB_STRICT_TYPE_VERSION, structs::RgbAccount},
 };
-
-use super::crdt::LocalRgbOffers;
-use super::swap::RgbBids;
-use super::swap::RgbOffers;
 
 #[derive(Debug, Clone, Eq, PartialEq, Display, From, Error)]
 #[display(doc_comments)]

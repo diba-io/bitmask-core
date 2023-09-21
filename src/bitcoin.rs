@@ -34,6 +34,7 @@ pub use crate::bitcoin::{
 };
 
 use crate::{
+    bitcoin::keys::get_marketplace_descriptor,
     constants::{DIBA_DESCRIPTOR, DIBA_DESCRIPTOR_VERSION, DIBA_MAGIC_NO, NETWORK},
     debug, info,
     structs::{
@@ -300,6 +301,18 @@ pub async fn get_wallet_data(
         transactions,
         utxos,
     })
+}
+
+pub async fn get_swap_new_address() -> Result<Option<String>, BitcoinError> {
+    info!("get_swap_new_address");
+
+    let markplace_desc = get_marketplace_descriptor().await?;
+    if let Some(markplace_desc) = markplace_desc {
+        let address = get_new_address(&markplace_desc, None).await?;
+        return Ok(Some(address));
+    }
+
+    Ok(None)
 }
 
 pub async fn get_new_address(

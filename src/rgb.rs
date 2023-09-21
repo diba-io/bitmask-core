@@ -867,6 +867,8 @@ pub enum RgbSwapError {
     Swap(RgbOfferErrors),
     /// Occurs an error in transfer step. {0}
     Transfer(TransferError),
+    /// Swap fee cannot be decoded. {0}
+    WrongSwapFee(String),
     /// Bitcoin network cannot be decoded. {0}
     WrongNetwork(String),
     /// Bitcoin address cannot be decoded. {0}
