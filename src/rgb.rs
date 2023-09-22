@@ -63,8 +63,8 @@ use crate::{
         IssueMetaRequest, IssueMetadata, IssueRequest, IssueResponse, NewCollectible,
         NextAddressResponse, NextUtxoResponse, NextUtxosResponse, PsbtFeeRequest, PsbtRequest,
         PsbtResponse, ReIssueRequest, ReIssueResponse, RgbBidDetail, RgbBidRequest, RgbBidResponse,
-        RgbBidsReponse, RgbInvoiceResponse, RgbOfferBidsReponse, RgbOfferDetail, RgbOfferRequest,
-        RgbOfferResponse, RgbOffersReponse, RgbPublicOfferDetail, RgbPublicOfferReponse,
+        RgbBidsResponse, RgbInvoiceResponse, RgbOfferBidsResponse, RgbOfferDetail, RgbOfferRequest,
+        RgbOfferResponse, RgbOffersResponse, RgbPublicOfferDetail, RgbPublicOfferResponse,
         RgbRemoveTransferRequest, RgbSaveTransferRequest, RgbSwapRequest, RgbSwapResponse,
         RgbTransferDetail, RgbTransferInternalParams, RgbTransferRequest, RgbTransferResponse,
         RgbTransferStatusResponse, RgbTransfersResponse, SchemaDetail, SchemasResponse,
@@ -1750,7 +1750,7 @@ pub async fn list_transfers(sk: &str, contract_id: String) -> Result<RgbTransfer
     Ok(RgbTransfersResponse { transfers })
 }
 
-pub async fn list_my_orders(sk: &str) -> Result<RgbOfferBidsReponse> {
+pub async fn list_my_orders(sk: &str) -> Result<RgbOfferBidsResponse> {
     let rgb_offers = retrieve_offers(sk).await?;
     let rgb_bids = retrieve_bids(sk).await?;
 
@@ -1766,10 +1766,10 @@ pub async fn list_my_orders(sk: &str) -> Result<RgbOfferBidsReponse> {
         .into_iter()
         .for_each(|(_, bs)| bids.extend(bs.into_iter().map(RgbBidDetail::from)));
 
-    Ok(RgbOfferBidsReponse { offers, bids })
+    Ok(RgbOfferBidsResponse { offers, bids })
 }
 
-pub async fn list_my_offers(sk: &str) -> Result<RgbOffersReponse> {
+pub async fn list_my_offers(sk: &str) -> Result<RgbOffersResponse> {
     let rgb_offers = retrieve_offers(sk).await?;
 
     let mut offers = vec![];
@@ -1778,10 +1778,10 @@ pub async fn list_my_offers(sk: &str) -> Result<RgbOffersReponse> {
         .into_iter()
         .for_each(|(_, offs)| offers.extend(offs.into_iter().map(RgbOfferDetail::from)));
 
-    Ok(RgbOffersReponse { offers })
+    Ok(RgbOffersResponse { offers })
 }
 
-pub async fn list_my_bids(sk: &str) -> Result<RgbBidsReponse> {
+pub async fn list_my_bids(sk: &str) -> Result<RgbBidsResponse> {
     let rgb_bids = retrieve_bids(sk).await?;
     let mut bids = vec![];
     rgb_bids
@@ -1789,10 +1789,10 @@ pub async fn list_my_bids(sk: &str) -> Result<RgbBidsReponse> {
         .into_iter()
         .for_each(|(_, bs)| bids.extend(bs.into_iter().map(RgbBidDetail::from)));
 
-    Ok(RgbBidsReponse { bids })
+    Ok(RgbBidsResponse { bids })
 }
 
-pub async fn list_public_offers(_sk: &str) -> Result<RgbPublicOfferReponse> {
+pub async fn list_public_offers(_sk: &str) -> Result<RgbPublicOfferResponse> {
     let rgb_public_offers = retrieve_public_offers().await?;
 
     let mut offers = vec![];
@@ -1802,7 +1802,7 @@ pub async fn list_public_offers(_sk: &str) -> Result<RgbPublicOfferReponse> {
         .into_iter()
         .for_each(|(_, offs)| offers.extend(offs.into_iter().map(RgbPublicOfferDetail::from)));
 
-    Ok(RgbPublicOfferReponse { offers })
+    Ok(RgbPublicOfferResponse { offers })
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Display, From, Error)]
