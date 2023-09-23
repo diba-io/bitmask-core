@@ -22,6 +22,7 @@ use rgbstd::{
 use rgbwallet::{psbt::DbcPsbtError, RgbInvoice};
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
+    ops::Sub,
     str::FromStr,
 };
 use strict_encoding::{tn, StrictSerialize};
@@ -844,8 +845,8 @@ pub enum RgbSwapError {
     NoContract,
     /// Avaliable Utxo is required in this operation. {0}
     NoUtxo(String),
-    /// Occurs an error in export step. {0}
-    Export(ExportContractError),
+    /// The Offer has expired.
+    OfferExpired,
     /// Insufficient funds (expected: {input} sats / current: {output} sats)
     Inflation {
         /// Amount spent: input amounts
@@ -854,6 +855,8 @@ pub enum RgbSwapError {
         /// Amount sent: sum of output value + transaction fee
         output: u64,
     },
+    /// Occurs an error in export step. {0}
+    Export(ExportContractError),
     /// Occurs an error in create offer buyer step. {0}
     Buyer(RgbOfferErrors),
     /// Occurs an error in create step. {0}
@@ -925,6 +928,7 @@ pub async fn create_seller_offer(
         bitcoin_price,
         change_terminal,
         iface,
+        expire_at,
         ..
     } = request;
 
@@ -967,6 +971,7 @@ pub async fn create_seller_offer(
         seller_address,
         bitcoin_price,
         seller_psbt.psbt.clone(),
+        expire_at,
     );
 
     let resp = RgbOfferResponse {
@@ -1101,14 +1106,24 @@ pub async fn create_buyer_bid(
     let RgbOfferSwap {
         iface,
         public: offer_pub,
+        expire_at,
         ..
     } = offer.clone();
+
     let RgbBid {
         bid_id,
         offer_id,
         asset_amount,
         ..
     } = new_bid.clone();
+
+    if let Some(expire_at) = expire_at {
+        let utc = chrono::Local::now().naive_utc().timestamp();
+
+        if expire_at.sub(utc) <= 0 {
+            return Err(RgbSwapError::OfferExpired);
+        }
+    }
 
     let invoice_req = InvoiceRequest {
         iface,
@@ -1139,7 +1154,7 @@ pub async fn create_buyer_bid(
         .map_err(RgbSwapError::IO)?;
 
     let public_bid = RgbBidSwap::from(new_bid);
-    publish_swap_bid(sk, &offer_pub, public_bid.clone())
+    publish_swap_bid(sk, &offer_pub, public_bid.clone(), expire_at)
         .await
         .map_err(RgbSwapError::Marketplace)?;
 
@@ -1174,13 +1189,16 @@ pub async fn create_swap_transfer(
         ..
     } = request.clone();
 
-    let RgbOfferSwap { iface, .. } = get_public_offer(offer_id.clone())
+    let RgbOfferSwap {
+        iface, expire_at, ..
+    } = get_public_offer(offer_id.clone())
         .await
         .map_err(RgbSwapError::Swap)?;
 
-    let RgbBidSwap { buyer_invoice, .. } = get_swap_bid(sk, offer_id.clone(), bid_id.clone())
-        .await
-        .map_err(RgbSwapError::Swap)?;
+    let RgbBidSwap { buyer_invoice, .. } =
+        get_swap_bid(sk, offer_id.clone(), bid_id.clone(), expire_at)
+            .await
+            .map_err(RgbSwapError::Swap)?;
 
     let change_terminal = match iface.to_uppercase().as_str() {
         "RGB20" => "/20/1",

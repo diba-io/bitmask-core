@@ -93,6 +93,7 @@ pub struct RgbOffer {
 }
 
 impl RgbOffer {
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn new(
         secret: String,
         contract_id: String,
@@ -101,6 +102,7 @@ impl RgbOffer {
         seller_address: AddressCompat,
         bitcoin_price: u64,
         psbt: String,
+        expire_at: Option<i64>,
     ) -> Self {
         let secp = Secp256k1::new();
         let secret = hex::decode(secret).expect("");
@@ -138,6 +140,7 @@ impl RgbOffer {
             seller_psbt: psbt,
             seller_address: seller_address.to_string(),
             public: public_key.to_hex(),
+            expire_at,
             ..Default::default()
         }
     }
@@ -422,6 +425,7 @@ pub async fn get_swap_bid(
     sk: &str,
     offer_id: String,
     bid_id: BidId,
+    expire_at: Option<i64>,
 ) -> Result<RgbBidSwap, RgbOfferErrors> {
     let bid = get_public_bid(offer_id.clone(), bid_id.clone()).await?;
 
@@ -433,11 +437,12 @@ pub async fn get_swap_bid(
 
     let share_sk = SharedSecret::new(&public_key, &secret_key);
     let share_sk = share_sk.display_secret().to_string();
-    let file_name = format!("{offer_id}-{bid_id}");
 
-    let LocalRgbOfferBid { rgb_bid, .. } = retrieve_swap_offer_bid(&share_sk, &file_name)
-        .await
-        .map_err(RgbOfferErrors::IO)?;
+    let file_name = format!("{offer_id}-{bid_id}");
+    let LocalRgbOfferBid { rgb_bid, .. } =
+        retrieve_swap_offer_bid(&share_sk, &file_name, expire_at)
+            .await
+            .map_err(RgbOfferErrors::IO)?;
 
     Ok(rgb_bid)
 }
@@ -513,6 +518,7 @@ pub async fn publish_swap_bid(
     sk: &str,
     offer_pub: &str,
     new_bid: RgbBidSwap,
+    expire_at: Option<i64>,
 ) -> Result<(), RgbOfferErrors> {
     let RgbBidSwap {
         bid_id, offer_id, ..
@@ -527,8 +533,7 @@ pub async fn publish_swap_bid(
     let share_sk = SharedSecret::new(&public_key, &secret_key);
     let share_sk = share_sk.display_secret().to_string();
     let file_name = format!("{offer_id}-{bid_id}");
-
-    let LocalRgbOfferBid { doc, .. } = retrieve_swap_offer_bid(&share_sk, &file_name)
+    let LocalRgbOfferBid { doc, .. } = retrieve_swap_offer_bid(&share_sk, &file_name, expire_at)
         .await
         .map_err(RgbOfferErrors::IO)?;
 
@@ -537,7 +542,7 @@ pub async fn publish_swap_bid(
 
     reconcile(&mut local_copy, new_bid).map_err(|op| RgbOfferErrors::AutoMerge(op.to_string()))?;
 
-    store_swap_bids(&share_sk, &file_name, local_copy.save())
+    store_swap_bids(&share_sk, &file_name, local_copy.save(), expire_at)
         .await
         .map_err(RgbOfferErrors::IO)?;
 

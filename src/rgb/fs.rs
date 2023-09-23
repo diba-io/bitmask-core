@@ -102,8 +102,9 @@ pub async fn retrieve_public_offers() -> Result<LocalRgbOffers, RgbPersistenceEr
 pub async fn retrieve_swap_offer_bid(
     sk: &str,
     name: &str,
+    expire_at: Option<i64>,
 ) -> Result<LocalRgbOfferBid, RgbPersistenceError> {
-    let stock = retrieve_rgb_swap_offer_bid(sk, name)
+    let stock = retrieve_rgb_swap_offer_bid(sk, name, expire_at)
         .await
         .map_err(|op| RgbPersistenceError::RetrieveSwapBids(op.to_string()))?;
 
@@ -186,8 +187,9 @@ pub async fn store_swap_bids(
     sk: &str,
     name: &str,
     changes: Vec<u8>,
+    expire_at: Option<i64>,
 ) -> Result<(), RgbPersistenceError> {
-    store_swap_offer_bid(sk, name, &changes)
+    store_swap_offer_bid(sk, name, &changes, expire_at)
         .await
         .map_err(|op| RgbPersistenceError::WriteSwapBids(op.to_string()))
 }

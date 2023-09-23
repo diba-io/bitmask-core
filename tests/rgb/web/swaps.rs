@@ -253,6 +253,9 @@ async fn create_transfer_swap_flow() {
         ));
 
         info!(format!("Sender ({sender}) Create Offer"));
+        let expire_at = (chrono::Local::now() + chrono::Duration::minutes(5))
+            .naive_utc()
+            .timestamp();
         let sender_asset_desc = sender_desc.clone();
         let sender_swap_req = RgbOfferRequest {
             contract_id: issuer_resp.contract_id.clone(),
@@ -262,6 +265,7 @@ async fn create_transfer_swap_flow() {
             descriptor: SecretString(sender_asset_desc),
             change_terminal: "/20/1".to_string(),
             bitcoin_changes: vec![],
+            expire_at: Some(expire_at),
         };
         let sender_swap_req = serde_wasm_bindgen::to_value(&sender_swap_req).expect("");
 
@@ -277,7 +281,6 @@ async fn create_transfer_swap_flow() {
             descriptor: SecretString(receiver_btc_desc),
             change_terminal: "/1/0".to_string(),
             fee: PsbtFeeRequest::Value(1000),
-            seller_psbt: sender_swap_resp.seller_psbt,
         };
         let receiver_swap_req = serde_wasm_bindgen::to_value(&receiver_swap_req).expect("");
 

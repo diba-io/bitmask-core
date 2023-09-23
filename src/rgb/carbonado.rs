@@ -437,10 +437,15 @@ pub async fn store_public_offers(name: &str, changes: &[u8]) -> Result<(), Stora
 pub async fn retrieve_swap_offer_bid(
     sk: &str,
     name: &str,
+    expire_at: Option<i64>,
 ) -> Result<LocalRgbOfferBid, StorageError> {
-    let hashed_name = blake3::hash(format!("{LIB_ID_RGB}-{name}").as_bytes())
+    let mut hashed_name = blake3::hash(format!("{LIB_ID_RGB}-{name}").as_bytes())
         .to_hex()
         .to_lowercase();
+
+    if let Some(expire_at) = expire_at {
+        hashed_name = format!("{hashed_name}-{expire_at}");
+    }
 
     let main_name = &format!("{hashed_name}.c15");
     let original_name = &format!("{hashed_name}-diff.c15");
@@ -484,10 +489,15 @@ pub async fn store_swap_offer_bid(
     sk: &str,
     name: &str,
     changes: &[u8],
+    expire_at: Option<i64>,
 ) -> Result<(), StorageError> {
-    let hashed_name = blake3::hash(format!("{LIB_ID_RGB}-{name}").as_bytes())
+    let mut hashed_name = blake3::hash(format!("{LIB_ID_RGB}-{name}").as_bytes())
         .to_hex()
         .to_lowercase();
+
+    if let Some(expire_at) = expire_at {
+        hashed_name = format!("{hashed_name}-{expire_at}");
+    }
 
     let main_name = &format!("{hashed_name}.c15");
     let original_name = &format!("{hashed_name}-diff.c15");

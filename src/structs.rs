@@ -1082,6 +1082,8 @@ pub struct RgbOfferRequest {
     /// Bitcoin Change Addresses (format: {address}:{amount})
     #[garde(length(min = 0, max = 999))]
     pub bitcoin_changes: Vec<String>,
+    #[garde(skip)]
+    pub expire_at: Option<i64>,
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug, Display, Default)]

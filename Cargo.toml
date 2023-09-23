@@ -90,6 +90,7 @@ base85 = "2.0.0"
 automerge = "0.5.1"
 autosurgeon = "0.8"
 baid58 = "0.4.4"
+chrono = "0.4"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 bdk = { version = "0.28.2", features = [
@@ -126,6 +127,7 @@ tokio = { version = "1.28.2", features = ["full"] }
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3.36"
+
 
 [build-dependencies]
 anyhow = "1.0.71"
