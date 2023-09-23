@@ -12,7 +12,7 @@ use std::{
 
 use crate::rgb::structs::RgbAccount;
 
-use super::swap::RgbOffers;
+use super::swap::{PublicRgbOffers, RgbBidSwap};
 
 #[derive(Debug, Clone, Eq, PartialEq, Display, From, Error)]
 #[display(doc_comments)]
@@ -291,5 +291,12 @@ pub struct LocalCopyData {
 #[display(doc_comments)]
 pub struct LocalRgbOffers {
     pub doc: Vec<u8>,
-    pub rgb_offers: RgbOffers,
+    pub rgb_offers: PublicRgbOffers,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default, Display)]
+#[display(doc_comments)]
+pub struct LocalRgbOfferBid {
+    pub doc: Vec<u8>,
+    pub rgb_bid: RgbBidSwap,
 }

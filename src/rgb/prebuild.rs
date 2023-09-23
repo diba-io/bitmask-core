@@ -37,7 +37,7 @@ use crate::rgb::{
     resolvers::ExplorerResolver,
     structs::AddressAmount,
     structs::RgbExtractTransfer,
-    swap::{extract_transfer as extract_swap_transfer, get_public_offer, RgbBid, RgbOffer},
+    swap::{extract_transfer as extract_swap_transfer, get_public_offer, RgbBid, RgbOfferSwap},
     transfer::extract_transfer,
     wallet::sync_wallet,
     wallet::{get_address, next_utxos},
@@ -647,6 +647,7 @@ pub async fn prebuild_seller_swap(
 }
 
 pub async fn prebuild_buyer_swap(
+    sk: &str,
     request: RgbBidRequest,
     rgb_wallet: &mut RgbWallet,
     resolver: &mut ExplorerResolver,
@@ -719,7 +720,7 @@ pub async fn prebuild_buyer_swap(
         }
     }
 
-    let RgbOffer {
+    let RgbOfferSwap {
         seller_address,
         bitcoin_price,
         ..
@@ -837,6 +838,7 @@ pub async fn prebuild_buyer_swap(
 
     let bitcoin_utxos = bitcoin_inputs.clone().into_iter().map(|x| x.utxo).collect();
     let new_bid = RgbBid::new(
+        sk.to_string(),
         offer_id,
         offer.contract_id.clone(),
         asset_amount,

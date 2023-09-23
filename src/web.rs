@@ -775,7 +775,7 @@ pub mod rgb {
 
         future_to_promise(async move {
             let offer_req: RgbOfferRequest = serde_wasm_bindgen::from_value(request).unwrap();
-            match crate::rgb::create_offer_seller(&nostr_hex_sk, offer_req).await {
+            match crate::rgb::create_seller_offer(&nostr_hex_sk, offer_req).await {
                 Ok(result) => Ok(JsValue::from_string(
                     serde_json::to_string(&result).unwrap(),
                 )),
@@ -790,7 +790,7 @@ pub mod rgb {
 
         future_to_promise(async move {
             let bid_req: RgbBidRequest = serde_wasm_bindgen::from_value(request).unwrap();
-            match crate::rgb::create_offer_buyer(&nostr_hex_sk, bid_req).await {
+            match crate::rgb::create_buyer_bid(&nostr_hex_sk, bid_req).await {
                 Ok(result) => Ok(JsValue::from_string(
                     serde_json::to_string(&result).unwrap(),
                 )),

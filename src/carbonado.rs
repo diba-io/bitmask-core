@@ -6,7 +6,7 @@ use crate::{carbonado::error::CarbonadoError, constants::NETWORK, info, structs:
 pub mod error;
 
 #[cfg(not(target_arch = "wasm32"))]
-pub use server::{handle_file, public_retrieve, public_store, retrieve, retrieve_metadata, store};
+pub use server::{handle_file, retrieve, retrieve_metadata, server_retrieve, server_store, store};
 
 #[cfg(not(target_arch = "wasm32"))]
 mod server {
@@ -42,7 +42,7 @@ mod server {
         Ok(())
     }
 
-    pub async fn public_store(
+    pub async fn server_store(
         name: &str,
         input: &[u8],
         metadata: Option<Vec<u8>>,
@@ -105,7 +105,7 @@ mod server {
         Ok((Vec::new(), None))
     }
 
-    pub async fn public_retrieve(name: &str) -> Result<(Vec<u8>, Option<Vec<u8>>), CarbonadoError> {
+    pub async fn server_retrieve(name: &str) -> Result<(Vec<u8>, Option<Vec<u8>>), CarbonadoError> {
         let marketplace_key: String = get_marketplace_nostr_key().await;
 
         let sk = hex::decode(marketplace_key)?;
@@ -195,7 +195,7 @@ mod server {
 }
 
 #[cfg(target_arch = "wasm32")]
-pub use client::{public_retrieve, public_store, retrieve, retrieve_metadata, store};
+pub use client::{retrieve, retrieve_metadata, server_retrieve, server_store, store};
 
 #[cfg(target_arch = "wasm32")]
 mod client {
@@ -275,7 +275,7 @@ mod client {
         }
     }
 
-    pub async fn public_store(
+    pub async fn server_store(
         name: &str,
         input: &[u8],
         _metadata: Option<Vec<u8>>,
@@ -395,7 +395,7 @@ mod client {
         Ok((Vec::new(), None))
     }
 
-    pub async fn public_retrieve(name: &str) -> Result<(Vec<u8>, Option<Vec<u8>>), CarbonadoError> {
+    pub async fn server_retrieve(name: &str) -> Result<(Vec<u8>, Option<Vec<u8>>), CarbonadoError> {
         let network = NETWORK.read().await.to_string();
         let endpoints = CARBONADO_ENDPOINT.read().await.to_string();
         let endpoints: Vec<&str> = endpoints.split(',').collect();

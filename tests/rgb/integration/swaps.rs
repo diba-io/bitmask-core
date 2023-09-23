@@ -8,7 +8,7 @@ use bitmask_core::{
         sign_psbt_file, sync_wallet,
     },
     rgb::{
-        accept_transfer, create_offer_buyer, create_offer_seller, create_swap_transfer,
+        accept_transfer, create_buyer_bid, create_seller_offer, create_swap_transfer,
         create_watcher, get_contract, verify_transfers,
     },
     structs::{
@@ -146,14 +146,13 @@ async fn create_scriptless_swap() -> anyhow::Result<()> {
         bitcoin_changes: vec![],
     };
 
-    let seller_swap_resp = create_offer_seller(&seller_sk, seller_swap_req).await;
+    let seller_swap_resp = create_seller_offer(&seller_sk, seller_swap_req).await;
     assert!(seller_swap_resp.is_ok());
 
     // 7. Create Buyer Swap Side
     let RgbOfferResponse {
         offer_id,
         contract_amount,
-        seller_psbt,
         ..
     } = seller_swap_resp?;
 
@@ -165,10 +164,9 @@ async fn create_scriptless_swap() -> anyhow::Result<()> {
         descriptor: SecretString(buyer_btc_desc),
         change_terminal: "/1/0".to_string(),
         fee: PsbtFeeRequest::Value(1000),
-        seller_psbt,
     };
 
-    let buyer_swap_resp = create_offer_buyer(&buyer_sk, buyer_swap_req).await;
+    let buyer_swap_resp = create_buyer_bid(&buyer_sk, buyer_swap_req).await;
     assert!(buyer_swap_resp.is_ok());
 
     // 8. Sign the Buyer Side
@@ -376,14 +374,13 @@ async fn create_scriptless_swap_for_uda() -> anyhow::Result<()> {
         bitcoin_changes: vec![],
     };
 
-    let seller_swap_resp = create_offer_seller(&seller_sk, seller_swap_req).await;
+    let seller_swap_resp = create_seller_offer(&seller_sk, seller_swap_req).await;
     assert!(seller_swap_resp.is_ok());
 
     // 7. Create Buyer Swap Side
     let RgbOfferResponse {
         offer_id,
         contract_amount,
-        seller_psbt,
         ..
     } = seller_swap_resp?;
 
@@ -395,10 +392,9 @@ async fn create_scriptless_swap_for_uda() -> anyhow::Result<()> {
         descriptor: SecretString(buyer_btc_desc),
         change_terminal: "/1/0".to_string(),
         fee: PsbtFeeRequest::Value(1000),
-        seller_psbt,
     };
 
-    let buyer_swap_resp = create_offer_buyer(&buyer_sk, buyer_swap_req).await;
+    let buyer_swap_resp = create_buyer_bid(&buyer_sk, buyer_swap_req).await;
     assert!(buyer_swap_resp.is_ok());
 
     // 8. Sign the Buyer Side

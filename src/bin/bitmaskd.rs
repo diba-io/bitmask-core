@@ -16,7 +16,7 @@ use axum::{
 use bitcoin_30::secp256k1::{ecdh::SharedSecret, PublicKey, SecretKey};
 use bitmask_core::{
     bitcoin::{save_mnemonic, sign_and_publish_psbt_file},
-    carbonado::{handle_file, public_retrieve, public_store, store},
+    carbonado::{handle_file, server_retrieve, server_store, store},
     constants::{
         get_marketplace_nostr_key, get_marketplace_seed, get_network, get_udas_utxo, switch_network,
     },
@@ -495,12 +495,12 @@ async fn co_force_store(
     Ok((StatusCode::OK, TypedHeader(cc)))
 }
 
-async fn co_public_store(
+async fn co_server_store(
     Path(name): Path<String>,
     body: Bytes,
 ) -> Result<impl IntoResponse, AppError> {
     info!("POST /carbonado/public/{name}, {} bytes", body.len());
-    let (filepath, encoded) = public_store(&name, &body, None).await?;
+    let (filepath, encoded) = server_store(&name, &body, None).await?;
 
     match OpenOptions::new()
         .read(true)
@@ -597,10 +597,10 @@ async fn co_metadata(
     Ok((StatusCode::OK, Json(metadata)))
 }
 
-async fn co_public_retrieve(Path(name): Path<String>) -> Result<impl IntoResponse, AppError> {
+async fn co_server_retrieve(Path(name): Path<String>) -> Result<impl IntoResponse, AppError> {
     info!("GET /public/{name}");
 
-    let result = public_retrieve(&name).await;
+    let result = server_retrieve(&name).await;
     let cc = CacheControl::new().with_no_cache();
 
     match result {
@@ -691,8 +691,8 @@ async fn main() -> Result<()> {
         .route("/transfers/", delete(remove_transfer))
         .route("/key/:pk", get(key))
         .route("/carbonado/status", get(status))
-        .route("/carbonado/public/:name", get(co_public_retrieve))
-        .route("/carbonado/public/:name", post(co_public_store))
+        .route("/carbonado/public/:name", get(co_server_retrieve))
+        .route("/carbonado/public/:name", post(co_server_store))
         .route("/carbonado/:pk/:name", get(co_retrieve))
         .route("/carbonado/:pk/:name", post(co_store))
         .route("/carbonado/:pk/:name/force", post(co_force_store))

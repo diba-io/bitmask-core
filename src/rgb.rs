@@ -62,14 +62,14 @@ use crate::{
         ImportRequest, InterfaceDetail, InterfacesResponse, InvoiceRequest, InvoiceResponse,
         IssueMetaRequest, IssueMetadata, IssueRequest, IssueResponse, NewCollectible,
         NextAddressResponse, NextUtxoResponse, NextUtxosResponse, PsbtFeeRequest, PsbtRequest,
-        PsbtResponse, ReIssueRequest, ReIssueResponse, RgbBidDetail, RgbBidRequest, RgbBidResponse,
+        PsbtResponse, PublicRgbBidResponse, PublicRgbOfferResponse, PublicRgbOffersResponse,
+        ReIssueRequest, ReIssueResponse, RgbBidDetail, RgbBidRequest, RgbBidResponse,
         RgbBidsResponse, RgbInvoiceResponse, RgbOfferBidsResponse, RgbOfferDetail, RgbOfferRequest,
-        RgbOfferResponse, RgbOffersResponse, RgbPublicOfferDetail, RgbPublicOfferResponse,
-        RgbRemoveTransferRequest, RgbSaveTransferRequest, RgbSwapRequest, RgbSwapResponse,
-        RgbTransferDetail, RgbTransferInternalParams, RgbTransferRequest, RgbTransferResponse,
-        RgbTransferStatusResponse, RgbTransfersResponse, SchemaDetail, SchemasResponse,
-        TransferType, TxStatus, UDADetail, UtxoResponse, WatcherDetailResponse, WatcherRequest,
-        WatcherResponse, WatcherUtxoResponse,
+        RgbOfferResponse, RgbOffersResponse, RgbRemoveTransferRequest, RgbSaveTransferRequest,
+        RgbSwapRequest, RgbSwapResponse, RgbTransferDetail, RgbTransferInternalParams,
+        RgbTransferRequest, RgbTransferResponse, RgbTransferStatusResponse, RgbTransfersResponse,
+        SchemaDetail, SchemasResponse, TransferType, TxStatus, UDADetail, UtxoResponse,
+        WatcherDetailResponse, WatcherRequest, WatcherResponse, WatcherUtxoResponse,
     },
     validators::RGBContext,
 };
@@ -100,9 +100,10 @@ use self::{
     psbt::{save_commit, set_tapret_position, CreatePsbtError, EstimateFeeError},
     structs::{RgbAccount, RgbExtractTransfer, RgbTransfer, RgbTransfers},
     swap::{
-        get_public_bid, get_public_offer, mark_bid_fill, mark_offer_fill, mark_transfer_bid,
-        mark_transfer_offer, publish_bid, publish_offer, remove_offers, PsbtSwapEx, RgbBid,
-        RgbOffer, RgbOfferErrors, TransferSwap, TransferSwapError,
+        get_public_offer, get_swap_bid, mark_bid_fill, mark_offer_fill, mark_transfer_bid,
+        mark_transfer_offer, publish_public_bid, publish_public_offer, publish_swap_bid,
+        remove_public_offers, PsbtSwapEx, RgbBid, RgbBidSwap, RgbOffer, RgbOfferErrors,
+        RgbOfferSwap, TransferSwap, TransferSwapError,
     },
     transfer::{AcceptTransferError, NewInvoiceError, NewPaymentError},
     wallet::{
@@ -881,7 +882,7 @@ pub enum RgbSwapError {
     WrongPsbtSwap(String),
 }
 
-pub async fn create_offer_seller(
+pub async fn create_seller_offer(
     sk: &str,
     request: RgbOfferRequest,
 ) -> Result<RgbOfferResponse, RgbSwapError> {
@@ -903,9 +904,8 @@ pub async fn create_offer_seller(
         ..Default::default()
     };
 
-    let (mut stock, mut rgb_account, rgb_transfers) = retrieve_stock_account_transfers(sk)
-        .await
-        .map_err(RgbSwapError::IO)?;
+    let (mut stock, mut rgb_account) =
+        retrieve_stock_account(sk).await.map_err(RgbSwapError::IO)?;
 
     let mut rgb_wallet = match rgb_account.wallets.get(RGB_DEFAULT_NAME) {
         Some(rgb_wallet) => rgb_wallet.to_owned(),
@@ -960,6 +960,7 @@ pub async fn create_offer_seller(
         .address;
 
     let new_offer = RgbOffer::new(
+        sk.to_string(),
         contract_id.clone(),
         iface.clone(),
         allocations,
@@ -988,18 +989,19 @@ pub async fn create_offer_seller(
         .await
         .map_err(RgbSwapError::IO)?;
 
-    store_stock_account_transfers(sk, stock, rgb_account, rgb_transfers)
+    store_stock_account(sk, stock, rgb_account)
         .await
         .map_err(RgbSwapError::IO)?;
 
-    publish_offer(new_offer)
+    let public_offer = RgbOfferSwap::from(new_offer);
+    publish_public_offer(public_offer)
         .await
         .map_err(RgbSwapError::Marketplace)?;
 
     Ok(resp)
 }
 
-pub async fn create_offer_buyer(
+pub async fn create_buyer_bid(
     sk: &str,
     request: RgbBidRequest,
 ) -> Result<RgbBidResponse, RgbSwapError> {
@@ -1017,9 +1019,8 @@ pub async fn create_offer_buyer(
         ..Default::default()
     };
 
-    let (mut stock, mut rgb_account, rgb_transfers) = retrieve_stock_account_transfers(sk)
-        .await
-        .map_err(RgbSwapError::IO)?;
+    let (mut stock, mut rgb_account) =
+        retrieve_stock_account(sk).await.map_err(RgbSwapError::IO)?;
 
     let mut rgb_wallet = match rgb_account.wallets.get(RGB_DEFAULT_NAME) {
         Some(rgb_wallet) => rgb_wallet.to_owned(),
@@ -1037,7 +1038,7 @@ pub async fn create_offer_buyer(
         .map_err(RgbSwapError::Buyer)?;
 
     let (mut new_bid, bitcoin_inputs, bitcoin_changes, fee_value) =
-        prebuild_buyer_swap(request, &mut rgb_wallet, &mut resolver).await?;
+        prebuild_buyer_swap(sk, request, &mut rgb_wallet, &mut resolver).await?;
 
     let buyer_outpoint = watcher_next_utxo(sk, "default", &offer.iface.to_uppercase())
         .await
@@ -1097,7 +1098,11 @@ pub async fn create_offer_buyer(
     let swap_psbt = Psbt::from(swap_psbt);
     let swap_psbt = Serialize::serialize(&swap_psbt).to_hex();
 
-    let RgbOffer { iface, .. } = offer.clone();
+    let RgbOfferSwap {
+        iface,
+        public: offer_pub,
+        ..
+    } = offer.clone();
     let RgbBid {
         bid_id,
         offer_id,
@@ -1129,11 +1134,16 @@ pub async fn create_offer_buyer(
 
     store_bids(sk, my_bids).await.map_err(RgbSwapError::IO)?;
 
-    store_stock_account_transfers(sk, stock, rgb_account, rgb_transfers)
+    store_stock_account(sk, stock, rgb_account)
         .await
         .map_err(RgbSwapError::IO)?;
 
-    publish_bid(new_bid)
+    let public_bid = RgbBidSwap::from(new_bid);
+    publish_swap_bid(sk, &offer_pub, public_bid.clone())
+        .await
+        .map_err(RgbSwapError::Marketplace)?;
+
+    publish_public_bid(public_bid)
         .await
         .map_err(RgbSwapError::Marketplace)?;
 
@@ -1153,11 +1163,6 @@ pub async fn create_swap_transfer(
         return Err(RgbSwapError::Validation(errors));
     }
 
-    let _resolver = ExplorerResolver {
-        explorer_url: BITCOIN_EXPLORER_API.read().await.to_string(),
-        ..Default::default()
-    };
-
     let (mut stock, mut rgb_account, mut rgb_transfers) = retrieve_stock_account_transfers(sk)
         .await
         .map_err(RgbSwapError::IO)?;
@@ -1169,11 +1174,11 @@ pub async fn create_swap_transfer(
         ..
     } = request.clone();
 
-    let RgbOffer { iface, .. } = get_public_offer(offer_id.clone())
+    let RgbOfferSwap { iface, .. } = get_public_offer(offer_id.clone())
         .await
         .map_err(RgbSwapError::Swap)?;
 
-    let RgbBid { buyer_invoice, .. } = get_public_bid(offer_id.clone(), bid_id.clone())
+    let RgbBidSwap { buyer_invoice, .. } = get_swap_bid(sk, offer_id.clone(), bid_id.clone())
         .await
         .map_err(RgbSwapError::Swap)?;
 
@@ -1458,7 +1463,7 @@ pub async fn verify_transfers(sk: &str) -> Result<BatchRgbTransferResponse, Tran
     }
 
     if !my_public_offers.is_empty() {
-        remove_offers(my_public_offers)
+        remove_public_offers(my_public_offers)
             .await
             .map_err(TransferError::WrongSwap)?;
     }
@@ -1792,17 +1797,30 @@ pub async fn list_my_bids(sk: &str) -> Result<RgbBidsResponse> {
     Ok(RgbBidsResponse { bids })
 }
 
-pub async fn list_public_offers(_sk: &str) -> Result<RgbPublicOfferResponse> {
+pub async fn list_public_offers(_sk: &str) -> Result<PublicRgbOffersResponse> {
     let rgb_public_offers = retrieve_public_offers().await?;
 
     let mut offers = vec![];
+    let mut bids = BTreeMap::new();
     rgb_public_offers
         .rgb_offers
         .offers
         .into_iter()
-        .for_each(|(_, offs)| offers.extend(offs.into_iter().map(RgbPublicOfferDetail::from)));
+        .for_each(|(_, offs)| offers.extend(offs.into_iter().map(PublicRgbOfferResponse::from)));
 
-    Ok(RgbPublicOfferResponse { offers })
+    rgb_public_offers
+        .rgb_offers
+        .bids
+        .into_iter()
+        .for_each(|(offer_id, bs)| {
+            let bs = bs
+                .values()
+                .map(|x| PublicRgbBidResponse::from(x.to_owned()))
+                .collect();
+            bids.insert(offer_id, bs);
+        });
+
+    Ok(PublicRgbOffersResponse { offers, bids })
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Display, From, Error)]

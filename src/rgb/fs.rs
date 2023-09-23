@@ -1,6 +1,7 @@
 use rgbstd::persistence::Stock;
 
-use super::crdt::LocalRgbOffers;
+use super::carbonado::store_swap_offer_bid;
+use super::crdt::{LocalRgbOfferBid, LocalRgbOffers};
 use super::swap::{RgbBids, RgbOffers};
 use crate::constants::storage_keys::{
     ASSETS_BIDS, ASSETS_OFFERS, ASSETS_STOCK, ASSETS_TRANSFERS, ASSETS_WALLETS, MARKETPLACE_OFFERS,
@@ -11,6 +12,7 @@ use crate::rgb::{
         retrieve_bids as retrieve_rgb_bids, retrieve_fork_wallets,
         retrieve_offers as retrieve_rgb_offers,
         retrieve_public_offers as retrieve_rgb_public_offers, retrieve_stock as retrieve_rgb_stock,
+        retrieve_swap_offer_bid as retrieve_rgb_swap_offer_bid,
         retrieve_transfers as retrieve_rgb_transfers, retrieve_wallets,
         store_bids as store_rgb_bids, store_fork_wallets, store_offers as store_rgb_offers,
         store_public_offers as store_rgb_public_offers, store_stock as store_rgb_stock,
@@ -33,10 +35,12 @@ pub enum RgbPersistenceError {
     RetrieveRgbTransfers(String),
     // Retrieve Offers Error. {0}
     RetrieveRgbOffers(String),
-    // Retrieve Public Offers Error. {0}
-    RetrievePublicOffers(String),
     // Retrieve Bids Error. {0}
     RetrieveRgbBids(String),
+    // Retrieve Swap Bid Error. {0}
+    RetrieveSwapBids(String),
+    // Retrieve Public Offers Error. {0}
+    RetrievePublicOffers(String),
     // Store Stock Error. {0}
     WriteStock(String),
     // Store RgbAccount Error. {0}
@@ -45,8 +49,14 @@ pub enum RgbPersistenceError {
     WriteRgbAccountFork(String),
     // Store Transfers Error. {0}
     WriteRgbTransfers(String),
-    // Store Offers (Fork) Error. {0}
-    WriteRgbOffersFork(String),
+    // Store Offers Error. {0}
+    WriteRgbOffers(String),
+    // Store Bids Error. {0}
+    WriteRgbBids(String),
+    // Store Public Offers Error. {0}
+    WriteRgbPublicOffers(String),
+    // Store Swap Bid Error. {0}
+    WriteSwapBids(String),
 }
 
 pub async fn retrieve_stock(sk: &str) -> Result<Stock, RgbPersistenceError> {
@@ -85,6 +95,17 @@ pub async fn retrieve_public_offers() -> Result<LocalRgbOffers, RgbPersistenceEr
     let stock = retrieve_rgb_public_offers(MARKETPLACE_OFFERS)
         .await
         .map_err(|op| RgbPersistenceError::RetrievePublicOffers(op.to_string()))?;
+
+    Ok(stock)
+}
+
+pub async fn retrieve_swap_offer_bid(
+    sk: &str,
+    name: &str,
+) -> Result<LocalRgbOfferBid, RgbPersistenceError> {
+    let stock = retrieve_rgb_swap_offer_bid(sk, name)
+        .await
+        .map_err(|op| RgbPersistenceError::RetrieveSwapBids(op.to_string()))?;
 
     Ok(stock)
 }
@@ -152,19 +173,29 @@ pub async fn store_local_account(sk: &str, changes: Vec<u8>) -> Result<(), RgbPe
 pub async fn store_offers(sk: &str, rgb_offers: RgbOffers) -> Result<(), RgbPersistenceError> {
     store_rgb_offers(sk, ASSETS_OFFERS, &rgb_offers)
         .await
-        .map_err(|op| RgbPersistenceError::WriteStock(op.to_string()))
+        .map_err(|op| RgbPersistenceError::WriteRgbOffers(op.to_string()))
 }
 
 pub async fn store_bids(sk: &str, rgb_bids: RgbBids) -> Result<(), RgbPersistenceError> {
     store_rgb_bids(sk, ASSETS_BIDS, &rgb_bids)
         .await
-        .map_err(|op| RgbPersistenceError::WriteStock(op.to_string()))
+        .map_err(|op| RgbPersistenceError::WriteRgbBids(op.to_string()))
+}
+
+pub async fn store_swap_bids(
+    sk: &str,
+    name: &str,
+    changes: Vec<u8>,
+) -> Result<(), RgbPersistenceError> {
+    store_swap_offer_bid(sk, name, &changes)
+        .await
+        .map_err(|op| RgbPersistenceError::WriteSwapBids(op.to_string()))
 }
 
 pub async fn store_public_offers(changes: Vec<u8>) -> Result<(), RgbPersistenceError> {
     store_rgb_public_offers(MARKETPLACE_OFFERS, &changes)
         .await
-        .map_err(|op| RgbPersistenceError::WriteRgbOffersFork(op.to_string()))
+        .map_err(|op| RgbPersistenceError::WriteRgbPublicOffers(op.to_string()))
 }
 
 pub async fn store_stock_account(

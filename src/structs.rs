@@ -10,7 +10,7 @@ pub use bitcoin::{util::address::Address, Txid};
 use rgbstd::interface::rgb21::Allocation as AllocationUDA;
 
 use crate::{
-    rgb::swap::{RgbBid, RgbOffer},
+    rgb::swap::{PublicRgbBid, RgbBid, RgbOffer, RgbOfferSwap},
     validators::{
         verify_descriptor, verify_media_types, verify_rgb_invoice, verify_tapret_seal,
         verify_terminal_path, RGBContext,
@@ -1123,9 +1123,6 @@ pub struct RgbBidRequest {
     /// Bitcoin Fee
     #[garde(dive)]
     pub fee: PsbtFeeRequest,
-    /// PSBT Seller Side (base64)
-    #[garde(ascii)]
-    pub seller_psbt: String,
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug, Display, Default)]
@@ -1177,32 +1174,70 @@ pub struct RgbSwapResponse {
 #[derive(Clone, Serialize, Deserialize, Debug, Display, Default)]
 #[serde(rename_all = "camelCase")]
 #[display("{offers:?}")]
-pub struct RgbPublicOfferResponse {
-    /// Offers
-    pub offers: Vec<RgbPublicOfferDetail>,
+pub struct PublicRgbOffersResponse {
+    /// Public Offers
+    pub offers: Vec<PublicRgbOfferResponse>,
+
+    /// Public Bids
+    pub bids: BTreeMap<String, Vec<PublicRgbBidResponse>>,
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug, Display, Default)]
 #[serde(rename_all = "camelCase")]
 #[display("{offer_id} ~ {contract_id}:{asset_amount} = {bitcoin_price}")]
-pub struct RgbPublicOfferDetail {
+pub struct PublicRgbOfferResponse {
     /// Offer ID
     offer_id: String,
     /// Contract ID
     contract_id: String,
+    /// Offer PubKey
+    offer_pub: String,
+    /// Asset/Contract Amount
+    asset_amount: u64,
+    /// Bitcoin Price
+    bitcoin_price: u64,
+    /// Initial Offer PSBT
+    offer_psbt: String,
+}
+
+impl From<RgbOfferSwap> for PublicRgbOfferResponse {
+    fn from(value: RgbOfferSwap) -> Self {
+        Self {
+            contract_id: value.contract_id,
+            offer_id: value.offer_id,
+            asset_amount: value.asset_amount,
+            bitcoin_price: value.bitcoin_price,
+            offer_pub: value.public,
+            offer_psbt: value.seller_psbt,
+        }
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug, Display, Default)]
+#[serde(rename_all = "camelCase")]
+#[display("{bid_id}:{asset_amount} = {bitcoin_price}")]
+pub struct PublicRgbBidResponse {
+    /// Bid ID
+    bid_id: String,
     /// Asset/Contract Amount
     asset_amount: u64,
     /// Bitcoin Price
     bitcoin_price: u64,
 }
 
-impl From<RgbOffer> for RgbPublicOfferDetail {
-    fn from(value: RgbOffer) -> Self {
+impl From<PublicRgbBid> for PublicRgbBidResponse {
+    fn from(value: PublicRgbBid) -> Self {
+        let PublicRgbBid {
+            bid_id,
+            asset_amount,
+            bitcoin_amount,
+            ..
+        } = value;
+
         Self {
-            contract_id: value.contract_id,
-            offer_id: value.offer_id,
-            asset_amount: value.asset_amount,
-            bitcoin_price: value.bitcoin_price,
+            bid_id,
+            asset_amount,
+            bitcoin_price: bitcoin_amount,
         }
     }
 }
@@ -1234,10 +1269,15 @@ pub struct RgbBidsResponse {
 #[serde(rename_all = "camelCase")]
 #[display("{offer_id} ~ {contract_id}:{asset_amount} = {bitcoin_price}")]
 pub struct RgbOfferDetail {
+    /// Contract ID
     contract_id: String,
+    /// Offer ID
     offer_id: String,
-    status: String,
+    /// Offer Status
+    offer_status: String,
+    /// Asset/Contract Amount
     asset_amount: u64,
+    /// Bitcoin Price
     bitcoin_price: u64,
 }
 
@@ -1246,7 +1286,7 @@ impl From<RgbOffer> for RgbOfferDetail {
         Self {
             contract_id: value.contract_id,
             offer_id: value.offer_id,
-            status: value.offer_status.to_string(),
+            offer_status: value.offer_status.to_string(),
             asset_amount: value.asset_amount,
             bitcoin_price: value.bitcoin_price,
         }
@@ -1257,11 +1297,17 @@ impl From<RgbOffer> for RgbOfferDetail {
 #[serde(rename_all = "camelCase")]
 #[display("{bid_id} ~ {contract_id}:{asset_amount} = {bitcoin_price}")]
 pub struct RgbBidDetail {
+    /// Contract ID
     contract_id: String,
+    /// Bid ID
     bid_id: String,
+    /// Offer ID
     offer_id: String,
-    status: String,
+    /// Offer Status
+    bid_status: String,
+    /// Asset/Contract Amount
     asset_amount: u64,
+    /// Bitcoin Price (in satoshis)
     bitcoin_price: u64,
 }
 
@@ -1270,10 +1316,10 @@ impl From<RgbBid> for RgbBidDetail {
         Self {
             contract_id: value.contract_id,
             offer_id: value.offer_id,
-            status: value.bid_status.to_string(),
+            bid_id: value.bid_id,
+            bid_status: value.bid_status.to_string(),
             asset_amount: value.asset_amount,
             bitcoin_price: value.bitcoin_amount,
-            bid_id: value.bid_id,
         }
     }
 }
