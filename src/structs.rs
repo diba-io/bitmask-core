@@ -1177,7 +1177,7 @@ pub struct RgbSwapResponse {
 #[derive(Clone, Serialize, Deserialize, Debug, Display, Default)]
 #[serde(rename_all = "camelCase")]
 #[display("{offers:?}")]
-pub struct RgbPublicOfferReponse {
+pub struct RgbPublicOfferResponse {
     /// Offers
     pub offers: Vec<RgbPublicOfferDetail>,
 }
@@ -1209,7 +1209,7 @@ impl From<RgbOffer> for RgbPublicOfferDetail {
 
 #[derive(Clone, Serialize, Deserialize, Debug, Default)]
 #[serde(rename_all = "camelCase")]
-pub struct RgbOfferBidsReponse {
+pub struct RgbOfferBidsResponse {
     /// Offers
     pub offers: Vec<RgbOfferDetail>,
     /// bids
@@ -1218,14 +1218,14 @@ pub struct RgbOfferBidsReponse {
 
 #[derive(Clone, Serialize, Deserialize, Debug, Default)]
 #[serde(rename_all = "camelCase")]
-pub struct RgbOffersReponse {
+pub struct RgbOffersResponse {
     /// Offers
     pub offers: Vec<RgbOfferDetail>,
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug, Default)]
 #[serde(rename_all = "camelCase")]
-pub struct RgbBidsReponse {
+pub struct RgbBidsResponse {
     /// Bids
     pub bids: Vec<RgbBidDetail>,
 }
