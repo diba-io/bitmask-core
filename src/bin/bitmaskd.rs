@@ -21,18 +21,20 @@ use bitmask_core::{
         get_marketplace_nostr_key, get_marketplace_seed, get_network, get_udas_utxo, switch_network,
     },
     rgb::{
-        accept_transfer, clear_watcher as rgb_clear_watcher, create_invoice, create_psbt,
-        create_watcher, full_transfer_asset, import as rgb_import, issue_contract, list_contracts,
-        list_interfaces, list_schemas, list_transfers as list_rgb_transfers, reissue_contract,
+        accept_transfer, clear_watcher as rgb_clear_watcher, create_buyer_bid, create_invoice,
+        create_psbt, create_seller_offer, create_swap_transfer, create_watcher,
+        full_transfer_asset, import as rgb_import, issue_contract, list_contracts, list_interfaces,
+        list_schemas, list_transfers as list_rgb_transfers, reissue_contract,
         remove_transfer as remove_rgb_transfer, save_transfer as save_rgb_transfer, transfer_asset,
         watcher_address, watcher_details as rgb_watcher_details, watcher_next_address,
         watcher_next_utxo, watcher_utxo,
     },
     structs::{
         AcceptRequest, FileMetadata, FullRgbTransferRequest, ImportRequest, InvoiceRequest,
-        IssueRequest, PsbtFeeRequest, PsbtRequest, ReIssueRequest, RgbRemoveTransferRequest,
-        RgbSaveTransferRequest, RgbTransferRequest, SecretString, SelfFullRgbTransferRequest,
-        SelfInvoiceRequest, SelfIssueRequest, SignPsbtRequest, WatcherRequest,
+        IssueRequest, PsbtFeeRequest, PsbtRequest, ReIssueRequest, RgbBidRequest, RgbOfferRequest,
+        RgbRemoveTransferRequest, RgbSaveTransferRequest, RgbSwapRequest, RgbTransferRequest,
+        SecretString, SelfFullRgbTransferRequest, SelfInvoiceRequest, SelfIssueRequest,
+        SignPsbtRequest, WatcherRequest,
     },
 };
 use log::{debug, error, info};
@@ -220,6 +222,55 @@ async fn self_accept(Json(accept_req): Json<AcceptRequest>) -> Result<impl IntoR
     let transfer_res = accept_transfer(nostr_hex_sk, accept_req).await?;
 
     Ok((StatusCode::OK, Json(transfer_res)))
+}
+
+async fn swap_offer(
+    Json(swap_offer_req): Json<RgbOfferRequest>,
+) -> Result<impl IntoResponse, AppError> {
+    info!("POST /swap_offer {swap_offer_req:?}");
+
+    let issuer_keys = save_mnemonic(
+        &SecretString(get_marketplace_seed().await),
+        &SecretString("".to_string()),
+    )
+    .await?;
+
+    let nostr_hex_sk = issuer_keys.private.nostr_prv.as_ref();
+    let swap_offer_res = create_seller_offer(nostr_hex_sk, swap_offer_req).await?;
+
+    Ok((StatusCode::OK, Json(swap_offer_res)))
+}
+
+async fn swap_bid(Json(swap_bid_req): Json<RgbBidRequest>) -> Result<impl IntoResponse, AppError> {
+    info!("POST /swap_bid {swap_bid_req:?}");
+
+    let issuer_keys = save_mnemonic(
+        &SecretString(get_marketplace_seed().await),
+        &SecretString("".to_string()),
+    )
+    .await?;
+
+    let nostr_hex_sk = issuer_keys.private.nostr_prv.as_ref();
+    let swap_bid_res = create_buyer_bid(nostr_hex_sk, swap_bid_req).await?;
+
+    Ok((StatusCode::OK, Json(swap_bid_res)))
+}
+
+async fn swap_transfer(
+    Json(swap_transfer_req): Json<RgbSwapRequest>,
+) -> Result<impl IntoResponse, AppError> {
+    info!("POST /swap_transfer {swap_transfer_req:?}");
+
+    let issuer_keys = save_mnemonic(
+        &SecretString(get_marketplace_seed().await),
+        &SecretString("".to_string()),
+    )
+    .await?;
+
+    let nostr_hex_sk = issuer_keys.private.nostr_prv.as_ref();
+    let swap_transfer_res = create_swap_transfer(nostr_hex_sk, swap_transfer_req).await?;
+
+    Ok((StatusCode::OK, Json(swap_transfer_res)))
 }
 
 async fn contracts(
@@ -671,6 +722,9 @@ async fn main() -> Result<()> {
         .route("/selfpay", post(self_pay))
         .route("/accept", post(accept))
         .route("/selfaccept", post(self_accept))
+        .route("/swap_offer", get(swap_offer))
+        .route("/swap_bid", get(swap_bid))
+        .route("/swap_transfer", get(swap_transfer))
         .route("/contracts", get(contracts))
         .route("/contract/:id", get(contract_detail))
         .route("/interfaces", get(interfaces))
