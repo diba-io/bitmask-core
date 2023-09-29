@@ -105,8 +105,8 @@ impl RgbOffer {
         expire_at: Option<i64>,
     ) -> Self {
         let secp = Secp256k1::new();
-        let secret = hex::decode(secret).expect("");
-        let secret_key = SecretKey::from_slice(&secret).expect("");
+        let secret = hex::decode(secret).expect("cannot decode hex sk in new RgbOffer");
+        let secret_key = SecretKey::from_slice(&secret).expect("error parsing sk in new RgbOffer");
         let public_key = PublicKey::from_secret_key(&secp, &secret_key);
 
         let asset_amount = allocations
@@ -238,8 +238,8 @@ impl RgbBid {
         bitcoin_utxos: Vec<String>,
     ) -> Self {
         let secp = Secp256k1::new();
-        let secret = hex::decode(secret).expect("");
-        let secret_key = SecretKey::from_slice(&secret).expect("");
+        let secret = hex::decode(secret).expect("cannot decode hex sk in new RgbBid");
+        let secret_key = SecretKey::from_slice(&secret).expect("error parsing sk in new RgbBid");
         let public_key = PublicKey::from_secret_key(&secp, &secret_key);
 
         let mut allocations = bitcoin_utxos;

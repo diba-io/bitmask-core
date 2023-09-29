@@ -1305,7 +1305,7 @@ pub struct RgbBidDetail {
     bid_id: String,
     /// Offer ID
     offer_id: String,
-    /// Offer Status
+    /// Bid Status
     bid_status: String,
     /// Asset/Contract Amount
     asset_amount: u64,

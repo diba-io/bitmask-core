@@ -287,7 +287,7 @@ mod client {
         let requests = Array::new();
 
         for endpoint in endpoints {
-            let url = format!("{endpoint}/public/{network}-{name}");
+            let url = format!("{endpoint}/server/{network}-{name}");
             let fetch_fn = future_to_promise(fetch_post(url, body.clone()));
             requests.push(&fetch_fn);
         }
@@ -402,7 +402,7 @@ mod client {
 
         let requests = Array::new();
         for endpoint in endpoints.iter() {
-            let url = format!("{endpoint}/public/{network}-{name}");
+            let url = format!("{endpoint}/server/{network}-{name}");
             let fetch_fn = future_to_promise(fetch_get_byte_array(url));
             requests.push(&fetch_fn);
         }
