@@ -51,8 +51,29 @@ pub static BITCOIN_ELECTRUM_API: Lazy<RwLock<String>> =
 pub static MARKETPLACE_SEED: Lazy<RwLock<String>> =
     Lazy::new(|| RwLock::new(dot_env("MARKETPLACE_SEED")));
 
+pub static MARKETPLACE_NOSTR: Lazy<RwLock<String>> =
+    Lazy::new(|| RwLock::new(dot_env("MARKETPLACE_NOSTR")));
+
+pub static MARKETPLACE_FEE_PERC: Lazy<RwLock<String>> =
+    Lazy::new(|| RwLock::new(dot_env("MARKETPLACE_FEE_PERC")));
+
+pub static MARKETPLACE_FEE_XPUB: Lazy<RwLock<String>> =
+    Lazy::new(|| RwLock::new(dot_env("MARKETPLACE_FEE_XPUB")));
+
 pub async fn get_marketplace_seed() -> String {
     MARKETPLACE_SEED.read().await.to_string()
+}
+
+pub async fn get_marketplace_nostr_key() -> String {
+    MARKETPLACE_NOSTR.read().await.to_string()
+}
+
+pub async fn get_marketplace_fee_percentage() -> String {
+    MARKETPLACE_FEE_PERC.read().await.to_string()
+}
+
+pub async fn get_marketplace_fee_xpub() -> String {
+    MARKETPLACE_FEE_XPUB.read().await.to_string()
 }
 
 pub static UDAS_UTXO: Lazy<RwLock<String>> = Lazy::new(|| RwLock::new(dot_env("UDAS_UTXO")));
@@ -192,4 +213,8 @@ pub mod storage_keys {
     pub const ASSETS_STOCK: &str = "bitmask-fungible_assets_stock.c15";
     pub const ASSETS_WALLETS: &str = "bitmask-fungible_assets_wallets.c15";
     pub const ASSETS_TRANSFERS: &str = "bitmask_assets_transfers.c15";
+    pub const ASSETS_OFFERS: &str = "bitmask-asset_offers.c15";
+    pub const ASSETS_BIDS: &str = "bitmask-asset_bids.c15";
+    pub const MARKETPLACE_OFFERS: &str = "bitmask-marketplace_public_offers.c15";
+    pub const MARKETPLACE_BIDS: &str = "bitmask-marketplace_public_bids.c15";
 }

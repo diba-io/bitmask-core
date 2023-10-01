@@ -21,6 +21,8 @@ use rgbwallet::{InventoryWallet, InvoiceParseError, RgbInvoice, RgbTransport};
 use seals::txout::ExplicitSeal;
 use strict_encoding::{StrictDeserialize, TypeName};
 
+use crate::rgb::prebuild::prebuild_extract_transfer;
+
 #[derive(Clone, Eq, PartialEq, Debug, Display, Error, From)]
 #[display(doc_comments)]
 pub enum NewInvoiceError {
@@ -191,12 +193,10 @@ where
     T: ResolveHeight + ResolveTx,
     T::Error: 'static,
 {
-    let serialized = Vec::<u8>::from_hex(&transfer).map_err(|_| AcceptTransferError::WrongHex)?;
-    let confined = Confined::try_from_iter(serialized.iter().copied())
-        .map_err(|err| AcceptTransferError::WrongConsig(err.to_string()))?;
-    let transfer = Transfer::from_strict_serialized::<{ U32 }>(confined)
-        .map_err(|err| AcceptTransferError::WrongConsig(err.to_string()))?;
+    let transfer_extracted = prebuild_extract_transfer(&transfer)
+        .map_err(|op| AcceptTransferError::WrongConsig(op.to_string()))?;
 
+    let transfer = transfer_extracted.transfer.unbindle();
     let consig = transfer.validate(resolver).map_err(|err| {
         if let Some(status) = err.into_validation_status() {
             let mut messages = vec![];
@@ -219,6 +219,7 @@ pub fn extract_transfer(transfer: String) -> Result<(Txid, Bindle<Transfer>), Ac
     let serialized = Vec::<u8>::from_hex(&transfer).map_err(|_| AcceptTransferError::WrongHex)?;
     let confined = Confined::try_from_iter(serialized.iter().copied())
         .map_err(|err| AcceptTransferError::WrongConsig(err.to_string()))?;
+
     let transfer = Transfer::from_strict_serialized::<{ U32 }>(confined)
         .map_err(|err| AcceptTransferError::WrongConsig(err.to_string()))?;
 

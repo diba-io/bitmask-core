@@ -9,9 +9,12 @@ pub use bdk::{Balance, BlockTime, TransactionDetails};
 pub use bitcoin::{util::address::Address, Txid};
 use rgbstd::interface::rgb21::Allocation as AllocationUDA;
 
-use crate::validators::{
-    verify_descriptor, verify_media_types, verify_rgb_invoice, verify_tapret_seal,
-    verify_terminal_path, RGBContext,
+use crate::{
+    rgb::swap::{PublicRgbBid, RgbBid, RgbOffer, RgbOfferSwap},
+    validators::{
+        verify_descriptor, verify_media_types, verify_rgb_invoice, verify_tapret_seal,
+        verify_terminal_path, RGBContext,
+    },
 };
 
 #[derive(Serialize, Deserialize)]
@@ -313,7 +316,7 @@ pub struct ReIssueResponse {
     pub contracts: Vec<IssueResponse>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Eq, PartialEq, Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub enum AssetType {
     #[serde(rename = "bitcoin")]
@@ -565,11 +568,27 @@ pub struct SignPsbtRequest {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct SignPsbtResponse {
+pub struct SignedPsbtResponse {
+    /// PSBT is signed?
+    pub sign: bool,
+    /// PSBT signed
+    pub psbt: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PublishedPsbtResponse {
     /// PSBT is signed?
     pub sign: bool,
     /// Transaction id
     pub txid: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct RgbTransferInternalParams {
+    pub offer_id: Option<String>,
+    pub bid_id: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -1023,6 +1042,7 @@ pub struct BatchRgbTransferItem {
     pub iface: String,
     pub status: TxStatus,
     pub is_accept: bool,
+    pub is_mine: bool,
 }
 
 #[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize, Debug, Display)]
@@ -1032,4 +1052,276 @@ pub struct UtxoSpentStatus {
     pub is_spent: bool,
     pub block_height: TxStatus,
     pub spent_height: TxStatus,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug, Display, Default, Validate)]
+#[garde(context(RGBContext))]
+#[serde(rename_all = "camelCase")]
+#[display("{contract_id}:{contract_amount} ** {change_terminal}")]
+pub struct RgbOfferRequest {
+    /// The Contract ID
+    #[garde(ascii)]
+    #[garde(length(min = 0, max = 100))]
+    pub contract_id: String,
+    /// The Contract Interface
+    #[garde(ascii)]
+    #[garde(length(min = 0, max = 32))]
+    pub iface: String,
+    /// Contract Amount
+    #[garde(range(min = u64::MIN, max = u64::MAX))]
+    pub contract_amount: u64,
+    /// Bitcoin Price (in sats)
+    #[garde(range(min = u64::MIN, max = u64::MAX))]
+    pub bitcoin_price: u64,
+    /// Universal Descriptor
+    #[garde(custom(verify_descriptor))]
+    pub descriptor: SecretString,
+    /// Asset Terminal Change
+    #[garde(ascii)]
+    pub change_terminal: String,
+    /// Bitcoin Change Addresses (format: {address}:{amount})
+    #[garde(length(min = 0, max = 999))]
+    pub bitcoin_changes: Vec<String>,
+    #[garde(skip)]
+    pub expire_at: Option<i64>,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug, Display, Default)]
+#[serde(rename_all = "camelCase")]
+#[display("{offer_id}:{contract_amount} = {bitcoin_price}")]
+pub struct RgbOfferResponse {
+    /// The Contract ID
+    pub offer_id: String,
+    /// The Contract ID
+    pub contract_id: String,
+    /// Contract Amount
+    pub contract_amount: u64,
+    /// Bitcoin Price
+    pub bitcoin_price: u64,
+    /// Seller Address
+    pub seller_address: String,
+    /// Seller PSBT (encoded in base64)
+    pub seller_psbt: String,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug, Display, Default, Validate)]
+#[garde(context(RGBContext))]
+#[serde(rename_all = "camelCase")]
+#[display("{offer_id}:{asset_amount} ** {change_terminal}")]
+pub struct RgbBidRequest {
+    /// The Offer ID
+    #[garde(ascii)]
+    #[garde(length(min = 0, max = 100))]
+    pub offer_id: String,
+    /// Asset Amount
+    #[garde(range(min = u64::MIN, max = u64::MAX))]
+    pub asset_amount: u64,
+    /// Universal Descriptor
+    #[garde(custom(verify_descriptor))]
+    pub descriptor: SecretString,
+    /// Bitcoin Terminal Change
+    #[garde(ascii)]
+    pub change_terminal: String,
+    /// Bitcoin Fee
+    #[garde(dive)]
+    pub fee: PsbtFeeRequest,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug, Display, Default)]
+#[serde(rename_all = "camelCase")]
+#[display("{bid_id} ~ {offer_id}")]
+pub struct RgbBidResponse {
+    /// The Bid ID
+    pub bid_id: String,
+    /// The Offer ID
+    pub offer_id: String,
+    /// Buyer Invoice
+    pub invoice: String,
+    /// Final PSBT (encoded in base64)
+    pub swap_psbt: String,
+    /// Fee Value
+    pub fee_value: u64,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug, Display, Default, Validate)]
+#[garde(context(RGBContext))]
+#[serde(rename_all = "camelCase")]
+#[display("{offer_id} ~ {bid_id}")]
+pub struct RgbSwapRequest {
+    /// Offer ID
+    #[garde(ascii)]
+    #[garde(length(min = 0, max = 100))]
+    pub offer_id: String,
+    /// Bid ID
+    #[garde(ascii)]
+    #[garde(length(min = 0, max = 100))]
+    pub bid_id: String,
+    /// Swap PSBT
+    #[garde(ascii)]
+    pub swap_psbt: String,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug, Display, Default)]
+#[serde(rename_all = "camelCase")]
+#[display("{consig_id}")]
+pub struct RgbSwapResponse {
+    /// Transfer ID
+    pub consig_id: String,
+    /// Final Consig
+    pub final_consig: String,
+    /// Final PSBT
+    pub final_psbt: String,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug, Display, Default)]
+#[serde(rename_all = "camelCase")]
+#[display("{offers:?}")]
+pub struct PublicRgbOffersResponse {
+    /// Public Offers
+    pub offers: Vec<PublicRgbOfferResponse>,
+
+    /// Public Bids
+    pub bids: BTreeMap<String, Vec<PublicRgbBidResponse>>,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug, Display, Default)]
+#[serde(rename_all = "camelCase")]
+#[display("{offer_id} ~ {contract_id}:{asset_amount} = {bitcoin_price}")]
+pub struct PublicRgbOfferResponse {
+    /// Offer ID
+    offer_id: String,
+    /// Contract ID
+    contract_id: String,
+    /// Offer PubKey
+    offer_pub: String,
+    /// Asset/Contract Amount
+    asset_amount: u64,
+    /// Bitcoin Price
+    bitcoin_price: u64,
+    /// Initial Offer PSBT
+    offer_psbt: String,
+}
+
+impl From<RgbOfferSwap> for PublicRgbOfferResponse {
+    fn from(value: RgbOfferSwap) -> Self {
+        Self {
+            contract_id: value.contract_id,
+            offer_id: value.offer_id,
+            asset_amount: value.asset_amount,
+            bitcoin_price: value.bitcoin_price,
+            offer_pub: value.public,
+            offer_psbt: value.seller_psbt,
+        }
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug, Display, Default)]
+#[serde(rename_all = "camelCase")]
+#[display("{bid_id}:{asset_amount} = {bitcoin_price}")]
+pub struct PublicRgbBidResponse {
+    /// Bid ID
+    bid_id: String,
+    /// Asset/Contract Amount
+    asset_amount: u64,
+    /// Bitcoin Price
+    bitcoin_price: u64,
+}
+
+impl From<PublicRgbBid> for PublicRgbBidResponse {
+    fn from(value: PublicRgbBid) -> Self {
+        let PublicRgbBid {
+            bid_id,
+            asset_amount,
+            bitcoin_amount,
+            ..
+        } = value;
+
+        Self {
+            bid_id,
+            asset_amount,
+            bitcoin_price: bitcoin_amount,
+        }
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct RgbOfferBidsResponse {
+    /// Offers
+    pub offers: Vec<RgbOfferDetail>,
+    /// bids
+    pub bids: Vec<RgbBidDetail>,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct RgbOffersResponse {
+    /// Offers
+    pub offers: Vec<RgbOfferDetail>,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct RgbBidsResponse {
+    /// Bids
+    pub bids: Vec<RgbBidDetail>,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug, Display, Default)]
+#[serde(rename_all = "camelCase")]
+#[display("{offer_id} ~ {contract_id}:{asset_amount} = {bitcoin_price}")]
+pub struct RgbOfferDetail {
+    /// Contract ID
+    contract_id: String,
+    /// Offer ID
+    offer_id: String,
+    /// Offer Status
+    offer_status: String,
+    /// Asset/Contract Amount
+    asset_amount: u64,
+    /// Bitcoin Price
+    bitcoin_price: u64,
+}
+
+impl From<RgbOffer> for RgbOfferDetail {
+    fn from(value: RgbOffer) -> Self {
+        Self {
+            contract_id: value.contract_id,
+            offer_id: value.offer_id,
+            offer_status: value.offer_status.to_string(),
+            asset_amount: value.asset_amount,
+            bitcoin_price: value.bitcoin_price,
+        }
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug, Display, Default)]
+#[serde(rename_all = "camelCase")]
+#[display("{bid_id} ~ {contract_id}:{asset_amount} = {bitcoin_price}")]
+pub struct RgbBidDetail {
+    /// Contract ID
+    contract_id: String,
+    /// Bid ID
+    bid_id: String,
+    /// Offer ID
+    offer_id: String,
+    /// Bid Status
+    bid_status: String,
+    /// Asset/Contract Amount
+    asset_amount: u64,
+    /// Bitcoin Price (in satoshis)
+    bitcoin_price: u64,
+}
+
+impl From<RgbBid> for RgbBidDetail {
+    fn from(value: RgbBid) -> Self {
+        Self {
+            contract_id: value.contract_id,
+            offer_id: value.offer_id,
+            bid_id: value.bid_id,
+            bid_status: value.bid_status.to_string(),
+            asset_amount: value.asset_amount,
+            bitcoin_price: value.bitcoin_amount,
+        }
+    }
 }

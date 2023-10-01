@@ -12,6 +12,8 @@ use std::{
 
 use crate::rgb::structs::RgbAccount;
 
+use super::swap::{PublicRgbOffers, RgbBidSwap};
+
 #[derive(Debug, Clone, Eq, PartialEq, Display, From, Error)]
 #[display(doc_comments)]
 pub enum RgbMergeError {
@@ -283,4 +285,18 @@ pub struct LocalRgbAccount {
 pub struct LocalCopyData {
     pub doc: Vec<u8>,
     pub data: Vec<u8>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default, Display)]
+#[display(doc_comments)]
+pub struct LocalRgbOffers {
+    pub doc: Vec<u8>,
+    pub rgb_offers: PublicRgbOffers,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default, Display)]
+#[display(doc_comments)]
+pub struct LocalRgbOfferBid {
+    pub doc: Vec<u8>,
+    pub rgb_bid: RgbBidSwap,
 }

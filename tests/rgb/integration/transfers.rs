@@ -3,7 +3,7 @@ use std::collections::{BTreeSet, HashMap};
 
 use bdk::wallet::AddressIndex;
 use bitmask_core::{
-    bitcoin::{get_wallet, new_mnemonic, save_mnemonic, sign_psbt_file, sync_wallet},
+    bitcoin::{get_wallet, new_mnemonic, save_mnemonic, sign_and_publish_psbt_file, sync_wallet},
     rgb::{
         accept_transfer, create_invoice, create_watcher, full_transfer_asset, get_contract, import,
         save_transfer, verify_transfers, watcher_next_address, watcher_next_utxo,
@@ -103,7 +103,7 @@ async fn allow_issuer_make_conseq_transfers() -> anyhow::Result<()> {
         )]
         .to_vec(),
     };
-    let resp = sign_psbt_file(request).await;
+    let resp = sign_and_publish_psbt_file(request).await;
     assert!(resp.is_ok());
     send_some_coins(whatever_address, "0.001").await;
 
@@ -173,7 +173,7 @@ async fn allow_issuer_make_conseq_transfers() -> anyhow::Result<()> {
         )]
         .to_vec(),
     };
-    let resp = sign_psbt_file(request).await;
+    let resp = sign_and_publish_psbt_file(request).await;
     assert!(resp.is_ok());
     send_some_coins(whatever_address, "0.001").await;
 
@@ -258,7 +258,7 @@ async fn allow_owner_make_conseq_transfers() -> anyhow::Result<()> {
         )]
         .to_vec(),
     };
-    let resp = sign_psbt_file(request).await;
+    let resp = sign_and_publish_psbt_file(request).await;
     assert!(resp.is_ok());
     send_some_coins(whatever_address, "0.001").await;
 
@@ -336,7 +336,7 @@ async fn allow_owner_make_conseq_transfers() -> anyhow::Result<()> {
         )]
         .to_vec(),
     };
-    let resp = sign_psbt_file(request).await;
+    let resp = sign_and_publish_psbt_file(request).await;
     assert!(resp.is_ok());
     send_some_coins(whatever_address, "0.001").await;
 
@@ -401,7 +401,7 @@ async fn allow_owner_make_conseq_transfers() -> anyhow::Result<()> {
         )]
         .to_vec(),
     };
-    let resp = sign_psbt_file(request).await;
+    let resp = sign_and_publish_psbt_file(request).await;
     assert!(resp.is_ok());
     send_some_coins(whatever_address, "0.001").await;
 
@@ -517,7 +517,7 @@ async fn allow_conseq_transfers_between_tree_owners() -> anyhow::Result<()> {
         )]
         .to_vec(),
     };
-    let resp = sign_psbt_file(request).await;
+    let resp = sign_and_publish_psbt_file(request).await;
     assert!(resp.is_ok());
     send_some_coins(whatever_address, "0.001").await;
 
@@ -593,7 +593,7 @@ async fn allow_conseq_transfers_between_tree_owners() -> anyhow::Result<()> {
         psbt: issuer_transfer_to_another_resp.psbt.clone(),
         descriptors: [SecretString(issuer_xpriv)].to_vec(),
     };
-    let resp = sign_psbt_file(request).await;
+    let resp = sign_and_publish_psbt_file(request).await;
     assert!(resp.is_ok());
     send_some_coins(whatever_address, "0.001").await;
 
@@ -622,7 +622,7 @@ async fn allow_conseq_transfers_between_tree_owners() -> anyhow::Result<()> {
         psbt: owner_transfer_to_another_resp.psbt.clone(),
         descriptors: [SecretString(owner_xpriv)].to_vec(),
     };
-    let resp = sign_psbt_file(request).await;
+    let resp = sign_and_publish_psbt_file(request).await;
     assert!(resp.is_ok());
 
     // 9. Accept Consig (Issuer and Another Owner Sides)
@@ -764,7 +764,7 @@ async fn allows_spend_amount_from_two_different_owners() -> anyhow::Result<()> {
         psbt: transfer_resp.psbt.clone(),
         descriptors: [SecretString(issuer_xprv)].to_vec(),
     };
-    let resp = sign_psbt_file(request).await;
+    let resp = sign_and_publish_psbt_file(request).await;
     assert!(resp.is_ok());
     send_some_coins(whatever_address, "0.1").await;
 
@@ -847,7 +847,7 @@ async fn allows_spend_amount_from_two_different_owners() -> anyhow::Result<()> {
         psbt: issuer_transfer_to_another_resp.psbt.clone(),
         descriptors: [SecretString(issuer_xpriv)].to_vec(),
     };
-    let resp = sign_psbt_file(request).await;
+    let resp = sign_and_publish_psbt_file(request).await;
     assert!(resp.is_ok());
     send_some_coins(whatever_address, "0.1").await;
 
@@ -876,7 +876,7 @@ async fn allows_spend_amount_from_two_different_owners() -> anyhow::Result<()> {
         psbt: owner_transfer_to_another_resp.psbt.clone(),
         descriptors: [SecretString(owner_xpriv)].to_vec(),
     };
-    let resp = sign_psbt_file(request).await;
+    let resp = sign_and_publish_psbt_file(request).await;
     assert!(resp.is_ok());
 
     // 9. Accept Consig (Issuer and Another Owner Sides)
@@ -956,7 +956,7 @@ async fn allows_spend_amount_from_two_different_owners() -> anyhow::Result<()> {
         psbt: another_transfer_to_issuer.psbt.clone(),
         descriptors: [SecretString(another_owner_xpriv)].to_vec(),
     };
-    let resp = sign_psbt_file(request).await;
+    let resp = sign_and_publish_psbt_file(request).await;
     assert!(resp.is_ok());
     send_some_coins(whatever_address, "0.1").await;
 
@@ -1071,7 +1071,7 @@ async fn allows_spend_amount_from_two_different_transitions() -> anyhow::Result<
         psbt: transfer_resp.psbt.clone(),
         descriptors: [SecretString(issuer_xprv)].to_vec(),
     };
-    let resp = sign_psbt_file(request).await;
+    let resp = sign_and_publish_psbt_file(request).await;
     assert!(resp.is_ok());
     send_some_coins(whatever_address, "0.1").await;
 
@@ -1154,7 +1154,7 @@ async fn allows_spend_amount_from_two_different_transitions() -> anyhow::Result<
         psbt: issuer_transfer_to_another_resp.psbt.clone(),
         descriptors: [SecretString(issuer_xpriv)].to_vec(),
     };
-    let resp = sign_psbt_file(request).await;
+    let resp = sign_and_publish_psbt_file(request).await;
     assert!(resp.is_ok());
 
     // 9. Create Transfer and Accept (Owner Side)
@@ -1182,7 +1182,7 @@ async fn allows_spend_amount_from_two_different_transitions() -> anyhow::Result<
         psbt: owner_transfer_to_another_resp.psbt.clone(),
         descriptors: [SecretString(owner_xpriv)].to_vec(),
     };
-    let resp = sign_psbt_file(request).await;
+    let resp = sign_and_publish_psbt_file(request).await;
     assert!(resp.is_ok());
     send_some_coins(whatever_address, "0.1").await;
 
@@ -1273,7 +1273,7 @@ async fn allows_spend_amount_from_two_different_transitions() -> anyhow::Result<
         psbt: another_transfer_to_issuer.psbt.clone(),
         descriptors: [SecretString(another_owner_xpriv)].to_vec(),
     };
-    let resp = sign_psbt_file(request).await;
+    let resp = sign_and_publish_psbt_file(request).await;
     assert!(resp.is_ok());
     send_some_coins(whatever_address, "0.1").await;
 
@@ -1367,7 +1367,7 @@ async fn allow_issuer_make_transfer_of_two_contracts_in_same_utxo() -> anyhow::R
             issuer_keys.private.rgb_assets_descriptor_xprv.clone(),
         )],
     };
-    let resp = sign_psbt_file(request).await;
+    let resp = sign_and_publish_psbt_file(request).await;
     assert!(resp.is_ok());
     send_some_coins(whatever_address, "0.1").await;
 
@@ -1434,7 +1434,7 @@ async fn allow_issuer_make_transfer_of_two_contracts_in_same_utxo() -> anyhow::R
             issuer_keys.private.rgb_assets_descriptor_xprv.clone(),
         )],
     };
-    let resp = sign_psbt_file(request).await;
+    let resp = sign_and_publish_psbt_file(request).await;
     assert!(resp.is_ok());
     send_some_coins(whatever_address, "0.1").await;
 
@@ -1556,7 +1556,7 @@ async fn allow_issuer_make_transfer_of_two_contract_types_in_same_utxo() -> anyh
             issuer_keys.private.rgb_assets_descriptor_xprv.clone(),
         )],
     };
-    let resp = sign_psbt_file(request).await;
+    let resp = sign_and_publish_psbt_file(request).await;
     assert!(resp.is_ok());
 
     // 3. Accept Consig (Both Sides)
@@ -1626,7 +1626,7 @@ async fn allow_issuer_make_transfer_of_two_contract_types_in_same_utxo() -> anyh
             issuer_keys.private.rgb_udas_descriptor_xprv.clone(),
         )],
     };
-    let resp = sign_psbt_file(request).await;
+    let resp = sign_and_publish_psbt_file(request).await;
     assert!(resp.is_ok());
 
     // 7. Accept Consig (Both Side)
@@ -1968,7 +1968,7 @@ async fn allow_consecutive_full_transfer_bidirectional() -> anyhow::Result<()> {
                 SecretString(wallet_a.private.btc_change_descriptor_xprv.clone()),
             ],
         };
-        let resp = sign_psbt_file(request).await;
+        let resp = sign_and_publish_psbt_file(request).await;
         assert!(resp.is_ok());
 
         let request = AcceptRequest {
@@ -2031,7 +2031,7 @@ async fn allow_consecutive_full_transfer_bidirectional() -> anyhow::Result<()> {
                     SecretString(wallet_b.private.btc_change_descriptor_xprv.clone()),
                 ],
             };
-            let resp = sign_psbt_file(request).await;
+            let resp = sign_and_publish_psbt_file(request).await;
             assert!(resp.is_ok());
 
             let request = AcceptRequest {
@@ -2165,7 +2165,7 @@ async fn allow_save_transfer_and_verify() -> anyhow::Result<()> {
             SecretString(issuer_keys.private.btc_change_descriptor_xprv.clone()),
         ],
     };
-    let resp = sign_psbt_file(request).await;
+    let resp = sign_and_publish_psbt_file(request).await;
     assert!(resp.is_ok());
     send_some_coins(whatever_address, "0.001").await;
 

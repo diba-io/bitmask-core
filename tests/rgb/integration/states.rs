@@ -1,6 +1,6 @@
 #![cfg(not(target_arch = "wasm32"))]
 use bitmask_core::{
-    bitcoin::{save_mnemonic, sign_psbt_file},
+    bitcoin::{save_mnemonic, sign_and_publish_psbt_file},
     rgb::{accept_transfer, create_watcher, get_contract},
     structs::{AcceptRequest, DecryptedWalletData, SecretString, SignPsbtRequest, WatcherRequest},
 };
@@ -89,7 +89,7 @@ async fn check_fungible_state_after_accept_consig() -> anyhow::Result<()> {
         )]
         .to_vec(),
     };
-    let resp = sign_psbt_file(request).await;
+    let resp = sign_and_publish_psbt_file(request).await;
     assert!(resp.is_ok());
     send_some_coins(whatever_address, "0.001").await;
 
@@ -192,7 +192,7 @@ async fn check_uda_state_after_accept_consig() -> anyhow::Result<()> {
         )]
         .to_vec(),
     };
-    let resp = sign_psbt_file(request).await;
+    let resp = sign_and_publish_psbt_file(request).await;
     assert!(resp.is_ok());
     send_some_coins(whatever_address, "0.001").await;
 

@@ -2,9 +2,10 @@ use std::str::FromStr;
 
 use ::bitcoin::util::address::Address;
 use ::psbt::Psbt;
+use amplify::hex::ToHex;
 use argon2::Argon2;
 use bdk::{wallet::AddressIndex, FeeRate, LocalUtxo, SignOptions, TransactionDetails};
-use bitcoin::psbt::PartiallySignedTransaction;
+use bitcoin::{consensus::encode, psbt::PartiallySignedTransaction};
 use rand::{rngs::StdRng, Rng, SeedableRng};
 use serde_encrypt::{
     serialize::impls::BincodeSerializer, shared_key::SharedKey, traits::SerdeEncryptSharedKey,
@@ -23,18 +24,23 @@ pub use crate::bitcoin::{
     assets::dust_tx,
     keys::{new_mnemonic, save_mnemonic, BitcoinKeysError},
     payment::{create_payjoin, create_transaction, BitcoinPaymentError},
-    psbt::{sign_psbt, sign_psbt_with_multiple_wallets, BitcoinPsbtError},
+    psbt::{
+        multi_sign_and_publish_psbt, multi_sign_psbt, sign_and_publish_psbt, sign_psbt,
+        BitcoinPsbtError,
+    },
     wallet::{
         get_blockchain, get_wallet, sync_wallet, sync_wallets, BitcoinWalletError, MemoryWallet,
     },
 };
 
 use crate::{
+    bitcoin::keys::get_marketplace_descriptor,
     constants::{DIBA_DESCRIPTOR, DIBA_DESCRIPTOR_VERSION, DIBA_MAGIC_NO, NETWORK},
     debug, info,
     structs::{
-        DecryptedWalletData, EncryptedWalletDataV04, FundVaultDetails, SatsInvoice, SecretString,
-        SignPsbtRequest, SignPsbtResponse, WalletData, WalletTransaction,
+        DecryptedWalletData, EncryptedWalletDataV04, FundVaultDetails, PublishedPsbtResponse,
+        SatsInvoice, SecretString, SignPsbtRequest, SignedPsbtResponse, WalletData,
+        WalletTransaction,
     },
     trace,
 };
@@ -297,6 +303,18 @@ pub async fn get_wallet_data(
     })
 }
 
+pub async fn get_swap_new_address() -> Result<Option<String>, BitcoinError> {
+    info!("get_swap_new_address");
+
+    let markplace_desc = get_marketplace_descriptor().await?;
+    if let Some(markplace_desc) = markplace_desc {
+        let address = get_new_address(&markplace_desc, None).await?;
+        return Ok(Some(address));
+    }
+
+    Ok(None)
+}
+
 pub async fn get_new_address(
     descriptor: &SecretString,
     change_descriptor: Option<&SecretString>,
@@ -472,7 +490,7 @@ pub async fn get_assets_vault(
     })
 }
 
-pub async fn sign_psbt_file(request: SignPsbtRequest) -> Result<SignPsbtResponse, BitcoinError> {
+pub async fn sign_psbt_file(request: SignPsbtRequest) -> Result<SignedPsbtResponse, BitcoinError> {
     let SignPsbtRequest { psbt, descriptors } = request;
 
     let original_psbt = Psbt::from_str(&psbt)?;
@@ -484,13 +502,37 @@ pub async fn sign_psbt_file(request: SignPsbtRequest) -> Result<SignPsbtResponse
         wallets.push(wallet);
     }
 
-    let sign = sign_psbt_with_multiple_wallets(wallets, final_psbt).await?;
+    let psbt_signed = multi_sign_psbt(wallets, final_psbt).await?;
+
+    let psbt_bytes = encode::serialize(&psbt_signed);
+    let psbt_hex = psbt_bytes.to_hex();
+    Ok(SignedPsbtResponse {
+        sign: true,
+        psbt: psbt_hex,
+    })
+}
+
+pub async fn sign_and_publish_psbt_file(
+    request: SignPsbtRequest,
+) -> Result<PublishedPsbtResponse, BitcoinError> {
+    let SignPsbtRequest { psbt, descriptors } = request;
+
+    let original_psbt = Psbt::from_str(&psbt)?;
+    let final_psbt = PartiallySignedTransaction::from(original_psbt);
+
+    let mut wallets = vec![];
+    for descriptor in descriptors {
+        let wallet = get_wallet(&descriptor, None).await?;
+        wallets.push(wallet);
+    }
+
+    let sign = multi_sign_and_publish_psbt(wallets, final_psbt).await?;
     let resp = match sign.transaction {
-        Some(tx) => SignPsbtResponse {
+        Some(tx) => PublishedPsbtResponse {
             sign: true,
             txid: tx.txid().to_string(),
         },
-        _ => SignPsbtResponse {
+        _ => PublishedPsbtResponse {
             sign: false,
             txid: String::new(),
         },

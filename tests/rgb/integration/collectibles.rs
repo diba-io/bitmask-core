@@ -4,7 +4,7 @@
 //     ISSUER_MNEMONIC,
 // };
 // use bitmask_core::{
-//     bitcoin::{save_mnemonic, sign_psbt_file},
+//     bitcoin::{save_mnemonic, sign_and_publish_psbt_file},
 //     rgb::accept_transfer,
 //     structs::{AcceptRequest, SecretString, SignPsbtRequest},
 // };
@@ -27,7 +27,7 @@
 //         psbt: transfer_resp.psbt,
 //         descriptor: SecretString(issuer_keys.private.rgb_udas_descriptor_xprv),
 //     };
-//     let resp = sign_psbt_file(request).await;
+//     let resp = sign_and_publish_psbt_file(request).await;
 //     assert!(resp.is_ok());
 
 //     let request = AcceptRequest {

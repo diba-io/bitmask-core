@@ -87,6 +87,7 @@ pub fn create_psbt(
     psbt_inputs: Vec<PsbtInputRequest>,
     psbt_outputs: Vec<String>,
     bitcoin_fee: u64,
+    sighash: Option<EcdsaSighashType>,
     terminal_change: Option<String>,
     wallet: Option<RgbWallet>,
     tx_resolver: &impl ResolveTx,
@@ -124,6 +125,7 @@ pub fn create_psbt(
         let new_input = InputDescriptor::resolve_psbt_input(
             psbt_input,
             global_descriptor.clone(),
+            sighash,
             wallet.clone(),
             tx_resolver,
         )
@@ -154,7 +156,7 @@ pub fn create_psbt(
             .map_err(CreatePsbtError::WrongTerminal)?;
     }
 
-    let mut psbt = Psbt::construct(
+    let psbt = Psbt::construct(
         global_descriptor,
         &inputs,
         &outputs,
@@ -164,9 +166,14 @@ pub fn create_psbt(
     )
     .map_err(|op| CreatePsbtError::Incomplete(op.to_string()))?;
 
+    Ok((psbt, change_index.to_string()))
+}
+
+pub fn set_tapret_position(psbt: Psbt, pos: u16) -> Result<Psbt, CreatePsbtError> {
     // Define Tapret Proprierties
+    let mut psbt = psbt;
     let proprietary_keys = vec![ProprietaryKeyDescriptor {
-        location: ProprietaryKeyLocation::Output((psbt.outputs.len() - 1) as u16),
+        location: ProprietaryKeyLocation::Output(pos),
         ty: ProprietaryKeyType {
             prefix: RGB_PSBT_TAPRET.to_owned(),
             subtype: 0,
@@ -208,7 +215,7 @@ pub fn create_psbt(
         }
     }
 
-    Ok((psbt, change_index.to_string()))
+    Ok(psbt)
 }
 
 pub fn extract_commit(psbt: Psbt) -> Result<(Outpoint, Vec<u8>), DbcPsbtError> {
@@ -379,6 +386,7 @@ where
         let new_input = InputDescriptor::resolve_psbt_input(
             psbt_input,
             global_descriptor.clone(),
+            None,
             Some(wallet.clone()),
             resolver,
         )
@@ -439,6 +447,7 @@ pub trait PsbtInputEx<T> {
     fn resolve_psbt_input(
         psbt_input: PsbtInputRequest,
         descriptor: Descriptor<DerivationAccount>,
+        sighash: Option<EcdsaSighashType>,
         wallet: Option<RgbWallet>,
         tx_resolver: &impl ResolveTx,
     ) -> Result<T, Self::Error>;
@@ -450,10 +459,17 @@ impl PsbtInputEx<InputDescriptor> for InputDescriptor {
     fn resolve_psbt_input(
         psbt_input: PsbtInputRequest,
         descriptor: Descriptor<DerivationAccount>,
+        sighash: Option<EcdsaSighashType>,
         wallet: Option<RgbWallet>,
         tx_resolver: &impl ResolveTx,
     ) -> Result<Self, Self::Error> {
         let outpoint: OutPoint = psbt_input.utxo.parse().expect("invalid outpoint parse");
+
+        let sighash = match sighash {
+            Some(ty) => ty,
+            None => EcdsaSighashType::All,
+        };
+
         let mut input: InputDescriptor = InputDescriptor {
             outpoint,
             terminal: psbt_input
@@ -462,7 +478,7 @@ impl PsbtInputEx<InputDescriptor> for InputDescriptor {
                 .map_err(|_| PsbtInputError::WrongTerminal)?,
             seq_no: SeqNo::default(),
             tweak: None,
-            sighash_type: EcdsaSighashType::All,
+            sighash_type: sighash,
         };
 
         // Verify TapTweak (User Input or Watcher inspect)

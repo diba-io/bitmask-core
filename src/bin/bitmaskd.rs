@@ -15,9 +15,11 @@ use axum::{
 };
 use bitcoin_30::secp256k1::{ecdh::SharedSecret, PublicKey, SecretKey};
 use bitmask_core::{
-    bitcoin::{save_mnemonic, sign_psbt_file},
-    carbonado::handle_file,
-    constants::{get_marketplace_seed, get_network, get_udas_utxo, switch_network},
+    bitcoin::{save_mnemonic, sign_and_publish_psbt_file},
+    carbonado::{handle_file, server_retrieve, server_store, store},
+    constants::{
+        get_marketplace_nostr_key, get_marketplace_seed, get_network, get_udas_utxo, switch_network,
+    },
     rgb::{
         accept_transfer, clear_watcher as rgb_clear_watcher, create_invoice, create_psbt,
         create_watcher, full_transfer_asset, import as rgb_import, issue_contract, list_contracts,
@@ -141,7 +143,7 @@ async fn _sign_psbt(
     Json(psbt_req): Json<SignPsbtRequest>,
 ) -> Result<impl IntoResponse, AppError> {
     info!("POST /sign {psbt_req:?}");
-    let psbt_res = sign_psbt_file(psbt_req).await?;
+    let psbt_res = sign_and_publish_psbt_file(psbt_req).await?;
 
     Ok((StatusCode::OK, Json(psbt_res)))
 }
@@ -493,6 +495,46 @@ async fn co_force_store(
     Ok((StatusCode::OK, TypedHeader(cc)))
 }
 
+async fn co_server_store(
+    Path(name): Path<String>,
+    body: Bytes,
+) -> Result<impl IntoResponse, AppError> {
+    info!("POST /carbonado/server/{name}, {} bytes", body.len());
+    let (filepath, encoded) = server_store(&name, &body, None).await?;
+
+    match OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .open(&filepath)
+    {
+        Ok(file) => {
+            let present_header = match carbonado::file::Header::try_from(&file) {
+                Ok(header) => header,
+                _ => carbonado::file::Header::try_from(&body)?,
+            };
+            let present_len = present_header.encoded_len - present_header.padding_len;
+            debug!("present_len: {present_len}");
+            let resp = fs::write(&filepath, &encoded).await;
+            debug!("file override status {}", resp.is_ok());
+        }
+        Err(err) => match err.kind() {
+            ErrorKind::NotFound => {
+                debug!("no file found, writing 0 bytes.");
+                fs::write(&filepath, &body).await?;
+            }
+            _ => {
+                error!("error in POST /carbonado/server/{name}: {err}");
+                return Err(err.into());
+            }
+        },
+    }
+
+    let cc = CacheControl::new().with_no_cache();
+
+    Ok((StatusCode::OK, TypedHeader(cc)))
+}
+
 async fn co_retrieve(
     Path((pk, name)): Path<(String, String)>,
 ) -> Result<impl IntoResponse, AppError> {
@@ -553,6 +595,24 @@ async fn co_metadata(
     }
 
     Ok((StatusCode::OK, Json(metadata)))
+}
+
+async fn co_server_retrieve(Path(name): Path<String>) -> Result<impl IntoResponse, AppError> {
+    info!("GET /server/{name}");
+
+    let result = server_retrieve(&name).await;
+    let cc = CacheControl::new().with_no_cache();
+
+    match result {
+        Ok((bytes, _)) => {
+            debug!("read {0} bytes.", bytes.len());
+            Ok((StatusCode::OK, TypedHeader(cc), bytes))
+        }
+        Err(e) => {
+            debug!("file read error {0} .Details: {1}.", name, e.to_string());
+            Ok((StatusCode::OK, TypedHeader(cc), Vec::<u8>::new()))
+        }
+    }
 }
 
 const BMC_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -631,6 +691,8 @@ async fn main() -> Result<()> {
         .route("/transfers/", delete(remove_transfer))
         .route("/key/:pk", get(key))
         .route("/carbonado/status", get(status))
+        .route("/carbonado/server/:name", get(co_server_retrieve))
+        .route("/carbonado/server/:name", post(co_server_store))
         .route("/carbonado/:pk/:name", get(co_retrieve))
         .route("/carbonado/:pk/:name", post(co_store))
         .route("/carbonado/:pk/:name/force", post(co_force_store))

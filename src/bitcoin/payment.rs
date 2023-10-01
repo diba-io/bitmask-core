@@ -10,7 +10,7 @@ use thiserror::Error;
 
 use crate::{
     bitcoin::{
-        psbt::{sign_original_psbt, sign_psbt, BitcoinPsbtError},
+        psbt::{sign_and_publish_psbt, sign_psbt, BitcoinPsbtError},
         wallet::MemoryWallet,
     },
     debug, info,
@@ -58,7 +58,7 @@ pub async fn create_transaction(
 
     debug!(format!("Create transaction: {details:#?}"));
     debug!("Unsigned PSBT:", base64::encode(&serialize(&psbt)));
-    let details = sign_psbt(wallet, psbt).await?;
+    let details = sign_and_publish_psbt(wallet, psbt).await?;
     info!("PSBT successfully signed");
 
     Ok(details)
@@ -83,7 +83,7 @@ pub async fn create_payjoin(
 
     debug!(format!("Request PayJoin transaction: {details:#?}"));
     debug!("Unsigned Original PSBT:", base64::encode(&serialize(&psbt)));
-    let original_psbt = sign_original_psbt(wallet, psbt.clone()).await?;
+    let original_psbt = sign_psbt(wallet, psbt.clone()).await?;
     info!("Original PSBT successfully signed");
 
     let additional_fee_index = psbt
@@ -146,7 +146,7 @@ pub async fn create_payjoin(
         base64::encode(&serialize(&payjoin_psbt))
     );
     // sign_psbt also broadcasts;
-    let tx = sign_psbt(wallet, payjoin_psbt).await?;
+    let tx = sign_and_publish_psbt(wallet, payjoin_psbt).await?;
 
     Ok(tx)
 }

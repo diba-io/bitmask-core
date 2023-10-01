@@ -3,11 +3,13 @@ use std::{
     str::FromStr,
 };
 
+use amplify::confinement::{Confined, U32};
 use bitcoin::Address;
 use bitcoin_scripts::address::AddressCompat;
 use bp::Txid;
 use rgb::{RgbWallet, TerminalPath};
 
+use rgbstd::containers::{Bindle, Transfer};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug, Display)]
@@ -61,4 +63,15 @@ pub struct RgbTransfer {
     pub consig: String,
     pub tx: Txid,
     pub is_send: bool,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct RgbExtractTransfer {
+    pub consig_id: String,
+    pub contract_id: String,
+    pub tx_id: Txid,
+    pub transfer: Bindle<Transfer>,
+    pub strict: Confined<Vec<u8>, 0, U32>,
+    pub offer_id: Option<String>,
+    pub bid_id: Option<String>,
 }

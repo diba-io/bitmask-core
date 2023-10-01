@@ -20,8 +20,50 @@ pub enum BitcoinPsbtError {
     BdkEsploraError(#[from] bdk::esplora_client::Error),
 }
 
-/// Signs and broadcasts a transaction given a Psbt
+// Only signs an original psbt.
 pub async fn sign_psbt(
+    wallet: &MemoryWallet,
+    mut psbt: PartiallySignedTransaction,
+) -> Result<PartiallySignedTransaction, BitcoinPsbtError> {
+    debug!("Funding PSBT...");
+    let opts = SignOptions {
+        allow_all_sighashes: true,
+        remove_partial_sigs: false,
+        ..Default::default()
+    };
+    wallet.lock().await.sign(&mut psbt, opts)?;
+    Ok(psbt)
+}
+
+pub async fn multi_sign_psbt(
+    wallets: Vec<MemoryWallet>,
+    mut psbt: PartiallySignedTransaction,
+) -> Result<PartiallySignedTransaction, BitcoinPsbtError> {
+    let total_wallets = wallets.len();
+    debug!(format!(
+        "Signing PSBT ({total_wallets}/{total_wallets}) ..."
+    ));
+
+    let mut sign_count = 0;
+    for wallet in wallets {
+        wallet.lock().await.sign(
+            &mut psbt,
+            SignOptions {
+                allow_all_sighashes: true,
+                remove_partial_sigs: false,
+                ..Default::default()
+            },
+        )?;
+
+        sign_count += 1;
+        debug!(format!("PSBT Sign: ({sign_count}/{total_wallets})"));
+    }
+
+    Ok(psbt)
+}
+
+/// Signs and broadcasts a transaction given a Psbt
+pub async fn sign_and_publish_psbt(
     wallet: &MemoryWallet,
     mut psbt: PartiallySignedTransaction,
 ) -> Result<TransactionDetails, BitcoinPsbtError> {
@@ -65,21 +107,8 @@ pub async fn sign_psbt(
     }
 }
 
-// Only signs an original psbt.
-pub async fn sign_original_psbt(
-    wallet: &MemoryWallet,
-    mut psbt: PartiallySignedTransaction,
-) -> Result<PartiallySignedTransaction, BitcoinPsbtError> {
-    debug!("Funding PSBT...");
-    let opts = SignOptions {
-        remove_partial_sigs: false,
-        ..Default::default()
-    };
-    wallet.lock().await.sign(&mut psbt, opts)?;
-    Ok(psbt)
-}
-
-pub async fn sign_psbt_with_multiple_wallets(
+/// Signs and broadcasts a transaction given a Psbt
+pub async fn multi_sign_and_publish_psbt(
     wallets: Vec<MemoryWallet>,
     mut psbt: PartiallySignedTransaction,
 ) -> Result<TransactionDetails, BitcoinPsbtError> {
@@ -91,10 +120,14 @@ pub async fn sign_psbt_with_multiple_wallets(
     let mut sign_count = 0;
     let mut finalized = false;
     for wallet in wallets {
-        finalized = wallet
-            .lock()
-            .await
-            .sign(&mut psbt, SignOptions::default())?;
+        finalized = wallet.lock().await.sign(
+            &mut psbt,
+            SignOptions {
+                allow_all_sighashes: true,
+                remove_partial_sigs: false,
+                ..Default::default()
+            },
+        )?;
 
         sign_count += 1;
         debug!(format!("PSBT Sign: ({sign_count}/{total_wallets})"));

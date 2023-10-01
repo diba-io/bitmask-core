@@ -13,7 +13,7 @@ use crate::structs::{IssueMetaRequest, IssueMetadata, SecretString};
 #[display(inner)]
 pub enum RGBParamsError {
     /// wrong or unspecified seal closed method. Only TapRet (tapret1st)
-    /// is
+    /// is supported
     #[display(doc_comments)]
     NoClosedMethod,
 

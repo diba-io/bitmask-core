@@ -56,14 +56,14 @@ getrandom = { version = "0.2.10", features = ["js"] }
 hex = "0.4.3"
 indexmap = "1.9.3"
 lightning-invoice = "0.23.0"
-log = "0.4.17"
+log = "0.4.20"
 miniscript_crate = { package = "miniscript", version = "9.0.1", features = [
     "compiler",
 ] }
 nostr-sdk = "0.22.0"
 once_cell = "1.17.1"
 payjoin = { version = "0.8.0", features = ["send"] }
-postcard = { version = "1.0.4", features = ["alloc"] }
+postcard = { version = "1.0.7", features = ["alloc"] }
 pretty_env_logger = "0.5.0"
 psbt = { version = "0.10.0-alpha.2", features = [
     "sign",
@@ -72,7 +72,7 @@ psbt = { version = "0.10.0-alpha.2", features = [
     "construct",
 ] }
 regex = "1.7.0"
-reqwest = { version = "0.11.18", features = ["json"] }
+reqwest = { version = "0.11.20", features = ["json"] }
 rgb-std = { version = "0.10.4" }
 rgb-wallet = { version = "0.10.4" }
 rgb-schemata = { version = "0.10.0-rc.2" }
@@ -89,20 +89,23 @@ blake3 = "1.4.1"
 base85 = "2.0.0"
 automerge = "0.5.1"
 autosurgeon = "0.8"
+baid58 = "0.4.4"
+chrono = "0.4"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-bdk = { version = "0.28.0", features = [
+bdk = { version = "0.28.2", features = [
     "use-esplora-async",
     "async-interface",
 ], default-features = false }
-gloo-console = "0.2.3"
-gloo-net = { version = "0.3.1", features = ["http"] }
+gloo-console = "0.3.0"
+gloo-net = { version = "0.4.0", features = ["http"] }
 gloo-utils = "0.2.0"
 js-sys = "0.3.63"
 serde-wasm-bindgen = "0.5.0"
 wasm-bindgen = { version = "0.2.86", features = ["serde-serialize"] }
 wasm-bindgen-futures = "0.4.36"
 web-sys = "0.3.63"
+
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 bdk = { version = "0.28.0", features = [
@@ -124,6 +127,7 @@ tokio = { version = "1.28.2", features = ["full"] }
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3.36"
+
 
 [build-dependencies]
 anyhow = "1.0.71"

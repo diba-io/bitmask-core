@@ -9,15 +9,18 @@ use bdk::{
     miniscript::{descriptor::DescriptorKeyParseError, Tap},
 };
 use bip39::{Language, Mnemonic};
-use bitcoin::KeyPair;
+use bitcoin::{KeyPair, Network};
 use bitcoin_hashes::{sha256, Hash};
-use miniscript_crate::DescriptorPublicKey;
+use miniscript_crate::{
+    descriptor::{DescriptorXKey, Wildcard},
+    DescriptorPublicKey,
+};
 use nostr_sdk::prelude::{FromSkStr, ToBech32};
 use thiserror::Error;
 use zeroize::Zeroize;
 
 use crate::{
-    constants::{BTC_PATH, NETWORK},
+    constants::{get_marketplace_fee_xpub, get_network, BTC_PATH, NETWORK},
     structs::{DecryptedWalletData, PrivateWalletData, PublicWalletData, SecretString},
 };
 
@@ -203,4 +206,36 @@ pub async fn get_mnemonic(
         private,
         public,
     })
+}
+
+pub async fn get_marketplace_descriptor() -> Result<Option<SecretString>, BitcoinKeysError> {
+    let btc_path = BTC_PATH.read().await;
+    let marketplace_xpub = get_marketplace_fee_xpub().await;
+    let network = get_network().await;
+    let network = Network::from_str(&network).expect("wrong network");
+
+    if marketplace_xpub.is_empty() {
+        return Ok(None);
+    }
+
+    let path = DerivationPath::from_str(&btc_path)?;
+    let deriv = DerivationPath::default().child(ChildNumber::from_normal_idx(0)?);
+    let mut xkey =
+        ExtendedPubKey::from_str(&marketplace_xpub).expect("wrong marketplace xpub format");
+    xkey.network = network;
+
+    let fp = xkey.fingerprint();
+    let origin: KeySource = (fp, path.clone());
+
+    let desc = DescriptorXKey::<ExtendedPubKey> {
+        origin: Some(origin),
+        xkey,
+        derivation_path: deriv,
+        wildcard: Wildcard::None,
+    };
+
+    let desc_xpub = DescriptorPublicKey::XPub(desc).to_string();
+    let tap = format!("tr({desc_xpub}/*)");
+
+    Ok(Some(SecretString(tap)))
 }
