@@ -550,7 +550,7 @@ async fn co_server_store(
     Path(name): Path<String>,
     body: Bytes,
 ) -> Result<impl IntoResponse, AppError> {
-    info!("POST /carbonado/public/{name}, {} bytes", body.len());
+    info!("POST /carbonado/server/{name}, {} bytes", body.len());
     let (filepath, encoded) = server_store(&name, &body, None).await?;
 
     match OpenOptions::new()
@@ -575,7 +575,7 @@ async fn co_server_store(
                 fs::write(&filepath, &body).await?;
             }
             _ => {
-                error!("error in POST /carbonado/public/{name}: {err}");
+                error!("error in POST /carbonado/server/{name}: {err}");
                 return Err(err.into());
             }
         },
@@ -649,7 +649,7 @@ async fn co_metadata(
 }
 
 async fn co_server_retrieve(Path(name): Path<String>) -> Result<impl IntoResponse, AppError> {
-    info!("GET /public/{name}");
+    info!("GET /server/{name}");
 
     let result = server_retrieve(&name).await;
     let cc = CacheControl::new().with_no_cache();
@@ -745,8 +745,8 @@ async fn main() -> Result<()> {
         .route("/transfers/", delete(remove_transfer))
         .route("/key/:pk", get(key))
         .route("/carbonado/status", get(status))
-        .route("/carbonado/public/:name", get(co_server_retrieve))
-        .route("/carbonado/public/:name", post(co_server_store))
+        .route("/carbonado/server/:name", get(co_server_retrieve))
+        .route("/carbonado/server/:name", post(co_server_store))
         .route("/carbonado/:pk/:name", get(co_retrieve))
         .route("/carbonado/:pk/:name", post(co_store))
         .route("/carbonado/:pk/:name/force", post(co_force_store))
