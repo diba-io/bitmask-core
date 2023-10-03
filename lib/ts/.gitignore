@@ -1,0 +1,6 @@
+*.js
+*.wasm
+*.d.ts
+*.d.ts.map
+*.wasm.d.ts
+node_modules

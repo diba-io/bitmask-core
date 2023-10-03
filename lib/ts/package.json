@@ -1,0 +1,75 @@
+{
+  "name": "bitmask-core",
+  "collaborators": [
+    "Jose Diego Robles <jose@diba.io>",
+    "Hunter Trujillo <hunter@diba.io>",
+    "Francisco Calderón <francisco@diba.io>"
+  ],
+  "description": "Core functionality for the BitMask wallet",
+  "version": "0.6.3-rc.22",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/diba-io/bitmask-core"
+  },
+  "files": [
+    "index.js",
+    "bitcoin.js",
+    "carbonado.js",
+    "constants.js",
+    "lightning.js",
+    "nostr.js",
+    "rgb.js",
+    "index.ts",
+    "bitcoin.ts",
+    "carbonado.ts",
+    "constants.ts",
+    "lightning.ts",
+    "nostr.ts",
+    "rgb.ts",
+    "bitmask_core_bg.wasm",
+    "bitmask_core.js",
+    "bitmask_core_bg.js",
+    "bitmask_core.d.ts",
+    "LICENSE-APACHE",
+    "LICENSE-MIT"
+  ],
+  "scripts": {
+    "build": "tsc -p ./tsconfig.json"
+  },
+  "module": "index.js",
+  "homepage": "https://bitmask.app",
+  "types": "index.d.ts",
+  "devDependencies": {
+    "@types/node": "^20.8.2",
+    "typescript": "^5.2.2"
+  },
+  "sideEffects": [
+    "./bitmask_core.js",
+    "./snippets/*"
+  ],
+  "keywords": [
+    "bitmask",
+    "bitcoin",
+    "wallet",
+    "crypto",
+    "web3",
+    "diba",
+    "nostr",
+    "bitmask.js",
+    "bitmaskjs",
+    "wasm",
+    "rust",
+    "typescript",
+    "lightning",
+    "network",
+    "rgb",
+    "tokens",
+    "contracts",
+    "nft",
+    "protocol",
+    "satoshi",
+    "nakamoto",
+    "carbonado"
+  ]
+}
