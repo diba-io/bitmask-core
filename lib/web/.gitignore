@@ -4,3 +4,5 @@
 *.d.ts.map
 *.wasm.d.ts
 node_modules
+LICENSE*
+README.md
