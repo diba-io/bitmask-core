@@ -1,14 +1,13 @@
 #![cfg(not(target_arch = "wasm32"))]
 use bitmask_core::{
-    bitcoin::{save_mnemonic, sign_and_publish_psbt_file},
+    bitcoin::{new_mnemonic, sign_and_publish_psbt_file},
     rgb::{accept_transfer, create_watcher, get_contract},
-    structs::{AcceptRequest, DecryptedWalletData, SecretString, SignPsbtRequest, WatcherRequest},
+    structs::{AcceptRequest, SecretString, SignPsbtRequest, WatcherRequest},
 };
 
 use crate::rgb::integration::utils::{
     create_new_invoice, create_new_psbt, create_new_transfer, get_uda_data, import_new_contract,
-    issuer_issue_contract, issuer_issue_contract_v2, send_some_coins, UtxoFilter, ISSUER_MNEMONIC,
-    OWNER_MNEMONIC,
+    issuer_issue_contract, issuer_issue_contract_v2, send_some_coins, UtxoFilter,
 };
 
 #[tokio::test]
@@ -36,16 +35,12 @@ async fn allow_import_uda_contract() -> anyhow::Result<()> {
 async fn check_fungible_state_after_accept_consig() -> anyhow::Result<()> {
     // 1. Issue and Generate Trasnfer (Issuer side)
     let whatever_address = "bcrt1p76gtucrxhmn8s5622r859dpnmkj0kgfcel9xy0sz6yj84x6ppz2qk5hpsw";
-    let issuer_keys: DecryptedWalletData = save_mnemonic(
-        &SecretString(ISSUER_MNEMONIC.to_string()),
-        &SecretString("".to_string()),
-    )
-    .await?;
-    let owner_keys = save_mnemonic(
-        &SecretString(OWNER_MNEMONIC.to_string()),
-        &SecretString("".to_string()),
-    )
-    .await?;
+    let issuer_keys = new_mnemonic(&SecretString("".to_string())).await?;
+    let owner_keys = new_mnemonic(&SecretString("".to_string())).await?;
+
+    let issuer_sk = issuer_keys.private.nostr_prv.to_string();
+    let owner_sk = owner_keys.private.nostr_prv.to_string();
+
     let issuer_resp = issuer_issue_contract_v2(
         1,
         "RGB20",
@@ -55,7 +50,7 @@ async fn check_fungible_state_after_accept_consig() -> anyhow::Result<()> {
         None,
         Some("0.1".to_string()),
         Some(UtxoFilter::with_amount_equal_than(10000000)),
-        None,
+        Some(issuer_keys.clone()),
     )
     .await?;
     let issuer_resp = &issuer_resp[0];
@@ -80,8 +75,6 @@ async fn check_fungible_state_after_accept_consig() -> anyhow::Result<()> {
         &create_new_transfer(issuer_keys.clone(), owner_resp.clone(), psbt_resp).await?;
 
     // 2. Sign and Publish TX (Issuer side)
-    let issuer_sk = issuer_keys.private.nostr_prv.to_string();
-    let owner_sk = owner_keys.clone().private.nostr_prv.to_string();
     let request = SignPsbtRequest {
         psbt: transfer_resp.psbt.clone(),
         descriptors: [SecretString(
@@ -139,16 +132,9 @@ async fn check_fungible_state_after_accept_consig() -> anyhow::Result<()> {
 async fn check_uda_state_after_accept_consig() -> anyhow::Result<()> {
     // 1. Issue and Generate Trasnfer (Issuer side)
     let whatever_address = "bcrt1p76gtucrxhmn8s5622r859dpnmkj0kgfcel9xy0sz6yj84x6ppz2qk5hpsw";
-    let issuer_keys: DecryptedWalletData = save_mnemonic(
-        &SecretString(ISSUER_MNEMONIC.to_string()),
-        &SecretString("".to_string()),
-    )
-    .await?;
-    let owner_keys = &save_mnemonic(
-        &SecretString(OWNER_MNEMONIC.to_string()),
-        &SecretString("".to_string()),
-    )
-    .await?;
+    let issuer_keys = new_mnemonic(&SecretString("".to_string())).await?;
+    let owner_keys = new_mnemonic(&SecretString("".to_string())).await?;
+
     let meta = Some(get_uda_data());
     let issuer_resp = issuer_issue_contract_v2(
         1,
@@ -159,7 +145,7 @@ async fn check_uda_state_after_accept_consig() -> anyhow::Result<()> {
         meta,
         Some("0.1".to_string()),
         Some(UtxoFilter::with_amount_equal_than(10000000)),
-        None,
+        Some(issuer_keys.clone()),
     )
     .await?;
     let issuer_resp = issuer_resp[0].clone();
