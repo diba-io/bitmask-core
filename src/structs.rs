@@ -577,6 +577,16 @@ pub struct SignedPsbtResponse {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
+#[derive(Validate)]
+#[garde(context(RGBContext))]
+pub struct PublishPsbtRequest {
+    /// PSBT encoded in Base64
+    #[garde(length(min = 0, max = u64::MAX))]
+    pub psbt: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct PublishedPsbtResponse {
     /// PSBT is signed?
     pub sign: bool,
@@ -1102,6 +1112,36 @@ pub struct RgbOfferResponse {
     pub seller_address: String,
     /// Seller PSBT (encoded in base64)
     pub seller_psbt: String,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug, Display, Default, Validate)]
+#[garde(context(RGBContext))]
+#[serde(rename_all = "camelCase")]
+#[display("{contract_id}:{offer_id}")]
+pub struct RgbOfferUpdateRequest {
+    /// The Contract ID
+    #[garde(ascii)]
+    #[garde(length(min = 0, max = 100))]
+    pub contract_id: String,
+    /// The Offer ID
+    #[garde(ascii)]
+    #[garde(length(min = 0, max = 100))]
+    pub offer_id: String,
+    /// Swap PSBT
+    #[garde(ascii)]
+    pub offer_psbt: String,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug, Display, Default)]
+#[serde(rename_all = "camelCase")]
+#[display("{offer_id}:{updated}")]
+pub struct RgbOfferUpdateResponse {
+    /// The Contract ID
+    pub contract_id: String,
+    /// The Offer ID
+    pub offer_id: String,
+    /// Updated?
+    pub updated: bool,
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug, Display, Default, Validate)]

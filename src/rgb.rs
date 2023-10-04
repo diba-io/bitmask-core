@@ -66,11 +66,12 @@ use crate::{
         PsbtResponse, PublicRgbBidResponse, PublicRgbOfferResponse, PublicRgbOffersResponse,
         ReIssueRequest, ReIssueResponse, RgbBidDetail, RgbBidRequest, RgbBidResponse,
         RgbBidsResponse, RgbInvoiceResponse, RgbOfferBidsResponse, RgbOfferDetail, RgbOfferRequest,
-        RgbOfferResponse, RgbOffersResponse, RgbRemoveTransferRequest, RgbSaveTransferRequest,
-        RgbSwapRequest, RgbSwapResponse, RgbTransferDetail, RgbTransferInternalParams,
-        RgbTransferRequest, RgbTransferResponse, RgbTransferStatusResponse, RgbTransfersResponse,
-        SchemaDetail, SchemasResponse, TransferType, TxStatus, UDADetail, UtxoResponse,
-        WatcherDetailResponse, WatcherRequest, WatcherResponse, WatcherUtxoResponse,
+        RgbOfferResponse, RgbOfferUpdateRequest, RgbOfferUpdateResponse, RgbOffersResponse,
+        RgbRemoveTransferRequest, RgbSaveTransferRequest, RgbSwapRequest, RgbSwapResponse,
+        RgbTransferDetail, RgbTransferInternalParams, RgbTransferRequest, RgbTransferResponse,
+        RgbTransferStatusResponse, RgbTransfersResponse, SchemaDetail, SchemasResponse,
+        TransferType, TxStatus, UDADetail, UtxoResponse, WatcherDetailResponse, WatcherRequest,
+        WatcherResponse, WatcherUtxoResponse,
     },
     validators::RGBContext,
 };
@@ -944,7 +945,7 @@ pub async fn create_seller_offer(
     let seller_psbt = internal_create_psbt(
         psbt_req,
         true,
-        Some(EcdsaSighashType::NonePlusAnyoneCanPay),
+        Some(EcdsaSighashType::SinglePlusAnyoneCanPay),
         &mut rgb_account,
         &mut resolver,
     )
@@ -988,6 +989,10 @@ pub async fn create_seller_offer(
         let mut current_offers = offers.to_owned();
         current_offers.push(new_offer.clone());
         my_offers.offers.insert(contract_id, current_offers);
+    } else {
+        my_offers
+            .offers
+            .insert(contract_id, vec![new_offer.clone()]);
     }
 
     store_offers(sk, my_offers)
@@ -1002,8 +1007,56 @@ pub async fn create_seller_offer(
     publish_public_offer(public_offer)
         .await
         .map_err(RgbSwapError::Marketplace)?;
-
     Ok(resp)
+}
+
+pub async fn update_seller_offer(
+    sk: &str,
+    request: RgbOfferUpdateRequest,
+) -> Result<RgbOfferUpdateResponse, RgbSwapError> {
+    if let Err(err) = request.validate(&RGBContext::default()) {
+        let errors = err
+            .flatten()
+            .into_iter()
+            .map(|(f, e)| (f, e.to_string()))
+            .collect();
+        return Err(RgbSwapError::Validation(errors));
+    }
+
+    let RgbOfferUpdateRequest {
+        contract_id,
+        offer_id,
+        offer_psbt,
+        ..
+    } = request;
+
+    let mut updated = false;
+    let mut my_offers = retrieve_offers(sk).await.map_err(RgbSwapError::IO)?;
+    if let Some(offers) = my_offers.offers.get(&contract_id.clone()) {
+        let mut current_offers = offers.to_owned();
+        if let Some(position) = current_offers.iter().position(|x| x.offer_id == offer_id) {
+            let mut offer = current_offers.swap_remove(position);
+            offer.seller_psbt = offer_psbt;
+            current_offers.insert(position, offer.clone());
+            my_offers.offers.insert(contract_id.clone(), current_offers);
+
+            updated = true;
+            store_offers(sk, my_offers)
+                .await
+                .map_err(RgbSwapError::IO)?;
+
+            let public_offer = RgbOfferSwap::from(offer);
+            publish_public_offer(public_offer)
+                .await
+                .map_err(RgbSwapError::Marketplace)?;
+        }
+    }
+
+    Ok(RgbOfferUpdateResponse {
+        contract_id,
+        offer_id,
+        updated,
+    })
 }
 
 pub async fn create_buyer_bid(
@@ -1071,7 +1124,7 @@ pub async fn create_buyer_bid(
     let buyer_psbt = internal_create_psbt(
         psbt_req,
         false,
-        Some(EcdsaSighashType::NonePlusAnyoneCanPay),
+        Some(EcdsaSighashType::SinglePlusAnyoneCanPay),
         &mut rgb_account,
         &mut resolver,
     )
@@ -1086,6 +1139,10 @@ pub async fn create_buyer_bid(
         let mut current_bids = bids.to_owned();
         current_bids.push(new_bid.clone());
         my_bids.bids.insert(contract_id.clone(), current_bids);
+    } else {
+        my_bids
+            .bids
+            .insert(contract_id.clone(), vec![new_bid.clone()]);
     }
 
     let seller_psbt = Psbt::from_str(&offer.seller_psbt)

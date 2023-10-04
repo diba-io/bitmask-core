@@ -1,8 +1,8 @@
 use crate::structs::{
     AcceptRequest, FullRgbTransferRequest, ImportRequest, InvoiceRequest, IssueRequest,
-    PsbtRequest, ReIssueRequest, RgbBidRequest, RgbOfferRequest, RgbRemoveTransferRequest,
-    RgbSaveTransferRequest, RgbSwapRequest, RgbTransferRequest, SecretString, SignPsbtRequest,
-    WatcherRequest,
+    PsbtRequest, PublishPsbtRequest, ReIssueRequest, RgbBidRequest, RgbOfferRequest,
+    RgbRemoveTransferRequest, RgbSaveTransferRequest, RgbSwapRequest, RgbTransferRequest,
+    SecretString, SignPsbtRequest, WatcherRequest,
 };
 // use crate::{carbonado, lightning, rgb};
 
@@ -446,6 +446,20 @@ pub mod rgb {
         future_to_promise(async move {
             let psbt_req: SignPsbtRequest = serde_wasm_bindgen::from_value(request).unwrap();
             match crate::bitcoin::sign_psbt_file(psbt_req).await {
+                Ok(result) => Ok(JsValue::from_string(
+                    serde_json::to_string(&result).unwrap(),
+                )),
+                Err(err) => Err(JsValue::from_string(err.to_string())),
+            }
+        })
+    }
+
+    pub fn psbt_publish_file(_nostr_hex_sk: String, request: JsValue) -> Promise {
+        set_panic_hook();
+
+        future_to_promise(async move {
+            let psbt_req: PublishPsbtRequest = serde_wasm_bindgen::from_value(request).unwrap();
+            match crate::bitcoin::publish_psbt_file(psbt_req).await {
                 Ok(result) => Ok(JsValue::from_string(
                     serde_json::to_string(&result).unwrap(),
                 )),
