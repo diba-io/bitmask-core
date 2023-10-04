@@ -409,6 +409,7 @@ async fn create_scriptless_swap_for_uda() -> anyhow::Result<()> {
     let RgbBidResponse {
         bid_id, swap_psbt, ..
     } = buyer_swap_resp?;
+
     let request = SignPsbtRequest {
         psbt: swap_psbt,
         descriptors: vec![
@@ -426,7 +427,7 @@ async fn create_scriptless_swap_for_uda() -> anyhow::Result<()> {
     let final_swap_req = RgbSwapRequest {
         offer_id,
         bid_id,
-        swap_psbt,
+        swap_psbt: swap_psbt.clone(),
     };
 
     let final_swap_resp = create_swap_transfer(issuer_sk, final_swap_req).await;
@@ -642,7 +643,7 @@ async fn create_presig_scriptless_swap() -> anyhow::Result<()> {
     let update_offer_req = RgbOfferUpdateRequest {
         contract_id: contract_id.clone(),
         offer_id: offer_id.clone(),
-        offer_psbt: psbt,
+        offer_psbt: psbt.clone(),
     };
     let update_offer_resp = update_seller_offer(&seller_sk, update_offer_req).await;
     assert!(update_offer_resp.is_ok());
@@ -661,40 +662,39 @@ async fn create_presig_scriptless_swap() -> anyhow::Result<()> {
     let buyer_swap_resp = create_buyer_bid(&buyer_sk, buyer_swap_req).await;
     assert!(buyer_swap_resp.is_ok());
 
-    // 8. Sign the Buyer Side
+    // 9. Create Swap PSBT
     let RgbBidResponse {
         bid_id, swap_psbt, ..
     } = buyer_swap_resp?;
-    let request = SignPsbtRequest {
-        psbt: swap_psbt,
-        descriptors: vec![
-            SecretString(buyer_keys.private.btc_descriptor_xprv.clone()),
-            SecretString(buyer_keys.private.btc_change_descriptor_xprv.clone()),
-        ],
-    };
-    let buyer_psbt_resp = sign_psbt_file(request).await;
-    assert!(buyer_psbt_resp.is_ok());
-
-    // 9. Create Swap PSBT
-    let SignedPsbtResponse {
-        psbt: swap_psbt, ..
-    } = buyer_psbt_resp?;
     let final_swap_req = RgbSwapRequest {
         offer_id,
         bid_id,
-        swap_psbt,
+        swap_psbt: swap_psbt.clone(),
     };
 
     let final_swap_resp = create_swap_transfer(issuer_sk, final_swap_req).await;
     assert!(final_swap_resp.is_ok());
 
-    // 10. Publish Swap PSBT
+    // 8. Sign the Buyer Side
     let RgbSwapResponse {
         final_consig,
         final_psbt,
         ..
     } = final_swap_resp?;
-    let final_swap_req = PublishPsbtRequest { psbt: final_psbt };
+
+    let buyer_psbt_req = SignPsbtRequest {
+        psbt: final_psbt,
+        descriptors: vec![
+            SecretString(buyer_keys.private.btc_descriptor_xprv.clone()),
+            SecretString(buyer_keys.private.btc_change_descriptor_xprv.clone()),
+        ],
+    };
+    let buyer_psbt_resp = sign_psbt_file(buyer_psbt_req).await;
+    assert!(buyer_psbt_resp.is_ok());
+    let SignedPsbtResponse { psbt, .. } = buyer_psbt_resp?;
+
+    // 10. Publish Swap PSBT
+    let final_swap_req = PublishPsbtRequest { psbt };
     let published_psbt_resp = publish_psbt_file(final_swap_req).await;
     assert!(published_psbt_resp.is_ok());
 

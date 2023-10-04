@@ -14,12 +14,13 @@ use amplify::{
 };
 use autosurgeon::{reconcile, Hydrate, Reconcile};
 use baid58::{Baid58ParseError, FromBaid58, ToBaid58};
-use bitcoin::psbt::{PartiallySignedTransaction, Psbt};
+use bitcoin::psbt::Psbt;
 use bitcoin_30::secp256k1::{ecdh::SharedSecret, PublicKey, Secp256k1, SecretKey};
 use bitcoin_scripts::address::AddressCompat;
 use bp::Txid;
 use core::fmt::Display;
 use garde::Validate;
+
 use rgbstd::{
     containers::{Bindle, Transfer},
     validation::{AnchoredBundle, ConsignmentApi},
@@ -457,7 +458,16 @@ pub async fn publish_public_offer(new_offer: RgbOfferSwap) -> Result<(), RgbOffe
         .map_err(|op| RgbOfferErrors::AutoMerge(op.to_string()))?;
     if let Some(offers) = rgb_offers.offers.get(&new_offer.contract_id) {
         let mut avaliable_offers = offers.to_owned();
-        avaliable_offers.push(new_offer.clone());
+        if let Some(position) = avaliable_offers
+            .iter()
+            .position(|x| x.offer_id == new_offer.offer_id)
+        {
+            avaliable_offers.remove(position);
+            avaliable_offers.insert(position, new_offer.clone());
+        } else {
+            avaliable_offers.push(new_offer.clone());
+        }
+
         rgb_offers
             .offers
             .insert(new_offer.clone().contract_id, avaliable_offers);
@@ -690,13 +700,10 @@ pub trait PsbtSwapEx<T> {
     fn join(self, other: T) -> Result<T, Self::Error>;
 }
 
-impl PsbtSwapEx<PartiallySignedTransaction> for PartiallySignedTransaction {
+impl PsbtSwapEx<Psbt> for Psbt {
     type Error = PsbtSwapExError;
 
-    fn join(
-        self,
-        other: PartiallySignedTransaction,
-    ) -> Result<PartiallySignedTransaction, Self::Error> {
+    fn join(self, other: Psbt) -> Result<Psbt, Self::Error> {
         // BIP 174: The Combiner must remove any duplicate key-value pairs, in accordance with
         //          the specification. It can pick arbitrarily when conflicts occur.
 
@@ -743,7 +750,18 @@ impl PsbtSwapEx<PartiallySignedTransaction> for PartiallySignedTransaction {
         new_psbt.unknown.extend(other.unknown);
 
         new_psbt.inputs.extend(other.inputs);
-        new_psbt.outputs.extend(other.outputs);
+        // new_psbt.outputs.extend(other.outputs);
+        let current_outputs = new_psbt.outputs.clone();
+        let new_outputs = other.outputs.clone();
+        new_outputs.into_iter().for_each(|out| {
+            if !current_outputs
+                .clone()
+                .into_iter()
+                .any(|x| x.bip32_derivation == out.bip32_derivation)
+            {
+                new_psbt.outputs.push(out);
+            }
+        });
 
         // Transaction
         new_psbt.unsigned_tx.version =
@@ -753,7 +771,18 @@ impl PsbtSwapEx<PartiallySignedTransaction> for PartiallySignedTransaction {
             cmp::max(new_psbt.unsigned_tx.lock_time, other.unsigned_tx.lock_time);
 
         new_psbt.unsigned_tx.input.extend(other.unsigned_tx.input);
-        new_psbt.unsigned_tx.output.extend(other.unsigned_tx.output);
+
+        let current_outputs = new_psbt.unsigned_tx.output.clone();
+        let new_outputs = other.unsigned_tx.output.clone();
+        new_outputs.into_iter().for_each(|out| {
+            if !current_outputs
+                .clone()
+                .into_iter()
+                .any(|x| x.script_pubkey == out.script_pubkey && x.value == out.value)
+            {
+                new_psbt.unsigned_tx.output.push(out);
+            }
+        });
 
         Ok(new_psbt.clone())
     }

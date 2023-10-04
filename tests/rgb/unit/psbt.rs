@@ -4,7 +4,7 @@ use crate::rgb::unit::utils::{
 };
 use bitmask_core::{
     rgb::{
-        psbt::{create_psbt, extract_commit},
+        psbt::{create_psbt, extract_commit, PsbtNewOptions},
         transfer::pay_invoice,
     },
     structs::{PsbtInputRequest, SecretString},
@@ -28,14 +28,15 @@ async fn allow_create_psbt_file() -> anyhow::Result<()> {
             descriptor: SecretString(desc.to_string()),
             utxo: asset_utxo.to_string(),
             utxo_terminal: asset_utxo_terminal.to_string(),
+            sigh_hash: None,
             tapret: None,
         }],
         vec![],
         fee,
-        None,
         Some("/0/1".to_string()),
         None,
         &tx_resolver,
+        PsbtNewOptions::default(),
     );
     assert!(psbt.is_ok());
 

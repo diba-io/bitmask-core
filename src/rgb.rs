@@ -5,13 +5,13 @@ use amplify::{
 };
 use anyhow::Result;
 use autosurgeon::reconcile;
-use bitcoin::{psbt::PartiallySignedTransaction, EcdsaSighashType, Network, Txid};
+use bitcoin::{psbt::PartiallySignedTransaction, Network, Txid};
 use bitcoin_30::bip32::ExtendedPubKey;
 use bitcoin_scripts::address::AddressNetwork;
 use garde::Validate;
 
 use miniscript_crate::DescriptorPublicKey;
-use rgb::RgbDescr;
+use rgb::{RgbDescr, TerminalPath};
 use rgbstd::{
     containers::BindleContent,
     contract::ContractId,
@@ -99,7 +99,7 @@ use self::{
         prefetch_resolver_user_utxo_status, prefetch_resolver_utxos, prefetch_resolver_waddress,
         prefetch_resolver_wutxo,
     },
-    psbt::{save_commit, set_tapret_position, CreatePsbtError, EstimateFeeError},
+    psbt::{save_commit, set_tapret_position, CreatePsbtError, EstimateFeeError, PsbtNewOptions},
     structs::{RgbAccount, RgbExtractTransfer, RgbTransfer, RgbTransfers},
     swap::{
         get_public_offer, get_swap_bid, mark_bid_fill, mark_offer_fill, mark_transfer_bid,
@@ -506,16 +506,16 @@ pub async fn create_psbt(sk: &str, request: PsbtRequest) -> Result<PsbtResponse,
     };
 
     let mut rgb_account = retrieve_account(sk).await.map_err(PsbtError::IO)?;
-    let psbt = internal_create_psbt(request, true, None, &mut rgb_account, &mut resolver).await?;
+
+    let psbt = internal_create_psbt(request, &mut rgb_account, &mut resolver, None).await?;
     Ok(psbt)
 }
 
 async fn internal_create_psbt(
     request: PsbtRequest,
-    set_tapret: bool,
-    sighash: Option<EcdsaSighashType>,
     rgb_account: &mut RgbAccount,
     resolver: &mut ExplorerResolver,
+    options: Option<PsbtNewOptions>,
 ) -> Result<PsbtResponse, PsbtError> {
     if let Err(err) = request.validate(&RGBContext::default()) {
         let errors = err
@@ -551,19 +551,20 @@ async fn internal_create_psbt(
         PsbtFeeRequest::FeeRate(_) => return Err(PsbtError::NoFeeRate),
     };
 
+    let options = options.unwrap_or_default();
     let wallet = rgb_account.wallets.get("default");
     let (mut psbt_file, change_terminal) = create_rgb_psbt(
         all_inputs,
         bitcoin_changes,
         fee,
-        sighash,
         asset_terminal_change,
         wallet.cloned(),
         resolver,
+        options.clone(),
     )
     .map_err(PsbtError::Create)?;
 
-    if set_tapret {
+    if options.set_tapret {
         let pos = (psbt_file.outputs.len() - 1) as u16;
         psbt_file = set_tapret_position(psbt_file, pos).map_err(PsbtError::Create)?;
     }
@@ -681,7 +682,7 @@ pub async fn full_transfer_asset(
         asset_terminal_change: Some(change_terminal),
     };
 
-    let psbt_response = internal_create_psbt(psbt_req, true, None, &mut rgb_account, &mut resolver)
+    let psbt_response = internal_create_psbt(psbt_req, &mut rgb_account, &mut resolver, None)
         .await
         .map_err(TransferError::Create)?;
 
@@ -916,41 +917,14 @@ pub async fn create_seller_offer(
         _ => return Err(RgbSwapError::NoWatcher),
     };
 
-    let (allocations, asset_inputs, bitcoin_inputs, bitcoin_changes) =
-        prebuild_seller_swap(request.clone(), &mut stock, &mut rgb_wallet, &mut resolver).await?;
-
-    rgb_account
-        .wallets
-        .insert(RGB_DEFAULT_NAME.to_owned(), rgb_wallet.clone());
-
     let RgbOfferRequest {
         contract_id,
         contract_amount,
         bitcoin_price,
-        change_terminal,
         iface,
         expire_at,
         ..
-    } = request;
-
-    let psbt_req = PsbtRequest {
-        fee: PsbtFeeRequest::Value(0),
-        asset_inputs,
-        bitcoin_inputs,
-        bitcoin_changes,
-        asset_descriptor_change: None,
-        asset_terminal_change: Some(change_terminal),
-    };
-
-    let seller_psbt = internal_create_psbt(
-        psbt_req,
-        true,
-        Some(EcdsaSighashType::SinglePlusAnyoneCanPay),
-        &mut rgb_account,
-        &mut resolver,
-    )
-    .await
-    .map_err(RgbSwapError::Create)?;
+    } = request.clone();
 
     let iface_index = match iface.to_uppercase().as_str() {
         "RGB20" => AssetType::RGB20,
@@ -961,15 +935,39 @@ pub async fn create_seller_offer(
     let network = AddressNetwork::from(network);
 
     let seller_address = next_address(iface_index, rgb_wallet.clone(), network)
-        .map_err(|op| RgbSwapError::WrongAddress(op.to_string()))?
-        .address;
+        .map_err(|op| RgbSwapError::WrongAddress(op.to_string()))?;
+
+    let TerminalPath { app, index } = seller_address.terminal;
+    let change_terminal = format!("/{app}/{index}");
+
+    let (allocations, asset_inputs, bitcoin_inputs, bitcoin_changes) =
+        prebuild_seller_swap(request, &mut stock, &mut rgb_wallet, &mut resolver).await?;
+
+    rgb_account
+        .wallets
+        .insert(RGB_DEFAULT_NAME.to_owned(), rgb_wallet.clone());
+
+    let psbt_req = PsbtRequest {
+        fee: PsbtFeeRequest::Value(0),
+        asset_inputs,
+        bitcoin_inputs,
+        bitcoin_changes,
+        asset_descriptor_change: None,
+        asset_terminal_change: Some(change_terminal),
+    };
+
+    let options = PsbtNewOptions::set_inflaction(bitcoin_price);
+    let seller_psbt =
+        internal_create_psbt(psbt_req, &mut rgb_account, &mut resolver, Some(options))
+            .await
+            .map_err(RgbSwapError::Create)?;
 
     let new_offer = RgbOffer::new(
         sk.to_string(),
         contract_id.clone(),
         iface.clone(),
         allocations,
-        seller_address,
+        seller_address.address,
         bitcoin_price,
         seller_psbt.psbt.clone(),
         expire_at,
@@ -1121,15 +1119,15 @@ pub async fn create_buyer_bid(
         asset_terminal_change: Some(change_terminal.clone()),
     };
 
-    let buyer_psbt = internal_create_psbt(
-        psbt_req,
-        false,
-        Some(EcdsaSighashType::SinglePlusAnyoneCanPay),
-        &mut rgb_account,
-        &mut resolver,
-    )
-    .await
-    .map_err(RgbSwapError::Create)?;
+    let options = PsbtNewOptions {
+        set_tapret: false,
+        check_inflation: true,
+        ..Default::default()
+    };
+
+    let buyer_psbt = internal_create_psbt(psbt_req, &mut rgb_account, &mut resolver, Some(options))
+        .await
+        .map_err(RgbSwapError::Create)?;
 
     new_bid.buyer_psbt = buyer_psbt.psbt.clone();
 
@@ -1147,6 +1145,7 @@ pub async fn create_buyer_bid(
 
     let seller_psbt = Psbt::from_str(&offer.seller_psbt)
         .map_err(|op| RgbSwapError::WrongPsbtSeller(op.to_string()))?;
+
     let buyer_psbt = Psbt::from_str(&buyer_psbt.psbt)
         .map_err(|op| RgbSwapError::WrongPsbtBuyer(op.to_string()))?;
 
