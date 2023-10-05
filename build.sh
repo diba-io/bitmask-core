@@ -1,7 +1,10 @@
 #!/bin/sh
 wasm-pack build --release --target web
-mv pkg/*.ts lib/web
-mv pkg/*.js lib/web
-mv pkg/*.wasm lib/web
-mv pkg/README.md lib/web
-mv pkg/LICENSE* lib/web
+cp pkg/*.ts lib/web
+cp pkg/*.js lib/web
+cp pkg/*.wasm lib/web
+cp pkg/README.md lib/web
+cp pkg/LICENSE* lib/web
+cd lib/web
+npm install
+npm run prepare
