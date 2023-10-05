@@ -1,0 +1,30 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "checkJs": true,
+    "allowJs": true,
+    "declaration": true,
+    "declarationMap": true,
+    "allowSyntheticDefaultImports": true,
+    "types": ["node"],
+    "lib": ["ES6", "DOM"],
+    "target": "ES6",
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "outDir": ".",
+    "declarationDir": "."
+  },
+
+  "files": [
+    "./bitcoin.ts",
+    "./carbonado.ts",
+    "./constants.ts",
+    "./index.ts",
+    "./lightning.ts",
+    "./nostr.ts",
+    "./rgb.ts"
+  ]
+}
