@@ -759,6 +759,19 @@ export interface RgbSwapRequest {
   swapPsbt: string;
 }
 
+export interface RgbInternalTransferResponse {
+  /// Consignment ID
+  consig_id: string,
+  /// Consignment encoded (in hexadecimal)
+  consig: string,
+  /// PSBT File Information with tapret (in hexadecimal)
+  psbt: string,
+  /// Outpoint (used to spend output)
+  outpoint: string,
+  /// Tapret Commitment (used to spend output)
+  commit: string,
+}
+
 export interface RgbSwapResponse {
   /// Transfer ID
   consigId: string;
