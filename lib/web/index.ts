@@ -1,4 +1,5 @@
 import * as BMC from "./bitmask_core";
+export * from "./bitmask_core"; // kludge :c
 
 import * as bitcoin from "./bitcoin";
 import * as carbonado from "./carbonado";

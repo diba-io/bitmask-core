@@ -6,7 +6,7 @@
     "Francisco Calderón <francisco@diba.io>"
   ],
   "description": "Core functionality for the BitMask wallet",
-  "version": "0.6.4-rc.1",
+  "version": "0.6.4-rc.3",
   "license": "MIT",
   "repository": {
     "type": "git",
