@@ -256,7 +256,25 @@ pub fn extract_commit(psbt: Psbt) -> Result<(Outpoint, Vec<u8>), DbcPsbtError> {
     }
 }
 
-pub fn save_commit(outpoint: Outpoint, commit: Vec<u8>, terminal: &str, wallet: &mut RgbWallet) {
+pub fn save_tap_commit_str(outpoint: &str, commit: &str, terminal: &str, wallet: &mut RgbWallet) {
+    let outpoint = OutPoint::from_str(outpoint).expect("invalid outpoint parse");
+
+    let outpoint = Outpoint::new(
+        bp::Txid::from_str(&outpoint.txid.to_hex()).expect("invalid outpoint parse"),
+        outpoint.vout,
+    );
+
+    let commit = Vec::<u8>::from_hex(commit).expect("invalid tap commit parse");
+
+    save_tap_commit(outpoint, commit, terminal, wallet);
+}
+
+pub fn save_tap_commit(
+    outpoint: Outpoint,
+    commit: Vec<u8>,
+    terminal: &str,
+    wallet: &mut RgbWallet,
+) {
     let descr = wallet.descr.clone();
     let RgbDescr::Tapret(mut tapret) = descr;
     let derive: Vec<&str> = terminal.split('/').filter(|s| !s.is_empty()).collect();

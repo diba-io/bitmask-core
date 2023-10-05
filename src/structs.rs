@@ -718,6 +718,21 @@ pub struct RgbTransferResponse {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
+pub struct RgbInternalTransferResponse {
+    /// Consignment ID
+    pub consig_id: String,
+    /// Consignment encoded (in hexadecimal)
+    pub consig: String,
+    /// PSBT File Information with tapret (in hexadecimal)
+    pub psbt: String,
+    /// Outpoint (used to spend output)
+    pub outpoint: String,
+    /// Tapret Commitment (used to spend output)
+    pub commit: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 #[derive(Validate)]
 #[garde(context(RGBContext))]
 pub struct AcceptRequest {
@@ -1116,6 +1131,8 @@ pub struct RgbOfferRequest {
     /// Bitcoin Change Addresses (format: {address}:{amount})
     #[garde(length(min = 0, max = 999))]
     pub bitcoin_changes: Vec<String>,
+    #[garde(skip)]
+    pub presig: bool,
     #[garde(skip)]
     pub expire_at: Option<i64>,
 }
