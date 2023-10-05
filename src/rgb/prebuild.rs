@@ -1,6 +1,7 @@
 use std::{collections::BTreeMap, ops::Mul, str::FromStr};
 
 use amplify::{confinement::Confined, hex::FromHex};
+use baid58::ToBaid58;
 use bech32::{decode, FromBase32};
 use bitcoin::Network;
 use bitcoin_scripts::address::AddressNetwork;
@@ -396,6 +397,7 @@ pub async fn prebuild_seller_swap(
         Vec<PsbtInputRequest>,
         Vec<PsbtInputRequest>,
         Vec<String>,
+        u64,
     ),
     RgbSwapError,
 > {
@@ -418,7 +420,7 @@ pub async fn prebuild_seller_swap(
         descriptor,
         iface: iface_name,
         contract_amount: target_amount,
-        mut bitcoin_changes,
+        bitcoin_changes,
         ..
     } = request;
 
@@ -628,26 +630,28 @@ pub async fn prebuild_seller_swap(
             input: bitcoin_total,
             output: total_spendable,
         });
-    } else if change_value > DUST_LIMIT_SATOSHI {
-        let network = NETWORK.read().await.to_string();
-        let network = Network::from_str(&network)
-            .map_err(|err| RgbSwapError::WrongNetwork(err.to_string()))?;
-
-        let network = AddressNetwork::from(network);
-        // TODO: Use New Address
-        let change_address = get_address(1, 0, rgb_wallet.clone(), network)
-            .map_err(|err| RgbSwapError::WrongNetwork(err.to_string()))?
-            .address;
-
-        let change_bitcoin = format!("{change_address}:{change_value}");
-        bitcoin_changes.push(change_bitcoin);
     }
+    // } else if change_value > DUST_LIMIT_SATOSHI {
+    //     let network = NETWORK.read().await.to_string();
+    //     let network = Network::from_str(&network)
+    //         .map_err(|err| RgbSwapError::WrongNetwork(err.to_string()))?;
+
+    //     let network = AddressNetwork::from(network);
+    //     // TODO: Use New Address
+    //     let change_address = get_address(20, 1, rgb_wallet.clone(), network)
+    //         .map_err(|err| RgbSwapError::WrongNetwork(err.to_string()))?
+    //         .address;
+
+    //     let change_bitcoin = format!("{change_address}:{change_value}");
+    //     bitcoin_changes.push(change_bitcoin);
+    // }
 
     Ok((
         assets_allocs,
         assets_inputs,
         bitcoin_inputs,
         bitcoin_changes,
+        change_value,
     ))
 }
 
@@ -868,15 +872,16 @@ pub fn prebuild_extract_transfer(
         Vec::<u8>::from_hex(consignment).expect("invalid hexadecimal contract/genesis")
     };
 
-    let confined = Confined::try_from_iter(serialized.iter().copied()).expect("");
+    let confined = Confined::try_from_iter(serialized.iter().copied())
+        .expect("invalid confined serialization");
     let (tx_id, transfer, offer_id, bid_id) = match extract_transfer(consignment.to_owned()) {
         Ok((txid, tranfer)) => (txid, tranfer, None, None),
         _ => match extract_swap_transfer(consignment.to_owned()) {
             Ok((txid, tranfer, offer_id, bid_id)) => (
                 txid,
                 tranfer,
-                Some(offer_id.to_string()),
-                Some(bid_id.to_string()),
+                Some(offer_id.to_baid58_string()),
+                Some(bid_id.to_baid58_string()),
             ),
             Err(err) => return Err(SaveTransferError::WrongConsigSwap(err)),
         },
