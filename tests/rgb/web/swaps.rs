@@ -266,6 +266,7 @@ async fn create_transfer_swap_flow() {
             change_terminal: "/20/1".to_string(),
             bitcoin_changes: vec![],
             expire_at: Some(expire_at),
+            presig: false,
         };
         let sender_swap_req = serde_wasm_bindgen::to_value(&sender_swap_req).expect("");
 

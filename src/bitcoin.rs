@@ -25,8 +25,8 @@ pub use crate::bitcoin::{
     keys::{new_mnemonic, save_mnemonic, BitcoinKeysError},
     payment::{create_payjoin, create_transaction, BitcoinPaymentError},
     psbt::{
-        multi_sign_and_publish_psbt, multi_sign_psbt, sign_and_publish_psbt, sign_psbt,
-        BitcoinPsbtError,
+        multi_sign_and_publish_psbt, multi_sign_psbt, publish_psbt, sign_and_publish_psbt,
+        sign_psbt, BitcoinPsbtError,
     },
     wallet::{
         get_blockchain, get_wallet, sync_wallet, sync_wallets, BitcoinWalletError, MemoryWallet,
@@ -38,9 +38,9 @@ use crate::{
     constants::{DIBA_DESCRIPTOR, DIBA_DESCRIPTOR_VERSION, DIBA_MAGIC_NO, NETWORK},
     debug, info,
     structs::{
-        DecryptedWalletData, EncryptedWalletDataV04, FundVaultDetails, PublishedPsbtResponse,
-        SatsInvoice, SecretString, SignPsbtRequest, SignedPsbtResponse, WalletData,
-        WalletTransaction,
+        DecryptedWalletData, EncryptedWalletDataV04, FundVaultDetails, PublishPsbtRequest,
+        PublishedPsbtResponse, SatsInvoice, SecretString, SignPsbtRequest, SignedPsbtResponse,
+        WalletData, WalletTransaction,
     },
     trace,
 };
@@ -505,6 +505,23 @@ pub async fn sign_psbt_file(request: SignPsbtRequest) -> Result<SignedPsbtRespon
     let psbt_signed = multi_sign_psbt(wallets, final_psbt).await?;
 
     let psbt_bytes = encode::serialize(&psbt_signed);
+    let psbt_hex = psbt_bytes.to_hex();
+    Ok(SignedPsbtResponse {
+        sign: true,
+        psbt: psbt_hex,
+    })
+}
+
+pub async fn publish_psbt_file(
+    request: PublishPsbtRequest,
+) -> Result<SignedPsbtResponse, BitcoinError> {
+    let PublishPsbtRequest { psbt } = request;
+
+    let original_psbt = Psbt::from_str(&psbt)?;
+    let final_psbt = PartiallySignedTransaction::from(original_psbt);
+
+    publish_psbt(final_psbt.clone()).await?;
+    let psbt_bytes = encode::serialize(&final_psbt);
     let psbt_hex = psbt_bytes.to_hex();
     Ok(SignedPsbtResponse {
         sign: true,

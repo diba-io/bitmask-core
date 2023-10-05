@@ -10,32 +10,24 @@ use bitmask_core::{
         watcher_unspent_utxos,
     },
     structs::{
-        AcceptRequest, AllocationDetail, AssetType, DecryptedWalletData, FullRgbTransferRequest,
-        ImportRequest, InvoiceRequest, IssueResponse, PsbtFeeRequest, RgbSaveTransferRequest,
-        RgbTransferResponse, SecretString, SignPsbtRequest, WatcherRequest,
+        AcceptRequest, AllocationDetail, AssetType, FullRgbTransferRequest, ImportRequest,
+        InvoiceRequest, IssueResponse, PsbtFeeRequest, RgbSaveTransferRequest, RgbTransferResponse,
+        SecretString, SignPsbtRequest, WatcherRequest,
     },
 };
 
 use crate::rgb::integration::utils::{
     create_new_invoice, create_new_invoice_v2, create_new_psbt, create_new_psbt_v2,
     create_new_transfer, get_uda_data, issuer_issue_contract_v2, send_some_coins, UtxoFilter,
-    ANOTHER_OWNER_MNEMONIC, ISSUER_MNEMONIC, OWNER_MNEMONIC,
+    ISSUER_MNEMONIC, OWNER_MNEMONIC,
 };
 
 #[tokio::test]
 async fn allow_issuer_make_conseq_transfers() -> anyhow::Result<()> {
     // 0. Retrieve all keys
     let whatever_address = "bcrt1p76gtucrxhmn8s5622r859dpnmkj0kgfcel9xy0sz6yj84x6ppz2qk5hpsw";
-    let issuer_keys: DecryptedWalletData = save_mnemonic(
-        &SecretString(ISSUER_MNEMONIC.to_string()),
-        &SecretString("".to_string()),
-    )
-    .await?;
-    let owner_keys = &save_mnemonic(
-        &SecretString(OWNER_MNEMONIC.to_string()),
-        &SecretString("".to_string()),
-    )
-    .await?;
+    let issuer_keys = new_mnemonic(&SecretString("".to_string())).await?;
+    let owner_keys = new_mnemonic(&SecretString("".to_string())).await?;
 
     // 1. Create All Watchers
     let watcher_name = "default";
@@ -65,7 +57,7 @@ async fn allow_issuer_make_conseq_transfers() -> anyhow::Result<()> {
         None,
         Some("0.1".to_string()),
         Some(UtxoFilter::with_amount_equal_than(10000000)),
-        None,
+        Some(issuer_keys.clone()),
     )
     .await?;
     let issuer_resp = &issuer_resp[0];
@@ -206,16 +198,8 @@ async fn allow_issuer_make_conseq_transfers() -> anyhow::Result<()> {
 #[tokio::test]
 async fn allow_owner_make_conseq_transfers() -> anyhow::Result<()> {
     let whatever_address = "bcrt1p76gtucrxhmn8s5622r859dpnmkj0kgfcel9xy0sz6yj84x6ppz2qk5hpsw";
-    let issuer_keys: DecryptedWalletData = save_mnemonic(
-        &SecretString(ISSUER_MNEMONIC.to_string()),
-        &SecretString("".to_string()),
-    )
-    .await?;
-    let owner_keys = &save_mnemonic(
-        &SecretString(OWNER_MNEMONIC.to_string()),
-        &SecretString("".to_string()),
-    )
-    .await?;
+    let issuer_keys = new_mnemonic(&SecretString("".to_string())).await?;
+    let owner_keys = new_mnemonic(&SecretString("".to_string())).await?;
 
     // 1. Issue and Create First Transfer (Issuer side)
     let issuer_resp = issuer_issue_contract_v2(
@@ -227,7 +211,7 @@ async fn allow_owner_make_conseq_transfers() -> anyhow::Result<()> {
         None,
         Some("0.1".to_string()),
         Some(UtxoFilter::with_amount_equal_than(10000000)),
-        None,
+        Some(issuer_keys.clone()),
     )
     .await?;
     let issuer_resp = &issuer_resp[0];
@@ -427,21 +411,9 @@ async fn allow_owner_make_conseq_transfers() -> anyhow::Result<()> {
 async fn allow_conseq_transfers_between_tree_owners() -> anyhow::Result<()> {
     // 0. Retrieve all keys
     let whatever_address = "bcrt1p76gtucrxhmn8s5622r859dpnmkj0kgfcel9xy0sz6yj84x6ppz2qk5hpsw";
-    let issuer_keys: DecryptedWalletData = save_mnemonic(
-        &SecretString(ISSUER_MNEMONIC.to_string()),
-        &SecretString("".to_string()),
-    )
-    .await?;
-    let owner_keys = &save_mnemonic(
-        &SecretString(OWNER_MNEMONIC.to_string()),
-        &SecretString("".to_string()),
-    )
-    .await?;
-    let another_owner_keys = &save_mnemonic(
-        &SecretString(ANOTHER_OWNER_MNEMONIC.to_string()),
-        &SecretString("".to_string()),
-    )
-    .await?;
+    let issuer_keys = new_mnemonic(&SecretString("".to_string())).await?;
+    let owner_keys = new_mnemonic(&SecretString("".to_string())).await?;
+    let another_owner_keys = new_mnemonic(&SecretString("".to_string())).await?;
 
     // 1. Create All Watchers
     let watcher_name = "default";
@@ -479,7 +451,7 @@ async fn allow_conseq_transfers_between_tree_owners() -> anyhow::Result<()> {
         None,
         Some("0.1".to_string()),
         Some(UtxoFilter::with_amount_equal_than(10000000)),
-        None,
+        Some(issuer_keys.clone()),
     )
     .await?;
     let issuer_resp = &issuer_resp[0];
@@ -676,21 +648,9 @@ async fn allow_conseq_transfers_between_tree_owners() -> anyhow::Result<()> {
 async fn allows_spend_amount_from_two_different_owners() -> anyhow::Result<()> {
     // 0. Retrieve all keys
     let whatever_address = "bcrt1p76gtucrxhmn8s5622r859dpnmkj0kgfcel9xy0sz6yj84x6ppz2qk5hpsw";
-    let issuer_keys: DecryptedWalletData = save_mnemonic(
-        &SecretString(ISSUER_MNEMONIC.to_string()),
-        &SecretString("".to_string()),
-    )
-    .await?;
-    let owner_keys = &save_mnemonic(
-        &SecretString(OWNER_MNEMONIC.to_string()),
-        &SecretString("".to_string()),
-    )
-    .await?;
-    let another_owner_keys = &save_mnemonic(
-        &SecretString(ANOTHER_OWNER_MNEMONIC.to_string()),
-        &SecretString("".to_string()),
-    )
-    .await?;
+    let issuer_keys = new_mnemonic(&SecretString("".to_string())).await?;
+    let owner_keys = new_mnemonic(&SecretString("".to_string())).await?;
+    let another_owner_keys = new_mnemonic(&SecretString("".to_string())).await?;
 
     // 1. Create All Watchers
     let watcher_name = "default";
@@ -728,7 +688,7 @@ async fn allows_spend_amount_from_two_different_owners() -> anyhow::Result<()> {
         None,
         Some("0.1".to_string()),
         Some(UtxoFilter::with_amount_equal_than(10000000)),
-        None,
+        Some(issuer_keys.clone()),
     )
     .await?;
     let issuer_resp = &issuer_resp[0];
@@ -983,21 +943,9 @@ async fn allows_spend_amount_from_two_different_owners() -> anyhow::Result<()> {
 async fn allows_spend_amount_from_two_different_transitions() -> anyhow::Result<()> {
     // 0. Retrieve all keys
     let whatever_address = "bcrt1p76gtucrxhmn8s5622r859dpnmkj0kgfcel9xy0sz6yj84x6ppz2qk5hpsw";
-    let issuer_keys: DecryptedWalletData = save_mnemonic(
-        &SecretString(ISSUER_MNEMONIC.to_string()),
-        &SecretString("".to_string()),
-    )
-    .await?;
-    let owner_keys = &save_mnemonic(
-        &SecretString(OWNER_MNEMONIC.to_string()),
-        &SecretString("".to_string()),
-    )
-    .await?;
-    let another_owner_keys = &save_mnemonic(
-        &SecretString(ANOTHER_OWNER_MNEMONIC.to_string()),
-        &SecretString("".to_string()),
-    )
-    .await?;
+    let issuer_keys = new_mnemonic(&SecretString("".to_string())).await?;
+    let owner_keys = new_mnemonic(&SecretString("".to_string())).await?;
+    let another_owner_keys = new_mnemonic(&SecretString("".to_string())).await?;
 
     // 1. Create All Watchers
     let watcher_name = "default";
@@ -1035,7 +983,7 @@ async fn allows_spend_amount_from_two_different_transitions() -> anyhow::Result<
         None,
         Some("0.1".to_string()),
         Some(UtxoFilter::with_amount_equal_than(10000000)),
-        None,
+        Some(issuer_keys.clone()),
     )
     .await?;
     let issuer_resp = &issuer_resp[0];
@@ -2070,16 +2018,26 @@ async fn allow_consecutive_full_transfer_bidirectional() -> anyhow::Result<()> {
 async fn allow_save_transfer_and_verify() -> anyhow::Result<()> {
     // 1. Initial Setup
     let whatever_address = "bcrt1p76gtucrxhmn8s5622r859dpnmkj0kgfcel9xy0sz6yj84x6ppz2qk5hpsw";
-    let issuer_keys = save_mnemonic(
-        &SecretString(ISSUER_MNEMONIC.to_string()),
-        &SecretString("".to_string()),
-    )
-    .await?;
-    let owner_keys = save_mnemonic(
-        &SecretString(OWNER_MNEMONIC.to_string()),
-        &SecretString("".to_string()),
-    )
-    .await?;
+    let issuer_keys = new_mnemonic(&SecretString("".to_string())).await?;
+    let owner_keys = new_mnemonic(&SecretString("".to_string())).await?;
+
+    let watcher_name = "default";
+    let issuer_sk = issuer_keys.private.nostr_prv.to_string();
+    let create_watch_req = WatcherRequest {
+        name: watcher_name.to_string(),
+        xpub: issuer_keys.public.watcher_xpub.clone(),
+        force: false,
+    };
+    create_watcher(&issuer_sk, create_watch_req.clone()).await?;
+
+    let owner_sk = owner_keys.private.nostr_prv.to_string();
+    let create_watch_req = WatcherRequest {
+        name: watcher_name.to_string(),
+        xpub: owner_keys.public.watcher_xpub.clone(),
+        force: false,
+    };
+    create_watcher(&owner_sk, create_watch_req.clone()).await?;
+
     let issuer_resp = issuer_issue_contract_v2(
         1,
         "RGB20",
@@ -2087,29 +2045,11 @@ async fn allow_save_transfer_and_verify() -> anyhow::Result<()> {
         false,
         true,
         None,
-        Some("0.00000546".to_string()),
-        Some(UtxoFilter::with_amount_less_than(546)),
         None,
+        None,
+        Some(issuer_keys.clone()),
     )
     .await?;
-
-    let issuer_watcher_key = &issuer_keys.public.watcher_xpub;
-    let issuer_watcher = WatcherRequest {
-        name: "default".to_string(),
-        xpub: issuer_watcher_key.to_string(),
-        force: false,
-    };
-    let issue_sk = issuer_keys.private.nostr_prv.to_string();
-    create_watcher(&issue_sk, issuer_watcher).await?;
-
-    let owner_watcher_key = &owner_keys.public.watcher_xpub;
-    let owner_watcher = WatcherRequest {
-        name: "default".to_string(),
-        xpub: owner_watcher_key.to_string(),
-        force: false,
-    };
-    let owner_sk = owner_keys.private.nostr_prv.to_string();
-    create_watcher(&owner_sk, owner_watcher).await?;
 
     // 2. Get Invoice
     let issuer_resp = issuer_resp[0].clone();
@@ -2124,19 +2064,6 @@ async fn allow_save_transfer_and_verify() -> anyhow::Result<()> {
     )
     .await?;
 
-    // 3. Get Bitcoin UTXO
-    let issuer_btc_desc = &issuer_keys.public.btc_change_descriptor_xpub;
-    let issuer_vault = get_wallet(&SecretString(issuer_btc_desc.to_string()), None).await?;
-    let issuer_address = &issuer_vault
-        .lock()
-        .await
-        .get_address(AddressIndex::LastUnused)?
-        .address
-        .to_string();
-
-    send_some_coins(issuer_address, "0.001").await;
-    sync_wallet(&issuer_vault).await?;
-
     // 4. Make a Self Payment
     let self_pay_req = FullRgbTransferRequest {
         contract_id: issuer_resp.contract_id.clone(),
@@ -2148,7 +2075,7 @@ async fn allow_save_transfer_and_verify() -> anyhow::Result<()> {
         bitcoin_changes: vec![],
     };
 
-    let resp = full_transfer_asset(&issue_sk, self_pay_req).await?;
+    let resp = full_transfer_asset(&issuer_sk, self_pay_req).await?;
 
     let RgbTransferResponse {
         consig_id: _,
@@ -2169,7 +2096,6 @@ async fn allow_save_transfer_and_verify() -> anyhow::Result<()> {
     assert!(resp.is_ok());
     send_some_coins(whatever_address, "0.001").await;
 
-    let owner_sk = owner_keys.private.nostr_prv.clone();
     let request = RgbSaveTransferRequest {
         iface: issuer_resp.iface.clone(),
         consignment: consig,

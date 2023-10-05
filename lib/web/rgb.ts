@@ -23,15 +23,21 @@ export const createPsbt = async (
 
 export const psbtSignFile = async (
   nostrHexSk: string,
-  request: SignPsbtRequest
-): Promise<PublishedPsbtResponse> =>
+  request: PublishPsbtRequest
+): Promise<SignedPsbtResponse> =>
   JSON.parse(await BMC.psbt_sign_file(nostrHexSk, request));
 
-  export const psbtSignAndPublishFile = async (
-    nostrHexSk: string,
-    request: SignPsbtRequest
-  ): Promise<PublishedPsbtResponse> =>
-    JSON.parse(await BMC.psbt_sign_and_publish_file(nostrHexSk, request));
+export const psbtPublishFile = async (
+  nostrHexSk: string,
+  request: PublishPsbtRequest
+): Promise<PublishedPsbtResponse> =>
+  JSON.parse(await BMC.psbt_publish_file(nostrHexSk, request));
+
+export const psbtSignAndPublishFile = async (
+  nostrHexSk: string,
+  request: SignPsbtRequest
+): Promise<PublishedPsbtResponse> =>
+  JSON.parse(await BMC.psbt_sign_and_publish_file(nostrHexSk, request));
 
 export const transferAsset = async (
   nostrHexSk: string,
@@ -373,6 +379,26 @@ interface PsbtInputRequest {
   utxo_terminal: string;
   /// Asset or Bitcoin Tweak
   tapret?: string;
+  /// Asset or Bitcoin Tweak
+  sighHash?: PsbtSigHashRequest;
+}
+
+interface PsbtSigHashRequest {
+  /// 0x1: Sign all outputs.
+  All?: "0x01";
+  /// 0x2: Sign no outputs --- anyone can choose the destination.
+  None?: "0x02";
+  /// 0x3: Sign the output whose index matches this input's index. If none exists,
+  /// sign the hash `0000000000000000000000000000000000000000000000000000000000000001`.
+  /// (This rule is probably an unintentional C++ism, but it's consensus so we have
+  /// to follow it.)
+  Single?: "0x03";
+  /// 0x81: Sign all outputs but only this input.
+  AllPlusAnyoneCanPay?: "0x81";
+  /// 0x82: Sign no outputs and only this input.
+  NonePlusAnyoneCanPay?: "0x82";
+  /// 0x83: Sign one output and only this input (see `Single` for what "one output" means).
+  SinglePlusAnyoneCanPay?: "0x83";
 }
 
 interface PsbtFeeRequest {
@@ -392,6 +418,18 @@ export interface SignPsbtRequest {
   psbt: string;
   /// Descriptors to Sign
   descriptors: string[];
+}
+
+export interface SignedPsbtResponse {
+  /// PSBT is signed?
+  sign: boolean,
+  /// PSBT signed
+  psbt: string,
+}
+
+export interface PublishPsbtRequest {
+  /// PSBT encoded in Base64
+  psbt: string,
 }
 
 export interface PublishedPsbtResponse {
@@ -721,6 +759,19 @@ export interface RgbSwapRequest {
   swapPsbt: string;
 }
 
+export interface RgbInternalTransferResponse {
+  /// Consignment ID
+  consig_id: string,
+  /// Consignment encoded (in hexadecimal)
+  consig: string,
+  /// PSBT File Information with tapret (in hexadecimal)
+  psbt: string,
+  /// Outpoint (used to spend output)
+  outpoint: string,
+  /// Tapret Commitment (used to spend output)
+  commit: string,
+}
+
 export interface RgbSwapResponse {
   /// Transfer ID
   consigId: string;
@@ -804,4 +855,22 @@ export interface RgbBidDetail {
   assetAmount: bigint;
   /// Bitcoin Price
   bitcoinPrice: bigint;
+}
+
+export interface RgbOfferUpdateRequest {
+  /// The Contract ID
+  contractId: string;
+  /// The Offer ID
+  offerId: string;
+  /// Swap PSBT
+  offerPsbt: string;
+}
+
+export interface RgbOfferUpdateResponse {
+  /// The Contract ID
+  contractId: string;
+  /// The Offer ID
+  offerId: string;
+  /// Updated?
+  updated: boolean;
 }
