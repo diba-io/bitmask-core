@@ -525,6 +525,30 @@ pub struct PsbtInputRequest {
     /// Asset or Bitcoin Tweak
     #[garde(skip)]
     pub tapret: Option<String>,
+    /// Asset or Bitcoin Tweak
+    #[garde(skip)]
+    pub sigh_hash: Option<PsbtSigHashRequest>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub enum PsbtSigHashRequest {
+    /// 0x1: Sign all outputs.
+    #[default]
+    All = 0x01,
+    /// 0x2: Sign no outputs --- anyone can choose the destination.
+    None = 0x02,
+    /// 0x3: Sign the output whose index matches this input's index. If none exists,
+    /// sign the hash `0000000000000000000000000000000000000000000000000000000000000001`.
+    /// (This rule is probably an unintentional C++ism, but it's consensus so we have
+    /// to follow it.)
+    Single = 0x03,
+    /// 0x81: Sign all outputs but only this input.
+    AllPlusAnyoneCanPay = 0x81,
+    /// 0x82: Sign no outputs and only this input.
+    NonePlusAnyoneCanPay = 0x82,
+    /// 0x83: Sign one output and only this input (see `Single` for what "one output" means).
+    SinglePlusAnyoneCanPay = 0x83,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -572,6 +596,16 @@ pub struct SignedPsbtResponse {
     /// PSBT is signed?
     pub sign: bool,
     /// PSBT signed
+    pub psbt: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+#[derive(Validate)]
+#[garde(context(RGBContext))]
+pub struct PublishPsbtRequest {
+    /// PSBT encoded in Base64
+    #[garde(length(min = 0, max = u64::MAX))]
     pub psbt: String,
 }
 
@@ -1102,6 +1136,36 @@ pub struct RgbOfferResponse {
     pub seller_address: String,
     /// Seller PSBT (encoded in base64)
     pub seller_psbt: String,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug, Display, Default, Validate)]
+#[garde(context(RGBContext))]
+#[serde(rename_all = "camelCase")]
+#[display("{contract_id}:{offer_id}")]
+pub struct RgbOfferUpdateRequest {
+    /// The Contract ID
+    #[garde(ascii)]
+    #[garde(length(min = 0, max = 100))]
+    pub contract_id: String,
+    /// The Offer ID
+    #[garde(ascii)]
+    #[garde(length(min = 0, max = 100))]
+    pub offer_id: String,
+    /// Swap PSBT
+    #[garde(ascii)]
+    pub offer_psbt: String,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug, Display, Default)]
+#[serde(rename_all = "camelCase")]
+#[display("{offer_id}:{updated}")]
+pub struct RgbOfferUpdateResponse {
+    /// The Contract ID
+    pub contract_id: String,
+    /// The Offer ID
+    pub offer_id: String,
+    /// Updated?
+    pub updated: bool,
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug, Display, Default, Validate)]

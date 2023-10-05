@@ -20,7 +20,7 @@ use crate::{
     constants::{get_marketplace_fee_percentage, NETWORK},
     structs::{
         AllocationDetail, AllocationValue, AssetType, FullRgbTransferRequest, PsbtFeeRequest,
-        PsbtInputRequest, RgbBidRequest, RgbOfferRequest, SecretString,
+        PsbtInputRequest, PsbtSigHashRequest, RgbBidRequest, RgbOfferRequest, SecretString,
     },
     validators::RGBContext,
 };
@@ -197,6 +197,7 @@ pub async fn prebuild_transfer_asset(
                     utxo: alloc.utxo.clone(),
                     utxo_terminal: alloc.derivation,
                     tapret: None,
+                    sigh_hash: None,
                 };
                 if !assets_inputs
                     .clone()
@@ -223,6 +224,7 @@ pub async fn prebuild_transfer_asset(
                     utxo: alloc.utxo.clone(),
                     utxo_terminal: alloc.derivation,
                     tapret: None,
+                    sigh_hash: None,
                 };
                 if !assets_inputs
                     .clone()
@@ -291,6 +293,7 @@ pub async fn prebuild_transfer_asset(
                         utxo: utxo.outpoint.to_string(),
                         utxo_terminal: format!("/{app}/{index}"),
                         tapret: None,
+                        sigh_hash: None,
                     };
                     if !bitcoin_inputs
                         .clone()
@@ -319,6 +322,7 @@ pub async fn prebuild_transfer_asset(
                         utxo: utxo.outpoint.to_string(),
                         utxo_terminal: format!("/{app}/{index}"),
                         tapret: None,
+                        sigh_hash: None,
                     };
                     if !bitcoin_inputs
                         .clone()
@@ -495,8 +499,6 @@ pub async fn prebuild_seller_swap(
     let mut assets_inputs = vec![];
     let mut assets_allocs = vec![];
 
-    let mut rng = StdRng::from_entropy();
-    let rnd_amount = rng.gen_range(600..1500);
     let mut total_asset_bitcoin_unspend: u64 = 0;
     for alloc in allocations.iter() {
         match alloc.value {
@@ -509,6 +511,7 @@ pub async fn prebuild_seller_swap(
                     descriptor: universal_desc.clone(),
                     utxo: alloc.utxo.clone(),
                     utxo_terminal: alloc.derivation.to_string(),
+                    sigh_hash: Some(PsbtSigHashRequest::SinglePlusAnyoneCanPay),
                     tapret: None,
                 };
                 if !assets_inputs
@@ -536,6 +539,7 @@ pub async fn prebuild_seller_swap(
                     descriptor: universal_desc.clone(),
                     utxo: alloc.utxo.clone(),
                     utxo_terminal: alloc.derivation.to_string(),
+                    sigh_hash: Some(PsbtSigHashRequest::SinglePlusAnyoneCanPay),
                     tapret: None,
                 };
                 if !assets_inputs
@@ -593,7 +597,7 @@ pub async fn prebuild_seller_swap(
     }
 
     let mut bitcoin_total = total_asset_bitcoin_unspend;
-    let total_spendable = rnd_amount + total_bitcoin_spend;
+    let total_spendable = total_bitcoin_spend;
 
     for utxo in all_unspents {
         if bitcoin_total > total_spendable {
@@ -604,6 +608,7 @@ pub async fn prebuild_seller_swap(
                 descriptor: universal_desc.clone(),
                 utxo: utxo.outpoint.to_string(),
                 utxo_terminal: format!("/{app}/{index}"),
+                sigh_hash: Some(PsbtSigHashRequest::SinglePlusAnyoneCanPay),
                 tapret: None,
             };
             if !bitcoin_inputs
@@ -730,7 +735,7 @@ pub async fn prebuild_buyer_swap(
     let mut bitcoin_changes = vec![offer_change];
 
     let mut bitcoin_total = 0;
-    let mut total_spendable = offer.bitcoin_price;
+    let mut total_spendable = bitcoin_price;
 
     // Swap Fee
     if let Some(swap_fee_address) = get_swap_new_address()
@@ -764,6 +769,7 @@ pub async fn prebuild_buyer_swap(
                         descriptor: universal_desc.clone(),
                         utxo: utxo.outpoint.to_string(),
                         utxo_terminal: format!("/{app}/{index}"),
+                        sigh_hash: Some(PsbtSigHashRequest::NonePlusAnyoneCanPay),
                         tapret: None,
                     };
                     if !bitcoin_inputs
@@ -792,6 +798,7 @@ pub async fn prebuild_buyer_swap(
                         descriptor: universal_desc.clone(),
                         utxo: utxo.outpoint.to_string(),
                         utxo_terminal: format!("/{app}/{index}"),
+                        sigh_hash: Some(PsbtSigHashRequest::NonePlusAnyoneCanPay),
                         tapret: None,
                     };
                     if !bitcoin_inputs
