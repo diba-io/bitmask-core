@@ -24,8 +24,14 @@ export const createPsbt = async (
 export const psbtSignFile = async (
   nostrHexSk: string,
   request: SignPsbtRequest
-): Promise<SignPsbtResponse> =>
+): Promise<PublishedPsbtResponse> =>
   JSON.parse(await BMC.psbt_sign_file(nostrHexSk, request));
+
+  export const psbtSignAndPublishFile = async (
+    nostrHexSk: string,
+    request: SignPsbtRequest
+  ): Promise<PublishedPsbtResponse> =>
+    JSON.parse(await BMC.psbt_sign_and_publish_file(nostrHexSk, request));
 
 export const transferAsset = async (
   nostrHexSk: string,
@@ -138,6 +144,40 @@ export const verifyTransfers = async (
 export const decodeInvoice = async (
   invoice: string
 ): Promise<RgbInvoiceResponse> => JSON.parse(await BMC.decode_invoice(invoice));
+
+export const createOffer = async (
+  nostrHexSk: string,
+  request: RgbOfferRequest
+): Promise<RgbOfferResponse> =>
+  JSON.parse(await BMC.create_offer(nostrHexSk, request));
+
+export const createBid = async (
+  nostrHexSk: string,
+  request: RgbBidRequest
+): Promise<RgbBidResponse> =>
+  JSON.parse(await BMC.create_bid(nostrHexSk, request));
+
+export const createSwap = async (
+  nostrHexSk: string,
+  request: RgbSwapRequest
+): Promise<RgbSwapResponse> =>
+  JSON.parse(await BMC.create_swap(nostrHexSk, request));
+
+export const publicOffers = async (
+  nostrHexSk: string
+): Promise<PublicRgbOffersResponse> =>
+  JSON.parse(await BMC.public_offers(nostrHexSk));
+
+export const myOrders = async (
+  nostrHexSk: string
+): Promise<RgbOfferBidsResponse> => JSON.parse(await BMC.my_orders(nostrHexSk));
+
+export const myOffers = async (
+  nostrHexSk: string
+): Promise<RgbOffersResponse> => JSON.parse(await BMC.my_offers(nostrHexSk));
+
+export const myBids = async (nostrHexSk: string): Promise<RgbBidsResponse> =>
+  JSON.parse(await BMC.my_bids(nostrHexSk));
 
 // Core type interfaces based on structs defined within the bitmask-core Rust crate:
 // https://github.com/diba-io/bitmask-core/blob/development/src/structs.rs
@@ -354,7 +394,7 @@ export interface SignPsbtRequest {
   descriptors: string[];
 }
 
-export interface SignPsbtResponse {
+export interface PublishedPsbtResponse {
   /// PSBT is signed?
   sign: boolean;
   /// TX id
@@ -612,4 +652,156 @@ export interface BatchRgbTransferItem {
   status: TxStatus;
   isAccept: boolean;
   iface: string;
+}
+
+export interface RgbOfferRequest {
+  /// The Contract ID
+  contractId: string;
+  /// The Contract Interface
+  iface: string;
+  /// Contract Amount
+  contractAmount: bigint;
+  /// Bitcoin Price (in sats)
+  bitcoinPrice: bigint;
+  /// Universal Descriptor
+  descriptor: string;
+  /// Asset Terminal Change
+  changeTerminal: string;
+  /// Bitcoin Change Addresses (format: {address}:{amount})
+  bitcoinChanges: string[];
+}
+
+export interface RgbOfferResponse {
+  /// The Contract ID
+  offerId: string;
+  /// The Contract ID
+  contractId: string;
+  /// Contract Amount
+  contractAmount: bigint;
+  /// Bitcoin Price
+  bitcoinPrice: bigint;
+  /// Seller Address
+  sellerAddress: string;
+  /// Seller PSBT (encoded in base64)
+  sellerPsbt: string;
+}
+
+export interface RgbBidRequest {
+  /// The Offer ID
+  offerId: string;
+  /// Asset Amount
+  assetAmount: bigint;
+  /// Universal Descriptor
+  descriptor: string;
+  /// Bitcoin Terminal Change
+  changeTerminal: string;
+  /// Bitcoin Fee
+  fee: PsbtFeeRequest;
+}
+
+export interface RgbBidResponse {
+  /// The Bid ID
+  bidId: string;
+  /// The Offer ID
+  offerId: string;
+  /// Buyer Invoice
+  invoice: string;
+  /// Final PSBT (encoded in base64)
+  swapPsbt: string;
+  /// Fee Value
+  feeValue: bigint;
+}
+
+export interface RgbSwapRequest {
+  /// Offer ID
+  offerId: string;
+  /// Bid ID
+  bidId: string;
+  /// Swap PSBT
+  swapPsbt: string;
+}
+
+export interface RgbSwapResponse {
+  /// Transfer ID
+  consigId: string;
+  /// Final Consig
+  finalConsig: string;
+  /// Final PSBT
+  finalPsbt: string;
+}
+
+export interface PublicRgbOffersResponse {
+  /// Offers
+  offers: PublicRgbOfferResponse[];
+  /// Public bids
+  bids: Map<string, PublicRgbBidResponse[]>;
+}
+
+export interface PublicRgbOfferResponse {
+  /// Offer ID
+  offerId: string;
+  /// Contract ID
+  contractId: string;
+  /// Offer PubKey
+  offerPub: string;
+  /// Asset/Contract Amount
+  assetAmount: bigint;
+  /// Bitcoin Price
+  bitcoinPrice: bigint;
+  /// Initial Offer PSBT
+  offerPsbt: string;
+}
+
+export interface PublicRgbBidResponse {
+  /// Bid ID
+  bidId: string;
+  /// Asset/Contract Amount
+  assetAmount: bigint;
+  /// Bitcoin Price
+  bitcoinPrice: bigint;
+}
+
+export interface RgbOfferBidsResponse {
+  /// Offers
+  offers: RgbOfferDetail[];
+  /// bids
+  bids: RgbBidDetail[];
+}
+
+export interface RgbOffersResponse {
+  /// Offers
+  offers: RgbOfferDetail[];
+}
+
+export interface RgbBidsResponse {
+  /// Bids
+  bids: RgbBidDetail[];
+}
+
+export interface RgbOfferDetail {
+  /// Contract ID
+  contractId: string;
+  /// Offer ID
+  offerId: string;
+  /// Offer Status
+  offerStatus: string;
+  /// Asset/Contract Amount
+  assetAmount: bigint;
+  /// Bitcoin Price
+  bitcoinPrice: bigint;
+}
+
+export interface RgbBidDetail {
+  /// Contract ID
+  contractId: string;
+  /// Bid ID
+  bidId: string;
+  /// Offer ID
+  offerId: string;
+  /// Bid Status
+  bidStatus: string;
+  /// Asset/Contract Amount
+  assetAmount: bigint;
+  /// Bitcoin Price
+  bitcoinPrice: bigint;
 }
