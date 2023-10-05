@@ -365,6 +365,7 @@ pub async fn create_new_psbt(
                 descriptor: SecretString(descriptor_pub.clone()),
                 utxo: allocation.utxo.to_owned(),
                 utxo_terminal: allocation.derivation,
+                sigh_hash: None,
                 tapret: None,
             })
         }
@@ -552,6 +553,7 @@ pub async fn create_new_psbt_v2(
             descriptor: SecretString(descriptor_pub.clone()),
             utxo: x.utxo.to_owned(),
             utxo_terminal: x.derivation,
+            sigh_hash: None,
             tapret: None,
         })
         .collect();

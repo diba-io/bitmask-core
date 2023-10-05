@@ -14,12 +14,13 @@ use amplify::{
 };
 use autosurgeon::{reconcile, Hydrate, Reconcile};
 use baid58::{Baid58ParseError, FromBaid58, ToBaid58};
-use bitcoin::psbt::{PartiallySignedTransaction, Psbt};
+use bitcoin::psbt::Psbt;
 use bitcoin_30::secp256k1::{ecdh::SharedSecret, PublicKey, Secp256k1, SecretKey};
 use bitcoin_scripts::address::AddressCompat;
 use bp::Txid;
 use core::fmt::Display;
 use garde::Validate;
+
 use rgbstd::{
     containers::{Bindle, Transfer},
     validation::{AnchoredBundle, ConsignmentApi},
@@ -76,6 +77,8 @@ pub struct RgbOffer {
     pub contract_id: AssetId,
     #[garde(ascii)]
     pub iface: String,
+    #[garde(ascii)]
+    pub terminal: String,
     #[garde(range(min = u64::MIN, max = u64::MAX))]
     pub asset_amount: u64,
     #[garde(range(min = u64::MIN, max = u64::MAX))]
@@ -88,6 +91,8 @@ pub struct RgbOffer {
     pub expire_at: Option<i64>,
     #[garde(ascii)]
     pub public: String,
+    #[garde(skip)]
+    pub presig: bool,
     #[garde(skip)]
     pub transfer_id: Option<String>,
 }
@@ -102,6 +107,8 @@ impl RgbOffer {
         seller_address: AddressCompat,
         bitcoin_price: u64,
         psbt: String,
+        presig: bool,
+        terminal: String,
         expire_at: Option<i64>,
     ) -> Self {
         let secp = Secp256k1::new();
@@ -140,7 +147,9 @@ impl RgbOffer {
             seller_psbt: psbt,
             seller_address: seller_address.to_string(),
             public: public_key.to_hex(),
+            presig,
             expire_at,
+            terminal,
             ..Default::default()
         }
     }
@@ -169,6 +178,8 @@ pub struct RgbOfferSwap {
     pub expire_at: Option<i64>,
     #[garde(ascii)]
     pub public: String,
+    #[garde(skip)]
+    pub presig: bool,
 }
 
 impl From<RgbOffer> for RgbOfferSwap {
@@ -183,6 +194,7 @@ impl From<RgbOffer> for RgbOfferSwap {
             seller_address,
             public,
             expire_at,
+            presig,
             ..
         } = value;
 
@@ -196,6 +208,7 @@ impl From<RgbOffer> for RgbOfferSwap {
             seller_address,
             public,
             expire_at,
+            presig,
         }
     }
 }
@@ -214,6 +227,8 @@ pub struct RgbBid {
     pub offer_id: OfferId,
     #[garde(skip)]
     pub contract_id: AssetId,
+    #[garde(skip)]
+    pub iface: String,
     #[garde(range(min = u64::MIN, max = u64::MAX))]
     pub asset_amount: u64,
     #[garde(range(min = u64::MIN, max = u64::MAX))]
@@ -226,6 +241,8 @@ pub struct RgbBid {
     pub public: String,
     #[garde(skip)]
     pub transfer_id: Option<String>,
+    #[garde(skip)]
+    pub transfer: Option<String>,
 }
 
 impl RgbBid {
@@ -277,6 +294,9 @@ pub struct RgbBidSwap {
     #[garde(ascii)]
     #[garde(length(min = 0, max = 100))]
     pub offer_id: OfferId,
+    #[garde(ascii)]
+    #[garde(length(min = 0, max = 100))]
+    pub iface: String,
     #[garde(skip)]
     pub contract_id: AssetId,
     #[garde(range(min = u64::MIN, max = u64::MAX))]
@@ -289,6 +309,14 @@ pub struct RgbBidSwap {
     pub buyer_invoice: String,
     #[garde(ascii)]
     pub public: String,
+    #[garde(skip)]
+    pub transfer_id: Option<String>,
+    #[garde(skip)]
+    pub transfer: Option<String>,
+    #[garde(skip)]
+    pub tap_outpoint: Option<String>,
+    #[garde(skip)]
+    pub tap_commit: Option<String>,
 }
 
 impl From<RgbBid> for RgbBidSwap {
@@ -302,6 +330,9 @@ impl From<RgbBid> for RgbBidSwap {
             buyer_psbt,
             buyer_invoice,
             public,
+            transfer_id,
+            transfer,
+            iface,
             ..
         } = value;
 
@@ -309,11 +340,15 @@ impl From<RgbBid> for RgbBidSwap {
             bid_id,
             offer_id,
             contract_id,
+            iface,
             asset_amount,
             bitcoin_amount,
             buyer_psbt,
             buyer_invoice,
             public,
+            transfer_id,
+            transfer,
+            ..Default::default()
         }
     }
 }
@@ -421,6 +456,46 @@ pub async fn get_public_bid(
     Ok(public_bid)
 }
 
+pub async fn get_swap_bids_by_seller(
+    sk: &str,
+    offer: RgbOffer,
+) -> Result<Vec<RgbBidSwap>, RgbOfferErrors> {
+    let RgbOffer {
+        offer_id,
+        expire_at,
+        ..
+    } = offer;
+
+    let LocalRgbOffers { doc: _, rgb_offers } =
+        retrieve_public_offers().await.map_err(RgbOfferErrors::IO)?;
+
+    let public_bids: Vec<PublicRgbBid> = match rgb_offers.bids.get(&offer_id) {
+        Some(bids) => bids.values().cloned().collect(),
+        _ => return Err(RgbOfferErrors::NoOffer(offer_id)),
+    };
+
+    let mut swap_bids = vec![];
+    for bid in public_bids {
+        let PublicRgbBid { bid_id, public, .. } = bid.clone();
+        let secret = hex::decode(sk).map_err(|op| RgbOfferErrors::Keys(op.to_string()))?;
+        let secret_key =
+            SecretKey::from_slice(&secret).map_err(|op| RgbOfferErrors::Keys(op.to_string()))?;
+        let public_key =
+            PublicKey::from_str(&public).map_err(|op| RgbOfferErrors::Keys(op.to_string()))?;
+
+        let share_sk = SharedSecret::new(&public_key, &secret_key);
+        let share_sk = share_sk.display_secret().to_string();
+
+        let file_name = format!("{offer_id}-{bid_id}");
+        match retrieve_swap_offer_bid(&share_sk, &file_name, expire_at).await {
+            Ok(local_copy) => swap_bids.push(local_copy.rgb_bid),
+            _ => continue,
+        }
+    }
+
+    Ok(swap_bids)
+}
+
 pub async fn get_swap_bid(
     sk: &str,
     offer_id: String,
@@ -447,6 +522,33 @@ pub async fn get_swap_bid(
     Ok(rgb_bid)
 }
 
+pub async fn get_swap_bid_by_buyer(
+    sk: &str,
+    offer_id: String,
+    bid_id: BidId,
+) -> Result<RgbBidSwap, RgbOfferErrors> {
+    let RgbOfferSwap {
+        expire_at, public, ..
+    } = get_public_offer(offer_id.clone()).await?;
+
+    let secret = hex::decode(sk).map_err(|op| RgbOfferErrors::Keys(op.to_string()))?;
+    let secret_key =
+        SecretKey::from_slice(&secret).map_err(|op| RgbOfferErrors::Keys(op.to_string()))?;
+    let public_key =
+        PublicKey::from_str(&public).map_err(|op| RgbOfferErrors::Keys(op.to_string()))?;
+
+    let share_sk = SharedSecret::new(&public_key, &secret_key);
+    let share_sk = share_sk.display_secret().to_string();
+
+    let file_name = format!("{offer_id}-{bid_id}");
+    let LocalRgbOfferBid { rgb_bid, .. } =
+        retrieve_swap_offer_bid(&share_sk, &file_name, expire_at)
+            .await
+            .map_err(RgbOfferErrors::IO)?;
+
+    Ok(rgb_bid)
+}
+
 pub async fn publish_public_offer(new_offer: RgbOfferSwap) -> Result<(), RgbOfferErrors> {
     let LocalRgbOffers {
         doc,
@@ -457,7 +559,16 @@ pub async fn publish_public_offer(new_offer: RgbOfferSwap) -> Result<(), RgbOffe
         .map_err(|op| RgbOfferErrors::AutoMerge(op.to_string()))?;
     if let Some(offers) = rgb_offers.offers.get(&new_offer.contract_id) {
         let mut avaliable_offers = offers.to_owned();
-        avaliable_offers.push(new_offer.clone());
+        if let Some(position) = avaliable_offers
+            .iter()
+            .position(|x| x.offer_id == new_offer.offer_id)
+        {
+            avaliable_offers.remove(position);
+            avaliable_offers.insert(position, new_offer.clone());
+        } else {
+            avaliable_offers.push(new_offer.clone());
+        }
+
         rgb_offers
             .offers
             .insert(new_offer.clone().contract_id, avaliable_offers);
@@ -614,6 +725,7 @@ pub async fn mark_transfer_bid(
         if let Some(position) = my_bids.iter().position(|x| x.bid_id == bid_id) {
             let mut offer = my_bids.swap_remove(position);
             offer.transfer_id = Some(consig_id.to_owned());
+            // offer.transfer = transfer;
 
             my_bids.insert(position, offer);
             rgb_bids.bids.insert(contract_id, my_bids);
@@ -690,13 +802,10 @@ pub trait PsbtSwapEx<T> {
     fn join(self, other: T) -> Result<T, Self::Error>;
 }
 
-impl PsbtSwapEx<PartiallySignedTransaction> for PartiallySignedTransaction {
+impl PsbtSwapEx<Psbt> for Psbt {
     type Error = PsbtSwapExError;
 
-    fn join(
-        self,
-        other: PartiallySignedTransaction,
-    ) -> Result<PartiallySignedTransaction, Self::Error> {
+    fn join(self, other: Psbt) -> Result<Psbt, Self::Error> {
         // BIP 174: The Combiner must remove any duplicate key-value pairs, in accordance with
         //          the specification. It can pick arbitrarily when conflicts occur.
 
@@ -743,7 +852,18 @@ impl PsbtSwapEx<PartiallySignedTransaction> for PartiallySignedTransaction {
         new_psbt.unknown.extend(other.unknown);
 
         new_psbt.inputs.extend(other.inputs);
-        new_psbt.outputs.extend(other.outputs);
+        // new_psbt.outputs.extend(other.outputs);
+        let current_outputs = new_psbt.outputs.clone();
+        let new_outputs = other.outputs.clone();
+        new_outputs.into_iter().for_each(|out| {
+            if !current_outputs
+                .clone()
+                .into_iter()
+                .any(|x| x.bip32_derivation == out.bip32_derivation)
+            {
+                new_psbt.outputs.push(out);
+            }
+        });
 
         // Transaction
         new_psbt.unsigned_tx.version =
@@ -753,7 +873,18 @@ impl PsbtSwapEx<PartiallySignedTransaction> for PartiallySignedTransaction {
             cmp::max(new_psbt.unsigned_tx.lock_time, other.unsigned_tx.lock_time);
 
         new_psbt.unsigned_tx.input.extend(other.unsigned_tx.input);
-        new_psbt.unsigned_tx.output.extend(other.unsigned_tx.output);
+        // new_psbt.unsigned_tx.output.extend(other.unsigned_tx.output);
+        let current_outputs = new_psbt.unsigned_tx.output.clone();
+        let new_outputs = other.unsigned_tx.output.clone();
+        new_outputs.into_iter().for_each(|out| {
+            if !current_outputs
+                .clone()
+                .into_iter()
+                .any(|x| x.script_pubkey == out.script_pubkey && x.value == out.value)
+            {
+                new_psbt.unsigned_tx.output.push(out);
+            }
+        });
 
         Ok(new_psbt.clone())
     }

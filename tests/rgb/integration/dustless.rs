@@ -236,7 +236,6 @@ async fn create_dustless_transfer_with_fee_rate() -> anyhow::Result<()> {
         .to_vec(),
     };
     let resp = sign_and_publish_psbt_file(request).await;
-    // println!("{:?}", resp);
     assert!(resp.is_ok());
 
     let request = AcceptRequest {
