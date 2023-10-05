@@ -8,4 +8,3 @@ cp pkg/LICENSE* lib/web
 cd lib/web
 npm install
 npm run prepare
-
