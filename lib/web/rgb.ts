@@ -24,7 +24,7 @@ export const createPsbt = async (
 export const psbtSignFile = async (
   nostrHexSk: string,
   request: SignPsbtRequest
-): Promise<SignPsbtResponse> =>
+): Promise<SignedPsbtResponse> =>
   JSON.parse(await BMC.psbt_sign_file(nostrHexSk, request));
 
 export const transferAsset = async (
