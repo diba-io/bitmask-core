@@ -24,20 +24,8 @@ export const createPsbt = async (
 export const psbtSignFile = async (
   nostrHexSk: string,
   request: SignPsbtRequest
-): Promise<SignedPsbtResponse> =>
+): Promise<SignPsbtResponse> =>
   JSON.parse(await BMC.psbt_sign_file(nostrHexSk, request));
-
-export const psbtPublishFile = async (
-  nostrHexSk: string,
-  request: PublishPsbtRequest
-): Promise<SignedPsbtResponse> =>
-  JSON.parse(await BMC.psbt_publish_file(nostrHexSk, request));
-
-export const psbtSignAndPublishFile = async (
-  nostrHexSk: string,
-  request: SignPsbtRequest
-): Promise<PublishedPsbtResponse> =>
-  JSON.parse(await BMC.psbt_sign_and_publish_file(nostrHexSk, request));
 
 export const transferAsset = async (
   nostrHexSk: string,

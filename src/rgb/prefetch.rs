@@ -447,8 +447,6 @@ pub async fn prefetch_resolver_waddress(
                     .into_iter()
                     .position(|txout| txout.scriptpubkey == script_compatible);
                 if let Some(index) = index {
-                    let index = index;
-
                     let status = match tx.status.block_height {
                         Some(height) => MiningStatus::Blockchain(height),
                         _ => MiningStatus::Mempool,
