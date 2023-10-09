@@ -396,8 +396,6 @@ export interface PsbtResponse {
 export interface SignPsbtRequest {
   /// PSBT encoded in Base64
   psbt: string;
-  /// Descriptors to Sign
-  descriptors: string[];
 }
 
 export interface PublishedPsbtResponse {
