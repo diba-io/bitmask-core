@@ -1,21 +1,28 @@
-use std::str::FromStr;
+use std::{collections::BTreeSet, str::FromStr};
 
 use amplify::hex::{FromHex, ToHex};
 use bdk::FeeRate;
 use bitcoin::{
-    hashes::sha256,
+    blockdata::opcodes,
+    hashes::{sha256, Hash},
+    psbt::TapTree,
+    schnorr::TapTweak,
     secp256k1::SECP256K1,
-    util::bip32::{self, Fingerprint},
+    util::{
+        bip32::{self, Fingerprint},
+        taproot::{LeafVersion, TapBranchHash, TapLeafHash, TaprootBuilder, TaprootBuilderError},
+    },
+    TxIn, TxOut, Txid,
 };
 use bitcoin::{EcdsaSighashType, OutPoint, Script, XOnlyPublicKey};
 // TODO: Incompatible versions between RGB and Descriptor Wallet
-use bitcoin_30::{secp256k1::SECP256K1 as SECP256K1_30, taproot::TaprootBuilder, ScriptBuf};
+use bitcoin_30::{secp256k1::SECP256K1 as SECP256K1_30, ScriptBuf};
 use bitcoin_blockchain::locks::SeqNo;
 use bitcoin_scripts::PubkeyScript;
 use bp::{dbc::tapret::TapretCommitment, Outpoint, TapScript, Vout};
 use commit_verify::{mpc::Commitment, CommitVerify};
-use miniscript_crate::Descriptor;
-use psbt::{ProprietaryKey, ProprietaryKeyType};
+use miniscript_crate::{Descriptor, ForEachKey, ToPublicKey};
+use psbt::{ProprietaryKey, ProprietaryKeyType, PsbtVersion};
 use rgb::{
     psbt::{
         DbcPsbtError, TapretKeyError, PSBT_OUT_TAPRET_COMMITMENT, PSBT_OUT_TAPRET_HOST,
@@ -24,16 +31,16 @@ use rgb::{
     DeriveInfo, MiningStatus, Resolver, RgbDescr, RgbWallet, TerminalPath, Utxo,
 };
 use wallet::{
-    descriptors::{derive::DeriveDescriptor, InputDescriptor},
-    hd::{DerivationAccount, DerivationSubpath, UnhardenedIndex},
-    onchain::ResolveTx,
+    descriptors::{self, derive::DeriveDescriptor, InputDescriptor},
+    hd::{DerivationAccount, DerivationSubpath, DeriveError, UnhardenedIndex},
+    onchain::{ResolveTx, TxResolverError},
     psbt::{ProprietaryKeyDescriptor, ProprietaryKeyError, ProprietaryKeyLocation, Psbt},
 };
 
 use crate::{
     debug, info,
     rgb::{constants::RGB_PSBT_TAPRET, structs::AddressAmount},
-    structs::{AssetType, PsbtInputRequest},
+    structs::{AssetType, PsbtInputRequest, PsbtSigHashRequest},
 };
 
 use crate::rgb::structs::AddressFormatParseError;
@@ -87,10 +94,10 @@ pub fn create_psbt(
     psbt_inputs: Vec<PsbtInputRequest>,
     psbt_outputs: Vec<String>,
     bitcoin_fee: u64,
-    sighash: Option<EcdsaSighashType>,
     terminal_change: Option<String>,
     wallet: Option<RgbWallet>,
     tx_resolver: &impl ResolveTx,
+    options: PsbtNewOptions,
 ) -> Result<(Psbt, String), CreatePsbtError> {
     if psbt_inputs.is_empty() {
         return Err(CreatePsbtError::EmptyInputs);
@@ -125,7 +132,6 @@ pub fn create_psbt(
         let new_input = InputDescriptor::resolve_psbt_input(
             psbt_input,
             global_descriptor.clone(),
-            sighash,
             wallet.clone(),
             tx_resolver,
         )
@@ -156,13 +162,14 @@ pub fn create_psbt(
             .map_err(CreatePsbtError::WrongTerminal)?;
     }
 
-    let psbt = Psbt::construct(
+    let psbt = Psbt::new(
         global_descriptor,
         &inputs,
         &outputs,
         change_index.to_vec(),
         bitcoin_fee,
         tx_resolver,
+        options,
     )
     .map_err(|op| CreatePsbtError::Incomplete(op.to_string()))?;
 
@@ -249,7 +256,25 @@ pub fn extract_commit(psbt: Psbt) -> Result<(Outpoint, Vec<u8>), DbcPsbtError> {
     }
 }
 
-pub fn save_commit(outpoint: Outpoint, commit: Vec<u8>, terminal: &str, wallet: &mut RgbWallet) {
+pub fn save_tap_commit_str(outpoint: &str, commit: &str, terminal: &str, wallet: &mut RgbWallet) {
+    let outpoint = OutPoint::from_str(outpoint).expect("invalid outpoint parse");
+
+    let outpoint = Outpoint::new(
+        bp::Txid::from_str(&outpoint.txid.to_hex()).expect("invalid outpoint parse"),
+        outpoint.vout,
+    );
+
+    let commit = Vec::<u8>::from_hex(commit).expect("invalid tap commit parse");
+
+    save_tap_commit(outpoint, commit, terminal, wallet);
+}
+
+pub fn save_tap_commit(
+    outpoint: Outpoint,
+    commit: Vec<u8>,
+    terminal: &str,
+    wallet: &mut RgbWallet,
+) {
     let descr = wallet.descr.clone();
     let RgbDescr::Tapret(mut tapret) = descr;
     let derive: Vec<&str> = terminal.split('/').filter(|s| !s.is_empty()).collect();
@@ -386,7 +411,6 @@ where
         let new_input = InputDescriptor::resolve_psbt_input(
             psbt_input,
             global_descriptor.clone(),
-            None,
             Some(wallet.clone()),
             resolver,
         )
@@ -447,7 +471,6 @@ pub trait PsbtInputEx<T> {
     fn resolve_psbt_input(
         psbt_input: PsbtInputRequest,
         descriptor: Descriptor<DerivationAccount>,
-        sighash: Option<EcdsaSighashType>,
         wallet: Option<RgbWallet>,
         tx_resolver: &impl ResolveTx,
     ) -> Result<T, Self::Error>;
@@ -459,16 +482,11 @@ impl PsbtInputEx<InputDescriptor> for InputDescriptor {
     fn resolve_psbt_input(
         psbt_input: PsbtInputRequest,
         descriptor: Descriptor<DerivationAccount>,
-        sighash: Option<EcdsaSighashType>,
         wallet: Option<RgbWallet>,
         tx_resolver: &impl ResolveTx,
     ) -> Result<Self, Self::Error> {
+        let sighash: PsbtSigHashRequest = psbt_input.sigh_hash.unwrap_or_default();
         let outpoint: OutPoint = psbt_input.utxo.parse().expect("invalid outpoint parse");
-
-        let sighash = match sighash {
-            Some(ty) => ty,
-            None => EcdsaSighashType::All,
-        };
 
         let mut input: InputDescriptor = InputDescriptor {
             outpoint,
@@ -478,7 +496,7 @@ impl PsbtInputEx<InputDescriptor> for InputDescriptor {
                 .map_err(|_| PsbtInputError::WrongTerminal)?,
             seq_no: SeqNo::default(),
             tweak: None,
-            sighash_type: sighash,
+            sighash_type: EcdsaSighashType::from_consensus(sighash as u32),
         };
 
         // Verify TapTweak (User Input or Watcher inspect)
@@ -560,9 +578,10 @@ fn complete_input_desc(
 
                         let tap_tweak = ScriptBuf::from_bytes(TapScript::commit(tweak).to_vec());
 
-                        if let Ok(tap_builder) = TaprootBuilder::with_capacity(1)
-                            .add_leaf(0, tap_tweak)
-                            .map_err(|op| PsbtInputError::WrongWatcherTweak(op.to_string()))
+                        if let Ok(tap_builder) =
+                            bitcoin_30::taproot::TaprootBuilder::with_capacity(1)
+                                .add_leaf(0, tap_tweak)
+                                .map_err(|op| PsbtInputError::WrongWatcherTweak(op.to_string()))
                         {
                             // TODO: Incompatible versions between RGB and Descriptor Wallet
                             let xonly_30 =
@@ -605,5 +624,412 @@ fn complete_input_desc(
         Err(PsbtInputError::WrongScript(
             "derived scriptPubkey does not match transaction scriptPubkey".to_string(),
         ))
+    }
+}
+
+pub trait PsbtEx<T> {
+    type Error: std::error::Error;
+
+    fn new<'inputs, 'outputs>(
+        descriptor: &Descriptor<DerivationAccount>,
+        inputs: impl IntoIterator<Item = &'inputs InputDescriptor>,
+        outputs: impl IntoIterator<Item = &'outputs (PubkeyScript, u64)>,
+        change_index: Vec<UnhardenedIndex>,
+        fee: u64,
+        tx_resolver: &impl ResolveTx,
+        options: PsbtNewOptions,
+    ) -> Result<T, Self::Error>;
+}
+
+#[derive(Debug, Display, Error, From)]
+#[display(doc_comments)]
+pub enum PsbtConstructError {
+    /// unable to construct PSBT due to one of transaction inputs is not known
+    #[from]
+    ResolvingTx(TxResolverError),
+
+    /// unable to construct PSBT due to failing key derivetion derivation
+    #[from]
+    Derive(DeriveError),
+
+    /// unable to construct PSBT due to spent transaction {0} not having
+    /// referenced output #{1}
+    OutputUnknown(Txid, u32),
+
+    /// derived scriptPubkey `{3}` does not match transaction scriptPubkey
+    /// `{2}` for {0}:{1}
+    ScriptPubkeyMismatch(Txid, u32, Script, Script),
+
+    /// one of PSBT outputs has invalid script data. {0}
+    #[from]
+    Miniscript(miniscript_crate::Error),
+
+    /// taproot script tree construction error. {0}
+    #[from]
+    TaprootBuilderError(TaprootBuilderError),
+
+    /// PSBT can't be constructed according to the consensus rules since
+    /// it spends more ({output} sats) than the sum of its input amounts
+    /// ({input} sats)
+    Inflation {
+        /// Amount spent: input amounts
+        input: u64,
+
+        /// Amount sent: sum of output value + transaction fee
+        output: u64,
+    },
+}
+
+#[derive(Clone, Debug, Display, Error, From)]
+#[display(doc_comments)]
+pub struct PsbtNewOptions {
+    pub set_tapret: bool,
+    pub check_inflation: bool,
+    pub force_inflation: u64,
+}
+
+impl Default for PsbtNewOptions {
+    fn default() -> Self {
+        Self {
+            set_tapret: true,
+            check_inflation: true,
+            force_inflation: 0,
+        }
+    }
+}
+
+impl PsbtNewOptions {
+    pub fn set_inflaction(inflaction: u64) -> Self {
+        Self {
+            set_tapret: true,
+            check_inflation: false,
+            force_inflation: inflaction,
+        }
+    }
+}
+
+impl PsbtEx<Psbt> for Psbt {
+    type Error = PsbtConstructError;
+
+    fn new<'inputs, 'outputs>(
+        descriptor: &Descriptor<DerivationAccount>,
+        inputs: impl IntoIterator<Item = &'inputs InputDescriptor>,
+        outputs: impl IntoIterator<Item = &'outputs (PubkeyScript, u64)>,
+        change_index: Vec<UnhardenedIndex>,
+        fee: u64,
+        tx_resolver: &impl ResolveTx,
+        options: PsbtNewOptions,
+    ) -> Result<Psbt, PsbtConstructError> {
+        let mut xpub = bmap! {};
+        descriptor.for_each_key(|account| {
+            if let Some(key_source) = account.account_key_source() {
+                xpub.insert(account.account_xpub, key_source);
+            }
+            true
+        });
+
+        let mut total_spent = 0u64;
+        let mut psbt_inputs: Vec<psbt::Input> = vec![];
+
+        for (index, input) in inputs.into_iter().enumerate() {
+            let txid = input.outpoint.txid;
+            let mut tx = tx_resolver.resolve_tx(txid)?;
+
+            // Cut out witness data
+            for inp in &mut tx.input {
+                inp.witness = zero!();
+            }
+
+            let prev_output = tx
+                .output
+                .get(input.outpoint.vout as usize)
+                .ok_or(PsbtConstructError::OutputUnknown(txid, input.outpoint.vout))?;
+            let (script_pubkey, dtype, tr_descriptor, pretr_descriptor, tap_tree) = match descriptor
+            {
+                Descriptor::Tr(_) => {
+                    let output_descriptor = DeriveDescriptor::<XOnlyPublicKey>::derive_descriptor(
+                        descriptor,
+                        SECP256K1,
+                        &input.terminal,
+                    )?;
+
+                    if input.tweak.is_some() {
+                        let mut tap_tree: Option<TapBranchHash> = None;
+                        let mut tap_script = output_descriptor.script_pubkey();
+                        if let Descriptor::<XOnlyPublicKey>::Tr(tr_desc) = output_descriptor.clone()
+                        {
+                            if let Some((_, tweak)) = input.tweak {
+                                let merkel_tree =
+                                    TapBranchHash::from_slice(&tweak).expect("invalid taptweak");
+                                let internal_key = tr_desc.internal_key().to_x_only_pubkey();
+                                let (output_key, _) =
+                                    internal_key.tap_tweak(SECP256K1, Some(merkel_tree));
+                                let builder = bitcoin::blockdata::script::Builder::new();
+
+                                tap_tree = Some(merkel_tree);
+                                tap_script = builder
+                                    .push_opcode(opcodes::all::OP_PUSHNUM_1)
+                                    .push_slice(&output_key.serialize())
+                                    .into_script();
+                            }
+                        }
+                        (
+                            tap_script,
+                            descriptors::CompositeDescrType::from(&output_descriptor),
+                            Some(output_descriptor),
+                            None,
+                            tap_tree,
+                        )
+                    } else {
+                        (
+                            output_descriptor.script_pubkey(),
+                            descriptors::CompositeDescrType::from(&output_descriptor),
+                            Some(output_descriptor),
+                            None,
+                            None,
+                        )
+                    }
+                }
+                _ => {
+                    let output_descriptor =
+                        DeriveDescriptor::<bitcoin::PublicKey>::derive_descriptor(
+                            descriptor,
+                            SECP256K1,
+                            &input.terminal,
+                        )?;
+                    (
+                        output_descriptor.script_pubkey(),
+                        descriptors::CompositeDescrType::from(&output_descriptor),
+                        None,
+                        Some(output_descriptor),
+                        None,
+                    )
+                }
+            };
+            if prev_output.script_pubkey != script_pubkey {
+                return Err(PsbtConstructError::ScriptPubkeyMismatch(
+                    txid,
+                    input.outpoint.vout,
+                    prev_output.script_pubkey.clone(),
+                    script_pubkey,
+                ));
+            }
+            let mut bip32_derivation = bmap! {};
+            let result = descriptor.for_each_key(|account| {
+                match account.bip32_derivation(SECP256K1, &input.terminal) {
+                    Ok((pubkey, key_source)) => {
+                        bip32_derivation.insert(pubkey, key_source);
+                        true
+                    }
+                    Err(_) => false,
+                }
+            });
+            if !result {
+                return Err(DeriveError::DerivePatternMismatch.into());
+            }
+
+            total_spent += prev_output.value;
+
+            let tx_in = TxIn {
+                previous_output: input.outpoint,
+                ..Default::default()
+            };
+
+            let mut psbt_input =
+                psbt::Input::new(index, tx_in).expect("Error when contruct PSBT Input");
+            psbt_input.sequence_number = Some(input.seq_no);
+            psbt_input.bip32_derivation = bip32_derivation;
+            psbt_input.sighash_type = Some(input.sighash_type.into());
+
+            if dtype.is_segwit() {
+                psbt_input.witness_utxo = Some(prev_output.clone());
+            }
+            // This is required even in case of segwit outputs, since at least Ledger Nano X
+            // do not trust just `non_witness_utxo` data.
+            psbt_input.non_witness_utxo = Some(tx.clone());
+
+            if let Some(Descriptor::<XOnlyPublicKey>::Tr(tr)) = tr_descriptor {
+                psbt_input.bip32_derivation.clear();
+                psbt_input.tap_merkle_root = tr.spend_info().merkle_root();
+                psbt_input.tap_merkle_root = tap_tree;
+                psbt_input.tap_internal_key = Some(tr.internal_key().to_x_only_pubkey());
+                let spend_info = tr.spend_info();
+                psbt_input.tap_scripts = spend_info
+                    .as_script_map()
+                    .iter()
+                    .map(|((script, leaf_ver), _)| {
+                        (
+                            spend_info
+                                .control_block(&(script.clone(), *leaf_ver))
+                                .expect("taproot scriptmap is broken"),
+                            (script.clone(), *leaf_ver),
+                        )
+                    })
+                    .collect();
+                if let Some(taptree) = tr.taptree() {
+                    descriptor.for_each_key(|key| {
+                        let (pubkey, key_source) = key
+                            .bip32_derivation(SECP256K1, &input.terminal)
+                            .expect("failing on second pass of the same function");
+                        let pubkey = XOnlyPublicKey::from(pubkey);
+                        let mut leaves = vec![];
+                        for (_, ms) in taptree.iter() {
+                            for pk in ms.iter_pk() {
+                                if pk == pubkey {
+                                    leaves.push(TapLeafHash::from_script(
+                                        &ms.encode(),
+                                        LeafVersion::TapScript,
+                                    ));
+                                }
+                            }
+                        }
+                        let entry = psbt_input
+                            .tap_key_origins
+                            .entry(pubkey.to_x_only_pubkey())
+                            .or_insert((vec![], key_source));
+                        entry.0.extend(leaves);
+                        true
+                    });
+                }
+                descriptor.for_each_key(|key| {
+                    let (pubkey, key_source) = key
+                        .bip32_derivation(SECP256K1, &input.terminal)
+                        .expect("failing on second pass of the same function");
+                    let pubkey = XOnlyPublicKey::from(pubkey);
+                    if pubkey == *tr.internal_key() {
+                        psbt_input
+                            .tap_key_origins
+                            .entry(pubkey.to_x_only_pubkey())
+                            .or_insert((vec![], key_source));
+                    }
+                    true
+                });
+                for (leaves, _) in psbt_input.tap_key_origins.values_mut() {
+                    *leaves = leaves
+                        .iter()
+                        .cloned()
+                        .collect::<BTreeSet<_>>()
+                        .into_iter()
+                        .collect();
+                }
+            } else if let Some(output_descriptor) = pretr_descriptor {
+                let lock_script = output_descriptor.explicit_script()?;
+                if dtype.has_redeem_script() {
+                    psbt_input.redeem_script = Some(lock_script.clone().into());
+                }
+                if dtype.has_witness_script() {
+                    psbt_input.witness_script = Some(lock_script.into());
+                }
+            }
+
+            psbt_inputs.push(psbt_input);
+        }
+
+        let mut total_sent = 0u64;
+        let mut psbt_outputs: Vec<_> = outputs
+            .into_iter()
+            .enumerate()
+            .map(|(index, (script, amount))| {
+                total_sent += *amount;
+                let txout = TxOut {
+                    value: *amount,
+                    script_pubkey: script.clone().into(),
+                };
+                psbt::Output::new(index, txout)
+            })
+            .collect();
+
+        let change = if !options.check_inflation {
+            options.force_inflation
+        } else {
+            match total_spent.checked_sub(total_sent + fee) {
+                Some(change) => change,
+                None => {
+                    return Err(PsbtConstructError::Inflation {
+                        input: total_spent,
+                        output: total_sent + fee,
+                    })
+                }
+            }
+        };
+
+        if change > 0 {
+            let change_derivation: [UnhardenedIndex; 2] =
+                change_index.try_into().expect("invalid hardened index");
+            let mut bip32_derivation = bmap! {};
+            let bip32_derivation_fn = |account: &DerivationAccount| {
+                let (pubkey, key_source) = account
+                    .bip32_derivation(SECP256K1, change_derivation)
+                    .expect("already tested descriptor derivation mismatch");
+                bip32_derivation.insert(pubkey, key_source);
+                true
+            };
+
+            let change_txout = TxOut {
+                value: change,
+                ..Default::default()
+            };
+            let mut psbt_change_output = psbt::Output::new(psbt_outputs.len(), change_txout);
+            if let Descriptor::Tr(_) = descriptor {
+                let change_descriptor = DeriveDescriptor::<XOnlyPublicKey>::derive_descriptor(
+                    descriptor,
+                    SECP256K1,
+                    change_derivation,
+                )?;
+                let change_descriptor = match change_descriptor {
+                    Descriptor::Tr(tr) => tr,
+                    _ => unreachable!(),
+                };
+
+                psbt_change_output.script = change_descriptor.script_pubkey().into();
+                descriptor.for_each_key(bip32_derivation_fn);
+
+                let internal_key: XOnlyPublicKey =
+                    change_descriptor.internal_key().to_x_only_pubkey();
+                psbt_change_output.tap_internal_key = Some(internal_key);
+                if let Some(tree) = change_descriptor.taptree() {
+                    let mut builder = TaprootBuilder::new();
+                    for (depth, ms) in tree.iter() {
+                        builder = builder
+                            .add_leaf(depth, ms.encode())
+                            .expect("insane miniscript taptree");
+                    }
+                    psbt_change_output.tap_tree =
+                        Some(TapTree::try_from(builder).expect("non-finalized TaprootBuilder"));
+                }
+            } else {
+                let change_descriptor = DeriveDescriptor::<bitcoin::PublicKey>::derive_descriptor(
+                    descriptor,
+                    SECP256K1,
+                    change_derivation,
+                )?;
+                psbt_change_output.script = change_descriptor.script_pubkey().into();
+
+                let dtype = descriptors::CompositeDescrType::from(&change_descriptor);
+                descriptor.for_each_key(bip32_derivation_fn);
+
+                let lock_script = change_descriptor.explicit_script()?;
+                if dtype.has_redeem_script() {
+                    psbt_change_output.redeem_script = Some(lock_script.clone().into());
+                }
+                if dtype.has_witness_script() {
+                    psbt_change_output.witness_script = Some(lock_script.into());
+                }
+            }
+
+            psbt_change_output.bip32_derivation = bip32_derivation;
+            psbt_outputs.push(psbt_change_output);
+        }
+
+        Ok(Psbt {
+            psbt_version: PsbtVersion::V0,
+            tx_version: 2,
+            xpub,
+            inputs: psbt_inputs,
+            outputs: psbt_outputs,
+            fallback_locktime: None,
+            proprietary: none!(),
+            unknown: none!(),
+        })
     }
 }

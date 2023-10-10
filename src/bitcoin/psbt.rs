@@ -62,6 +62,39 @@ pub async fn multi_sign_psbt(
     Ok(psbt)
 }
 
+pub async fn publish_psbt(
+    psbt: PartiallySignedTransaction,
+) -> Result<TransactionDetails, BitcoinPsbtError> {
+    debug!("Signed PSBT:", base64::encode(&serialize(&psbt)));
+    let fee_amount = psbt.fee_amount().expect("fee amount on PSBT is known");
+    let tx = psbt.extract_tx();
+    debug!("tx:", &serialize(&tx.clone()).to_hex());
+    let blockchain = get_blockchain().await;
+    blockchain.broadcast(&tx).await?;
+
+    let txid = tx.txid();
+    let tx = blockchain.get_tx(&txid).await?;
+
+    let mut sent = 0;
+    let mut received = 0;
+
+    if let Some(tx) = tx.clone() {
+        sent = tx.output.iter().fold(0, |sum, output| output.value + sum);
+        received = sent - fee_amount;
+    }
+
+    let details = TransactionDetails {
+        transaction: tx,
+        txid,
+        received,
+        sent,
+        fee: Some(fee_amount),
+        confirmation_time: None,
+    };
+
+    Ok(details)
+}
+
 /// Signs and broadcasts a transaction given a Psbt
 pub async fn sign_and_publish_psbt(
     wallet: &MemoryWallet,
