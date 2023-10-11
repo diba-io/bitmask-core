@@ -24,14 +24,8 @@ export const createPsbt = async (
 export const psbtSignFile = async (
   nostrHexSk: string,
   request: SignPsbtRequest
-): Promise<PublishedPsbtResponse> =>
+): Promise<SignedPsbtResponse> =>
   JSON.parse(await BMC.psbt_sign_file(nostrHexSk, request));
-
-  export const psbtSignAndPublishFile = async (
-    nostrHexSk: string,
-    request: SignPsbtRequest
-  ): Promise<PublishedPsbtResponse> =>
-    JSON.parse(await BMC.psbt_sign_and_publish_file(nostrHexSk, request));
 
 export const transferAsset = async (
   nostrHexSk: string,
@@ -390,8 +384,6 @@ export interface PsbtResponse {
 export interface SignPsbtRequest {
   /// PSBT encoded in Base64
   psbt: string;
-  /// Descriptors to Sign
-  descriptors: string[];
 }
 
 export interface PublishedPsbtResponse {
@@ -399,6 +391,18 @@ export interface PublishedPsbtResponse {
   sign: boolean;
   /// TX id
   txid: string;
+}
+
+export interface SignedPsbtResponse {
+  /// PSBT is signed?
+  sign: boolean,
+  /// PSBT signed
+  psbt: string,
+}
+
+export interface PublishPsbtRequest {
+  /// PSBT encoded in Base64
+  psbt: string,
 }
 
 export interface RgbTransferRequest {

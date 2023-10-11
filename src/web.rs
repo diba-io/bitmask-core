@@ -454,6 +454,7 @@ pub mod rgb {
         })
     }
 
+    #[wasm_bindgen]
     pub fn psbt_publish_file(_nostr_hex_sk: String, request: JsValue) -> Promise {
         set_panic_hook();
 
