@@ -1,8 +1,5 @@
 use ::psbt::{serialize::Serialize, Psbt};
-use amplify::{
-    confinement::U32,
-    hex::{FromHex, ToHex},
-};
+use amplify::hex::{FromHex, ToHex};
 use anyhow::Result;
 use autosurgeon::reconcile;
 use bitcoin::{psbt::PartiallySignedTransaction, Network, Txid};
@@ -13,7 +10,7 @@ use garde::Validate;
 use miniscript_crate::DescriptorPublicKey;
 use rgb::{RgbDescr, RgbWallet};
 use rgbstd::{
-    containers::BindleContent,
+    containers::{Bindle, BindleContent},
     contract::ContractId,
     interface::TypedState,
     persistence::{Inventory, Stash, Stock},
@@ -25,7 +22,7 @@ use std::{
     ops::Sub,
     str::FromStr,
 };
-use strict_encoding::{tn, StrictSerialize};
+use strict_encoding::tn;
 use thiserror::Error;
 
 pub mod accept;
@@ -841,12 +838,9 @@ async fn internal_transfer_asset(
     let consig_id = transfer.bindle_id().to_string();
     let consig = if let (Some(offer_id), Some(bid_id)) = (params.offer_id, params.bid_id) {
         let swap = TransferSwap::with(&offer_id, &bid_id, transfer.unbindle());
-        swap.to_strict_serialized::<{ U32 }>()
-            .map_err(|err| TransferError::WrongConsig(err.to_string()))?
+        Bindle::new(swap.consig).to_string()
     } else {
-        transfer
-            .to_strict_serialized::<{ U32 }>()
-            .map_err(|err| TransferError::WrongConsig(err.to_string()))?
+        transfer.to_string()
     };
 
     let bp_txid = bp::Txid::from_hex(&psbt.to_txid().to_hex())
@@ -859,7 +853,7 @@ async fn internal_transfer_asset(
     let rgb_transfer = RgbTransfer {
         iface: rgb_invoice.iface.unwrap().to_string(),
         consig_id: consig_id.clone(),
-        consig: consig.to_hex(),
+        consig: consig.clone(),
         tx: bp_txid,
         is_send: true,
     };
@@ -876,13 +870,12 @@ async fn internal_transfer_asset(
             .insert(contract_id, vec![rgb_transfer]);
     }
 
-    let consig_hex = consig.to_hex();
     let commit = commit.to_hex();
     let psbt = psbt.to_string();
 
     let resp = RgbInternalTransferResponse {
         consig_id,
-        consig: consig_hex,
+        consig,
         psbt,
         commit,
         txid: bp_txid.to_string(),
