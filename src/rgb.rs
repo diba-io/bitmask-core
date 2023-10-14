@@ -1443,7 +1443,7 @@ pub async fn accept_transfer(
     Ok(resp)
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Display, From, Error)]
+#[derive(Debug, Clone, Eq, PartialEq, Display, Error)]
 #[display(doc_comments)]
 pub enum SaveTransferError {
     /// Some request data is missing. {0:?}
@@ -1458,6 +1458,10 @@ pub enum SaveTransferError {
     WrongSwap(RgbOfferErrors),
     /// Write I/O or connectivity error. {1} in {0}
     Write(String, String),
+    /// Strict Serialize error
+    StrictSerializeError(#[from] strict_encoding::SerializeError),
+    // /// Bindle Parse Error
+    // BindleParseError(BindleParseError<rgb::containers::transfer::TransferId>),
 }
 
 pub async fn save_transfer(
