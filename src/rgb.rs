@@ -705,7 +705,7 @@ pub async fn full_transfer_asset(
         psbt,
         commit,
         outpoint,
-        ..
+        txid,
     } = internal_transfer_asset(
         transfer_req,
         params,
@@ -730,6 +730,7 @@ pub async fn full_transfer_asset(
         consig,
         psbt,
         commit,
+        txid,
     };
 
     rgb_account.clone().update(&mut rgb_account_changes);
@@ -762,7 +763,7 @@ pub async fn transfer_asset(
         psbt,
         commit,
         outpoint,
-        ..
+        txid,
     } = internal_transfer_asset(
         request.clone(),
         params,
@@ -787,6 +788,7 @@ pub async fn transfer_asset(
         consig,
         psbt,
         commit,
+        txid,
     };
 
     store_stock_account_transfers(sk, stock, rgb_account, rgb_transfers)
@@ -883,6 +885,7 @@ async fn internal_transfer_asset(
         consig: consig_hex,
         psbt,
         commit,
+        txid: bp_txid.to_string(),
         outpoint: outpoint.to_string(),
     };
 
