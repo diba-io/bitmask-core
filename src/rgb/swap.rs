@@ -10,7 +10,7 @@ use crate::{structs::AllocationDetail, validators::RGBContext};
 use amplify::{
     confinement::{Confined, U32},
     hex::{FromHex, ToHex},
-    Array, Bytes32, RawArray,
+    Array, ByteArray, Bytes32,
 };
 use autosurgeon::{reconcile, Hydrate, Reconcile};
 use baid58::{Baid58ParseError, FromBaid58, ToBaid58};
@@ -925,7 +925,7 @@ pub struct OrderId(
 impl ToBaid58<32> for OrderId {
     const HRI: &'static str = "swap";
     fn to_baid58_payload(&self) -> [u8; 32] {
-        self.to_raw_array()
+        self.to_byte_array()
     }
 }
 impl FromBaid58<32> for OrderId {}

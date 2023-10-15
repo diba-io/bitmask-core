@@ -1,6 +1,5 @@
 #![allow(unused_imports)]
 #![allow(unused_variables)]
-
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap},
     convert::Infallible,
@@ -8,7 +7,6 @@ use std::{
 };
 
 use amplify::hex::ToHex;
-use bitcoin::Script;
 use bp::{LockTime, Outpoint, SeqNo, Tx, TxIn, TxOut, TxVer, Txid, VarIntArray, Witness};
 use rgb::{prelude::DeriveInfo, MiningStatus, TerminalPath, Utxo};
 use rgbstd::{
@@ -38,6 +36,7 @@ impl rgb::Resolver for ExplorerResolver {
         &mut self,
         scripts: BTreeMap<DeriveInfo, bitcoin_30::ScriptBuf>,
     ) -> Result<BTreeSet<rgb::prelude::Utxo>, String> {
+        use bitcoin::Script;
         use bitcoin_scripts::address::{AddressCompat, AddressNetwork};
         use bp::ScriptPubkey;
         use esplora_block::FromHex;
