@@ -176,11 +176,16 @@ pub fn create_psbt(
     Ok((psbt, change_index.to_string()))
 }
 
-pub fn set_tapret_position(psbt: Psbt, pos: u16) -> Result<Psbt, CreatePsbtError> {
-    // Define Tapret Proprierties
+pub fn set_tapret_output(psbt: Psbt, pos: u16) -> Result<Psbt, CreatePsbtError> {
     let mut psbt = psbt;
+
+    if pos > 0 {
+        psbt.outputs.swap(0, pos.into());
+    }
+
+    // Define Tapret Proprierties
     let proprietary_keys = vec![ProprietaryKeyDescriptor {
-        location: ProprietaryKeyLocation::Output(pos),
+        location: ProprietaryKeyLocation::Output(0),
         ty: ProprietaryKeyType {
             prefix: RGB_PSBT_TAPRET.to_owned(),
             subtype: 0,

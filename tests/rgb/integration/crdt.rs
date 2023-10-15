@@ -14,7 +14,7 @@ async fn allow_fork_with_previous_version() -> anyhow::Result<()> {
         block: 0,
         amount: 10000000,
         terminal: "20:1".to_string(),
-        tweak: Some("tapret02p3PfJiAs6WexAGDDKLyfRqfFaoPG5VFoc6gnqw3q9zQt1shWmF".to_string()),
+        tweak: Some("gu0x5*b6~L+)(kY3<hZqSKwHx1{ezy#_l#3uaPPG00".to_string()),
     };
 
     let new_utxo = Utxo::from(new_raw_utxo);
@@ -47,7 +47,7 @@ async fn allow_fork_without_previous_version() -> anyhow::Result<()> {
         block: 0,
         amount: 10000000,
         terminal: "20:1".to_string(),
-        tweak: Some("tapret02p3PfJiAs6WexAGDDKLyfRqfFaoPG5VFoc6gnqw3q9zQt1shWmF".to_string()),
+        tweak: Some("gu0x5*b6~L+)(kY3<hZqSKwHx1{ezy#_l#3uaPPG00".to_string()),
     };
 
     let new_utxo = Utxo::from(new_raw_utxo);

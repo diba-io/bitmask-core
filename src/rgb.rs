@@ -101,7 +101,7 @@ use self::{
         prefetch_resolver_wutxo,
     },
     psbt::{
-        save_tap_commit_str, set_tapret_position, CreatePsbtError, EstimateFeeError, PsbtNewOptions,
+        save_tap_commit_str, set_tapret_output, CreatePsbtError, EstimateFeeError, PsbtNewOptions,
     },
     structs::{RgbAccount, RgbExtractTransfer, RgbTransfer, RgbTransfers},
     swap::{
@@ -570,7 +570,7 @@ async fn internal_create_psbt(
 
     if options.set_tapret {
         let pos = (psbt_file.outputs.len() - 1) as u16;
-        psbt_file = set_tapret_position(psbt_file, pos).map_err(PsbtError::Create)?;
+        psbt_file = set_tapret_output(psbt_file, pos).map_err(PsbtError::Create)?;
     }
 
     let psbt = PsbtResponse {
@@ -827,14 +827,6 @@ async fn internal_transfer_asset(
 
     let (psbt, transfer) = pay_invoice(invoice.clone(), psbt, stock).map_err(TransferError::Pay)?;
     let (outpoint, commit) = extract_commit(psbt.clone()).map_err(TransferError::Commitment)?;
-    // if let Some(wallet) = rgb_account.wallets.get(RGB_DEFAULT_NAME) {
-    //     let mut wallet = wallet.to_owned();
-    //     save_tap_commit(outpoint, commit.clone(), &terminal, &mut wallet);
-
-    //     rgb_account
-    //         .wallets
-    //         .insert(RGB_DEFAULT_NAME.to_string(), wallet.clone());
-    // };
 
     let consig_id = transfer.bindle_id().to_string();
     let consig = if let (Some(offer_id), Some(bid_id)) = (params.offer_id, params.bid_id) {

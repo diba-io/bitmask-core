@@ -624,8 +624,8 @@ pub fn get_raw_wallet() -> RawRgbWallet {
         xpub: "tpubDCBwP45jcvCdTBZSxn8TcCyQGx5YgietksRRptV9YJ1xnom6edMwb2JcBnNU15t6TmotHETmgnvHQ2Nki7N7CsgFhka6D91UgMaEYpTRuSh".to_string(),
         taprets: bmap!{
             "20:1".to_string() => vec![
-                "tapret054mNJMWTUsdX429C87Zi2AFr25cNGo6pxWeoEEsPExx8YNdxnCk".to_string(),
-                "tapret02Mq47rPbJsankXcDd3PDQaBhL1iDnELdqV6xz5eUiZVJYhLeVwu".to_string(),
+                "f61p)BbC*-|AJ2W9oM?q<<_s?&Jb6v-+EsVd#`pU00".to_string(),
+                "?~iw^DhjX<zcgK-Ju5wgKGY*I%v~qSVUQv&0?iu000".to_string(),
             ],
         },
         utxos: vec![
@@ -649,7 +649,7 @@ pub fn get_raw_wallet() -> RawRgbWallet {
                 amount: 10000000,
                 terminal: "20:1".to_string(),
                 tweak: Some(
-                    "tapret054mNJMWTUsdX429C87Zi2AFr25cNGo6pxWeoEEsPExx8YNdxnCk".to_string(),
+                    "f61p)BbC*-|AJ2W9oM?q<<_s?&Jb6v-+EsVd#`pU00".to_string(),
                 ),
             },
             RawUtxo {
@@ -658,7 +658,7 @@ pub fn get_raw_wallet() -> RawRgbWallet {
                 amount: 10000000,
                 terminal: "20:1".to_string(),
                 tweak: Some(
-                    "tapret02Mq47rPbJsankXcDd3PDQaBhL1iDnELdqV6xz5eUiZVJYhLeVwu".to_string(),
+                    "?~iw^DhjX<zcgK-Ju5wgKGY*I%v~qSVUQv&0?iu000".to_string(),
                 ),
             }
         ],
