@@ -1,6 +1,9 @@
 use std::{collections::BTreeMap, ops::Mul, str::FromStr};
 
-use amplify::{confinement::Confined, hex::FromHex};
+use amplify::{
+    confinement::{Confined, U32},
+    hex::FromHex,
+};
 use baid58::ToBaid58;
 use bech32::{decode, FromBase32};
 use bitcoin::Network;
@@ -9,12 +12,13 @@ use garde::Validate;
 use rand::{rngs::StdRng, Rng, SeedableRng};
 use rgb::{RgbWallet, TerminalPath};
 use rgbstd::{
+    containers::{Bindle, Consignment},
     contract::ContractId,
     interface::TypedState,
     persistence::{Inventory, Stash, Stock},
 };
 use rgbwallet::RgbInvoice;
-use strict_encoding::tn;
+use strict_encoding::{tn, StrictSerialize};
 
 use crate::{
     bitcoin::get_swap_new_address,
@@ -44,6 +48,8 @@ use crate::rgb::{
     wallet::{get_address, next_utxos},
     RgbSwapError, SaveTransferError, TransferError,
 };
+
+use super::transfer::extract_bindle;
 
 pub const DUST_LIMIT_SATOSHI: u64 = 546;
 
@@ -861,38 +867,73 @@ pub async fn prebuild_buyer_swap(
 pub fn prebuild_extract_transfer(
     consignment: &str,
 ) -> Result<RgbExtractTransfer, SaveTransferError> {
+    let mut is_armored = false;
     let serialized = if consignment.starts_with("rgb1") {
         let (_, serialized, _) =
             decode(consignment).expect("invalid serialized contract/genesis (bech32m format)");
         Vec::<u8>::from_base32(&serialized)
             .expect("invalid hexadecimal contract/genesis (bech32m format)")
+    } else if consignment.starts_with("-----") {
+        is_armored = true;
+        Vec::new()
     } else {
         Vec::<u8>::from_hex(consignment).expect("invalid hexadecimal contract/genesis")
     };
 
-    let confined = Confined::try_from_iter(serialized.iter().copied())
-        .expect("invalid confined serialization");
-    let (tx_id, transfer, offer_id, bid_id) = match extract_transfer(consignment.to_owned()) {
-        Ok((txid, tranfer)) => (txid, tranfer, None, None),
-        _ => match extract_swap_transfer(consignment.to_owned()) {
-            Ok((txid, tranfer, offer_id, bid_id)) => (
-                txid,
-                tranfer,
-                Some(offer_id.to_baid58_string()),
-                Some(bid_id.to_baid58_string()),
-            ),
-            Err(err) => return Err(SaveTransferError::WrongConsigSwap(err)),
-        },
-    };
+    if is_armored {
+        let transfer =
+            Bindle::<Consignment<true>>::from_str(consignment).expect("bindle parse error"); // ?;
 
-    let contract_id = transfer.contract_id().to_string();
-    Ok(RgbExtractTransfer {
-        consig_id: transfer.id().to_string(),
-        contract_id,
-        tx_id,
-        transfer,
-        offer_id,
-        bid_id,
-        strict: confined,
-    })
+        let confined = transfer.to_strict_serialized::<U32>()?;
+
+        let (tx_id, transfer, offer_id, bid_id) = match extract_bindle(transfer) {
+            Ok((txid, transfer)) => (txid, transfer, None, None),
+            _ => match extract_swap_transfer(consignment.to_owned()) {
+                Ok((txid, transfer, offer_id, bid_id)) => (
+                    txid,
+                    transfer,
+                    Some(offer_id.to_baid58_string()),
+                    Some(bid_id.to_baid58_string()),
+                ),
+                Err(err) => return Err(SaveTransferError::WrongConsigSwap(err)),
+            },
+        };
+
+        let contract_id = transfer.contract_id().to_string();
+        Ok(RgbExtractTransfer {
+            consig_id: transfer.id().to_string(),
+            contract_id,
+            tx_id,
+            transfer,
+            offer_id,
+            bid_id,
+            strict: confined,
+        })
+    } else {
+        let confined = Confined::try_from_iter(serialized.iter().copied())
+            .expect("invalid confined serialization");
+        let (tx_id, transfer, offer_id, bid_id) = match extract_transfer(consignment.to_owned()) {
+            Ok((txid, transfer)) => (txid, transfer, None, None),
+            _ => match extract_swap_transfer(consignment.to_owned()) {
+                Ok((txid, transfer, offer_id, bid_id)) => (
+                    txid,
+                    transfer,
+                    Some(offer_id.to_baid58_string()),
+                    Some(bid_id.to_baid58_string()),
+                ),
+                Err(err) => return Err(SaveTransferError::WrongConsigSwap(err)),
+            },
+        };
+
+        let contract_id = transfer.contract_id().to_string();
+        Ok(RgbExtractTransfer {
+            consig_id: transfer.id().to_string(),
+            contract_id,
+            tx_id,
+            transfer,
+            offer_id,
+            bid_id,
+            strict: confined,
+        })
+    }
 }

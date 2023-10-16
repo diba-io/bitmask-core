@@ -10,7 +10,7 @@ use bp::{seals::txout::CloseMethod, Chain, Txid};
 use indexmap::IndexMap;
 use psbt::{serialize::Serialize, Psbt};
 use rgbstd::{
-    containers::{Bindle, Transfer},
+    containers::{Bindle, Consignment, Transfer},
     contract::{ContractId, GraphSeal},
     interface::TypedState,
     persistence::{Inventory, Stash, Stock},
@@ -223,12 +223,18 @@ pub fn extract_transfer(transfer: String) -> Result<(Txid, Bindle<Transfer>), Ac
     let transfer = Transfer::from_strict_serialized::<{ U32 }>(confined)
         .map_err(|err| AcceptTransferError::WrongConsig(err.to_string()))?;
 
+    extract_bindle(Bindle::new(transfer))
+}
+
+pub fn extract_bindle(
+    transfer: Bindle<Consignment<true>>,
+) -> Result<(Txid, Bindle<Transfer>), AcceptTransferError> {
     for (bundle_id, _) in transfer.terminals() {
         if transfer.known_transitions_by_bundle_id(bundle_id).is_none() {
             return Err(AcceptTransferError::Inconclusive);
         };
         if let Some(AnchoredBundle { anchor, bundle: _ }) = transfer.anchored_bundle(bundle_id) {
-            return Ok((anchor.txid, Bindle::new(transfer)));
+            return Ok((anchor.txid, transfer));
         }
     }
 

@@ -714,6 +714,8 @@ pub struct RgbTransferResponse {
     pub psbt: String,
     /// Tapret Commitment (used to spend output)
     pub commit: String,
+    /// Transfer Bitcoin L1 transaction id
+    pub txid: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -729,6 +731,8 @@ pub struct RgbInternalTransferResponse {
     pub outpoint: String,
     /// Tapret Commitment (used to spend output)
     pub commit: String,
+    /// Transfer Bitcoin L1 transaction id
+    pub txid: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
