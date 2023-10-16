@@ -503,6 +503,14 @@ pub async fn prebuild_seller_swap(
 
     let mut total_asset_bitcoin_unspend: u64 = 0;
     for alloc in allocations.iter() {
+        // // TODO: Make more tests!
+        // let sig_hash = if assets_inputs.len() <= 0 {
+        //     PsbtSigHashRequest::NonePlusAnyoneCanPay
+        // } else {
+        //     PsbtSigHashRequest::NonePlusAnyoneCanPay
+        // };
+        let sig_hash = PsbtSigHashRequest::NonePlusAnyoneCanPay;
+
         match alloc.value {
             AllocationValue::Value(alloc_value) => {
                 if asset_total >= target_amount {
@@ -513,7 +521,7 @@ pub async fn prebuild_seller_swap(
                     descriptor: universal_desc.clone(),
                     utxo: alloc.utxo.clone(),
                     utxo_terminal: alloc.derivation.to_string(),
-                    sigh_hash: Some(PsbtSigHashRequest::SinglePlusAnyoneCanPay),
+                    sigh_hash: Some(sig_hash),
                     tapret: None,
                 };
                 if !assets_inputs
@@ -521,6 +529,10 @@ pub async fn prebuild_seller_swap(
                     .into_iter()
                     .any(|x: PsbtInputRequest| x.utxo == alloc.utxo)
                 {
+                    // let mut empty_input = input.clone();
+                    // empty_input.sigh_hash = Some(PsbtSigHashRequest::None);
+
+                    // assets_inputs.push(empty_input);
                     assets_inputs.push(input);
                     assets_allocs.push(alloc.clone());
                     total_asset_bitcoin_unspend += asset_unspent_utxos
@@ -541,7 +553,7 @@ pub async fn prebuild_seller_swap(
                     descriptor: universal_desc.clone(),
                     utxo: alloc.utxo.clone(),
                     utxo_terminal: alloc.derivation.to_string(),
-                    sigh_hash: Some(PsbtSigHashRequest::SinglePlusAnyoneCanPay),
+                    sigh_hash: Some(sig_hash),
                     tapret: None,
                 };
                 if !assets_inputs
@@ -610,7 +622,7 @@ pub async fn prebuild_seller_swap(
                 descriptor: universal_desc.clone(),
                 utxo: utxo.outpoint.to_string(),
                 utxo_terminal: format!("/{app}/{index}"),
-                sigh_hash: Some(PsbtSigHashRequest::SinglePlusAnyoneCanPay),
+                sigh_hash: Some(PsbtSigHashRequest::NonePlusAnyoneCanPay),
                 tapret: None,
             };
             if !bitcoin_inputs
@@ -631,20 +643,6 @@ pub async fn prebuild_seller_swap(
             output: total_spendable,
         });
     }
-    // } else if change_value > DUST_LIMIT_SATOSHI {
-    //     let network = NETWORK.read().await.to_string();
-    //     let network = Network::from_str(&network)
-    //         .map_err(|err| RgbSwapError::WrongNetwork(err.to_string()))?;
-
-    //     let network = AddressNetwork::from(network);
-    //     // TODO: Use New Address
-    //     let change_address = get_address(20, 1, rgb_wallet.clone(), network)
-    //         .map_err(|err| RgbSwapError::WrongNetwork(err.to_string()))?
-    //         .address;
-
-    //     let change_bitcoin = format!("{change_address}:{change_value}");
-    //     bitcoin_changes.push(change_bitcoin);
-    // }
 
     Ok((
         assets_allocs,

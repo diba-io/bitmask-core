@@ -1,5 +1,5 @@
 #![cfg(target_arch = "wasm32")]
-use bp::bc::stl::bitcoin_stl;
+use bp::bc::stl::bp_tx_stl;
 use rgb::interface::{rgb20_stl, rgb21_stl};
 use rgbstd::stl::rgb_contract_stl;
 use strict_types::stl::std_stl;
@@ -19,7 +19,7 @@ async fn allow_load_stl() {
 #[wasm_bindgen_test]
 async fn allow_load_bitcoin() {
     set_panic_hook();
-    bitcoin_stl();
+    bp_tx_stl();
 }
 
 #[wasm_bindgen_test]

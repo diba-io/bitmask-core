@@ -10,7 +10,7 @@ use crate::{structs::AllocationDetail, validators::RGBContext};
 use amplify::{
     confinement::{Confined, U32},
     hex::{FromHex, ToHex},
-    Array, Bytes32, RawArray,
+    Array, ByteArray, Bytes32,
 };
 use autosurgeon::{reconcile, Hydrate, Reconcile};
 use baid58::{Baid58ParseError, FromBaid58, ToBaid58};
@@ -811,6 +811,7 @@ impl PsbtSwapEx<Psbt> for Psbt {
 
         // Keeping the highest version
         let mut new_psbt = Psbt::from(self).clone();
+        // let mut other = other;
         new_psbt.version = cmp::max(new_psbt.version, other.version);
 
         // Merging xpubs
@@ -851,8 +852,11 @@ impl PsbtSwapEx<Psbt> for Psbt {
         new_psbt.proprietary.extend(other.proprietary);
         new_psbt.unknown.extend(other.unknown);
 
+        // TODO: Make more tests!
+        // new_psbt.inputs.remove(0);
+        // new_psbt.inputs.insert(0, other.inputs.remove(0));
         new_psbt.inputs.extend(other.inputs);
-        // new_psbt.outputs.extend(other.outputs);
+
         let current_outputs = new_psbt.outputs.clone();
         let new_outputs = other.outputs.clone();
         new_outputs.into_iter().for_each(|out| {
@@ -872,8 +876,13 @@ impl PsbtSwapEx<Psbt> for Psbt {
         new_psbt.unsigned_tx.lock_time =
             cmp::max(new_psbt.unsigned_tx.lock_time, other.unsigned_tx.lock_time);
 
+        // new_psbt.unsigned_tx.input.remove(0);
+        // new_psbt
+        //     .unsigned_tx
+        //     .input
+        //     .insert(0, other.unsigned_tx.input.remove(0));
         new_psbt.unsigned_tx.input.extend(other.unsigned_tx.input);
-        // new_psbt.unsigned_tx.output.extend(other.unsigned_tx.output);
+
         let current_outputs = new_psbt.unsigned_tx.output.clone();
         let new_outputs = other.unsigned_tx.output.clone();
         new_outputs.into_iter().for_each(|out| {
@@ -925,7 +934,7 @@ pub struct OrderId(
 impl ToBaid58<32> for OrderId {
     const HRI: &'static str = "swap";
     fn to_baid58_payload(&self) -> [u8; 32] {
-        self.to_raw_array()
+        self.to_byte_array()
     }
 }
 impl FromBaid58<32> for OrderId {}
