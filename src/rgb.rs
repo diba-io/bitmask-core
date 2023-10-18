@@ -29,6 +29,7 @@ use strict_encoding::{tn, StrictSerialize};
 use thiserror::Error;
 
 pub mod accept;
+pub mod cambria;
 pub mod carbonado;
 pub mod constants;
 pub mod contract;
@@ -103,7 +104,7 @@ use self::{
     psbt::{
         save_tap_commit_str, set_tapret_output, CreatePsbtError, EstimateFeeError, PsbtNewOptions,
     },
-    structs::{RgbAccount, RgbExtractTransfer, RgbTransfer, RgbTransfers},
+    structs::{RgbAccountV1, RgbExtractTransfer, RgbTransfer, RgbTransfers},
     swap::{
         get_public_offer, get_swap_bid, get_swap_bid_by_buyer, get_swap_bids_by_seller,
         mark_bid_fill, mark_offer_fill, mark_transfer_bid, mark_transfer_offer, publish_public_bid,
@@ -517,7 +518,7 @@ pub async fn create_psbt(sk: &str, request: PsbtRequest) -> Result<PsbtResponse,
 
 async fn internal_create_psbt(
     request: PsbtRequest,
-    rgb_account: &mut RgbAccount,
+    rgb_account: &mut RgbAccountV1,
     resolver: &mut ExplorerResolver,
     options: Option<PsbtNewOptions>,
 ) -> Result<PsbtResponse, PsbtError> {
@@ -800,7 +801,7 @@ async fn internal_transfer_asset(
     request: RgbTransferRequest,
     params: RgbTransferInternalParams,
     stock: &mut Stock,
-    rgb_account: &mut RgbAccount,
+    rgb_account: &mut RgbAccountV1,
     rgb_transfers: &mut RgbTransfers,
 ) -> Result<RgbInternalTransferResponse, TransferError> {
     let network = NETWORK.read().await.to_string();

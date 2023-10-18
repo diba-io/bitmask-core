@@ -14,11 +14,17 @@ use crate::rgb::{
 };
 use crate::{
     carbonado::{retrieve, server_retrieve, store},
-    rgb::{constants::RGB_STRICT_TYPE_VERSION, structs::RgbAccount},
+    rgb::{
+        cambria::{ModelVersion, RgbAccountVersions},
+        constants::RGB_STRICT_TYPE_VERSION,
+        crdt::LocalRgbOfferBid,
+        structs::RgbAccountV1,
+    },
 };
 
-use super::crdt::LocalRgbOfferBid;
 use super::swap::{PublicRgbOffers, RgbBidSwap};
+
+const RGB_ACCOUNT_VERSION: [u8; 2] = *b"v1";
 
 #[derive(Debug, Clone, Eq, PartialEq, Display, From, Error)]
 #[display(doc_comments)]
@@ -77,7 +83,7 @@ pub async fn store_stock(sk: &str, name: &str, stock: &Stock) -> Result<(), Stor
 pub async fn store_wallets(
     sk: &str,
     name: &str,
-    rgb_wallets: &RgbAccount,
+    rgb_wallets: &RgbAccountV1,
 ) -> Result<(), StorageError> {
     let data = to_allocvec(rgb_wallets)
         .map_err(|op| StorageError::StrictWrite(name.to_string(), op.to_string()))?;
@@ -91,7 +97,7 @@ pub async fn store_wallets(
         &format!("{hashed_name}.c15"),
         &data,
         false,
-        Some(RGB_STRICT_TYPE_VERSION.to_vec()),
+        Some(RGB_ACCOUNT_VERSION.to_vec()),
     )
     .await
     .map_err(|op| StorageError::CarbonadoWrite(name.to_string(), op.to_string()))
@@ -183,19 +189,24 @@ pub async fn retrieve_stock(sk: &str, name: &str) -> Result<Stock, StorageError>
     }
 }
 
-pub async fn retrieve_wallets(sk: &str, name: &str) -> Result<RgbAccount, StorageError> {
+pub async fn retrieve_wallets(sk: &str, name: &str) -> Result<RgbAccountV1, StorageError> {
     let hashed_name = blake3::hash(format!("{LIB_ID_RGB}-{name}").as_bytes())
         .to_hex()
         .to_lowercase();
 
-    let (data, _) = retrieve(sk, &format!("{hashed_name}.c15"), vec![])
+    let (data, metadata) = retrieve(sk, &format!("{hashed_name}.c15"), vec![])
         .await
         .map_err(|op| StorageError::CarbonadoRetrieve(name.to_string(), op.to_string()))?;
 
     if data.is_empty() {
-        Ok(RgbAccount::default())
+        Ok(RgbAccountV1::default())
     } else {
-        let rgb_wallets = from_bytes(&data)
+        let mut version: [u8; 8] = default!();
+        if let Some(metadata) = metadata {
+            version.copy_from_slice(&metadata);
+        }
+
+        let rgb_wallets = RgbAccountVersions::from_bytes(data, version)
             .map_err(|op| StorageError::StrictRetrieve(name.to_string(), op.to_string()))?;
         Ok(rgb_wallets)
     }
@@ -256,25 +267,13 @@ pub async fn retrieve_bids(sk: &str, name: &str) -> Result<RgbBids, StorageError
 }
 
 // CDRT Operations
-pub async fn store_fork_wallets(sk: &str, name: &str, changes: &[u8]) -> Result<(), StorageError> {
+pub async fn cdrt_store_wallets(sk: &str, name: &str, changes: &[u8]) -> Result<(), StorageError> {
     let hashed_name = blake3::hash(format!("{LIB_ID_RGB}-{name}").as_bytes())
         .to_hex()
         .to_lowercase();
 
     let main_name = &format!("{hashed_name}.c15");
     let original_name = &format!("{hashed_name}-diff.c15");
-
-    // let mut original_version = automerge::AutoCommit::new();
-    // let (main_bytes, _) = retrieve(sk, &main_name, vec![])
-    //     .await
-    //     .map_err(|op| StorageError::CarbonadoRetrieve(name.to_string(), op.to_string()))?;
-
-    // let original: RgbAccount = from_bytes(&main_bytes)
-    //     .map_err(|op| StorageError::StrictRetrieve(name.to_string(), op.to_string()))?;
-
-    // let raw_data = RawRgbAccount::from(original);
-    // reconcile(&mut original_version, raw_data)
-    //     .map_err(|op| StorageError::Reconcile(name.to_string(), op.to_string()))?;
 
     let (original_bytes, _) = retrieve(sk, original_name, vec![])
         .await
@@ -291,7 +290,7 @@ pub async fn store_fork_wallets(sk: &str, name: &str, changes: &[u8]) -> Result<
         .map_err(|op| StorageError::MergeWrite(name.to_string(), op.to_string()))?;
 
     let raw_merged: RawRgbAccount = hydrate(&original_version).unwrap();
-    let merged: RgbAccount = RgbAccount::from(raw_merged.clone());
+    let merged: RgbAccountV1 = RgbAccountV1::from(raw_merged.clone());
 
     let mut latest_version = automerge::AutoCommit::new();
     reconcile(&mut latest_version, raw_merged)
@@ -305,7 +304,7 @@ pub async fn store_fork_wallets(sk: &str, name: &str, changes: &[u8]) -> Result<
         main_name,
         &data,
         true,
-        Some(RGB_STRICT_TYPE_VERSION.to_vec()),
+        Some(RGB_ACCOUNT_VERSION.to_vec()),
     )
     .await
     .map_err(|op| StorageError::CarbonadoWrite(name.to_string(), op.to_string()))?;
@@ -313,7 +312,7 @@ pub async fn store_fork_wallets(sk: &str, name: &str, changes: &[u8]) -> Result<
     Ok(())
 }
 
-pub async fn retrieve_fork_wallets(sk: &str, name: &str) -> Result<LocalRgbAccount, StorageError> {
+pub async fn cdrt_retrieve_wallets(sk: &str, name: &str) -> Result<LocalRgbAccount, StorageError> {
     let hashed_name = blake3::hash(format!("{LIB_ID_RGB}-{name}").as_bytes())
         .to_hex()
         .to_lowercase();
@@ -321,18 +320,23 @@ pub async fn retrieve_fork_wallets(sk: &str, name: &str) -> Result<LocalRgbAccou
     let main_name = &format!("{hashed_name}.c15");
     let original_name = &format!("{hashed_name}-diff.c15");
 
-    let (data, _) = retrieve(sk, main_name, vec![])
+    let (data, metadata) = retrieve(sk, main_name, vec![])
         .await
         .map_err(|op| StorageError::CarbonadoRetrieve(name.to_string(), op.to_string()))?;
 
     if data.is_empty() {
         Ok(LocalRgbAccount {
             doc: automerge::AutoCommit::new().save(),
-            rgb_account: RgbAccount::default(),
+            rgb_account: RgbAccountV1::default(),
         })
     } else {
+        let mut version: [u8; 8] = default!();
+        if let Some(metadata) = metadata {
+            version.copy_from_slice(&metadata);
+        }
+
         let mut original_version = automerge::AutoCommit::new();
-        let rgb_account: RgbAccount = from_bytes(&data)
+        let rgb_account = RgbAccountVersions::from_bytes(data, version)
             .map_err(|op| StorageError::StrictRetrieve(name.to_string(), op.to_string()))?;
 
         let raw_rgb_account = RawRgbAccount::from(rgb_account.clone());
@@ -347,7 +351,7 @@ pub async fn retrieve_fork_wallets(sk: &str, name: &str) -> Result<LocalRgbAccou
             original_name,
             &original_version,
             true,
-            Some(RGB_STRICT_TYPE_VERSION.to_vec()),
+            Some(RGB_ACCOUNT_VERSION.to_vec()),
         )
         .await
         .map_err(|op| StorageError::CarbonadoWrite(name.to_string(), op.to_string()))?;

@@ -12,11 +12,20 @@ use rgb::{RgbWallet, TerminalPath};
 use rgbstd::containers::{Bindle, Transfer};
 use serde::{Deserialize, Serialize};
 
+pub type RgbAccountV0 = RgbAccount;
+
 #[derive(Clone, PartialEq, Eq, Hash, Debug, Display)]
 #[display("{address}:{amount}", alt = "{address:#}:{amount:#}")]
 pub struct AddressAmount {
     pub address: Address,
     pub amount: u64,
+}
+
+#[derive(Clone, PartialEq, Eq, Hash, Debug, Display)]
+#[display("{address}")]
+pub struct AddressTerminal {
+    pub address: AddressCompat,
+    pub terminal: TerminalPath,
 }
 
 /// Error parsing representation
@@ -34,16 +43,15 @@ impl FromStr for AddressAmount {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, Default)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, Default)]
 pub struct RgbAccount {
     pub wallets: HashMap<String, RgbWallet>,
 }
 
-#[derive(Clone, PartialEq, Eq, Hash, Debug, Display)]
-#[display("{address}")]
-pub struct AddressTerminal {
-    pub address: AddressCompat,
-    pub terminal: TerminalPath,
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, Default)]
+pub struct RgbAccountV1 {
+    pub wallets: HashMap<String, RgbWallet>,
+    pub hidden_contracts: Vec<String>,
 }
 
 #[derive(

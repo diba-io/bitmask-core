@@ -13,6 +13,7 @@ mod rgb {
         // TODO: Review after support multi-token transfer
         // mod collectibles;
         mod accept;
+        mod cambria;
         mod collectibles;
         mod crdt;
         mod drain;

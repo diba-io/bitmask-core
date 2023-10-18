@@ -35,7 +35,13 @@ mod server {
         let pk = public_key.serialize();
         let pk_hex = hex::encode(pk);
 
-        let meta: Option<[u8; 8]> = metadata.map(|m| m.try_into().expect("invalid metadata size"));
+        let mut meta: Option<[u8; 8]> = default!();
+        if let Some(metadata) = metadata {
+            let mut inner: [u8; 8] = default!();
+            inner[..metadata.len()].copy_from_slice(&metadata);
+            meta = Some(inner);
+        }
+
         let (body, _encode_info) = carbonado::file::encode(&sk, Some(&pk), input, level, meta)?;
         let filepath = handle_file(&pk_hex, name, body.len()).await?;
         fs::write(filepath, body).await?;
@@ -56,7 +62,13 @@ mod server {
         let pk = public_key.serialize();
         let pk_hex = hex::encode(pk);
 
-        let meta: Option<[u8; 8]> = metadata.map(|m| m.try_into().expect("invalid metadata size"));
+        let mut meta: Option<[u8; 8]> = default!();
+        if let Some(metadata) = metadata {
+            let mut inner: [u8; 8] = default!();
+            inner[..metadata.len()].copy_from_slice(&metadata);
+            meta = Some(inner);
+        }
+
         let (body, _encode_info) = carbonado::file::encode(&sk, Some(&pk), input, level, meta)?;
         let filepath = handle_file(&pk_hex, name, body.len()).await?;
         fs::write(filepath.clone(), body.clone()).await?;
@@ -241,7 +253,13 @@ mod client {
         let pk = public_key.serialize();
         let pk_hex = hex::encode(pk);
 
-        let meta: Option<[u8; 8]> = metadata.map(|m| m.try_into().expect("invalid metadata size"));
+        let mut meta: Option<[u8; 8]> = default!();
+        if let Some(metadata) = metadata {
+            let mut inner: [u8; 8] = default!();
+            inner[..metadata.len()].copy_from_slice(&metadata);
+            meta = Some(inner);
+        }
+
         let (body, _encode_info) = carbonado::file::encode(&sk, Some(&pk), input, level, meta)?;
         let body = Arc::new(body);
         let network = NETWORK.read().await.to_string();
