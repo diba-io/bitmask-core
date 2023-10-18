@@ -60,15 +60,15 @@ use crate::{
     },
     structs::{
         AcceptRequest, AcceptResponse, AssetType, BatchRgbTransferItem, BatchRgbTransferResponse,
-        ContractMetadata, ContractResponse, ContractsResponse, FullRgbTransferRequest,
-        ImportRequest, InterfaceDetail, InterfacesResponse, InvoiceRequest, InvoiceResponse,
-        IssueMetaRequest, IssueMetadata, IssueRequest, IssueResponse, NewCollectible,
-        NextAddressResponse, NextUtxoResponse, NextUtxosResponse, PsbtFeeRequest, PsbtRequest,
-        PsbtResponse, PublicRgbBidResponse, PublicRgbOfferResponse, PublicRgbOffersResponse,
-        ReIssueRequest, ReIssueResponse, RgbBidDetail, RgbBidRequest, RgbBidResponse,
-        RgbBidsResponse, RgbInternalTransferResponse, RgbInvoiceResponse, RgbOfferBidsResponse,
-        RgbOfferDetail, RgbOfferRequest, RgbOfferResponse, RgbOfferUpdateRequest,
-        RgbOfferUpdateResponse, RgbOffersResponse, RgbRemoveTransferRequest,
+        ContractHiddenResponse, ContractMetadata, ContractResponse, ContractsResponse,
+        FullRgbTransferRequest, ImportRequest, InterfaceDetail, InterfacesResponse, InvoiceRequest,
+        InvoiceResponse, IssueMetaRequest, IssueMetadata, IssueRequest, IssueResponse,
+        NewCollectible, NextAddressResponse, NextUtxoResponse, NextUtxosResponse, PsbtFeeRequest,
+        PsbtRequest, PsbtResponse, PublicRgbBidResponse, PublicRgbOfferResponse,
+        PublicRgbOffersResponse, ReIssueRequest, ReIssueResponse, RgbBidDetail, RgbBidRequest,
+        RgbBidResponse, RgbBidsResponse, RgbInternalTransferResponse, RgbInvoiceResponse,
+        RgbOfferBidsResponse, RgbOfferDetail, RgbOfferRequest, RgbOfferResponse,
+        RgbOfferUpdateRequest, RgbOfferUpdateResponse, RgbOffersResponse, RgbRemoveTransferRequest,
         RgbSaveTransferRequest, RgbSwapRequest, RgbSwapResponse, RgbTransferDetail,
         RgbTransferInternalParams, RgbTransferRequest, RgbTransferResponse,
         RgbTransferStatusResponse, RgbTransfersResponse, SchemaDetail, SchemasResponse,
@@ -1871,7 +1871,23 @@ pub async fn get_contract(sk: &str, contract_id: &str) -> Result<ContractRespons
     Ok(contract)
 }
 
-pub async fn list_contracts(sk: &str) -> Result<ContractsResponse> {
+pub async fn hidden_contract(sk: &str, contract_id: &str) -> Result<ContractHiddenResponse> {
+    let mut rgb_account = retrieve_account(sk).await?;
+    if !rgb_account
+        .hidden_contracts
+        .contains(&contract_id.to_string())
+    {
+        rgb_account.hidden_contracts.push(contract_id.to_string());
+        store_account(sk, rgb_account).await?;
+    }
+
+    Ok(ContractHiddenResponse {
+        contract_id: contract_id.to_string(),
+        hidden: true,
+    })
+}
+
+pub async fn list_contracts(sk: &str, hidden_contracts: bool) -> Result<ContractsResponse> {
     let mut resolver = ExplorerResolver {
         explorer_url: BITCOIN_EXPLORER_API.read().await.to_string(),
         ..Default::default()
@@ -1913,6 +1929,14 @@ pub async fn list_contracts(sk: &str) -> Result<ContractsResponse> {
             .expect("contract not found");
 
         for contract_id in contract_ids {
+            if hidden_contracts
+                && rgb_account
+                    .hidden_contracts
+                    .contains(&contract_id.to_string())
+            {
+                continue;
+            }
+
             let contract_iface = stock
                 .clone()
                 .contract_iface(contract_id, iface.iface_id())

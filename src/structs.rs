@@ -353,6 +353,15 @@ pub struct ImportRequest {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
+pub struct ContractHiddenResponse {
+    /// The contract id
+    pub contract_id: String,
+    /// is hidden
+    pub hidden: bool,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct ContractResponse {
     /// The contract id
     pub contract_id: String,

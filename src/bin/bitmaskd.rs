@@ -22,11 +22,12 @@ use bitmask_core::{
     },
     rgb::{
         accept_transfer, clear_watcher as rgb_clear_watcher, create_invoice, create_psbt,
-        create_watcher, full_transfer_asset, import as rgb_import, issue_contract, list_contracts,
-        list_interfaces, list_schemas, list_transfers as list_rgb_transfers, reissue_contract,
-        remove_transfer as remove_rgb_transfer, save_transfer as save_rgb_transfer, transfer_asset,
-        watcher_address, watcher_details as rgb_watcher_details, watcher_next_address,
-        watcher_next_utxo, watcher_utxo,
+        create_watcher, full_transfer_asset, get_contract, import as rgb_import, issue_contract,
+        list_contracts, list_interfaces, list_schemas, list_transfers as list_rgb_transfers,
+        reissue_contract, remove_transfer as remove_rgb_transfer,
+        save_transfer as save_rgb_transfer, transfer_asset, watcher_address,
+        watcher_details as rgb_watcher_details, watcher_next_address, watcher_next_utxo,
+        watcher_utxo,
     },
     structs::{
         AcceptRequest, FileMetadata, FullRgbTransferRequest, ImportRequest, InvoiceRequest,
@@ -229,22 +230,24 @@ async fn contracts(
 
     let nostr_hex_sk = auth.token();
 
-    let contracts_res = list_contracts(nostr_hex_sk).await?;
+    let contracts_res = list_contracts(nostr_hex_sk, true).await?;
 
     Ok((StatusCode::OK, Json(contracts_res)))
 }
 
 async fn contract_detail(
     TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
-    Path(name): Path<String>,
+    Path(id): Path<String>,
 ) -> Result<impl IntoResponse, AppError> {
-    info!("GET /contract/{name:?}");
+    info!("GET /contracts/{id:?}");
 
     let nostr_hex_sk = auth.token();
-
-    let contracts_res = list_contracts(nostr_hex_sk).await?;
-
-    Ok((StatusCode::OK, Json(contracts_res)))
+    let contracts_res = list_contracts(nostr_hex_sk, false).await?;
+    let contract = contracts_res
+        .contracts
+        .into_iter()
+        .find(|x| x.contract_id == id);
+    Ok((StatusCode::OK, Json(contract)))
 }
 
 async fn interfaces(
@@ -672,7 +675,7 @@ async fn main() -> Result<()> {
         .route("/accept", post(accept))
         .route("/selfaccept", post(self_accept))
         .route("/contracts", get(contracts))
-        .route("/contract/:id", get(contract_detail))
+        .route("/contracts/:id", get(contract_detail))
         .route("/interfaces", get(interfaces))
         .route("/schemas", get(schemas))
         .route("/import", post(import))

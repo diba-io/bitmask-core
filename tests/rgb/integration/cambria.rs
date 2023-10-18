@@ -47,35 +47,35 @@ async fn migrate_rgb_acc_from_v0_to_v1() -> anyhow::Result<()> {
     }
 
     // Case 1: no version
-    v0_save(&user_sk, name, &v0, None).await?;
+    v0_save(user_sk, name, &v0, None).await?;
 
     let v1 = v1_retrieve(user_sk, name).await?;
     assert_eq!(v0.wallets, v1.wallets);
     assert!(v1.hidden_contracts.is_empty());
 
     // Case 2: oldest version
-    v0_save(&user_sk, name, &v0, Some(RGB_OLDEST_VERSION.to_vec())).await?;
+    v0_save(user_sk, name, &v0, Some(RGB_OLDEST_VERSION.to_vec())).await?;
 
     let v1 = v1_retrieve(user_sk, name).await?;
     assert_eq!(v0.wallets, v1.wallets);
     assert!(v1.hidden_contracts.is_empty());
 
     // Case 3: strict-type 1.6.x version
-    v0_save(&user_sk, name, &v0, Some(RGB_STRICT_TYPE_VERSION.to_vec())).await?;
+    v0_save(user_sk, name, &v0, Some(RGB_STRICT_TYPE_VERSION.to_vec())).await?;
 
     let v1 = v1_retrieve(user_sk, name).await?;
     assert_eq!(v0.wallets, v1.wallets);
     assert!(v1.hidden_contracts.is_empty());
 
     // Case 4: v0
-    v0_save(&user_sk, name, &v0, Some(b"v0".to_vec())).await?;
+    v0_save(user_sk, name, &v0, Some(b"v0".to_vec())).await?;
 
     let v1 = v1_retrieve(user_sk, name).await?;
     assert_eq!(v0.wallets, v1.wallets);
     assert!(v1.hidden_contracts.is_empty());
 
     // Case 5: Save v1
-    v1_save(&user_sk, name, v1).await?;
+    v1_save(user_sk, name, v1).await?;
 
     Ok(())
 }
@@ -106,7 +106,7 @@ async fn migrate_local_rgb_acc_from_v0_to_v1() -> anyhow::Result<()> {
     reconcile(&mut local_copy, local_v0.clone())?;
 
     // Case 1: no version
-    v0_save_copy(&user_sk, name, &local_copy.save(), None).await?;
+    v0_save_copy(user_sk, name, &local_copy.save(), None).await?;
 
     let v1 = v1_retrieve_copy(user_sk, name).await?;
     let local_v1 = RawRgbAccount::from(v1.rgb_account);
@@ -116,7 +116,7 @@ async fn migrate_local_rgb_acc_from_v0_to_v1() -> anyhow::Result<()> {
 
     // Case 2: oldest version
     v0_save_copy(
-        &user_sk,
+        user_sk,
         name,
         &local_copy.save(),
         Some(RGB_OLDEST_VERSION.to_vec()),
@@ -131,7 +131,7 @@ async fn migrate_local_rgb_acc_from_v0_to_v1() -> anyhow::Result<()> {
 
     // Case 3: strict-type 1.6.x version
     v0_save_copy(
-        &user_sk,
+        user_sk,
         name,
         &local_copy.save(),
         Some(RGB_STRICT_TYPE_VERSION.to_vec()),
@@ -145,7 +145,7 @@ async fn migrate_local_rgb_acc_from_v0_to_v1() -> anyhow::Result<()> {
     assert!(local_v1.hidden_contracts.is_empty());
 
     // Case 4: v0
-    v0_save_copy(&user_sk, name, &local_copy.save(), Some(b"v0".to_vec())).await?;
+    v0_save_copy(user_sk, name, &local_copy.save(), Some(b"v0".to_vec())).await?;
 
     let v1 = v1_retrieve_copy(user_sk, name).await?;
     let local_v1 = RawRgbAccount::from(v1.rgb_account);
@@ -159,7 +159,7 @@ async fn migrate_local_rgb_acc_from_v0_to_v1() -> anyhow::Result<()> {
     local_v1.hidden_contracts.push("test".into());
 
     reconcile(&mut local_copy, local_v1)?;
-    v1_save_copy(&user_sk, name, local_copy.save()).await?;
+    v1_save_copy(user_sk, name, local_copy.save()).await?;
 
     Ok(())
 }
