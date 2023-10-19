@@ -219,6 +219,14 @@ impl Display for ContractAmount {
     }
 }
 
+#[derive(Clone, PartialEq, Eq, Hash, Debug, Display)]
+#[display("{contract_id}:{precision}")]
+pub struct ContractBoilerplate {
+    pub contract_id: String,
+    pub iface_id: String,
+    pub precision: u8,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, Default)]
 pub struct RgbAccount {
     pub wallets: HashMap<String, RgbWallet>,

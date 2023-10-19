@@ -425,14 +425,6 @@ impl Default for ContractMetadata {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, Hash, Debug, Display)]
-#[display("{contract_id}:{precision}")]
-pub struct ContractBoilerplate {
-    pub contract_id: String,
-    pub iface_id: String,
-    pub precision: u8,
-}
-
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct UDADetail {
@@ -452,6 +444,14 @@ pub struct UDADetail {
     pub attach: Option<AttachInfo>,
     /// The contract allocations
     pub allocations: Vec<AllocationDetail>,
+}
+
+#[derive(Clone, PartialEq, Eq, Hash, Debug, Display, Serialize, Deserialize)]
+#[display("{contract_id}:{iface_id}:{precision}")]
+pub struct SimpleContractResponse {
+    pub contract_id: String,
+    pub iface_id: String,
+    pub precision: u8,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

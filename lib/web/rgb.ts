@@ -327,6 +327,16 @@ export interface MediaInfo {
   source: string;
 }
 
+// In structs.rs this is called SimpleContractResponse
+export interface SimpleContractResponse {
+  /// The contract id
+  contractId: string;
+  /// The contract interface
+  ifaceId: string;
+  /// Precision of the asset
+  precision: number;
+}
+
 export interface InvoiceRequest {
   /// The contract id
   contractId: string;

@@ -72,8 +72,8 @@ use crate::{
         RgbSaveTransferRequest, RgbSwapRequest, RgbSwapResponse, RgbTransferDetail,
         RgbTransferInternalParams, RgbTransferRequest, RgbTransferResponse,
         RgbTransferStatusResponse, RgbTransfersResponse, SchemaDetail, SchemasResponse,
-        TransferType, TxStatus, UDADetail, UtxoResponse, WatcherDetailResponse, WatcherRequest,
-        WatcherResponse, WatcherUtxoResponse,
+        SimpleContractResponse, TransferType, TxStatus, UDADetail, UtxoResponse,
+        WatcherDetailResponse, WatcherRequest, WatcherResponse, WatcherUtxoResponse,
     },
     validators::RGBContext,
 };
@@ -104,7 +104,10 @@ use self::{
     psbt::{
         save_tap_commit_str, set_tapret_output, CreatePsbtError, EstimateFeeError, PsbtNewOptions,
     },
-    structs::{ContractAmount, RgbAccountV1, RgbExtractTransfer, RgbTransfer, RgbTransfers},
+    structs::{
+        ContractAmount, ContractBoilerplate, RgbAccountV1, RgbExtractTransfer, RgbTransfer,
+        RgbTransfers,
+    },
     swap::{
         get_public_offer, get_swap_bid, get_swap_bid_by_buyer, get_swap_bids_by_seller,
         mark_bid_fill, mark_offer_fill, mark_transfer_bid, mark_transfer_offer, publish_public_bid,
@@ -1906,6 +1909,24 @@ pub async fn get_contract(sk: &str, contract_id: &str) -> Result<ContractRespons
     };
 
     Ok(contract)
+}
+
+pub async fn get_simple_contract(sk: &str, contract_id: &str) -> Result<SimpleContractResponse> {
+    let mut stock = retrieve_rgb_stock(sk).await?;
+    let contract_id = ContractId::from_str(contract_id)?;
+    let contract = export_boilerplate(contract_id, &mut stock)?;
+
+    let ContractBoilerplate {
+        contract_id,
+        iface_id,
+        precision,
+    } = contract;
+
+    Ok(SimpleContractResponse {
+        contract_id,
+        iface_id,
+        precision,
+    })
 }
 
 pub async fn hidden_contract(sk: &str, contract_id: &str) -> Result<ContractHiddenResponse> {

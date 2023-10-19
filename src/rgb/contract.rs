@@ -11,11 +11,11 @@ use std::str::FromStr;
 use strict_encoding::{FieldName, StrictDeserialize, StrictSerialize};
 
 use crate::structs::{
-    AllocationValue, ContractBoilerplate, ContractFormats, ContractMeta, ContractMetadata,
-    ContractResponse, GenesisFormats, MediaInfo, UDADetail,
+    AllocationValue, ContractFormats, ContractMeta, ContractMetadata, ContractResponse,
+    GenesisFormats, MediaInfo, UDADetail,
 };
 use crate::{
-    rgb::{resolvers::ResolveSpent, wallet::contract_allocations},
+    rgb::{resolvers::ResolveSpent, structs::ContractBoilerplate, wallet::contract_allocations},
     structs::AttachInfo,
 };
 

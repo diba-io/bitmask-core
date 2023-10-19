@@ -557,6 +557,19 @@ pub mod rgb {
         })
     }
 
+    pub fn get_simple_contract(nostr_hex_sk: String, contract_id: String) -> Promise {
+        set_panic_hook();
+
+        future_to_promise(async move {
+            match crate::rgb::get_simple_contract(&nostr_hex_sk, &contract_id).await {
+                Ok(result) => Ok(JsValue::from_string(
+                    serde_json::to_string(&result).unwrap(),
+                )),
+                Err(err) => Err(JsValue::from_string(err.to_string())),
+            }
+        })
+    }
+
     #[wasm_bindgen]
     pub fn hidden_contract(nostr_hex_sk: String, contract_id: String) -> Promise {
         set_panic_hook();
