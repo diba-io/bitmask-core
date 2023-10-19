@@ -1,7 +1,6 @@
 use std::{collections::BTreeMap, ops::Mul, str::FromStr};
 
 use amplify::{confinement::Confined, hex::FromHex};
-use baid58::ToBaid58;
 use bech32::{decode, FromBase32};
 use bitcoin::Network;
 use bitcoin_scripts::address::AddressNetwork;
@@ -38,12 +37,14 @@ use crate::rgb::{
     resolvers::ExplorerResolver,
     structs::AddressAmount,
     structs::RgbExtractTransfer,
-    swap::{extract_transfer as extract_swap_transfer, get_public_offer, RgbBid, RgbOfferSwap},
+    swap::{get_public_offer, RgbBid, RgbOfferSwap},
     transfer::extract_transfer,
     wallet::sync_wallet,
     wallet::{get_address, next_utxos},
     RgbSwapError, SaveTransferError, TransferError,
 };
+
+use super::{contract::export_boilerplate, structs::ContractAmount};
 
 pub const DUST_LIMIT_SATOSHI: u64 = 546;
 
@@ -416,6 +417,9 @@ pub async fn prebuild_seller_swap(
         RgbSwapError::Validation(errors)
     })?;
 
+    let boilerplate =
+        export_boilerplate(contract_id, stock).map_err(|_| RgbSwapError::NoContract)?;
+
     let RgbOfferRequest {
         descriptor,
         iface: iface_name,
@@ -424,6 +428,15 @@ pub async fn prebuild_seller_swap(
         ..
     } = request;
 
+    let target_amount = ContractAmount::from(target_amount, boilerplate.precision);
+    if target_amount.precision != boilerplate.precision {
+        return Err(RgbSwapError::WrongPrecision(
+            boilerplate.precision,
+            target_amount.precision,
+        ));
+    }
+
+    let target_amount = target_amount.to_value();
     let wildcard_terminal = "/*/*";
     let mut universal_desc = descriptor.to_string();
     for contract_type in [
@@ -730,6 +743,7 @@ pub async fn prebuild_buyer_swap(
     let RgbOfferSwap {
         seller_address,
         bitcoin_price,
+        asset_precision,
         ..
     } = offer;
 
@@ -845,13 +859,28 @@ pub async fn prebuild_buyer_swap(
         });
     }
 
+    let RgbOfferSwap {
+        contract_id,
+        bitcoin_price,
+        ..
+    } = offer;
+
     let bitcoin_utxos = bitcoin_inputs.clone().into_iter().map(|x| x.utxo).collect();
+    let bid_amount = ContractAmount::from(asset_amount, asset_precision);
+    if bid_amount.precision != asset_precision {
+        return Err(RgbSwapError::WrongPrecision(
+            asset_precision,
+            bid_amount.precision,
+        ));
+    }
+
     let new_bid = RgbBid::new(
         sk.to_string(),
         offer_id,
-        offer.contract_id.clone(),
-        asset_amount,
-        offer.bitcoin_price,
+        contract_id.clone(),
+        bid_amount.to_value(),
+        asset_precision,
+        bitcoin_price,
         bitcoin_utxos,
     );
 
@@ -872,27 +901,17 @@ pub fn prebuild_extract_transfer(
 
     let confined = Confined::try_from_iter(serialized.iter().copied())
         .expect("invalid confined serialization");
-    let (tx_id, transfer, offer_id, bid_id) = match extract_transfer(consignment.to_owned()) {
-        Ok((txid, tranfer)) => (txid, tranfer, None, None),
-        _ => match extract_swap_transfer(consignment.to_owned()) {
-            Ok((txid, tranfer, offer_id, bid_id)) => (
-                txid,
-                tranfer,
-                Some(offer_id.to_baid58_string()),
-                Some(bid_id.to_baid58_string()),
-            ),
-            Err(err) => return Err(SaveTransferError::WrongConsigSwap(err)),
-        },
+    let (tx_id, transfer) = match extract_transfer(consignment.to_owned()) {
+        Ok((txid, tranfer)) => (txid, tranfer),
+        Err(err) => return Err(SaveTransferError::WrongConsigSwap(err)),
     };
 
     let contract_id = transfer.contract_id().to_string();
     Ok(RgbExtractTransfer {
         consig_id: transfer.id().to_string(),
+        strict: confined,
         contract_id,
         tx_id,
         transfer,
-        offer_id,
-        bid_id,
-        strict: confined,
     })
 }

@@ -1,7 +1,7 @@
 #![cfg(not(target_arch = "wasm32"))]
 use bitmask_core::{
     bitcoin::{new_mnemonic, sign_and_publish_psbt_file},
-    rgb::{accept_transfer, create_watcher, get_contract},
+    rgb::{accept_transfer, create_watcher, get_contract, structs::ContractAmount},
     structs::{AcceptRequest, SecretString, SignPsbtRequest, WatcherRequest},
 };
 
@@ -32,7 +32,7 @@ async fn allow_import_uda_contract() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
-async fn check_fungible_state_after_accept_consig() -> anyhow::Result<()> {
+async fn check_fungible_allocations() -> anyhow::Result<()> {
     // 1. Issue and Generate Trasnfer (Issuer side)
     let whatever_address = "bcrt1p76gtucrxhmn8s5622r859dpnmkj0kgfcel9xy0sz6yj84x6ppz2qk5hpsw";
     let issuer_keys = new_mnemonic(&SecretString("".to_string())).await?;
@@ -44,7 +44,7 @@ async fn check_fungible_state_after_accept_consig() -> anyhow::Result<()> {
     let issuer_resp = issuer_issue_contract_v2(
         1,
         "RGB20",
-        5,
+        ContractAmount::new(5, 2).to_value(),
         false,
         true,
         None,
@@ -58,7 +58,7 @@ async fn check_fungible_state_after_accept_consig() -> anyhow::Result<()> {
     let owner_resp = &create_new_invoice(
         &issuer_resp.contract_id,
         &issuer_resp.iface,
-        1,
+        1.0,
         owner_keys.clone(),
         None,
         Some(issuer_resp.clone().contract.legacy),
@@ -108,7 +108,7 @@ async fn check_fungible_state_after_accept_consig() -> anyhow::Result<()> {
     let contract_id = &issuer_resp.contract_id;
     let resp = get_contract(&issuer_sk, contract_id).await;
     assert!(resp.is_ok());
-    assert_eq!(4, resp?.balance);
+    assert_eq!(4.0, resp?.balance_normalised);
 
     // 6. Create Watcher (Owner Side)
     let watcher_name = "default";
@@ -123,13 +123,13 @@ async fn check_fungible_state_after_accept_consig() -> anyhow::Result<()> {
     let contract_id = &issuer_resp.contract_id;
     let resp = get_contract(&owner_sk, contract_id).await;
     assert!(resp.is_ok());
-    assert_eq!(1, resp?.balance);
+    assert_eq!(1.0, resp?.balance_normalised);
 
     Ok(())
 }
 
 #[tokio::test]
-async fn check_uda_state_after_accept_consig() -> anyhow::Result<()> {
+async fn check_uda_allocations() -> anyhow::Result<()> {
     // 1. Issue and Generate Trasnfer (Issuer side)
     let whatever_address = "bcrt1p76gtucrxhmn8s5622r859dpnmkj0kgfcel9xy0sz6yj84x6ppz2qk5hpsw";
     let issuer_keys = new_mnemonic(&SecretString("".to_string())).await?;
@@ -139,7 +139,7 @@ async fn check_uda_state_after_accept_consig() -> anyhow::Result<()> {
     let issuer_resp = issuer_issue_contract_v2(
         1,
         "RGB21",
-        1,
+        ContractAmount::new(1, 0).to_value(),
         false,
         true,
         meta,
@@ -152,7 +152,7 @@ async fn check_uda_state_after_accept_consig() -> anyhow::Result<()> {
     let owner_resp = &create_new_invoice(
         &issuer_resp.contract_id,
         &issuer_resp.iface,
-        1,
+        1.0,
         owner_keys.clone(),
         None,
         Some(issuer_resp.clone().contract.legacy),
@@ -204,7 +204,7 @@ async fn check_uda_state_after_accept_consig() -> anyhow::Result<()> {
     let contract_id = &issuer_resp.contract_id;
     let resp = get_contract(&issuer_sk, contract_id).await;
     assert!(resp.is_ok());
-    assert_eq!(0, resp?.balance);
+    assert_eq!(0.0, resp?.balance_normalised);
 
     // 6. Create Watcher (Owner Side)
     let watcher_name = "default";
@@ -219,7 +219,7 @@ async fn check_uda_state_after_accept_consig() -> anyhow::Result<()> {
     let contract_id = &issuer_resp.contract_id;
     let resp = get_contract(&owner_sk, contract_id).await;
     assert!(resp.is_ok());
-    assert_eq!(1, resp?.balance);
+    assert_eq!(1.0, resp?.balance_normalised);
 
     Ok(())
 }

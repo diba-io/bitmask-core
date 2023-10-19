@@ -117,7 +117,7 @@ async fn self_invoice(
     let invoice = InvoiceRequest {
         contract_id: self_invoice.contract_id,
         iface: "RGB21".to_string(),
-        amount: 1,
+        amount: "1".to_string(),
         seal: invoice_seal.to_owned(),
         params: self_invoice.params,
     };

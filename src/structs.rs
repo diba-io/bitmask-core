@@ -377,12 +377,14 @@ pub struct ContractResponse {
     pub created: i64,
     /// Description of the asset
     pub description: String,
-    /// Amount of the asset
+    /// Supply of the asset
     pub supply: u64,
     /// Precision of the asset
     pub precision: u8,
-    /// The user contract balance
+    /// Current balance
     pub balance: u64,
+    /// Current balance (Humanized)
+    pub balance_normalised: f64,
     /// The contract allocations
     pub allocations: Vec<AllocationDetail>,
     /// The contract state (multiple formats)
@@ -444,6 +446,14 @@ pub struct UDADetail {
     pub allocations: Vec<AllocationDetail>,
 }
 
+#[derive(Clone, PartialEq, Eq, Hash, Debug, Display, Serialize, Deserialize)]
+#[display("{contract_id}:{iface_id}:{precision}")]
+pub struct SimpleContractResponse {
+    pub contract_id: String,
+    pub iface_id: String,
+    pub precision: u8,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 #[derive(Validate)]
@@ -458,8 +468,8 @@ pub struct InvoiceRequest {
     #[garde(length(min = 0, max = 32))]
     pub iface: String,
     /// Amount of the asset
-    #[garde(range(min = 0, max = u64::MAX))]
-    pub amount: u64,
+    #[garde(skip)]
+    pub amount: String,
     /// Blinded UTXO
     #[garde(ascii)]
     #[garde(custom(verify_tapret_seal))]
@@ -1126,8 +1136,8 @@ pub struct RgbOfferRequest {
     #[garde(length(min = 0, max = 32))]
     pub iface: String,
     /// Contract Amount
-    #[garde(range(min = u64::MIN, max = u64::MAX))]
-    pub contract_amount: u64,
+    #[garde(skip)]
+    pub contract_amount: String,
     /// Bitcoin Price (in sats)
     #[garde(range(min = u64::MIN, max = u64::MAX))]
     pub bitcoin_price: u64,
@@ -1155,7 +1165,7 @@ pub struct RgbOfferResponse {
     /// The Contract ID
     pub contract_id: String,
     /// Contract Amount
-    pub contract_amount: u64,
+    pub contract_amount: f64,
     /// Bitcoin Price
     pub bitcoin_price: u64,
     /// Seller Address
@@ -1204,8 +1214,8 @@ pub struct RgbBidRequest {
     #[garde(length(min = 0, max = 100))]
     pub offer_id: String,
     /// Asset Amount
-    #[garde(range(min = u64::MIN, max = u64::MAX))]
-    pub asset_amount: u64,
+    #[garde(skip)]
+    pub asset_amount: String,
     /// Universal Descriptor
     #[garde(custom(verify_descriptor))]
     pub descriptor: SecretString,

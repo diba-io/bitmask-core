@@ -1,5 +1,4 @@
 #![cfg(not(target_arch = "wasm32"))]
-
 use crate::rgb::integration::utils::{
     get_uda_data, issuer_issue_contract_v2, send_some_coins, UtxoFilter,
 };
@@ -10,7 +9,8 @@ use bitmask_core::{
     },
     rgb::{
         accept_transfer, create_buyer_bid, create_seller_offer, create_swap_transfer,
-        create_watcher, get_contract, import, update_seller_offer, verify_transfers,
+        create_watcher, get_contract, import as import_contract, structs::ContractAmount,
+        update_seller_offer, verify_transfers,
     },
     structs::{
         AcceptRequest, AssetType, ImportRequest, IssueResponse, PsbtFeeRequest, PublishPsbtRequest,
@@ -115,7 +115,7 @@ async fn create_scriptless_swap() -> anyhow::Result<()> {
     let issuer_resp = issuer_issue_contract_v2(
         1,
         "RGB20",
-        5,
+        ContractAmount::new(5, 2).to_value(),
         false,
         false,
         None,
@@ -132,6 +132,7 @@ async fn create_scriptless_swap() -> anyhow::Result<()> {
         iface,
         supply,
         contract,
+        precision,
         ..
     } = issuer_resp[0].clone();
 
@@ -139,7 +140,7 @@ async fn create_scriptless_swap() -> anyhow::Result<()> {
         import: AssetType::RGB20,
         data: contract.strict,
     };
-    let buyer_import_resp = import(&buyer_sk, buyer_import_req).await;
+    let buyer_import_resp = import_contract(&buyer_sk, buyer_import_req).await;
     assert!(buyer_import_resp.is_ok());
 
     // 5. Create Seller Swap Side
@@ -149,10 +150,12 @@ async fn create_scriptless_swap() -> anyhow::Result<()> {
     let expire_at = (chrono::Local::now() + chrono::Duration::minutes(5))
         .naive_utc()
         .timestamp();
+
+    let asset_amount = ContractAmount::with(contract_amount, precision).to_string();
     let seller_swap_req = RgbOfferRequest {
         contract_id: contract_id.clone(),
         iface: iface.clone(),
-        contract_amount,
+        contract_amount: asset_amount.clone(),
         bitcoin_price,
         descriptor: SecretString(seller_asset_desc),
         change_terminal: "/20/1".to_string(),
@@ -165,16 +168,13 @@ async fn create_scriptless_swap() -> anyhow::Result<()> {
     assert!(seller_swap_resp.is_ok());
 
     // 7. Create Buyer Swap Side
-    let RgbOfferResponse {
-        offer_id,
-        contract_amount,
-        ..
-    } = seller_swap_resp?;
+    let RgbOfferResponse { offer_id, .. } = seller_swap_resp?;
 
+    let bid_amount = "4.0";
     let buyer_btc_desc = buyer_keys.public.btc_descriptor_xpub.clone();
     let buyer_swap_req = RgbBidRequest {
         offer_id: offer_id.clone(),
-        asset_amount: contract_amount,
+        asset_amount: bid_amount.to_string(),
         descriptor: SecretString(buyer_btc_desc),
         change_terminal: "/1/0".to_string(),
         fee: PsbtFeeRequest::Value(1000),
@@ -252,12 +252,12 @@ async fn create_scriptless_swap() -> anyhow::Result<()> {
     // 15. Retrieve Contract (Buyer Side)
     let resp = get_contract(&buyer_sk, &contract_id).await;
     assert!(resp.is_ok());
-    assert_eq!(4, resp?.balance);
+    assert_eq!(4.0, resp?.balance_normalised);
 
     // 14. Retrieve Contract (Seller Side)
     let resp = get_contract(&seller_sk, &contract_id).await;
     assert!(resp.is_ok());
-    assert_eq!(1, resp?.balance);
+    assert_eq!(1., resp?.balance_normalised);
 
     Ok(())
 }
@@ -358,7 +358,7 @@ async fn create_scriptless_swap_for_uda() -> anyhow::Result<()> {
     let issuer_resp = issuer_issue_contract_v2(
         1,
         "RGB21",
-        1,
+        ContractAmount::new(1, 0).to_value(),
         false,
         false,
         Some(metadata),
@@ -370,21 +370,34 @@ async fn create_scriptless_swap_for_uda() -> anyhow::Result<()> {
     )
     .await?;
     let IssueResponse {
-        contract_id, iface, ..
+        contract_id,
+        iface,
+        contract: contract_format,
+        ..
     } = issuer_resp[0].clone();
+
+    let buyer_sk = buyer_keys.private.nostr_prv.clone();
+    let buyer_import_req = ImportRequest {
+        data: contract_format.armored,
+        import: AssetType::RGB21,
+    };
+    let buyer_import_resp = import_contract(&buyer_sk, buyer_import_req).await;
+    assert!(buyer_import_resp.is_ok());
 
     // 5. Create Seller Swap Side
     let contract_amount = 1;
     let seller_sk = seller_keys.private.nostr_prv.clone();
-    let bitcoin_price: u64 = 100000;
+    let bitcoin_price: u64 = 100_000;
     let seller_asset_desc = seller_keys.public.rgb_udas_descriptor_xpub.clone();
     let expire_at = (chrono::Local::now() + chrono::Duration::minutes(5))
         .naive_utc()
         .timestamp();
+
+    let bid_amount = "1.0";
     let seller_swap_req = RgbOfferRequest {
         contract_id: contract_id.clone(),
         iface,
-        contract_amount,
+        contract_amount: bid_amount.to_string(),
         bitcoin_price,
         descriptor: SecretString(seller_asset_desc),
         change_terminal: "/21/1".to_string(),
@@ -397,17 +410,11 @@ async fn create_scriptless_swap_for_uda() -> anyhow::Result<()> {
     assert!(seller_swap_resp.is_ok());
 
     // 7. Create Buyer Swap Side
-    let RgbOfferResponse {
-        offer_id,
-        contract_amount,
-        ..
-    } = seller_swap_resp?;
-
-    let buyer_sk = buyer_keys.private.nostr_prv.clone();
+    let RgbOfferResponse { offer_id, .. } = seller_swap_resp?;
     let buyer_btc_desc = buyer_keys.public.btc_descriptor_xpub.clone();
     let buyer_swap_req = RgbBidRequest {
         offer_id: offer_id.clone(),
-        asset_amount: contract_amount,
+        asset_amount: contract_amount.to_string(),
         descriptor: SecretString(buyer_btc_desc),
         change_terminal: "/1/0".to_string(),
         fee: PsbtFeeRequest::Value(1000),
@@ -481,12 +488,12 @@ async fn create_scriptless_swap_for_uda() -> anyhow::Result<()> {
     // 11. Retrieve Contract (Seller Side)
     let resp = get_contract(&seller_sk, &contract_id).await;
     assert!(resp.is_ok());
-    assert_eq!(0, resp?.balance);
+    assert_eq!(0., resp?.balance_normalised);
 
     // 12. Retrieve Contract (Buyer Side)
     let resp = get_contract(&buyer_sk, &contract_id).await;
     assert!(resp.is_ok());
-    assert_eq!(1, resp?.balance);
+    assert_eq!(1., resp?.balance_normalised);
 
     // 13. Verify transfers (Seller Side)
     let resp = verify_transfers(&seller_sk).await;
@@ -591,7 +598,7 @@ async fn create_presig_scriptless_swap() -> anyhow::Result<()> {
     let issuer_resp = issuer_issue_contract_v2(
         1,
         "RGB20",
-        5,
+        ContractAmount::new(5, 2).to_value(),
         false,
         false,
         None,
@@ -608,6 +615,7 @@ async fn create_presig_scriptless_swap() -> anyhow::Result<()> {
         iface,
         supply,
         contract,
+        precision,
         ..
     } = issuer_resp[0].clone();
 
@@ -615,7 +623,7 @@ async fn create_presig_scriptless_swap() -> anyhow::Result<()> {
         import: AssetType::RGB20,
         data: contract.strict,
     };
-    let buyer_import_resp = import(&buyer_sk, buyer_import_req).await;
+    let buyer_import_resp = import_contract(&buyer_sk, buyer_import_req).await;
     assert!(buyer_import_resp.is_ok());
 
     // 5. Create Seller Swap Side
@@ -626,10 +634,11 @@ async fn create_presig_scriptless_swap() -> anyhow::Result<()> {
         .naive_utc()
         .timestamp();
 
+    let asset_amount = ContractAmount::with(contract_amount, precision).to_string();
     let seller_swap_req = RgbOfferRequest {
         contract_id: contract_id.clone(),
         iface: iface.clone(),
-        contract_amount,
+        contract_amount: asset_amount,
         bitcoin_price,
         descriptor: SecretString(seller_asset_desc),
         change_terminal: "/20/1".to_string(),
@@ -644,7 +653,6 @@ async fn create_presig_scriptless_swap() -> anyhow::Result<()> {
     // 6. Sign the Seller PSBT
     let RgbOfferResponse {
         offer_id,
-        contract_amount,
         seller_psbt,
         ..
     } = seller_swap_resp?;
@@ -670,10 +678,11 @@ async fn create_presig_scriptless_swap() -> anyhow::Result<()> {
     assert!(update_offer_resp.is_ok());
 
     // 7. Create Buyer Swap Side
+    let bid_amount = "4.0";
     let buyer_btc_desc = buyer_keys.public.btc_descriptor_xpub.clone();
     let buyer_swap_req = RgbBidRequest {
         offer_id: offer_id.clone(),
-        asset_amount: contract_amount,
+        asset_amount: bid_amount.to_string(),
         descriptor: SecretString(buyer_btc_desc),
         change_terminal: "/1/0".to_string(),
         fee: PsbtFeeRequest::Value(1000),
@@ -741,12 +750,12 @@ async fn create_presig_scriptless_swap() -> anyhow::Result<()> {
     // 14. Retrieve Contract (Buyer Side)
     let resp = get_contract(&buyer_sk, &contract_id).await;
     assert!(resp.is_ok());
-    assert_eq!(4, resp?.balance);
+    assert_eq!(4., resp?.balance_normalised);
 
     // 13. Retrieve Contract (Seller Side)
     let resp = get_contract(&seller_sk, &contract_id).await;
     assert!(resp.is_ok());
-    assert_eq!(1, resp?.balance);
+    assert_eq!(1., resp?.balance_normalised);
 
     Ok(())
 }

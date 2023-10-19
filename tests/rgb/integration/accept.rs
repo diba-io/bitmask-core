@@ -3,8 +3,8 @@ use anyhow::Result;
 use bitmask_core::{
     bitcoin::{save_mnemonic, sign_and_publish_psbt_file},
     rgb::{
-        create_watcher, list_transfers, remove_transfer, save_transfer, verify_transfers,
-        watcher_next_address,
+        create_watcher, list_transfers, remove_transfer, save_transfer, structs::ContractAmount,
+        verify_transfers, watcher_next_address,
     },
     structs::{
         DecryptedWalletData, RgbRemoveTransferRequest, RgbSaveTransferRequest, SecretString,
@@ -53,7 +53,7 @@ pub async fn allow_save_read_remove_transfers() -> Result<()> {
     let issuer_resp = issuer_issue_contract_v2(
         1,
         "RGB20",
-        5,
+        ContractAmount::new(5, 2).to_value(),
         false,
         true,
         None,
@@ -68,7 +68,7 @@ pub async fn allow_save_read_remove_transfers() -> Result<()> {
     let owner_invoice = &create_new_invoice(
         &issuer_resp.contract_id,
         &issuer_resp.iface,
-        2,
+        2.00,
         owner_keys.clone(),
         None,
         Some(issuer_resp.clone().contract.strict),
@@ -179,7 +179,7 @@ pub async fn allow_save_read_remove_transfers() -> Result<()> {
 }
 
 #[tokio::test]
-pub async fn allow_save_and_accept_all_transfers() -> Result<()> {
+pub async fn accept_all_transfers() -> Result<()> {
     // 0. Retrieve all keys
     let issuer_keys: DecryptedWalletData = save_mnemonic(
         &SecretString(ISSUER_MNEMONIC.to_string()),
@@ -214,7 +214,7 @@ pub async fn allow_save_and_accept_all_transfers() -> Result<()> {
     let issuer_resp = issuer_issue_contract_v2(
         1,
         "RGB20",
-        5,
+        ContractAmount::new(5, 2).to_value(),
         false,
         true,
         None,
@@ -229,7 +229,7 @@ pub async fn allow_save_and_accept_all_transfers() -> Result<()> {
     let owner_invoice = &create_new_invoice(
         &issuer_resp.contract_id,
         &issuer_resp.iface,
-        2,
+        2.00,
         owner_keys.clone(),
         None,
         Some(issuer_resp.clone().contract.strict),
