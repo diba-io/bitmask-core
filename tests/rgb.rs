@@ -21,6 +21,7 @@ mod rgb {
         mod fungibles;
         mod import;
         mod issue;
+        mod rbf;
         mod states;
         mod swaps;
         mod transfers;

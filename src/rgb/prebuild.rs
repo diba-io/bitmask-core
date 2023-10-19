@@ -1,7 +1,6 @@
 use std::{collections::BTreeMap, ops::Mul, str::FromStr};
 
 use amplify::{confinement::Confined, hex::FromHex};
-use baid58::ToBaid58;
 use bech32::{decode, FromBase32};
 use bitcoin::Network;
 use bitcoin_scripts::address::AddressNetwork;
@@ -38,7 +37,7 @@ use crate::rgb::{
     resolvers::ExplorerResolver,
     structs::AddressAmount,
     structs::RgbExtractTransfer,
-    swap::{extract_transfer as extract_swap_transfer, get_public_offer, RgbBid, RgbOfferSwap},
+    swap::{get_public_offer, RgbBid, RgbOfferSwap},
     transfer::extract_transfer,
     wallet::sync_wallet,
     wallet::{get_address, next_utxos},
@@ -902,27 +901,17 @@ pub fn prebuild_extract_transfer(
 
     let confined = Confined::try_from_iter(serialized.iter().copied())
         .expect("invalid confined serialization");
-    let (tx_id, transfer, offer_id, bid_id) = match extract_transfer(consignment.to_owned()) {
-        Ok((txid, tranfer)) => (txid, tranfer, None, None),
-        _ => match extract_swap_transfer(consignment.to_owned()) {
-            Ok((txid, tranfer, offer_id, bid_id)) => (
-                txid,
-                tranfer,
-                Some(offer_id.to_baid58_string()),
-                Some(bid_id.to_baid58_string()),
-            ),
-            Err(err) => return Err(SaveTransferError::WrongConsigSwap(err)),
-        },
+    let (tx_id, transfer) = match extract_transfer(consignment.to_owned()) {
+        Ok((txid, tranfer)) => (txid, tranfer),
+        Err(err) => return Err(SaveTransferError::WrongConsigSwap(err)),
     };
 
     let contract_id = transfer.contract_id().to_string();
     Ok(RgbExtractTransfer {
         consig_id: transfer.id().to_string(),
+        strict: confined,
         contract_id,
         tx_id,
         transfer,
-        offer_id,
-        bid_id,
-        strict: confined,
     })
 }

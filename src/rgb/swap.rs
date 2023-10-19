@@ -1,3 +1,4 @@
+#![allow(deprecated)]
 use super::{
     constants::LIB_NAME_BITMASK,
     crdt::{LocalRgbOfferBid, LocalRgbOffers},
@@ -970,6 +971,7 @@ impl FromStr for OrderId {
     }
 }
 
+#[deprecated(note = "removed in favor to compatibility with other wallets")]
 #[derive(Clone, Debug, StrictType, StrictDumb, StrictEncode, StrictDecode)]
 #[strict_type(lib = LIB_NAME_BITMASK)]
 #[cfg_attr(
@@ -977,6 +979,7 @@ impl FromStr for OrderId {
     derive(Serialize, Deserialize),
     serde(crate = "serde_crate", rename_all = "camelCase")
 )]
+
 pub struct TransferSwap {
     pub offer_id: OrderId,
     pub bid_id: OrderId,
@@ -1017,6 +1020,7 @@ pub enum TransferSwapError {
     Inconclusive,
 }
 
+#[deprecated(note = "removed in favor to compatibility with other wallets")]
 pub fn extract_transfer(
     transfer: String,
 ) -> Result<(Txid, Bindle<Transfer>, OrderId, OrderId), TransferSwapError> {

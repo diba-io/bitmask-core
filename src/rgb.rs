@@ -112,8 +112,7 @@ use self::{
         get_public_offer, get_swap_bid, get_swap_bid_by_buyer, get_swap_bids_by_seller,
         mark_bid_fill, mark_offer_fill, mark_transfer_bid, mark_transfer_offer, publish_public_bid,
         publish_public_offer, publish_swap_bid, remove_public_offers, PsbtSwapEx, RgbBid,
-        RgbBidSwap, RgbOffer, RgbOfferErrors, RgbOfferSwap, RgbOrderStatus, TransferSwap,
-        TransferSwapError,
+        RgbBidSwap, RgbOffer, RgbOfferErrors, RgbOfferSwap, RgbOrderStatus,
     },
     transfer::{AcceptTransferError, NewInvoiceError, NewPaymentError},
     wallet::{
@@ -824,7 +823,7 @@ pub async fn transfer_asset(
 
 async fn internal_transfer_asset(
     request: RgbTransferRequest,
-    params: RgbTransferInternalParams,
+    _params: RgbTransferInternalParams,
     stock: &mut Stock,
     rgb_account: &mut RgbAccountV1,
     rgb_transfers: &mut RgbTransfers,
@@ -855,15 +854,15 @@ async fn internal_transfer_asset(
     let (outpoint, commit) = extract_commit(psbt.clone()).map_err(TransferError::Commitment)?;
 
     let consig_id = transfer.bindle_id().to_string();
-    let consig = if let (Some(offer_id), Some(bid_id)) = (params.offer_id, params.bid_id) {
-        let swap = TransferSwap::with(&offer_id, &bid_id, transfer.unbindle());
-        swap.to_strict_serialized::<{ U32 }>()
-            .map_err(|err| TransferError::WrongConsig(err.to_string()))?
-    } else {
-        transfer
-            .to_strict_serialized::<{ U32 }>()
-            .map_err(|err| TransferError::WrongConsig(err.to_string()))?
-    };
+    // let consig = if let (Some(offer_id), Some(bid_id)) = (params.offer_id, params.bid_id) {
+    //     let swap = TransferSwap::with(&offer_id, &bid_id, transfer.unbindle());
+    //     swap.to_strict_serialized::<{ U32 }>()
+    //         .map_err(|err| TransferError::WrongConsig(err.to_string()))?
+    // } else {
+    let consig = transfer
+        .to_strict_serialized::<{ U32 }>()
+        .map_err(|err| TransferError::WrongConsig(err.to_string()))?;
+    // };
 
     let bp_txid = bp::Txid::from_hex(&psbt.to_txid().to_hex())
         .map_err(|err| TransferError::WrongConsig(err.to_string()))?;
@@ -1490,7 +1489,7 @@ pub enum SaveTransferError {
     /// Occurs an error in parse consig step. {0}
     WrongConsig(AcceptTransferError),
     /// Occurs an error in parse consig swap step. {0}
-    WrongConsigSwap(TransferSwapError),
+    WrongConsigSwap(AcceptTransferError),
     /// Occurs an error in swap step. {0}
     WrongSwap(RgbOfferErrors),
     /// Write I/O or connectivity error. {1} in {0}
