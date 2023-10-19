@@ -176,7 +176,7 @@ async fn create_transfer_swap_flow() {
     assert!(owner_next_utxo.utxo.is_some());
 
     info!("Create Contract (Issuer)");
-    let supply = 5000_00;
+    let supply = 500_000;
     let precision = 2;
     let issue_utxo = issuer_next_utxo.utxo.unwrap().outpoint.to_string();
     let issue_seal = format!("tapret1st:{issue_utxo}");

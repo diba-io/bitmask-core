@@ -151,7 +151,7 @@ async fn create_transfer_with_fee_value() {
     assert!(owner_next_utxo.utxo.is_some());
 
     info!("Create Contract (Issuer)");
-    let supply = 1000_00;
+    let supply = 100_000;
     let precision = 2;
     let issue_utxo = issuer_next_utxo.utxo.unwrap().outpoint.to_string();
     let issue_seal = format!("tapret1st:{issue_utxo}");
