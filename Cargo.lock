@@ -2676,8 +2676,8 @@ dependencies = [
 
 [[package]]
 name = "rgb-contracts"
-version = "0.10.1"
-source = "git+https://github.com/crisdut/rgb?branch=release/bmc-v0.7#358b8cf98ba8d14d87c52868986cbe595a1281c9"
+version = "0.10.2"
+source = "git+https://github.com/crisdut/rgb?branch=release/bmc-v0.7#def1509ccdba9b0d7d2f845918ab917e63f50d56"
 dependencies = [
  "amplify",
  "baid58",
@@ -2717,7 +2717,7 @@ dependencies = [
 [[package]]
 name = "rgb-persist-fs"
 version = "0.10.0"
-source = "git+https://github.com/crisdut/rgb?branch=release/bmc-v0.7#358b8cf98ba8d14d87c52868986cbe595a1281c9"
+source = "git+https://github.com/crisdut/rgb?branch=release/bmc-v0.7#def1509ccdba9b0d7d2f845918ab917e63f50d56"
 dependencies = [
  "amplify",
  "rgb-std",

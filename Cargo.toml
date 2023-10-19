@@ -76,7 +76,7 @@ reqwest = { version = "0.11.22", features = ["json"] }
 rgb-std = { version = "0.10.9" }
 rgb-wallet = { version = "0.10.9" }
 rgb-schemata = { version = "0.10.1" }
-rgb-contracts = { version = "0.10.1", default-features = false }
+rgb-contracts = { version = "0.10.2", default-features = false }
 serde = "1.0.189"
 serde_json = "1.0.107"
 serde-encrypt = "0.7.0"

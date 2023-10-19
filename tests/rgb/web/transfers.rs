@@ -8,6 +8,7 @@ use std::{assert_eq, str::FromStr, vec};
 use crate::rgb::web::utils::{new_block, send_coins};
 use bdk::blockchain::EsploraBlockchain;
 use bitcoin::{consensus, Transaction};
+use bitmask_core::rgb::structs::ContractAmount;
 use bitmask_core::web::constants::sleep;
 use bitmask_core::{
     debug, info,
@@ -46,12 +47,12 @@ const ENCRYPTION_PASSWORD: &str = "hunter2";
 const SEED_PASSWORD: &str = "";
 
 pub struct TransferRounds {
-    pub send_amount: u64,
+    pub send_amount: f64,
     pub is_issuer_sender: bool,
 }
 
 impl TransferRounds {
-    pub fn with(send_amount: u64, is_issuer_sender: bool) -> Self {
+    pub fn with(send_amount: f64, is_issuer_sender: bool) -> Self {
         TransferRounds {
             send_amount,
             is_issuer_sender,
@@ -63,38 +64,6 @@ impl TransferRounds {
 #[allow(unused_assignments)]
 async fn create_transfer_with_fee_value() {
     set_panic_hook();
-    // let issuer_mnemonic =
-    //     "try engine hurt mushroom adapt club boring diagram barely rail cable vicious tower boss hurt";
-    // let owner_mnemonic =
-    //     "rally ready surround evil grace autumn merry lunch husband infant forum wet possible thought drink";
-    // let hash = hash_password(ENCRYPTION_PASSWORD.to_owned());
-
-    // info!("Import wallet");
-    // let issuer_mnemonic = resolve(encrypt_wallet(
-    //     issuer_mnemonic.to_owned(),
-    //     hash.clone(),
-    //     SEED_PASSWORD.to_owned(),
-    // ))
-    // .await;
-    // let issuer_mnemonic: SecretString = json_parse(&issuer_mnemonic);
-
-    // let owner_mnemonic = resolve(encrypt_wallet(
-    //     owner_mnemonic.to_owned(),
-    //     hash.clone(),
-    //     SEED_PASSWORD.to_owned(),
-    // ))
-    // .await;
-    // let owner_mnemonic: SecretString = json_parse(&owner_mnemonic);
-
-    // info!("Get Issuer Vault");
-    // let issuer_vault: JsValue =
-    //     resolve(decrypt_wallet(hash.clone(), issuer_mnemonic.to_string())).await;
-    // let issuer_vault: DecryptedWalletData = json_parse(&issuer_vault);
-
-    // info!("Get Owner Vault");
-    // let owner_vault: JsValue = resolve(decrypt_wallet(hash, owner_mnemonic.to_string())).await;
-    // let owner_vault: DecryptedWalletData = json_parse(&owner_vault);
-
     let issuer_vault = resolve(new_mnemonic("".to_string())).await;
     let issuer_vault: DecryptedWalletData = json_parse(&issuer_vault);
     let owner_vault = resolve(new_mnemonic("".to_string())).await;
@@ -183,13 +152,14 @@ async fn create_transfer_with_fee_value() {
 
     info!("Create Contract (Issuer)");
     let supply = 100_000;
+    let precision = 2;
     let issue_utxo = issuer_next_utxo.utxo.unwrap().outpoint.to_string();
     let issue_seal = format!("tapret1st:{issue_utxo}");
     let issue_req = IssueRequest {
         ticker: "DIBA".to_string(),
         name: "DIBA".to_string(),
         description: "DIBA".to_string(),
-        precision: 2,
+        precision,
         supply,
         seal: issue_seal.to_owned(),
         iface: iface.to_string(),
@@ -200,20 +170,22 @@ async fn create_transfer_with_fee_value() {
     let issue_resp: JsValue = resolve(issue_contract(issuer_sk.to_string(), issue_req)).await;
     let issuer_resp: IssueResponse = json_parse(&issue_resp);
 
-    let mut total_issuer = supply;
-    let mut total_owner = 0;
+    info!("Import Contract (Owner)");
+    let contract_import = ImportRequest {
+        import: AssetType::RGB20,
+        data: issuer_resp.contract.strict,
+    };
+
+    let req = serde_wasm_bindgen::to_value(&contract_import).expect("oh no!");
+    let resp = resolve(import_contract(owner_sk.clone(), req)).await;
+    let resp: ContractResponse = json_parse(&resp);
+
+    let mut total_issuer =
+        f64::from_str(&ContractAmount::with(supply, precision).to_string()).unwrap();
+    let mut total_owner = 0.0;
     let rounds = vec![
-        TransferRounds::with(20, true),
-        TransferRounds::with(20, false),
-        // TransferRounds::with(3_000, true),
-        // TransferRounds::with(5_000, true),
-        // TransferRounds::with(20, true),
-        // TransferRounds::with(8_000, false),
-        // TransferRounds::with(9_000, true),
-        // TransferRounds::with(9_000, false),
-        // TransferRounds::with(9_000, true),
-        // TransferRounds::with(20, false),
-        // TransferRounds::with(50_000, true),
+        TransferRounds::with(20.00, true),
+        TransferRounds::with(20.00, false),
     ];
 
     let mut sender = String::new();
@@ -268,10 +240,11 @@ async fn create_transfer_with_fee_value() {
         let params = HashMap::new();
         let receiver_utxo = receiver_next_utxo.utxo.unwrap().outpoint.to_string();
         let receiver_seal = format!("tapret1st:{receiver_utxo}");
+        let invoice_amount = ContractAmount::from(round.send_amount.to_string(), precision);
         let invoice_req = InvoiceRequest {
             contract_id: issuer_resp.contract_id.to_string(),
             iface: issuer_resp.iface.to_string(),
-            amount: round.send_amount,
+            amount: invoice_amount.to_string(),
             seal: receiver_seal,
             params,
         };
@@ -371,7 +344,7 @@ async fn create_transfer_with_fee_value() {
             "Contract ({sender}): {} ({})\n {:#?}",
             contract_resp.contract_id, contract_resp.balance, contract_resp.allocations
         ));
-        let sender_current_balance = contract_resp.balance;
+        let sender_current_balance = contract_resp.balance_normalised;
 
         info!(format!("Get Contract Balancer ({receiver})"));
         let contract_resp = resolve(get_contract(
@@ -384,7 +357,7 @@ async fn create_transfer_with_fee_value() {
             "Contract ({receiver}): {} ({})\n {:#?}",
             contract_resp.contract_id, contract_resp.balance, contract_resp.allocations
         ));
-        let receiver_current_balance = contract_resp.balance;
+        let receiver_current_balance = contract_resp.balance_normalised;
 
         info!(format!("<<<< ROUND #{index} Finish >>>>"));
         assert_eq!(sender_current_balance, sender_balance);
@@ -484,13 +457,14 @@ async fn create_transfer_with_fee_rate() {
 
     info!("Create Contract (Issuer)");
     let supply = 100_000;
+    let precision = 2;
     let issue_utxo = issuer_next_utxo.utxo.unwrap().outpoint.to_string();
     let issue_seal = format!("tapret1st:{issue_utxo}");
     let issue_req = IssueRequest {
         ticker: "DIBA".to_string(),
         name: "DIBA".to_string(),
         description: "DIBA".to_string(),
-        precision: 2,
+        precision,
         supply,
         seal: issue_seal.to_owned(),
         iface: iface.to_string(),
@@ -501,9 +475,20 @@ async fn create_transfer_with_fee_rate() {
     let issue_resp: JsValue = resolve(issue_contract(issuer_sk.to_string(), issue_req)).await;
     let issuer_resp: IssueResponse = json_parse(&issue_resp);
 
-    let mut total_issuer = supply;
-    let mut total_owner = 0;
-    let rounds = vec![TransferRounds::with(20, true)];
+    info!("Import Contract (Owner)");
+    let contract_import = ImportRequest {
+        import: AssetType::RGB20,
+        data: issuer_resp.contract.strict,
+    };
+
+    let req = serde_wasm_bindgen::to_value(&contract_import).expect("oh no!");
+    let resp = resolve(import_contract(owner_sk.clone(), req)).await;
+    let resp: ContractResponse = json_parse(&resp);
+
+    let mut total_issuer =
+        f64::from_str(&ContractAmount::with(supply, precision).to_string()).unwrap();
+    let mut total_owner = 0.00;
+    let rounds = vec![TransferRounds::with(20.00, true)];
 
     let mut sender = String::new();
     let mut sender_sk = String::new();
@@ -555,12 +540,13 @@ async fn create_transfer_with_fee_rate() {
 
         info!(format!("Create Invoice ({receiver})"));
         let params = HashMap::new();
+        let invoice_amount = ContractAmount::from(round.send_amount.to_string(), precision);
         let receiver_utxo = receiver_next_utxo.utxo.unwrap().outpoint.to_string();
         let receiver_seal = format!("tapret1st:{receiver_utxo}");
         let invoice_req = InvoiceRequest {
             contract_id: issuer_resp.contract_id.to_string(),
             iface: issuer_resp.iface.to_string(),
-            amount: round.send_amount,
+            amount: invoice_amount.to_string(),
             seal: receiver_seal,
             params,
         };
@@ -660,7 +646,7 @@ async fn create_transfer_with_fee_rate() {
             "Contract ({sender}): {} ({})\n {:#?}",
             contract_resp.contract_id, contract_resp.balance, contract_resp.allocations
         ));
-        let sender_current_balance = contract_resp.balance;
+        let sender_current_balance = contract_resp.balance_normalised;
 
         info!(format!("Get Contract Balancer ({receiver})"));
         let contract_resp = resolve(get_contract(
@@ -673,7 +659,7 @@ async fn create_transfer_with_fee_rate() {
             "Contract ({receiver}): {} ({})\n {:#?}",
             contract_resp.contract_id, contract_resp.balance, contract_resp.allocations
         ));
-        let receiver_current_balance = contract_resp.balance;
+        let receiver_current_balance = contract_resp.balance_normalised;
 
         info!(format!("<<<< ROUND #{index} Finish >>>>"));
         assert_eq!(sender_current_balance, sender_balance);

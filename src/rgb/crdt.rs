@@ -10,9 +10,10 @@ use std::{
     str::FromStr,
 };
 
-use crate::rgb::structs::RgbAccount;
-
-use super::swap::{PublicRgbOffers, RgbBidSwap};
+use crate::rgb::{
+    structs::{RgbAccountV0, RgbAccountV1},
+    swap::{PublicRgbOffers, RgbBidSwap},
+};
 
 #[derive(Debug, Clone, Eq, PartialEq, Display, From, Error)]
 #[display(doc_comments)]
@@ -25,11 +26,26 @@ pub enum RgbMergeError {
 #[display(doc_comments)]
 pub struct RawRgbAccount {
     pub wallets: HashMap<String, RawRgbWallet>,
+    pub hidden_contracts: Vec<String>,
 }
 
-impl From<RgbAccount> for RawRgbAccount {
-    fn from(wallet: RgbAccount) -> Self {
+impl From<RgbAccountV0> for RawRgbAccount {
+    fn from(wallet: RgbAccountV0) -> Self {
         Self {
+            wallets: wallet
+                .wallets
+                .into_iter()
+                .map(|(name, wallet)| (name, RawRgbWallet::from(wallet)))
+                .collect(),
+            ..Default::default()
+        }
+    }
+}
+
+impl From<RgbAccountV1> for RawRgbAccount {
+    fn from(wallet: RgbAccountV1) -> Self {
+        Self {
+            hidden_contracts: wallet.hidden_contracts,
             wallets: wallet
                 .wallets
                 .into_iter()
@@ -39,9 +55,10 @@ impl From<RgbAccount> for RawRgbAccount {
     }
 }
 
-impl From<RawRgbAccount> for RgbAccount {
+impl From<RawRgbAccount> for RgbAccountV1 {
     fn from(raw_account: RawRgbAccount) -> Self {
         Self {
+            hidden_contracts: raw_account.hidden_contracts,
             wallets: raw_account
                 .wallets
                 .into_iter()
@@ -195,7 +212,7 @@ pub trait RgbMerge<T> {
     fn update(self, rgb_data: &mut T);
 }
 
-impl RgbMerge<RawRgbAccount> for RgbAccount {
+impl RgbMerge<RawRgbAccount> for RgbAccountV1 {
     fn update(self, rgb_data: &mut RawRgbAccount) {
         for (name, wallet) in self.wallets {
             if let Some(raw_wallet) = rgb_data.wallets.get(&name) {
@@ -278,7 +295,7 @@ impl RgbMerge<RawUtxo> for Utxo {
 #[display(doc_comments)]
 pub struct LocalRgbAccount {
     pub doc: Vec<u8>,
-    pub rgb_account: RgbAccount,
+    pub rgb_account: RgbAccountV1,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]

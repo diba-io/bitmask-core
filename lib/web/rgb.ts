@@ -308,6 +308,8 @@ export interface ImportResponse {
   precision: number;
   /// The user contract balance
   balance: bigint;
+  /// The user contract balance
+  balance_normalized: number;
   /// The contract allocations
   allocations: AllocationDetail[];
   /// The contract state (multiple formats)
@@ -325,13 +327,23 @@ export interface MediaInfo {
   source: string;
 }
 
+// In structs.rs this is called SimpleContractResponse
+export interface SimpleContractResponse {
+  /// The contract id
+  contractId: string;
+  /// The contract interface
+  ifaceId: string;
+  /// Precision of the asset
+  precision: number;
+}
+
 export interface InvoiceRequest {
   /// The contract id
   contractId: string;
   /// The contract interface
   iface: string;
   /// Amount of the asset
-  amount: bigint;
+  amount: string;
   /// UTXO or Blinded UTXO
   seal: string;
   /// Query parameters
@@ -664,7 +676,7 @@ export interface RgbOfferRequest {
   /// The Contract Interface
   iface: string;
   /// Contract Amount
-  contractAmount: bigint;
+  contractAmount: string;
   /// Bitcoin Price (in sats)
   bitcoinPrice: bigint;
   /// Universal Descriptor
@@ -681,7 +693,7 @@ export interface RgbOfferResponse {
   /// The Contract ID
   contractId: string;
   /// Contract Amount
-  contractAmount: bigint;
+  contractAmount: number;
   /// Bitcoin Price
   bitcoinPrice: bigint;
   /// Seller Address
@@ -694,7 +706,7 @@ export interface RgbBidRequest {
   /// The Offer ID
   offerId: string;
   /// Asset Amount
-  assetAmount: bigint;
+  assetAmount: string;
   /// Universal Descriptor
   descriptor: string;
   /// Bitcoin Terminal Change

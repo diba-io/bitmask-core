@@ -1,25 +1,23 @@
 use rgbstd::persistence::Stock;
 
-use super::carbonado::store_swap_offer_bid;
-use super::crdt::{LocalRgbOfferBid, LocalRgbOffers};
-use super::swap::{RgbBids, RgbOffers};
 use crate::constants::storage_keys::{
     ASSETS_BIDS, ASSETS_OFFERS, ASSETS_STOCK, ASSETS_TRANSFERS, ASSETS_WALLETS, MARKETPLACE_OFFERS,
 };
-
 use crate::rgb::{
     carbonado::{
-        retrieve_bids as retrieve_rgb_bids, retrieve_fork_wallets,
+        cdrt_retrieve_wallets, cdrt_store_wallets, retrieve_bids as retrieve_rgb_bids,
         retrieve_offers as retrieve_rgb_offers,
         retrieve_public_offers as retrieve_rgb_public_offers, retrieve_stock as retrieve_rgb_stock,
         retrieve_swap_offer_bid as retrieve_rgb_swap_offer_bid,
         retrieve_transfers as retrieve_rgb_transfers, retrieve_wallets,
-        store_bids as store_rgb_bids, store_fork_wallets, store_offers as store_rgb_offers,
+        store_bids as store_rgb_bids, store_offers as store_rgb_offers,
         store_public_offers as store_rgb_public_offers, store_stock as store_rgb_stock,
-        store_transfers as store_rgb_transfer, store_wallets,
+        store_swap_offer_bid, store_transfers as store_rgb_transfer, store_wallets,
     },
     crdt::LocalRgbAccount,
-    structs::{RgbAccount, RgbTransfers},
+    crdt::{LocalRgbOfferBid, LocalRgbOffers},
+    structs::{RgbAccountV1, RgbTransfers},
+    swap::{RgbBids, RgbOffers},
 };
 
 #[derive(Debug, Clone, Eq, PartialEq, Display, From, Error)]
@@ -27,9 +25,9 @@ use crate::rgb::{
 pub enum RgbPersistenceError {
     // Retrieve Stock Error. {0}
     RetrieveStock(String),
-    // Retrieve RgbAccount Error. {0}
+    // Retrieve RgbAccountV1 Error. {0}
     RetrieveRgbAccount(String),
-    // Retrieve RgbAccount (Fork) Error. {0}
+    // Retrieve RgbAccountV1 (Fork) Error. {0}
     RetrieveRgbAccountFork(String),
     // Retrieve Transfers Error. {0}
     RetrieveRgbTransfers(String),
@@ -43,9 +41,9 @@ pub enum RgbPersistenceError {
     RetrievePublicOffers(String),
     // Store Stock Error. {0}
     WriteStock(String),
-    // Store RgbAccount Error. {0}
+    // Store RgbAccountV1 Error. {0}
     WriteRgbAccount(String),
-    // Store RgbAccount (Fork) Error. {0}
+    // Store RgbAccountV1 (Fork) Error. {0}
     WriteRgbAccountFork(String),
     // Store Transfers Error. {0}
     WriteRgbTransfers(String),
@@ -75,7 +73,7 @@ pub async fn retrieve_transfers(sk: &str) -> Result<RgbTransfers, RgbPersistence
     Ok(rgb_account)
 }
 
-pub async fn retrieve_account(sk: &str) -> Result<RgbAccount, RgbPersistenceError> {
+pub async fn retrieve_account(sk: &str) -> Result<RgbAccountV1, RgbPersistenceError> {
     let rgb_account = retrieve_wallets(sk, ASSETS_WALLETS)
         .await
         .map_err(|op| RgbPersistenceError::RetrieveRgbAccount(op.to_string()))?;
@@ -84,7 +82,7 @@ pub async fn retrieve_account(sk: &str) -> Result<RgbAccount, RgbPersistenceErro
 }
 
 pub async fn retrieve_local_account(sk: &str) -> Result<LocalRgbAccount, RgbPersistenceError> {
-    let rgb_account = retrieve_fork_wallets(sk, ASSETS_WALLETS)
+    let rgb_account = cdrt_retrieve_wallets(sk, ASSETS_WALLETS)
         .await
         .map_err(|op| RgbPersistenceError::RetrieveRgbAccountFork(op.to_string()))?;
 
@@ -127,7 +125,9 @@ pub async fn retrieve_bids(sk: &str) -> Result<RgbBids, RgbPersistenceError> {
     Ok(bids)
 }
 
-pub async fn retrieve_stock_account(sk: &str) -> Result<(Stock, RgbAccount), RgbPersistenceError> {
+pub async fn retrieve_stock_account(
+    sk: &str,
+) -> Result<(Stock, RgbAccountV1), RgbPersistenceError> {
     Ok((retrieve_stock(sk).await?, retrieve_account(sk).await?))
 }
 
@@ -139,7 +139,7 @@ pub async fn retrieve_stock_transfers(
 
 pub async fn retrieve_stock_account_transfers(
     sk: &str,
-) -> Result<(Stock, RgbAccount, RgbTransfers), RgbPersistenceError> {
+) -> Result<(Stock, RgbAccountV1, RgbTransfers), RgbPersistenceError> {
     Ok((
         retrieve_stock(sk).await?,
         retrieve_account(sk).await?,
@@ -159,14 +159,14 @@ pub async fn store_transfers(sk: &str, transfers: RgbTransfers) -> Result<(), Rg
         .map_err(|op| RgbPersistenceError::WriteRgbTransfers(op.to_string()))
 }
 
-pub async fn store_account(sk: &str, account: RgbAccount) -> Result<(), RgbPersistenceError> {
+pub async fn store_account(sk: &str, account: RgbAccountV1) -> Result<(), RgbPersistenceError> {
     store_wallets(sk, ASSETS_WALLETS, &account)
         .await
         .map_err(|op| RgbPersistenceError::WriteRgbAccount(op.to_string()))
 }
 
 pub async fn store_local_account(sk: &str, changes: Vec<u8>) -> Result<(), RgbPersistenceError> {
-    store_fork_wallets(sk, ASSETS_WALLETS, &changes)
+    cdrt_store_wallets(sk, ASSETS_WALLETS, &changes)
         .await
         .map_err(|op| RgbPersistenceError::WriteRgbAccountFork(op.to_string()))
 }
@@ -203,7 +203,7 @@ pub async fn store_public_offers(changes: Vec<u8>) -> Result<(), RgbPersistenceE
 pub async fn store_stock_account(
     sk: &str,
     stock: Stock,
-    account: RgbAccount,
+    account: RgbAccountV1,
 ) -> Result<(), RgbPersistenceError> {
     store_stock(sk, stock).await?;
     store_account(sk, account).await
@@ -221,7 +221,7 @@ pub async fn store_stock_transfers(
 pub async fn store_stock_account_transfers(
     sk: &str,
     stock: Stock,
-    account: RgbAccount,
+    account: RgbAccountV1,
     transfers: RgbTransfers,
 ) -> Result<(), RgbPersistenceError> {
     store_stock(sk, stock).await?;

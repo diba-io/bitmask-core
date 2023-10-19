@@ -6,8 +6,8 @@ use bitmask_core::{
     bitcoin::{get_wallet, new_mnemonic, save_mnemonic, sign_and_publish_psbt_file, sync_wallet},
     rgb::{
         accept_transfer, create_invoice, create_watcher, full_transfer_asset, get_contract, import,
-        save_transfer, verify_transfers, watcher_next_address, watcher_next_utxo,
-        watcher_unspent_utxos,
+        save_transfer, structs::ContractAmount, verify_transfers, watcher_next_address,
+        watcher_next_utxo, watcher_unspent_utxos,
     },
     structs::{
         AcceptRequest, AllocationDetail, AssetType, FullRgbTransferRequest, ImportRequest,
@@ -23,7 +23,7 @@ use crate::rgb::integration::utils::{
 };
 
 #[tokio::test]
-async fn allow_issuer_make_conseq_transfers() -> anyhow::Result<()> {
+async fn create_conseq_transfers_from_issuer() -> anyhow::Result<()> {
     // 0. Retrieve all keys
     let whatever_address = "bcrt1p76gtucrxhmn8s5622r859dpnmkj0kgfcel9xy0sz6yj84x6ppz2qk5hpsw";
     let issuer_keys = new_mnemonic(&SecretString("".to_string())).await?;
@@ -51,7 +51,7 @@ async fn allow_issuer_make_conseq_transfers() -> anyhow::Result<()> {
     let issuer_resp = issuer_issue_contract_v2(
         1,
         "RGB20",
-        5,
+        ContractAmount::new(5, 2).to_value(),
         false,
         true,
         None,
@@ -66,7 +66,7 @@ async fn allow_issuer_make_conseq_transfers() -> anyhow::Result<()> {
     let owner_invoice = &create_new_invoice(
         &issuer_resp.contract_id,
         &issuer_resp.iface,
-        2,
+        2.5,
         owner_keys.clone(),
         None,
         Some(issuer_resp.clone().contract.strict),
@@ -117,13 +117,13 @@ async fn allow_issuer_make_conseq_transfers() -> anyhow::Result<()> {
     assert!(resp.is_ok());
 
     let issuer_contract = resp?;
-    assert_eq!(3, issuer_contract.balance);
+    assert_eq!(2.5, issuer_contract.balance_normalised);
 
     let resp = get_contract(&owner_sk, contract_id).await;
     assert!(resp.is_ok());
 
     let owner_contract = resp?;
-    assert_eq!(2, owner_contract.balance);
+    assert_eq!(2.5, owner_contract.balance_normalised);
 
     // 7. reate new Invoices (Issuer Side)
     let address = watcher_next_address(&owner_sk, watcher_name, "RGB20").await?;
@@ -134,7 +134,7 @@ async fn allow_issuer_make_conseq_transfers() -> anyhow::Result<()> {
     let invoice_2 = &create_new_invoice_v2(
         &issuer_resp.contract_id,
         &issuer_resp.iface,
-        1,
+        1.0,
         &utxos.utxos[0].outpoint,
         owner_keys.clone(),
         None,
@@ -196,7 +196,7 @@ async fn allow_issuer_make_conseq_transfers() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
-async fn allow_owner_make_conseq_transfers() -> anyhow::Result<()> {
+async fn create_conseq_transfers_from_owner() -> anyhow::Result<()> {
     let whatever_address = "bcrt1p76gtucrxhmn8s5622r859dpnmkj0kgfcel9xy0sz6yj84x6ppz2qk5hpsw";
     let issuer_keys = new_mnemonic(&SecretString("".to_string())).await?;
     let owner_keys = new_mnemonic(&SecretString("".to_string())).await?;
@@ -205,7 +205,7 @@ async fn allow_owner_make_conseq_transfers() -> anyhow::Result<()> {
     let issuer_resp = issuer_issue_contract_v2(
         1,
         "RGB20",
-        5,
+        ContractAmount::new(5, 2).to_value(),
         false,
         true,
         None,
@@ -218,7 +218,7 @@ async fn allow_owner_make_conseq_transfers() -> anyhow::Result<()> {
     let owner_resp = &create_new_invoice(
         &issuer_resp.contract_id,
         &issuer_resp.iface,
-        2,
+        2.0,
         owner_keys.clone(),
         None,
         Some(issuer_resp.clone().contract.strict),
@@ -280,13 +280,13 @@ async fn allow_owner_make_conseq_transfers() -> anyhow::Result<()> {
     assert!(resp.is_ok());
 
     let owner_contract = resp?;
-    assert_eq!(2, owner_contract.balance);
+    assert_eq!(2., owner_contract.balance_normalised);
 
     // 7. Create Invoice (Issuer Side)
     let issuer_invoice_resp = &create_new_invoice(
         &issuer_resp.contract_id,
         &issuer_resp.iface,
-        1,
+        1.0,
         issuer_keys.clone(),
         None,
         None,
@@ -338,13 +338,13 @@ async fn allow_owner_make_conseq_transfers() -> anyhow::Result<()> {
     assert!(resp.is_ok());
 
     let owner_contract = resp?;
-    assert_eq!(1, owner_contract.balance);
+    assert_eq!(1., owner_contract.balance_normalised);
 
     // 11. Create Invoice (Issuer Side)
     let issuer_invoice_resp = &create_new_invoice(
         &issuer_resp.contract_id,
         &issuer_resp.iface,
-        1,
+        1.0,
         issuer_keys.clone(),
         None,
         None,
@@ -357,7 +357,7 @@ async fn allow_owner_make_conseq_transfers() -> anyhow::Result<()> {
     assert!(resp.is_ok());
 
     let owner_contract = resp?;
-    assert_eq!(1, owner_contract.balance);
+    assert_eq!(1., owner_contract.balance_normalised);
 
     let contract_utxo = owner_contract
         .allocations
@@ -403,12 +403,12 @@ async fn allow_owner_make_conseq_transfers() -> anyhow::Result<()> {
     assert!(resp.is_ok());
 
     let owner_contract = resp?;
-    assert_eq!(0, owner_contract.balance);
+    assert_eq!(0., owner_contract.balance_normalised);
     Ok(())
 }
 
 #[tokio::test]
-async fn allow_conseq_transfers_between_tree_owners() -> anyhow::Result<()> {
+async fn create_transfers_from_3_owners() -> anyhow::Result<()> {
     // 0. Retrieve all keys
     let whatever_address = "bcrt1p76gtucrxhmn8s5622r859dpnmkj0kgfcel9xy0sz6yj84x6ppz2qk5hpsw";
     let issuer_keys = new_mnemonic(&SecretString("".to_string())).await?;
@@ -445,7 +445,7 @@ async fn allow_conseq_transfers_between_tree_owners() -> anyhow::Result<()> {
     let issuer_resp = issuer_issue_contract_v2(
         1,
         "RGB20",
-        5,
+        ContractAmount::new(5, 2).to_value(),
         false,
         true,
         None,
@@ -460,7 +460,7 @@ async fn allow_conseq_transfers_between_tree_owners() -> anyhow::Result<()> {
     let owner_invoice = &create_new_invoice(
         &issuer_resp.contract_id,
         &issuer_resp.iface,
-        2,
+        2.0,
         owner_keys.clone(),
         None,
         Some(issuer_resp.clone().contract.strict),
@@ -511,19 +511,19 @@ async fn allow_conseq_transfers_between_tree_owners() -> anyhow::Result<()> {
     assert!(resp.is_ok());
 
     let issuer_contract = resp?;
-    assert_eq!(3, issuer_contract.balance);
+    assert_eq!(3., issuer_contract.balance_normalised);
 
     let resp = get_contract(&owner_sk, contract_id).await;
     assert!(resp.is_ok());
 
     let owner_contract = resp?;
-    assert_eq!(2, owner_contract.balance);
+    assert_eq!(2., owner_contract.balance_normalised);
 
     // 7. Create 2 Invoices (Another Owner Side)
     let another_invoice_1 = &create_new_invoice(
         &issuer_resp.contract_id,
         &issuer_resp.iface,
-        1,
+        1.0,
         another_owner_keys.clone(),
         None,
         Some(issuer_resp.clone().contract.strict),
@@ -533,7 +533,7 @@ async fn allow_conseq_transfers_between_tree_owners() -> anyhow::Result<()> {
     let another_invoice_2 = &create_new_invoice(
         &issuer_resp.contract_id,
         &issuer_resp.iface,
-        1,
+        1.0,
         another_owner_keys.clone(),
         None,
         None,
@@ -627,25 +627,25 @@ async fn allow_conseq_transfers_between_tree_owners() -> anyhow::Result<()> {
     assert!(resp.is_ok());
 
     let issuer_contract = resp?;
-    assert_eq!(2, issuer_contract.balance);
+    assert_eq!(2., issuer_contract.balance_normalised);
 
     let resp = get_contract(&owner_sk, contract_id).await;
     assert!(resp.is_ok());
 
     let owner_contract = resp?;
-    assert_eq!(1, owner_contract.balance);
+    assert_eq!(1., owner_contract.balance_normalised);
 
     let resp = get_contract(&another_owner_sk, contract_id).await;
     assert!(resp.is_ok());
 
     let another_owner_contract = resp?;
-    assert_eq!(2, another_owner_contract.balance);
+    assert_eq!(2., another_owner_contract.balance_normalised);
 
     Ok(())
 }
 
 #[tokio::test]
-async fn allows_spend_amount_from_two_different_owners() -> anyhow::Result<()> {
+async fn create_transfers_between_2_owners() -> anyhow::Result<()> {
     // 0. Retrieve all keys
     let whatever_address = "bcrt1p76gtucrxhmn8s5622r859dpnmkj0kgfcel9xy0sz6yj84x6ppz2qk5hpsw";
     let issuer_keys = new_mnemonic(&SecretString("".to_string())).await?;
@@ -682,7 +682,7 @@ async fn allows_spend_amount_from_two_different_owners() -> anyhow::Result<()> {
     let issuer_resp = issuer_issue_contract_v2(
         1,
         "RGB20",
-        5,
+        ContractAmount::new(5, 2).to_value(),
         false,
         true,
         None,
@@ -697,7 +697,7 @@ async fn allows_spend_amount_from_two_different_owners() -> anyhow::Result<()> {
     let owner_invoice = &create_new_invoice(
         &issuer_resp.contract_id,
         &issuer_resp.iface,
-        2,
+        2.0,
         owner_keys.clone(),
         None,
         Some(issuer_resp.clone().contract.strict),
@@ -750,7 +750,7 @@ async fn allows_spend_amount_from_two_different_owners() -> anyhow::Result<()> {
     assert!(resp.is_ok());
 
     let issuer_contract = resp?;
-    assert_eq!(3, issuer_contract.balance);
+    assert_eq!(3., issuer_contract.balance_normalised);
 
     let resp = get_contract(&owner_sk, contract_id).await;
     assert!(resp.is_ok());
@@ -767,7 +767,7 @@ async fn allows_spend_amount_from_two_different_owners() -> anyhow::Result<()> {
     let invoice_req = InvoiceRequest {
         contract_id: contract_id.to_owned(),
         iface: issuer_resp.iface.to_owned(),
-        amount: 1,
+        amount: "1.00".to_string(),
         seal: another_owner_seal,
         params: HashMap::default(),
     };
@@ -869,25 +869,25 @@ async fn allows_spend_amount_from_two_different_owners() -> anyhow::Result<()> {
     assert!(resp.is_ok());
 
     let issuer_contract = resp?;
-    assert_eq!(2, issuer_contract.balance);
+    assert_eq!(2., issuer_contract.balance_normalised);
 
     let resp = get_contract(&owner_sk, contract_id).await;
     assert!(resp.is_ok());
 
     let owner_contract = resp?;
-    assert_eq!(1, owner_contract.balance);
+    assert_eq!(1., owner_contract.balance_normalised);
 
     let resp = get_contract(&another_owner_sk, contract_id).await;
     assert!(resp.is_ok());
 
     let another_owner_contract = resp?;
-    assert_eq!(2, another_owner_contract.balance);
+    assert_eq!(2., another_owner_contract.balance_normalised);
 
     // 12. Generate Invoice (Issuer Side)
     let issuer_invoice = &create_new_invoice(
         &issuer_resp.contract_id,
         &issuer_resp.iface,
-        2,
+        2.0,
         issuer_keys.clone(),
         None,
         Some(issuer_resp.clone().contract.strict),
@@ -934,13 +934,13 @@ async fn allows_spend_amount_from_two_different_owners() -> anyhow::Result<()> {
     assert!(resp.is_ok());
 
     let another_owner_contract = resp?;
-    assert_eq!(0, another_owner_contract.balance);
+    assert_eq!(0., another_owner_contract.balance_normalised);
 
     Ok(())
 }
 
 #[tokio::test]
-async fn allows_spend_amount_from_two_different_transitions() -> anyhow::Result<()> {
+async fn create_transfers_with_2_transitions() -> anyhow::Result<()> {
     // 0. Retrieve all keys
     let whatever_address = "bcrt1p76gtucrxhmn8s5622r859dpnmkj0kgfcel9xy0sz6yj84x6ppz2qk5hpsw";
     let issuer_keys = new_mnemonic(&SecretString("".to_string())).await?;
@@ -977,7 +977,7 @@ async fn allows_spend_amount_from_two_different_transitions() -> anyhow::Result<
     let issuer_resp = issuer_issue_contract_v2(
         1,
         "RGB20",
-        5,
+        ContractAmount::new(5, 2).to_value(),
         false,
         true,
         None,
@@ -992,7 +992,7 @@ async fn allows_spend_amount_from_two_different_transitions() -> anyhow::Result<
     let owner_invoice = &create_new_invoice(
         &issuer_resp.contract_id,
         &issuer_resp.iface,
-        2,
+        2.0,
         owner_keys.clone(),
         None,
         Some(issuer_resp.clone().contract.strict),
@@ -1041,13 +1041,13 @@ async fn allows_spend_amount_from_two_different_transitions() -> anyhow::Result<
     assert!(resp.is_ok());
 
     let issuer_contract = resp?;
-    assert_eq!(3, issuer_contract.balance);
+    assert_eq!(3., issuer_contract.balance_normalised);
 
     let resp = get_contract(&owner_sk, contract_id).await;
     assert!(resp.is_ok());
 
     let owner_contract = resp?;
-    assert_eq!(2, owner_contract.balance);
+    assert_eq!(2., owner_contract.balance_normalised);
 
     // 7. reate new Invoices (Issuer Side)
     let address = watcher_next_address(&another_owner_sk, watcher_name, "RGB20").await?;
@@ -1058,7 +1058,7 @@ async fn allows_spend_amount_from_two_different_transitions() -> anyhow::Result<
     let another_invoice_1 = &create_new_invoice_v2(
         &issuer_resp.contract_id,
         &issuer_resp.iface,
-        1,
+        1.0,
         &utxos.utxos[0].outpoint,
         another_owner_keys.clone(),
         None,
@@ -1069,7 +1069,7 @@ async fn allows_spend_amount_from_two_different_transitions() -> anyhow::Result<
     let another_invoice_2 = &create_new_invoice_v2(
         &issuer_resp.contract_id,
         &issuer_resp.iface,
-        1,
+        1.0,
         &utxos.utxos[1].outpoint,
         another_owner_keys.clone(),
         None,
@@ -1164,25 +1164,25 @@ async fn allows_spend_amount_from_two_different_transitions() -> anyhow::Result<
     assert!(resp.is_ok());
 
     let issuer_contract = resp?;
-    assert_eq!(2, issuer_contract.balance);
+    assert_eq!(2., issuer_contract.balance_normalised);
 
     let resp = get_contract(&owner_sk, contract_id).await;
     assert!(resp.is_ok());
 
     let owner_contract = resp?;
-    assert_eq!(1, owner_contract.balance);
+    assert_eq!(1., owner_contract.balance_normalised);
 
     let resp = get_contract(&another_owner_sk, contract_id).await;
     assert!(resp.is_ok());
 
     let another_owner_contract = resp?;
-    assert_eq!(2, another_owner_contract.balance);
+    assert_eq!(2., another_owner_contract.balance_normalised);
 
     // 12. Generate Invoice (Issuer Side)
     let issuer_invoice = &create_new_invoice(
         &issuer_resp.contract_id,
         &issuer_resp.iface,
-        2,
+        2.0,
         issuer_keys.clone(),
         None,
         Some(issuer_resp.clone().contract.strict),
@@ -1239,13 +1239,13 @@ async fn allows_spend_amount_from_two_different_transitions() -> anyhow::Result<
     assert!(resp.is_ok());
 
     let another_owner_contract = resp?;
-    assert_eq!(0, another_owner_contract.balance);
+    assert_eq!(0., another_owner_contract.balance_normalised);
 
     Ok(())
 }
 
 #[tokio::test]
-async fn allow_issuer_make_transfer_of_two_contracts_in_same_utxo() -> anyhow::Result<()> {
+async fn create_transfers_with_2_contracts_in_same_utxo() -> anyhow::Result<()> {
     // 1. Issue and First Transfer (Issuer side)
     let whatever_address = "bcrt1p76gtucrxhmn8s5622r859dpnmkj0kgfcel9xy0sz6yj84x6ppz2qk5hpsw";
     let issuer_keys = &save_mnemonic(
@@ -1261,7 +1261,7 @@ async fn allow_issuer_make_transfer_of_two_contracts_in_same_utxo() -> anyhow::R
     let issue_contracts_resp = &issuer_issue_contract_v2(
         2,
         "RGB20",
-        5,
+        ContractAmount::new(5, 2).to_value(),
         false,
         true,
         None,
@@ -1289,7 +1289,7 @@ async fn allow_issuer_make_transfer_of_two_contracts_in_same_utxo() -> anyhow::R
     let owner_resp = &create_new_invoice_v2(
         &issue_contract_a_resp.contract_id,
         &issue_contract_a_resp.iface,
-        1,
+        1.0,
         &owner_utxos.utxos[0].outpoint,
         owner_keys.clone(),
         None,
@@ -1339,19 +1339,19 @@ async fn allow_issuer_make_transfer_of_two_contracts_in_same_utxo() -> anyhow::R
     assert!(resp.is_ok());
 
     let issuer_contract = resp?;
-    assert_eq!(4, issuer_contract.balance);
+    assert_eq!(4., issuer_contract.balance_normalised);
 
     let resp = get_contract(&owner_sk, contract_id).await;
     assert!(resp.is_ok());
 
     let owner_contract = resp?;
-    assert_eq!(1, owner_contract.balance);
+    assert_eq!(1., owner_contract.balance_normalised);
 
     // 5. Create Second Invoice (Owner Side)
     let owner_resp = &create_new_invoice_v2(
         &issue_contract_b_resp.contract_id,
         &issue_contract_b_resp.iface,
-        2,
+        2.0,
         &owner_utxos.utxos[0].outpoint,
         owner_keys.clone(),
         None,
@@ -1406,19 +1406,19 @@ async fn allow_issuer_make_transfer_of_two_contracts_in_same_utxo() -> anyhow::R
     assert!(resp.is_ok());
 
     let issuer_contract = resp?;
-    assert_eq!(3, issuer_contract.balance);
+    assert_eq!(3., issuer_contract.balance_normalised);
 
     let resp = get_contract(&owner_sk, contract_id).await;
     assert!(resp.is_ok());
 
     let owner_contract = resp?;
-    assert_eq!(2, owner_contract.balance);
+    assert_eq!(2., owner_contract.balance_normalised);
 
     Ok(())
 }
 
 #[tokio::test]
-async fn allow_issuer_make_transfer_of_two_contract_types_in_same_utxo() -> anyhow::Result<()> {
+async fn create_transfers_with_2_ifaces_in_same_utxo() -> anyhow::Result<()> {
     // 1. Issue and First Transfer (Issuer side)
     let issuer_keys = &save_mnemonic(
         &SecretString(ISSUER_MNEMONIC.to_string()),
@@ -1433,7 +1433,7 @@ async fn allow_issuer_make_transfer_of_two_contract_types_in_same_utxo() -> anyh
     let issue_contracts_resp = &issuer_issue_contract_v2(
         1,
         "RGB20",
-        5,
+        ContractAmount::new(5, 2).to_value(),
         false,
         true,
         None,
@@ -1448,7 +1448,7 @@ async fn allow_issuer_make_transfer_of_two_contract_types_in_same_utxo() -> anyh
     let issue_contracts_resp = &issuer_issue_contract_v2(
         1,
         "RGB21",
-        1,
+        ContractAmount::new(1, 0).to_value(),
         false,
         true,
         meta,
@@ -1478,7 +1478,7 @@ async fn allow_issuer_make_transfer_of_two_contract_types_in_same_utxo() -> anyh
     let owner_resp = &create_new_invoice_v2(
         &issue_contract_a_resp.contract_id,
         &issue_contract_a_resp.iface,
-        1,
+        1.0,
         &owner_utxos.utxos[0].outpoint,
         owner_keys.clone(),
         None,
@@ -1528,20 +1528,20 @@ async fn allow_issuer_make_transfer_of_two_contract_types_in_same_utxo() -> anyh
     assert!(resp.is_ok());
 
     let issuer_contract = resp?;
-    assert_eq!(4, issuer_contract.balance);
+    assert_eq!(4., issuer_contract.balance_normalised);
 
     let resp = get_contract(&owner_sk, contract_id).await;
     assert!(resp.is_ok());
 
     let owner_contract = resp?;
-    assert_eq!(1, owner_contract.balance);
+    assert_eq!(1., owner_contract.balance_normalised);
 
     // 5. Create Second Invoice (Owner Side)
     let owner_utxos = watcher_unspent_utxos(&owner_sk, watcher_name, "RGB21").await?;
     let owner_resp = &create_new_invoice_v2(
         &issue_contract_b_resp.contract_id,
         &issue_contract_b_resp.iface,
-        1,
+        1.0,
         &owner_utxos.utxos[0].outpoint,
         owner_keys.clone(),
         None,
@@ -1597,13 +1597,13 @@ async fn allow_issuer_make_transfer_of_two_contract_types_in_same_utxo() -> anyh
     assert!(resp.is_ok());
 
     let issuer_contract = resp?;
-    assert_eq!(0, issuer_contract.balance);
+    assert_eq!(0., issuer_contract.balance_normalised);
 
     let resp = get_contract(&owner_sk, contract_id).await;
     assert!(resp.is_ok());
 
     let owner_contract = resp?;
-    assert_eq!(1, owner_contract.balance);
+    assert_eq!(1., owner_contract.balance_normalised);
 
     Ok(())
 }
@@ -1640,7 +1640,7 @@ async fn allow_fungible_full_transfer_op() -> anyhow::Result<()> {
     let owner_resp = &create_new_invoice(
         &issuer_resp.contract_id,
         &issuer_resp.iface,
-        1,
+        1.0,
         owner_keys.clone(),
         None,
         Some(issuer_resp.clone().contract.strict),
@@ -1696,7 +1696,7 @@ async fn allow_uda_full_transfer_op() -> anyhow::Result<()> {
     let issuer_resp = issuer_issue_contract_v2(
         1,
         "RGB21",
-        1,
+        ContractAmount::new(1, 0).to_value(),
         false,
         true,
         meta,
@@ -1711,7 +1711,7 @@ async fn allow_uda_full_transfer_op() -> anyhow::Result<()> {
     let owner_resp = &create_new_invoice(
         &issuer_resp.contract_id,
         &issuer_resp.iface,
-        1,
+        1.0,
         owner_keys.clone(),
         None,
         None,
@@ -1879,7 +1879,7 @@ async fn allow_consecutive_full_transfer_bidirectional() -> anyhow::Result<()> {
         let wallet_b_invoice = create_new_invoice_v2(
             &contract_id.to_string(),
             &iface.to_string(),
-            1_000,
+            1_000.00,
             &utxo_unspent.outpoint.to_string(),
             wallet_b.clone(),
             None,
@@ -1942,7 +1942,7 @@ async fn allow_consecutive_full_transfer_bidirectional() -> anyhow::Result<()> {
             let wallet_a_invoice = create_new_invoice_v2(
                 &contract_id.to_string(),
                 &iface.to_string(),
-                50,
+                50.00,
                 &utxo_unspent.outpoint.to_string(),
                 wallet_a.clone(),
                 None,
@@ -2041,7 +2041,7 @@ async fn allow_save_transfer_and_verify() -> anyhow::Result<()> {
     let issuer_resp = issuer_issue_contract_v2(
         1,
         "RGB20",
-        1,
+        ContractAmount::new(1, 2).to_value(),
         false,
         true,
         None,
@@ -2057,7 +2057,7 @@ async fn allow_save_transfer_and_verify() -> anyhow::Result<()> {
     let owner_resp = &create_new_invoice(
         &issuer_resp.contract_id,
         &issuer_resp.iface,
-        1,
+        1.0,
         owner_keys.clone(),
         None,
         Some(issuer_resp.clone().contract.strict),
@@ -2107,7 +2107,7 @@ async fn allow_save_transfer_and_verify() -> anyhow::Result<()> {
     assert!(resp.is_ok());
 
     let contract = get_contract(&owner_sk, &issuer_resp.contract_id).await?;
-    assert_eq!(contract.balance, 1);
+    assert_eq!(1., contract.balance_normalised);
 
     Ok(())
 }

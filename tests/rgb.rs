@@ -13,6 +13,7 @@ mod rgb {
         // TODO: Review after support multi-token transfer
         // mod collectibles;
         mod accept;
+        mod cambria;
         mod collectibles;
         mod crdt;
         mod drain;
@@ -20,6 +21,7 @@ mod rgb {
         mod fungibles;
         mod import;
         mod issue;
+        mod rbf;
         mod states;
         mod swaps;
         mod transfers;

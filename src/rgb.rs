@@ -29,6 +29,7 @@ use strict_encoding::{tn, StrictSerialize};
 use thiserror::Error;
 
 pub mod accept;
+pub mod cambria;
 pub mod carbonado;
 pub mod constants;
 pub mod contract;
@@ -59,27 +60,27 @@ use crate::{
     },
     structs::{
         AcceptRequest, AcceptResponse, AssetType, BatchRgbTransferItem, BatchRgbTransferResponse,
-        ContractMetadata, ContractResponse, ContractsResponse, FullRgbTransferRequest,
-        ImportRequest, InterfaceDetail, InterfacesResponse, InvoiceRequest, InvoiceResponse,
-        IssueMetaRequest, IssueMetadata, IssueRequest, IssueResponse, NewCollectible,
-        NextAddressResponse, NextUtxoResponse, NextUtxosResponse, PsbtFeeRequest, PsbtRequest,
-        PsbtResponse, PublicRgbBidResponse, PublicRgbOfferResponse, PublicRgbOffersResponse,
-        ReIssueRequest, ReIssueResponse, RgbBidDetail, RgbBidRequest, RgbBidResponse,
-        RgbBidsResponse, RgbInternalTransferResponse, RgbInvoiceResponse, RgbOfferBidsResponse,
-        RgbOfferDetail, RgbOfferRequest, RgbOfferResponse, RgbOfferUpdateRequest,
-        RgbOfferUpdateResponse, RgbOffersResponse, RgbRemoveTransferRequest,
+        ContractHiddenResponse, ContractMetadata, ContractResponse, ContractsResponse,
+        FullRgbTransferRequest, ImportRequest, InterfaceDetail, InterfacesResponse, InvoiceRequest,
+        InvoiceResponse, IssueMetaRequest, IssueMetadata, IssueRequest, IssueResponse,
+        NewCollectible, NextAddressResponse, NextUtxoResponse, NextUtxosResponse, PsbtFeeRequest,
+        PsbtRequest, PsbtResponse, PublicRgbBidResponse, PublicRgbOfferResponse,
+        PublicRgbOffersResponse, ReIssueRequest, ReIssueResponse, RgbBidDetail, RgbBidRequest,
+        RgbBidResponse, RgbBidsResponse, RgbInternalTransferResponse, RgbInvoiceResponse,
+        RgbOfferBidsResponse, RgbOfferDetail, RgbOfferRequest, RgbOfferResponse,
+        RgbOfferUpdateRequest, RgbOfferUpdateResponse, RgbOffersResponse, RgbRemoveTransferRequest,
         RgbSaveTransferRequest, RgbSwapRequest, RgbSwapResponse, RgbTransferDetail,
         RgbTransferInternalParams, RgbTransferRequest, RgbTransferResponse,
         RgbTransferStatusResponse, RgbTransfersResponse, SchemaDetail, SchemasResponse,
-        TransferType, TxStatus, UDADetail, UtxoResponse, WatcherDetailResponse, WatcherRequest,
-        WatcherResponse, WatcherUtxoResponse,
+        SimpleContractResponse, TransferType, TxStatus, UDADetail, UtxoResponse,
+        WatcherDetailResponse, WatcherRequest, WatcherResponse, WatcherUtxoResponse,
     },
     validators::RGBContext,
 };
 
 use self::{
     constants::{RGB_DEFAULT_FETCH_LIMIT, RGB_DEFAULT_NAME},
-    contract::{export_contract, ExportContractError},
+    contract::{export_boilerplate, export_contract, ExportContractError},
     crdt::{LocalRgbAccount, RawRgbAccount, RgbMerge},
     fs::{
         retrieve_account, retrieve_bids, retrieve_local_account, retrieve_offers,
@@ -103,13 +104,15 @@ use self::{
     psbt::{
         save_tap_commit_str, set_tapret_output, CreatePsbtError, EstimateFeeError, PsbtNewOptions,
     },
-    structs::{RgbAccount, RgbExtractTransfer, RgbTransfer, RgbTransfers},
+    structs::{
+        ContractAmount, ContractBoilerplate, RgbAccountV1, RgbExtractTransfer, RgbTransfer,
+        RgbTransfers,
+    },
     swap::{
         get_public_offer, get_swap_bid, get_swap_bid_by_buyer, get_swap_bids_by_seller,
         mark_bid_fill, mark_offer_fill, mark_transfer_bid, mark_transfer_offer, publish_public_bid,
         publish_public_offer, publish_swap_bid, remove_public_offers, PsbtSwapEx, RgbBid,
-        RgbBidSwap, RgbOffer, RgbOfferErrors, RgbOfferSwap, RgbOrderStatus, TransferSwap,
-        TransferSwapError,
+        RgbBidSwap, RgbOffer, RgbOfferErrors, RgbOfferSwap, RgbOrderStatus,
     },
     transfer::{AcceptTransferError, NewInvoiceError, NewPaymentError},
     wallet::{
@@ -189,13 +192,14 @@ pub async fn issue_contract(sk: &str, request: IssueRequest) -> Result<IssueResp
         _ => None,
     };
 
+    let contract_amount = ContractAmount::with(supply, precision);
     let udas_data = prefetch_resolver_images(meta.clone()).await;
     let contract = create_contract(
         &ticker,
         &name,
         &description,
         precision,
-        supply,
+        contract_amount.to_value(),
         &iface,
         &seal,
         &network,
@@ -214,13 +218,11 @@ pub async fn issue_contract(sk: &str, request: IssueRequest) -> Result<IssueResp
         name,
         description,
         supply,
-        precision: _,
-        balance: _,
-        allocations: _,
         contract,
         genesis,
         meta,
         created,
+        ..
     } = export_contract(
         contract.contract_id(),
         &mut stock,
@@ -424,6 +426,10 @@ pub async fn reissue_contract(
 pub enum InvoiceError {
     /// Some request data is missing. {0:?}
     Validation(BTreeMap<String, String>),
+    /// Contract is required in this operation. Please, import or issue a Contract.
+    NoContract,
+    /// Invoice contains wrong contract precision. expect: {0} / current: {1}.
+    WrongPrecision(u8, u8),
     /// I/O or connectivity error. {0}
     IO(RgbPersistenceError),
     /// Occurs an error in invoice step. {0}
@@ -466,8 +472,27 @@ async fn internal_create_invoice(
 
     let network = NETWORK.read().await.to_string();
 
-    let invoice = create_rgb_invoice(&contract_id, &iface, amount, &seal, &network, params, stock)
-        .map_err(InvoiceError::Invoice)?;
+    let contr_id = ContractId::from_str(&contract_id).map_err(|_| InvoiceError::NoContract)?;
+    let boilerplate = export_boilerplate(contr_id, stock).map_err(|_| InvoiceError::NoContract)?;
+    let invoice_amount = ContractAmount::from_raw(amount.to_string());
+    if invoice_amount.precision != boilerplate.precision {
+        return Err(InvoiceError::WrongPrecision(
+            boilerplate.precision,
+            invoice_amount.precision,
+        ));
+    }
+
+    let invoice_amount = invoice_amount.to_value();
+    let invoice = create_rgb_invoice(
+        &contract_id,
+        &iface,
+        invoice_amount,
+        &seal,
+        &network,
+        params,
+        stock,
+    )
+    .map_err(InvoiceError::Invoice)?;
 
     Ok(invoice)
 }
@@ -517,7 +542,7 @@ pub async fn create_psbt(sk: &str, request: PsbtRequest) -> Result<PsbtResponse,
 
 async fn internal_create_psbt(
     request: PsbtRequest,
-    rgb_account: &mut RgbAccount,
+    rgb_account: &mut RgbAccountV1,
     resolver: &mut ExplorerResolver,
     options: Option<PsbtNewOptions>,
 ) -> Result<PsbtResponse, PsbtError> {
@@ -798,9 +823,9 @@ pub async fn transfer_asset(
 
 async fn internal_transfer_asset(
     request: RgbTransferRequest,
-    params: RgbTransferInternalParams,
+    _params: RgbTransferInternalParams,
     stock: &mut Stock,
-    rgb_account: &mut RgbAccount,
+    rgb_account: &mut RgbAccountV1,
     rgb_transfers: &mut RgbTransfers,
 ) -> Result<RgbInternalTransferResponse, TransferError> {
     let network = NETWORK.read().await.to_string();
@@ -829,15 +854,15 @@ async fn internal_transfer_asset(
     let (outpoint, commit) = extract_commit(psbt.clone()).map_err(TransferError::Commitment)?;
 
     let consig_id = transfer.bindle_id().to_string();
-    let consig = if let (Some(offer_id), Some(bid_id)) = (params.offer_id, params.bid_id) {
-        let swap = TransferSwap::with(&offer_id, &bid_id, transfer.unbindle());
-        swap.to_strict_serialized::<{ U32 }>()
-            .map_err(|err| TransferError::WrongConsig(err.to_string()))?
-    } else {
-        transfer
-            .to_strict_serialized::<{ U32 }>()
-            .map_err(|err| TransferError::WrongConsig(err.to_string()))?
-    };
+    // let consig = if let (Some(offer_id), Some(bid_id)) = (params.offer_id, params.bid_id) {
+    //     let swap = TransferSwap::with(&offer_id, &bid_id, transfer.unbindle());
+    //     swap.to_strict_serialized::<{ U32 }>()
+    //         .map_err(|err| TransferError::WrongConsig(err.to_string()))?
+    // } else {
+    let consig = transfer
+        .to_strict_serialized::<{ U32 }>()
+        .map_err(|err| TransferError::WrongConsig(err.to_string()))?;
+    // };
 
     let bp_txid = bp::Txid::from_hex(&psbt.to_txid().to_hex())
         .map_err(|err| TransferError::WrongConsig(err.to_string()))?;
@@ -922,6 +947,10 @@ pub enum RgbSwapError {
     Transfer(TransferError),
     /// Swap fee cannot be decoded. {0}
     WrongSwapFee(String),
+    /// Request order contains wrong contract precision. expect: {0} / current: {1}.
+    WrongPrecision(u8, u8),
+    /// Request order contains wrong contract value. {0}.
+    WrongValue(String),
     /// Bitcoin network cannot be decoded. {0}
     WrongNetwork(String),
     /// Bitcoin address cannot be decoded. {0}
@@ -981,6 +1010,10 @@ pub async fn create_seller_offer(
     let seller_address = next_address(AssetType::Bitcoin as u32, rgb_wallet.clone(), network)
         .map_err(|op| RgbSwapError::WrongAddress(op.to_string()))?;
 
+    let contr_id = ContractId::from_str(&contract_id).unwrap();
+    let boilerplate =
+        export_boilerplate(contr_id, &mut stock).map_err(|_| RgbSwapError::NoContract)?;
+
     let (allocations, asset_inputs, bitcoin_inputs, mut bitcoin_changes, change_value) =
         prebuild_seller_swap(request, &mut stock, &mut rgb_wallet, &mut resolver).await?;
 
@@ -1010,6 +1043,7 @@ pub async fn create_seller_offer(
         contract_id.clone(),
         iface.clone(),
         allocations,
+        boilerplate.precision,
         seller_address.address,
         bitcoin_price,
         seller_psbt.psbt.clone(),
@@ -1017,6 +1051,10 @@ pub async fn create_seller_offer(
         change_terminal,
         expire_at,
     );
+
+    let contract_amount = ContractAmount::from_raw(contract_amount).to_string();
+    let contract_amount =
+        f64::from_str(&contract_amount).map_err(|_| RgbSwapError::WrongValue(contract_amount))?;
 
     let resp = RgbOfferResponse {
         offer_id: new_offer.clone().offer_id,
@@ -1215,6 +1253,7 @@ pub async fn create_buyer_bid(
         bid_id,
         offer_id,
         asset_amount,
+        asset_precision,
         ..
     } = new_bid.clone();
 
@@ -1226,10 +1265,11 @@ pub async fn create_buyer_bid(
         }
     }
 
+    let invoice_amount = ContractAmount::with(asset_amount, asset_precision);
     let invoice_req = InvoiceRequest {
         iface,
         contract_id: contract_id.to_string(),
-        amount: asset_amount,
+        amount: invoice_amount.to_string(),
         seal: format!("tapret1st:{buyer_outpoint}"),
         params: HashMap::new(),
     };
@@ -1449,7 +1489,7 @@ pub enum SaveTransferError {
     /// Occurs an error in parse consig step. {0}
     WrongConsig(AcceptTransferError),
     /// Occurs an error in parse consig swap step. {0}
-    WrongConsigSwap(TransferSwapError),
+    WrongConsigSwap(AcceptTransferError),
     /// Occurs an error in swap step. {0}
     WrongSwap(RgbOfferErrors),
     /// Write I/O or connectivity error. {1} in {0}
@@ -1870,7 +1910,41 @@ pub async fn get_contract(sk: &str, contract_id: &str) -> Result<ContractRespons
     Ok(contract)
 }
 
-pub async fn list_contracts(sk: &str) -> Result<ContractsResponse> {
+pub async fn get_simple_contract(sk: &str, contract_id: &str) -> Result<SimpleContractResponse> {
+    let mut stock = retrieve_rgb_stock(sk).await?;
+    let contract_id = ContractId::from_str(contract_id)?;
+    let contract = export_boilerplate(contract_id, &mut stock)?;
+
+    let ContractBoilerplate {
+        contract_id,
+        iface_id,
+        precision,
+    } = contract;
+
+    Ok(SimpleContractResponse {
+        contract_id,
+        iface_id,
+        precision,
+    })
+}
+
+pub async fn hidden_contract(sk: &str, contract_id: &str) -> Result<ContractHiddenResponse> {
+    let mut rgb_account = retrieve_account(sk).await?;
+    if !rgb_account
+        .hidden_contracts
+        .contains(&contract_id.to_string())
+    {
+        rgb_account.hidden_contracts.push(contract_id.to_string());
+        store_account(sk, rgb_account).await?;
+    }
+
+    Ok(ContractHiddenResponse {
+        contract_id: contract_id.to_string(),
+        hidden: true,
+    })
+}
+
+pub async fn list_contracts(sk: &str, hidden_contracts: bool) -> Result<ContractsResponse> {
     let mut resolver = ExplorerResolver {
         explorer_url: BITCOIN_EXPLORER_API.read().await.to_string(),
         ..Default::default()
@@ -1912,6 +1986,14 @@ pub async fn list_contracts(sk: &str) -> Result<ContractsResponse> {
             .expect("contract not found");
 
         for contract_id in contract_ids {
+            if hidden_contracts
+                && rgb_account
+                    .hidden_contracts
+                    .contains(&contract_id.to_string())
+            {
+                continue;
+            }
+
             let contract_iface = stock
                 .clone()
                 .contract_iface(contract_id, iface.iface_id())
