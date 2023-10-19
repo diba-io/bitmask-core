@@ -9,7 +9,9 @@ use bitmask_core::{
         fund_vault, get_new_address, get_wallet, new_mnemonic, sign_and_publish_psbt_file,
         sync_wallet,
     },
-    rgb::{accept_transfer, create_watcher, full_transfer_asset, get_contract},
+    rgb::{
+        accept_transfer, create_watcher, full_transfer_asset, get_contract, structs::ContractAmount,
+    },
     structs::{
         AcceptRequest, FullRgbTransferRequest, PsbtFeeRequest, PsbtInputRequest, SecretString,
         SignPsbtRequest, WatcherRequest,
@@ -25,7 +27,7 @@ async fn create_dustless_transfer_with_fee_value() -> anyhow::Result<()> {
     let issuer_resp = issuer_issue_contract_v2(
         1,
         "RGB20",
-        5,
+        ContractAmount::new(5, 2).to_value(),
         false,
         true,
         None,
@@ -38,7 +40,7 @@ async fn create_dustless_transfer_with_fee_value() -> anyhow::Result<()> {
     let owner_resp = &create_new_invoice(
         &issuer_resp.contract_id,
         &issuer_resp.iface,
-        1,
+        1.0,
         owner_keys.clone(),
         None,
         Some(issuer_resp.clone().contract.strict),
@@ -192,7 +194,7 @@ async fn create_dustless_transfer_with_fee_rate() -> anyhow::Result<()> {
     let issuer_resp = issuer_issue_contract_v2(
         1,
         "RGB20",
-        5,
+        ContractAmount::new(5, 2).to_value(),
         false,
         false,
         None,
@@ -207,7 +209,7 @@ async fn create_dustless_transfer_with_fee_rate() -> anyhow::Result<()> {
     let owner_resp = &create_new_invoice(
         &issuer_resp.contract_id,
         &issuer_resp.iface,
-        1,
+        1.0,
         owner_keys.clone(),
         None,
         Some(issuer_resp.clone().contract.strict),

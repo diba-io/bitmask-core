@@ -7,16 +7,19 @@ use rgbstd::{
     persistence::{Inventory, InventoryInconsistency, StashInconsistency, Stock},
     stl::{ContractData, DivisibleAssetSpec, RicardianContract, Timestamp},
 };
+use std::str::FromStr;
 use strict_encoding::{FieldName, StrictDeserialize, StrictSerialize};
 
 use crate::structs::{
-    AllocationValue, ContractFormats, ContractMeta, ContractMetadata, ContractResponse,
-    GenesisFormats, MediaInfo, UDADetail,
+    AllocationValue, ContractBoilerplate, ContractFormats, ContractMeta, ContractMetadata,
+    ContractResponse, GenesisFormats, MediaInfo, UDADetail,
 };
 use crate::{
     rgb::{resolvers::ResolveSpent, wallet::contract_allocations},
     structs::AttachInfo,
 };
+
+use super::structs::ContractAmount;
 
 #[derive(Clone, Eq, PartialEq, Debug, Display, Error, From)]
 #[display(doc_comments)]
@@ -31,11 +34,49 @@ pub enum ExportContractError {
     GenesisInconsistency(String, String),
     /// The contract {0} cannot be converted to {1}
     ContractFormat(String, String),
+    /// The contract {0} contains a invalid value. {1}
+    WrongValue(String, String),
     /// The the contract {0} cannot have {1} global data
     GlobalNotFound(String, String),
 }
 
-// TODO: Create one extractor by contract interface
+pub fn export_boilerplate(
+    contract_id: ContractId,
+    stock: &mut Stock,
+) -> Result<ContractBoilerplate, ExportContractError> {
+    let contract_bindle = stock
+        .export_contract(contract_id)
+        .or(Err(ExportContractError::NoContrat(contract_id.to_string())))?;
+
+    let ifaces: Vec<IfaceId> = contract_bindle
+        .ifaces
+        .keys()
+        .map(|f| f.to_owned())
+        .collect();
+
+    let iface_id = ifaces[0];
+    let contract_iface = stock
+        .contract_iface(contract_id, iface_id.to_owned())
+        .expect("invalid contracts state");
+
+    let ty: FieldName = FieldName::from("spec");
+    let specs = match contract_iface.global(ty) {
+        Ok(values) => DivisibleAssetSpec::from_strict_val_unchecked(&values[0]),
+        Err(err) => {
+            return Err(ExportContractError::StrictInconsistency(
+                contract_id.to_string(),
+                err.to_string(),
+            ))
+        }
+    };
+
+    Ok(ContractBoilerplate {
+        contract_id: contract_id.to_string(),
+        iface_id: iface_id.to_string(),
+        precision: specs.precision.into(),
+    })
+}
+
 pub fn export_contract<T>(
     contract_id: ContractId,
     stock: &mut Stock,
@@ -181,6 +222,10 @@ where
             })
             .sum();
     }
+
+    let balance_normalised = ContractAmount::with(balance, specs.precision.into()).to_string();
+    let balance_normalised = f64::from_str(&balance_normalised)
+        .map_err(|_| ExportContractError::WrongValue(contr_id.clone(), balance_normalised))?;
 
     let mut supply = 0;
     for (index, (_, global_assign)) in contract_bindle.genesis.assignments.iter().enumerate() {
@@ -337,9 +382,10 @@ where
         ticker: specs.ticker().into(),
         name: specs.name().into(),
         description,
-        precision: 0,
+        precision: specs.precision.into(),
         supply,
         balance,
+        balance_normalised,
         allocations,
         created: created.into(),
         contract: ContractFormats {

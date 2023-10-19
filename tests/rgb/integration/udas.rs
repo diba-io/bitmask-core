@@ -5,12 +5,12 @@ use crate::rgb::integration::utils::{
 };
 use bitmask_core::{
     bitcoin::{save_mnemonic, sign_and_publish_psbt_file},
-    rgb::accept_transfer,
+    rgb::{accept_transfer, structs::ContractAmount},
     structs::{AcceptRequest, SecretString, SignPsbtRequest},
 };
 
 #[tokio::test]
-async fn allow_beneficiary_accept_transfer() -> anyhow::Result<()> {
+async fn accept_uda_transfer() -> anyhow::Result<()> {
     let issuer_keys = &save_mnemonic(
         &SecretString(ISSUER_MNEMONIC.to_string()),
         &SecretString("".to_string()),
@@ -25,7 +25,7 @@ async fn allow_beneficiary_accept_transfer() -> anyhow::Result<()> {
     let issuer_resp = issuer_issue_contract_v2(
         1,
         "RGB21",
-        1,
+        ContractAmount::new(1, 0).to_value(),
         false,
         true,
         meta,
@@ -38,7 +38,7 @@ async fn allow_beneficiary_accept_transfer() -> anyhow::Result<()> {
     let owner_resp = create_new_invoice(
         &issuer_resp.contract_id,
         &issuer_resp.iface,
-        1,
+        1.0,
         owner_keys,
         None,
         Some(issuer_resp.clone().contract.legacy),

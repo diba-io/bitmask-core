@@ -1,15 +1,15 @@
 #![allow(dead_code)]
 #![cfg(not(target_arch = "wasm32"))]
-use std::{collections::HashMap, env, process::Stdio};
-
 use amplify::bmap;
 use bdk::wallet::AddressIndex;
 use bitmask_core::{
     bitcoin::{get_wallet, get_wallet_data, save_mnemonic, sync_wallet},
     rgb::{
         crdt::{RawRgbWallet, RawUtxo},
-        create_invoice, create_psbt, create_watcher, import, issue_contract, transfer_asset,
-        watcher_details, watcher_next_address, watcher_next_utxo, watcher_unspent_utxos,
+        create_invoice, create_psbt, create_watcher, import, issue_contract,
+        structs::ContractAmount,
+        transfer_asset, watcher_details, watcher_next_address, watcher_next_utxo,
+        watcher_unspent_utxos,
     },
     structs::{
         AllocationDetail, AssetType, ContractResponse, DecryptedWalletData, ImportRequest,
@@ -18,6 +18,7 @@ use bitmask_core::{
         PsbtResponse, RgbTransferRequest, RgbTransferResponse, SecretString, WatcherRequest,
     },
 };
+use std::{collections::HashMap, env, process::Stdio};
 use tokio::process::Command;
 
 pub const ISSUER_MNEMONIC: &str =
@@ -28,6 +29,8 @@ pub const OWNER_MNEMONIC: &str =
 
 pub const ANOTHER_OWNER_MNEMONIC: &str =
     "circle hold drift unable own laptop age relax degree next alone stage";
+
+pub const DEFAULT_PRECISION: u8 = 2;
 
 pub struct UtxoFilter {
     pub outpoint_equal: Option<String>,
@@ -209,13 +212,19 @@ pub async fn issuer_issue_contract(
         next_utxo = watcher_next_utxo(sk, watcher_name, iface).await.expect("");
     }
 
+    let precision = match iface {
+        "RGB20" => 2,
+        "RGB21" => 0,
+        _ => DEFAULT_PRECISION,
+    };
+
     let issue_utxo = next_utxo.utxo.unwrap();
     let issue_seal = format!("tapret1st:{}", issue_utxo.outpoint);
     let request = IssueRequest {
         ticker: "DIBA".to_string(),
         name: "DIBA".to_string(),
         description: "DIBA".to_string(),
-        precision: 2,
+        precision,
         supply,
         seal: issue_seal.to_owned(),
         iface: iface.to_string(),
@@ -266,7 +275,7 @@ pub async fn import_new_contract(
 pub async fn create_new_invoice(
     contract_id: &str,
     iface: &str,
-    amount: u64,
+    amount: f64,
     owner_keys: DecryptedWalletData,
     params: Option<HashMap<String, String>>,
     contract: Option<String>,
@@ -283,6 +292,12 @@ pub async fn create_new_invoice(
         "RGB20" => AssetType::RGB20,
         "RGB21" => AssetType::RGB21,
         _ => AssetType::Contract,
+    };
+
+    let precision = match iface {
+        "RGB20" => 2,
+        "RGB21" => 0,
+        _ => DEFAULT_PRECISION,
     };
 
     if let Some(contract) = contract {
@@ -311,10 +326,12 @@ pub async fn create_new_invoice(
     let seal = format!("tapret1st:{seal}");
 
     let params = params.unwrap_or_default();
+
+    let amount = ContractAmount::from(amount.to_string(), precision);
     let invoice_req = InvoiceRequest {
         contract_id: contract_id.to_owned(),
         iface: iface.to_owned(),
-        amount,
+        amount: amount.to_string(),
         seal,
         params,
     };
@@ -457,6 +474,12 @@ pub async fn issuer_issue_contract_v2(
         }
     }
 
+    let precision = match iface {
+        "RGB20" => 2,
+        "RGB21" => 0,
+        _ => DEFAULT_PRECISION,
+    };
+
     let mut contracts = vec![];
     for _ in 0..number_of_contracts {
         let issue_utxo = next_utxo.clone();
@@ -465,7 +488,7 @@ pub async fn issuer_issue_contract_v2(
             ticker: "DIBA".to_string(),
             name: "DIBA".to_string(),
             description: "DIBA".to_string(),
-            precision: 2,
+            precision,
             supply,
             seal: issue_seal.to_owned(),
             iface: iface.to_string(),
@@ -481,7 +504,7 @@ pub async fn issuer_issue_contract_v2(
 pub async fn create_new_invoice_v2(
     contract_id: &str,
     iface: &str,
-    amount: u64,
+    amount: f64,
     utxo: &str,
     owner_keys: DecryptedWalletData,
     params: Option<HashMap<String, String>>,
@@ -495,6 +518,7 @@ pub async fn create_new_invoice_v2(
         _ => AssetType::Contract,
     };
 
+    let mut precision = DEFAULT_PRECISION;
     if let Some(contract) = contract {
         // Import Contract
         let import_req = ImportRequest {
@@ -504,15 +528,20 @@ pub async fn create_new_invoice_v2(
 
         let resp = import(&sk, import_req).await;
         assert!(resp.is_ok());
+
+        precision = resp?.precision;
     }
 
     let seal = format!("tapret1st:{utxo}");
-
     let params = params.unwrap_or_default();
+
+    let mut amount = ContractAmount::from(amount.to_string(), precision);
+    amount.precision = precision;
+
     let invoice_req = InvoiceRequest {
         contract_id: contract_id.to_owned(),
         iface: iface.to_owned(),
-        amount,
+        amount: amount.to_string(),
         seal,
         params,
     };

@@ -81,6 +81,8 @@ pub struct RgbOffer {
     pub terminal: String,
     #[garde(range(min = u64::MIN, max = u64::MAX))]
     pub asset_amount: u64,
+    #[garde(range(min = u8::MIN, max = u8::MAX))]
+    pub asset_precision: u8,
     #[garde(range(min = u64::MIN, max = u64::MAX))]
     pub bitcoin_price: u64,
     #[garde(ascii)]
@@ -104,6 +106,7 @@ impl RgbOffer {
         contract_id: String,
         iface: String,
         allocations: Vec<AllocationDetail>,
+        asset_precision: u8,
         seller_address: AddressCompat,
         bitcoin_price: u64,
         psbt: String,
@@ -143,6 +146,7 @@ impl RgbOffer {
             contract_id,
             iface,
             asset_amount,
+            asset_precision,
             bitcoin_price,
             seller_psbt: psbt,
             seller_address: seller_address.to_string(),
@@ -168,6 +172,8 @@ pub struct RgbOfferSwap {
     pub iface: String,
     #[garde(range(min = u64::MIN, max = u64::MAX))]
     pub asset_amount: u64,
+    #[garde(range(min = u8::MIN, max = u8::MAX))]
+    pub asset_precision: u8,
     #[garde(range(min = u64::MIN, max = u64::MAX))]
     pub bitcoin_price: u64,
     #[garde(ascii)]
@@ -195,6 +201,7 @@ impl From<RgbOffer> for RgbOfferSwap {
             public,
             expire_at,
             presig,
+            asset_precision,
             ..
         } = value;
 
@@ -209,6 +216,7 @@ impl From<RgbOffer> for RgbOfferSwap {
             public,
             expire_at,
             presig,
+            asset_precision,
         }
     }
 }
@@ -231,6 +239,8 @@ pub struct RgbBid {
     pub iface: String,
     #[garde(range(min = u64::MIN, max = u64::MAX))]
     pub asset_amount: u64,
+    #[garde(range(min = u8::MIN, max = u8::MAX))]
+    pub asset_precision: u8,
     #[garde(range(min = u64::MIN, max = u64::MAX))]
     pub bitcoin_amount: u64,
     #[garde(ascii)]
@@ -251,6 +261,7 @@ impl RgbBid {
         offer_id: OfferId,
         contract_id: AssetId,
         asset_amount: u64,
+        asset_precision: u8,
         bitcoin_price: u64,
         bitcoin_utxos: Vec<String>,
     ) -> Self {
@@ -277,6 +288,7 @@ impl RgbBid {
             offer_id,
             contract_id,
             asset_amount,
+            asset_precision,
             bitcoin_amount: bitcoin_price,
             public: public_key.to_hex(),
             ..Default::default()
@@ -301,6 +313,8 @@ pub struct RgbBidSwap {
     pub contract_id: AssetId,
     #[garde(range(min = u64::MIN, max = u64::MAX))]
     pub asset_amount: u64,
+    #[garde(range(min = u8::MIN, max = u8::MAX))]
+    pub asset_precision: u8,
     #[garde(range(min = u64::MIN, max = u64::MAX))]
     pub bitcoin_amount: u64,
     #[garde(ascii)]
@@ -326,6 +340,7 @@ impl From<RgbBid> for RgbBidSwap {
             offer_id,
             contract_id,
             asset_amount,
+            asset_precision,
             bitcoin_amount,
             buyer_psbt,
             buyer_invoice,
@@ -342,6 +357,7 @@ impl From<RgbBid> for RgbBidSwap {
             contract_id,
             iface,
             asset_amount,
+            asset_precision,
             bitcoin_amount,
             buyer_psbt,
             buyer_invoice,
