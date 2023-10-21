@@ -60,7 +60,7 @@ pub async fn create_strict_transfer() -> Result<()> {
         meta,
     };
 
-    let _uda_resp = issue_contract(&issuer_sk, issue_uda_req).await?;
+    let _uda_resp = issue_contract(issuer_sk, issue_uda_req).await?;
     generate_new_block().await;
 
     // 2. Get Allocations
@@ -133,7 +133,7 @@ pub async fn create_strict_transfer() -> Result<()> {
     }
 
     // 6. Check Facts
-    let issuer_contracts = list_contracts(&issuer_sk, false).await?;
+    let issuer_contracts = list_contracts(issuer_sk, false).await?;
     let owner_contracts = list_contracts(&owner_sk, false).await?;
 
     assert_eq!(issuer_contracts.contracts.len(), 2);
@@ -178,7 +178,7 @@ pub async fn create_transfer_rbf() -> Result<()> {
         meta,
     };
 
-    let _uda_resp = issue_contract(&issuer_sk, issue_uda_req).await?;
+    let _uda_resp = issue_contract(issuer_sk, issue_uda_req).await?;
     generate_new_block().await;
 
     // 2. Get Allocations
@@ -285,7 +285,7 @@ pub async fn create_transfer_rbf() -> Result<()> {
     }
 
     // 11. Check Facts
-    let issuer_contracts = list_contracts(&issuer_sk, false).await?;
+    let issuer_contracts = list_contracts(issuer_sk, false).await?;
     let owner_contracts = list_contracts(&owner_sk, false).await?;
 
     assert_eq!(issuer_contracts.contracts.len(), 2);
@@ -331,7 +331,7 @@ pub async fn create_batch_transfer() -> Result<()> {
         meta,
     };
 
-    let _uda_resp = issue_contract(&issuer_sk, issue_uda_req).await?;
+    let _uda_resp = issue_contract(issuer_sk, issue_uda_req).await?;
     generate_new_block().await;
 
     // 2. Get Allocations
@@ -443,7 +443,7 @@ pub async fn create_batch_transfer() -> Result<()> {
     let rgb_invoice = RgbInvoice::from_str(&owner_resp.invoice)?;
     let options = NewTransferOptions::with(true, vec![rgb_invoice]);
 
-    let replace_transfer_rep = replace_transfer_asset(&issuer_sk, transfer_req, options).await?;
+    let replace_transfer_rep = replace_transfer_asset(issuer_sk, transfer_req, options).await?;
 
     // 9. Sign and Broadcast
     let RgbReplaceResponse {
@@ -477,10 +477,7 @@ pub async fn create_batch_transfer() -> Result<()> {
         assert!(resp.is_ok());
     }
 
-    let prev_consig: Vec<String> = consigs
-        .into_iter()
-        .map(|(_whatever_address, v)| v)
-        .collect();
+    let prev_consig: Vec<String> = consigs.into_values().collect();
     let prev_consig = &prev_consig[0];
     let request = AcceptRequest {
         consignment: prev_consig.clone(),
@@ -490,7 +487,7 @@ pub async fn create_batch_transfer() -> Result<()> {
     assert!(resp.is_ok());
 
     // 11. Check Facts
-    let issuer_contracts = list_contracts(&issuer_sk, false).await?;
+    let issuer_contracts = list_contracts(issuer_sk, false).await?;
     let owner_contracts = list_contracts(&owner_sk, false).await?;
     let other_contracts = list_contracts(&other_sk, false).await?;
 
@@ -501,17 +498,17 @@ pub async fn create_batch_transfer() -> Result<()> {
     let issuer_contracts = issuer_contracts
         .contracts
         .into_iter()
-        .find(|x| x.contract_id == contract_id.to_string())
+        .find(|x| x.contract_id == *contract_id)
         .unwrap();
     let owner_contracts = owner_contracts
         .contracts
         .into_iter()
-        .find(|x| x.contract_id == contract_id.to_string())
+        .find(|x| x.contract_id == *contract_id)
         .unwrap();
     let other_contracts = other_contracts
         .contracts
         .into_iter()
-        .find(|x| x.contract_id == contract_id.to_string())
+        .find(|x| x.contract_id == *contract_id)
         .unwrap();
 
     // println!("Issuer Contract: \n {:#?}", issuer_contracts.allocations);

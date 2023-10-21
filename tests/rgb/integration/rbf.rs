@@ -65,7 +65,7 @@ pub async fn create_simple_rbf_bitcoin_transfer() -> Result<()> {
     // 3. Sign and Broadcast
     let PsbtResponse { psbt, .. } = psbt_resp;
     let psbt_req = SignPsbtRequest {
-        psbt: psbt,
+        psbt,
         descriptors: vec![SecretString(
             issuer_keys.private.rgb_assets_descriptor_xprv.clone(),
         )],
@@ -94,7 +94,7 @@ pub async fn create_simple_rbf_bitcoin_transfer() -> Result<()> {
     // 6. Sign and Broadcast
     let PsbtResponse { psbt, .. } = psbt_resp;
     let psbt_req = SignPsbtRequest {
-        psbt: psbt,
+        psbt,
         descriptors: vec![SecretString(
             issuer_keys.private.rgb_assets_descriptor_xprv.clone(),
         )],
@@ -125,15 +125,8 @@ pub async fn create_simple_rbf_bitcoin_transfer() -> Result<()> {
     issuer_vault.sync(&explorer, SyncOptions::default()).await?;
 
     let list_transactions = &issuer_vault.list_transactions(false)?;
-    assert!(list_transactions
-        .into_iter()
-        .find(|x| x.txid == tx_1.txid())
-        .is_none());
-
-    assert!(list_transactions
-        .into_iter()
-        .find(|x| x.txid == tx_2.txid())
-        .is_some());
+    assert!(list_transactions.iter().any(|x| x.txid == tx_1.txid()));
+    assert!(list_transactions.iter().any(|x| x.txid == tx_2.txid()));
 
     Ok(())
 }

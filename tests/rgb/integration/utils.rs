@@ -612,7 +612,6 @@ pub async fn create_new_psbt_v2(
         bitcoin_changes,
         fee: default_fee,
         rbf: true,
-        ..Default::default()
     };
 
     let resp = create_psbt(&sk, req).await?;
