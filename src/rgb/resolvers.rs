@@ -8,6 +8,10 @@ use std::{
 
 use amplify::hex::ToHex;
 use bp::{LockTime, Outpoint, SeqNo, Tx, TxIn, TxOut, TxVer, Txid, VarIntArray, Witness};
+
+#[cfg(not(target_arch = "wasm32"))]
+use esplora_block::{BlockingClient, Tx as ExploraTX};
+
 use rgb::{prelude::DeriveInfo, MiningStatus, TerminalPath, Utxo};
 use rgbstd::{
     contract::{WitnessHeight, WitnessOrd},
@@ -244,40 +248,56 @@ impl ResolveSpent for ExplorerResolver {
             .build_blocking()
             .expect("service unavaliable");
 
-        let mut block_h = TxStatus::NotFound;
-        if block_height {
-            if let Ok(tx_status) = explorer_client.get_tx_status(&txid) {
-                if tx_status.confirmed {
-                    block_h = TxStatus::Block(tx_status.block_height.unwrap_or_default());
-                } else {
-                    block_h = TxStatus::Mempool;
-                }
-            }
-        }
-
-        match explorer_client
-            .get_output_status(&txid, index)
-            .expect("service unavaliable")
-        {
-            Some(output_status) => {
-                let mut height = TxStatus::NotFound;
-                if let Some(status) = output_status.status {
-                    if status.confirmed {
-                        height = TxStatus::Block(status.block_height.unwrap_or_default());
+        let block_h = if block_height {
+            match explorer_client.get_full_tx(&txid) {
+                Ok(full_tx) => {
+                    if full_tx.status.confirmed {
+                        TxStatus::Block(full_tx.status.block_height.unwrap_or_default())
                     } else {
-                        height = TxStatus::Mempool;
+                        TxStatus::Mempool
                     }
                 }
-
-                Ok(UtxoSpentStatus {
-                    utxo: format!("{txid}:{index}"),
-                    is_spent: output_status.spent,
-                    spent_height: height,
-                    block_height: block_h,
-                })
+                Err(err) => TxStatus::Error(err.to_string()),
             }
-            _ => Err(SpendResolverError::Unknown(txid)),
-        }
+        } else {
+            TxStatus::NotFound
+        };
+
+        let (is_spent, utxo_status) = match explorer_client.get_output_status(&txid, index) {
+            Ok(output_status) => match output_status {
+                Some(output_status) => {
+                    let status = if !output_status.spent && output_status.txid.is_none() {
+                        TxStatus::NotFound
+                    } else {
+                        match output_status.status {
+                            Some(utxo_status) => {
+                                if utxo_status.confirmed {
+                                    TxStatus::Block(utxo_status.block_height.unwrap_or_default())
+                                } else {
+                                    TxStatus::Mempool
+                                }
+                            }
+                            None => TxStatus::NotFound,
+                        }
+                    };
+                    (output_status.spent, status)
+                }
+                None => (
+                    false,
+                    TxStatus::Error(format!("The utxo {txid}:{index} does not exists").to_string()),
+                ),
+            },
+            Err(err) => (false, TxStatus::Error(err.to_string())),
+        };
+
+        let utxo_status = UtxoSpentStatus {
+            utxo: format!("{txid}:{index}"),
+            is_spent,
+            block_height: block_h,
+            spent_height: utxo_status,
+        };
+
+        Ok(utxo_status)
     }
 
     #[cfg(target_arch = "wasm32")]
@@ -325,6 +345,36 @@ impl ResolveTxStatus for ExplorerResolver {
             Ok(status.clone())
         } else {
             Err(ResolverTxStatusError::Unknown)
+        }
+    }
+}
+
+#[derive(Clone, Debug, Display, Error, From)]
+#[display(doc_comments)]
+pub enum ExploreClientExtError {
+    NotFound,
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub trait ExploreClientExt {
+    type Error: std::error::Error;
+
+    fn get_full_tx(&self, txid: &bitcoin::Txid) -> Result<ExploraTX, Self::Error>;
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl ExploreClientExt for BlockingClient {
+    type Error = esplora_block::Error;
+
+    fn get_full_tx(&self, txid: &bitcoin::Txid) -> Result<ExploraTX, Self::Error> {
+        let resp = self
+            .agent()
+            .get(&format!("{}/tx/{}", self.url(), txid))
+            .call();
+
+        match resp {
+            Ok(resp) => Ok(resp.into_json()?),
+            Err(e) => Err(Self::Error::Ureq(e)),
         }
     }
 }

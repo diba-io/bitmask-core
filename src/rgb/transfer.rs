@@ -17,11 +17,14 @@ use rgbstd::{
     resolvers::ResolveHeight,
     validation::{AnchoredBundle, ConsignmentApi, ResolveTx, Status},
 };
-use rgbwallet::{InventoryWallet, InvoiceParseError, RgbInvoice, RgbTransport};
+use rgbwallet::{InvoiceParseError, RgbInvoice, RgbTransport};
 use seals::txout::ExplicitSeal;
 use strict_encoding::{StrictDeserialize, TypeName};
 
-use crate::rgb::prebuild::prebuild_extract_transfer;
+use crate::rgb::{
+    consignmnet::{ConsignmentEx, NewTransferOptions},
+    prebuild::prebuild_extract_transfer,
+};
 
 #[derive(Clone, Eq, PartialEq, Debug, Display, Error, From)]
 #[display(doc_comments)]
@@ -138,8 +141,9 @@ pub fn create_invoice(
 pub fn pay_invoice(
     invoice: String,
     psbt: String,
+    options: NewTransferOptions,
     stock: &mut Stock,
-) -> Result<(Psbt, Bindle<Transfer>), NewPaymentError> {
+) -> Result<(Psbt, Vec<Bindle<Transfer>>), NewPaymentError> {
     let invoice = RgbInvoice::from_str(&invoice).map_err(NewPaymentError::WrongInvoice)?;
     let psbt_file = Psbt::from_str(&psbt).map_err(|_| NewPaymentError::WrongHex)?;
 
@@ -149,13 +153,13 @@ pub fn pay_invoice(
     let mut psbt_final =
         PSBT::deserialize(&psbt).map_err(|err| NewPaymentError::WrongPSBT(err.to_string()))?;
 
-    let transfer = stock
-        .pay(invoice, &mut psbt_final, CloseMethod::TapretFirst)
+    let transfers = stock
+        .process(invoice, &mut psbt_final, CloseMethod::TapretFirst, options)
         .map_err(|err| NewPaymentError::NoPay(err.to_string()))?;
 
     let psbt_file = Psbt::from_str(&PSBT::serialize(&psbt_final).to_hex())
         .map_err(|err| NewPaymentError::WrongPSBT(err.to_string()))?;
-    Ok((psbt_file, transfer))
+    Ok((psbt_file, transfers))
 }
 
 pub fn validate_transfer<R: ResolveTx>(

@@ -16,7 +16,7 @@ use crate::rgb::{
     },
     crdt::LocalRgbAccount,
     crdt::{LocalRgbOfferBid, LocalRgbOffers},
-    structs::{RgbAccountV1, RgbTransfers},
+    structs::{RgbAccountV1, RgbTransfersV1},
     swap::{RgbBids, RgbOffers},
 };
 
@@ -30,7 +30,7 @@ pub enum RgbPersistenceError {
     // Retrieve RgbAccountV1 (Fork) Error. {0}
     RetrieveRgbAccountFork(String),
     // Retrieve Transfers Error. {0}
-    RetrieveRgbTransfers(String),
+    RetrieveRgbTransfersV1(String),
     // Retrieve Offers Error. {0}
     RetrieveRgbOffers(String),
     // Retrieve Bids Error. {0}
@@ -46,7 +46,7 @@ pub enum RgbPersistenceError {
     // Store RgbAccountV1 (Fork) Error. {0}
     WriteRgbAccountFork(String),
     // Store Transfers Error. {0}
-    WriteRgbTransfers(String),
+    WriteRgbTransfersV1(String),
     // Store Offers Error. {0}
     WriteRgbOffers(String),
     // Store Bids Error. {0}
@@ -65,10 +65,10 @@ pub async fn retrieve_stock(sk: &str) -> Result<Stock, RgbPersistenceError> {
     Ok(stock)
 }
 
-pub async fn retrieve_transfers(sk: &str) -> Result<RgbTransfers, RgbPersistenceError> {
+pub async fn retrieve_transfers(sk: &str) -> Result<RgbTransfersV1, RgbPersistenceError> {
     let rgb_account = retrieve_rgb_transfers(sk, ASSETS_TRANSFERS)
         .await
-        .map_err(|op| RgbPersistenceError::RetrieveRgbTransfers(op.to_string()))?;
+        .map_err(|op| RgbPersistenceError::RetrieveRgbTransfersV1(op.to_string()))?;
 
     Ok(rgb_account)
 }
@@ -133,13 +133,13 @@ pub async fn retrieve_stock_account(
 
 pub async fn retrieve_stock_transfers(
     sk: &str,
-) -> Result<(Stock, RgbTransfers), RgbPersistenceError> {
+) -> Result<(Stock, RgbTransfersV1), RgbPersistenceError> {
     Ok((retrieve_stock(sk).await?, retrieve_transfers(sk).await?))
 }
 
 pub async fn retrieve_stock_account_transfers(
     sk: &str,
-) -> Result<(Stock, RgbAccountV1, RgbTransfers), RgbPersistenceError> {
+) -> Result<(Stock, RgbAccountV1, RgbTransfersV1), RgbPersistenceError> {
     Ok((
         retrieve_stock(sk).await?,
         retrieve_account(sk).await?,
@@ -153,10 +153,13 @@ pub async fn store_stock(sk: &str, stock: Stock) -> Result<(), RgbPersistenceErr
         .map_err(|op| RgbPersistenceError::WriteStock(op.to_string()))
 }
 
-pub async fn store_transfers(sk: &str, transfers: RgbTransfers) -> Result<(), RgbPersistenceError> {
+pub async fn store_transfers(
+    sk: &str,
+    transfers: RgbTransfersV1,
+) -> Result<(), RgbPersistenceError> {
     store_rgb_transfer(sk, ASSETS_TRANSFERS, &transfers)
         .await
-        .map_err(|op| RgbPersistenceError::WriteRgbTransfers(op.to_string()))
+        .map_err(|op| RgbPersistenceError::WriteRgbTransfersV1(op.to_string()))
 }
 
 pub async fn store_account(sk: &str, account: RgbAccountV1) -> Result<(), RgbPersistenceError> {
@@ -212,7 +215,7 @@ pub async fn store_stock_account(
 pub async fn store_stock_transfers(
     sk: &str,
     stock: Stock,
-    transfers: RgbTransfers,
+    transfers: RgbTransfersV1,
 ) -> Result<(), RgbPersistenceError> {
     store_stock(sk, stock).await?;
     store_transfers(sk, transfers).await
@@ -222,7 +225,7 @@ pub async fn store_stock_account_transfers(
     sk: &str,
     stock: Stock,
     account: RgbAccountV1,
-    transfers: RgbTransfers,
+    transfers: RgbTransfersV1,
 ) -> Result<(), RgbPersistenceError> {
     store_stock(sk, stock).await?;
     store_account(sk, account).await?;

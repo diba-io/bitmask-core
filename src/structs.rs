@@ -500,7 +500,7 @@ pub struct InvoiceResponse {
     pub invoice: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 #[derive(Validate)]
 #[garde(context(RGBContext))]
@@ -525,6 +525,9 @@ pub struct PsbtRequest {
     /// Bitcoin Fee
     #[garde(dive)]
     pub fee: PsbtFeeRequest,
+    /// Allow RBF
+    #[garde(skip)]
+    pub rbf: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
@@ -637,13 +640,6 @@ pub struct PublishedPsbtResponse {
     pub txid: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Default)]
-#[serde(rename_all = "camelCase")]
-pub struct RgbTransferInternalParams {
-    pub offer_id: Option<String>,
-    pub bid_id: Option<String>,
-}
-
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 #[derive(Validate)]
@@ -737,6 +733,21 @@ pub struct RgbTransferResponse {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
+pub struct RgbReplaceResponse {
+    /// Consignment ID
+    pub consig_id: String,
+    /// Consignment encoded (in hexadecimal)
+    pub consig: String,
+    /// PSBT File Information with tapret (in hexadecimal)
+    pub psbt: String,
+    /// Tapret Commitment (used to spend output)
+    pub commit: String,
+    /// Strict Consignments (in hexadecimal)
+    pub consigs: BTreeMap<String, String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct RgbInternalTransferResponse {
     /// Consignment ID
     pub consig_id: String,
@@ -748,6 +759,8 @@ pub struct RgbInternalTransferResponse {
     pub outpoint: String,
     /// Tapret Commitment (used to spend output)
     pub commit: String,
+    /// Strict Consignments (in hexadecimal)
+    pub consigs: BTreeMap<String, String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -897,7 +910,7 @@ pub struct WatcherDetail {
     pub allocations: Vec<AllocationDetail>,
 }
 
-#[derive(Eq, Ord, PartialEq, PartialOrd, Serialize, Deserialize, Debug, Clone)]
+#[derive(Eq, Ord, PartialEq, PartialOrd, Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct AllocationDetail {
     /// Anchored UTXO
@@ -920,6 +933,12 @@ pub enum AllocationValue {
     Value(u64),
     #[serde(rename = "uda")]
     UDA(UDAPosition),
+}
+
+impl Default for AllocationValue {
+    fn default() -> Self {
+        AllocationValue::Value(0)
+    }
 }
 
 #[derive(
@@ -1120,6 +1139,15 @@ pub struct UtxoSpentStatus {
     pub is_spent: bool,
     pub block_height: TxStatus,
     pub spent_height: TxStatus,
+}
+
+impl UtxoSpentStatus {
+    pub fn is_invalid_state(self) -> bool {
+        matches!(
+            (self.block_height, self.spent_height),
+            (TxStatus::Error(_), _) | (_, TxStatus::Error(_))
+        )
+    }
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug, Display, Default, Validate)]

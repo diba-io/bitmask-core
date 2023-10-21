@@ -1,7 +1,7 @@
 use amplify::confinement::{Confined, U32};
 use bitcoin::Address;
 use bitcoin_scripts::address::AddressCompat;
-use bp::Txid;
+use bp::{Outpoint, Txid};
 use core::fmt::Display;
 use rgb::{RgbWallet, TerminalPath};
 use std::{
@@ -13,6 +13,8 @@ use rgbstd::containers::{Bindle, Transfer};
 use serde::{Deserialize, Serialize};
 
 pub type RgbAccountV0 = RgbAccount;
+pub type RgbTransferV0 = RgbTransfer;
+pub type RgbTransfersV0 = RgbTransfers;
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug, Display)]
 #[display("{address}:{amount}", alt = "{address:#}:{amount:#}")]
@@ -244,17 +246,67 @@ pub struct RgbAccountV1 {
 #[display(doc_comments)]
 
 pub struct RgbTransfers {
-    pub transfers: BTreeMap<String, Vec<RgbTransfer>>,
+    pub transfers: BTreeMap<String, Vec<RgbTransferV0>>,
+}
+
+#[derive(
+    Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Serialize, Deserialize, Default, Display,
+)]
+#[display(doc_comments)]
+
+pub struct RgbTransfersV1 {
+    pub transfers: BTreeMap<String, Vec<RgbTransferV1>>,
 }
 
 #[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize, Debug, Display)]
-#[display("{tx}")]
+#[display("{consig_id}:{tx}")]
 pub struct RgbTransfer {
     pub consig_id: String,
     pub iface: String,
     pub consig: String,
     pub tx: Txid,
     pub is_send: bool,
+}
+
+impl Default for RgbTransfer {
+    fn default() -> Self {
+        Self {
+            tx: Txid::coinbase(),
+            consig_id: Default::default(),
+            iface: Default::default(),
+            consig: Default::default(),
+            is_send: Default::default(),
+        }
+    }
+}
+
+type Beneficiary = String;
+#[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize, Debug, Display)]
+#[display("{consig_id}:{tx_id}")]
+pub struct RgbTransferV1 {
+    pub consig_id: String,
+    pub tx_id: Txid,
+    pub iface: String,
+    pub consig: String,
+    pub sender: bool,
+    pub rbf: bool,
+    pub utxos: Vec<Outpoint>,
+    pub beneficiary: Vec<Beneficiary>,
+}
+
+impl Default for RgbTransferV1 {
+    fn default() -> Self {
+        Self {
+            tx_id: Txid::coinbase(),
+            consig_id: Default::default(),
+            iface: Default::default(),
+            consig: Default::default(),
+            sender: Default::default(),
+            rbf: Default::default(),
+            utxos: vec![],
+            beneficiary: vec![],
+        }
+    }
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]

@@ -3,7 +3,10 @@ use std::collections::HashMap;
 
 use amplify::{confinement::U32, hex::ToHex};
 use bitmask_core::{
-    rgb::transfer::{accept_transfer, create_invoice, pay_invoice},
+    rgb::{
+        consignmnet::NewTransferOptions,
+        transfer::{accept_transfer, create_invoice, pay_invoice},
+    },
     util::init_logging,
 };
 use rgbstd::persistence::Stock;
@@ -51,12 +54,14 @@ async fn allow_pay_invoice() -> anyhow::Result<()> {
     let seal = "tapret1st:ed823b41d8b9309933826b18e4af530363b359f05919c02bbe72f28cec6dec3e:0";
     let invoice = create_fake_invoice(contract_id, seal, &mut stock);
 
-    let result = pay_invoice(invoice.to_string(), psbt.to_string(), &mut stock);
+    let options = NewTransferOptions::default();
+    let result = pay_invoice(invoice.to_string(), psbt.to_string(), options, &mut stock);
     assert!(result.is_ok());
 
     let (_, transfer) = result.unwrap();
 
-    let pay_status = transfer.unbindle().validate(&mut resolver);
+    let transfer = &transfer[0];
+    let pay_status = transfer.clone().unbindle().validate(&mut resolver);
     assert!(pay_status.is_ok());
     Ok(())
 }
@@ -74,11 +79,12 @@ async fn allow_accept_invoice() -> anyhow::Result<()> {
     let seal = "tapret1st:ed823b41d8b9309933826b18e4af530363b359f05919c02bbe72f28cec6dec3e:0";
     let invoice = create_fake_invoice(contract_id, seal, &mut stock);
 
-    let result = pay_invoice(invoice.to_string(), psbt.to_string(), &mut stock);
+    let options = NewTransferOptions::default();
+    let result = pay_invoice(invoice.to_string(), psbt.to_string(), options, &mut stock);
     assert!(result.is_ok());
 
     let (_, transfer) = result.unwrap();
-
+    let transfer = &transfer[0];
     let transfer_hex = transfer.to_strict_serialized::<U32>().unwrap().to_hex();
 
     let pay_status = accept_transfer(transfer_hex, true, &mut resolver, &mut stock);

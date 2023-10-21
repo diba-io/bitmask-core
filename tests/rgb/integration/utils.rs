@@ -96,6 +96,21 @@ pub async fn send_some_coins(address: &str, amount: &str) {
         .expect("oh no!");
 }
 
+pub async fn generate_new_block() {
+    let path = env::current_dir().expect("oh no!");
+    let path = path.to_str().expect("oh no!");
+    let full_file = format!("{}/tests/scripts/new_blocks.sh", path);
+    Command::new("bash")
+        .arg(full_file)
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .unwrap()
+        .wait()
+        .await
+        .expect("oh no!");
+}
+
 #[allow(dead_code)]
 pub async fn stop_node() {
     let path = env::current_dir().expect("oh no!");
@@ -395,6 +410,7 @@ pub async fn create_new_psbt(
         bitcoin_inputs: vec![],
         bitcoin_changes: vec![],
         fee: PsbtFeeRequest::Value(1000),
+        ..Default::default()
     };
 
     let resp = create_psbt(&sk, req).await;
@@ -595,6 +611,8 @@ pub async fn create_new_psbt_v2(
         bitcoin_inputs: owner_bitcoin_inputs,
         bitcoin_changes,
         fee: default_fee,
+        rbf: true,
+        ..Default::default()
     };
 
     let resp = create_psbt(&sk, req).await?;

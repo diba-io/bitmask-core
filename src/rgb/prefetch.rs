@@ -8,6 +8,10 @@ use amplify::{
     hex::{FromHex, ToHex},
 };
 use bdk::blockchain::EsploraBlockchain;
+
+#[cfg(target_arch = "wasm32")]
+use bdk::esplora_client::{AsyncClient, Tx as ExploraTX};
+
 use bech32::{decode, FromBase32};
 use bitcoin::{OutPoint, Script, Txid};
 use bitcoin_30::ScriptBuf;
@@ -16,6 +20,7 @@ use bitcoin_scripts::{
     PubkeyScript,
 };
 use bp::{LockTime, Outpoint, SeqNo, Tx, TxIn, TxOut, TxVer, Txid as BpTxid, VarIntArray, Witness};
+use reqwest::StatusCode;
 use rgb::{DeriveInfo, MiningStatus, RgbWallet, SpkDescriptor, Utxo};
 use rgbstd::containers::Contract;
 use rgbstd::interface::ContractIface;
@@ -24,6 +29,8 @@ use std::f32::consts::E;
 use std::{collections::BTreeMap, str::FromStr};
 use strict_encoding::StrictDeserialize;
 use wallet::onchain::ResolveTx;
+
+use super::resolvers::ExploreClientExtError;
 
 #[cfg(not(target_arch = "wasm32"))]
 pub async fn prefetch_resolver_rgb(
@@ -238,8 +245,9 @@ pub async fn prefetch_resolver_user_utxo_status(
     explorer: &mut ExplorerResolver,
     with_block_height: bool,
 ) {
-    let esplora_client: EsploraBlockchain =
-        EsploraBlockchain::new(&explorer.explorer_url, 1).with_concurrency(6);
+    let esplora_client = EsploraBlockchain::new(&explorer.explorer_url, 1)
+        .with_concurrency(6)
+        .clone();
     let utxos: Vec<Utxo> = wallet
         .utxos
         .clone()
@@ -252,41 +260,64 @@ pub async fn prefetch_resolver_user_utxo_status(
             let txid = bitcoin::Txid::from_str(&utxo.outpoint.txid.to_hex())
                 .expect("invalid outpoint format");
 
-            let mut block_h = TxStatus::NotFound;
-            if with_block_height {
-                if let Ok(Some(tx_status)) = esplora_client.get_tx_status(&txid).await {
-                    if tx_status.confirmed {
-                        block_h = TxStatus::Block(tx_status.block_height.unwrap_or_default());
+            let block_h = match ExploreAsyncExt::get_full_tx(&esplora_client, &txid).await {
+                Ok(full_tx) => {
+                    if full_tx.status.confirmed {
+                        TxStatus::Block(full_tx.status.block_height.unwrap_or_default())
                     } else {
-                        block_h = TxStatus::Mempool;
+                        TxStatus::Mempool
                     }
                 }
-            }
+                Err(err) => TxStatus::Error(err.to_string()),
+            };
 
-            let index = utxo.outpoint.vout.into_u32();
-            if let Some(output_status) = esplora_client
-                .get_output_status(&txid, index.into())
+            let (is_spent, utxo_status) = match esplora_client
+                .clone()
+                .get_output_status(&txid, utxo.outpoint.vout.to_u32().into())
                 .await
-                .expect("service unavaliable")
             {
-                let mut height = TxStatus::NotFound;
-                if let Some(status) = output_status.status {
-                    if status.confirmed {
-                        height = TxStatus::Block(status.block_height.unwrap_or_default());
-                    } else {
-                        height = TxStatus::Mempool;
+                Ok(output_status) => match output_status {
+                    Some(output_status) => {
+                        let status = if !output_status.spent && output_status.txid.is_none() {
+                            TxStatus::NotFound
+                        } else {
+                            match output_status.status {
+                                Some(utxo_status) => {
+                                    if utxo_status.confirmed {
+                                        TxStatus::Block(
+                                            utxo_status.block_height.unwrap_or_default(),
+                                        )
+                                    } else {
+                                        TxStatus::Mempool
+                                    }
+                                }
+                                None => TxStatus::NotFound,
+                            }
+                        };
+                        (output_status.spent, status)
                     }
-                }
+                    None => (
+                        false,
+                        TxStatus::Error(
+                            format!(
+                                "The utxo {txid}:{} does not exists",
+                                utxo.outpoint.vout.to_u32()
+                            )
+                            .to_string(),
+                        ),
+                    ),
+                },
+                Err(err) => (false, TxStatus::Error(err.to_string())),
+            };
 
-                let utxo_status = UtxoSpentStatus {
-                    utxo: format!("{txid}:{index}"),
-                    is_spent: output_status.spent,
-                    spent_height: height,
-                    block_height: block_h,
-                };
+            let utxo_status = UtxoSpentStatus {
+                utxo: format!("{}:{}", utxo.outpoint.txid, utxo.outpoint.vout.to_u32()),
+                is_spent,
+                block_height: block_h,
+                spent_height: utxo_status,
+            };
 
-                explorer.utxos_spent.push(utxo_status);
-            }
+            explorer.utxos_spent.push(utxo_status);
         }
     }
 }
@@ -569,30 +600,49 @@ pub async fn prefetch_resolver_allocations(
             let txid =
                 bitcoin::Txid::from_str(&utxo.txid.to_hex()).expect("invalid outpoint format");
 
-            let index = utxo.vout.into_u32();
-            if let Some(output_status) = esplora_client
-                .get_output_status(&txid, index.into())
+            let (is_spent, utxo_status) = match esplora_client
+                .get_output_status(&txid, utxo.vout.to_u32().into())
                 .await
-                .expect("service unavaliable")
             {
-                let mut height = TxStatus::NotFound;
-                if let Some(status) = output_status.status {
-                    if status.confirmed {
-                        height = TxStatus::Block(status.block_height.unwrap_or_default());
-                    } else {
-                        height = TxStatus::Mempool;
+                Ok(output_status) => match output_status {
+                    Some(output_status) => {
+                        let status = if !output_status.spent && output_status.txid.is_none() {
+                            TxStatus::NotFound
+                        } else {
+                            match output_status.status {
+                                Some(utxo_status) => {
+                                    if utxo_status.confirmed {
+                                        TxStatus::Block(
+                                            utxo_status.block_height.unwrap_or_default(),
+                                        )
+                                    } else {
+                                        TxStatus::Mempool
+                                    }
+                                }
+                                None => TxStatus::NotFound,
+                            }
+                        };
+                        (output_status.spent, status)
                     }
-                }
+                    None => (
+                        false,
+                        TxStatus::Error(
+                            format!("The utxo {txid}:{} does not exists", utxo.vout.to_u32())
+                                .to_string(),
+                        ),
+                    ),
+                },
+                Err(err) => (false, TxStatus::Error(err.to_string())),
+            };
 
-                let utxo_status = UtxoSpentStatus {
-                    utxo: format!("{txid}:{index}"),
-                    is_spent: output_status.spent,
-                    spent_height: height,
-                    block_height: TxStatus::NotFound,
-                };
+            let utxo_status = UtxoSpentStatus {
+                utxo: format!("{}:{}", utxo.txid, utxo.vout.to_u32()),
+                is_spent,
+                block_height: TxStatus::NotFound,
+                spent_height: utxo_status,
+            };
 
-                explorer.utxos_spent.push(utxo_status);
-            }
+            explorer.utxos_spent.push(utxo_status);
         }
     }
 }
@@ -676,5 +726,32 @@ pub async fn prefetch_resolver_txs_status(txids: Vec<Txid>, explorer: &mut Explo
             let err = TxStatus::Error(err);
             explorer.txs_status.insert(txid, err);
         }
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+struct ExploreAsyncExt {}
+
+#[cfg(target_arch = "wasm32")]
+impl ExploreAsyncExt {
+    pub async fn get_full_tx(
+        client: &AsyncClient,
+        txid: &bitcoin::Txid,
+    ) -> Result<ExploraTX, ExploreClientExtError> {
+        let resp = client
+            .client()
+            .get(&format!("{}/tx/{}", client.url(), txid))
+            .send()
+            .await
+            .expect("unavaliable esplora server");
+
+        if let StatusCode::NOT_FOUND = resp.status() {
+            return Err(ExploreClientExtError::NotFound);
+        }
+
+        Ok(resp
+            .json::<ExploraTX>()
+            .await
+            .expect("Invalid json parse in FullTx"))
     }
 }
