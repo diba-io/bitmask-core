@@ -2,30 +2,23 @@ use std::{
     cmp::Ordering,
     collections::{BTreeMap, HashMap},
     iter,
-    ops::Deref,
 };
 
-use amplify::{confinement::Confined, ByteArray};
+use amplify::ByteArray;
 use bitcoin_30::{hashes::Hash, psbt::Psbt};
 use bp::{Outpoint, Txid};
 use chrono::Utc;
 use rgbstd::{
-    accessors::BundleExt,
-    containers::{Bindle, BuilderSeal, Consignment, Terminal, Transfer},
-    contract::{
-        BundleId, ContractId, ExposedSeal, GraphSeal, OpId, Operation, Opout, SecretSeal,
-        Transition,
-    },
-    interface::{BuilderError, ContractSuppl, IfacePair, TypedState, VelocityHint},
-    persistence::{ConsignerError, Inventory, Stash},
+    containers::{Bindle, BuilderSeal, Transfer},
+    contract::{ContractId, GraphSeal, Operation, Opout, SecretSeal},
+    interface::{BuilderError, ContractSuppl, TypedState, VelocityHint},
+    persistence::{Inventory, Stash},
     schema::AssignmentType,
-    validation::AnchoredBundle,
 };
 use rgbwallet::{
     psbt::{PsbtDbc, RgbExt, RgbInExt, RgbOutExt},
     Beneficiary, PayError, RgbInvoice,
 };
-use seals::txout::blind::SingleBlindSeal;
 use seals::txout::CloseMethod;
 
 #[derive(Clone, Debug, Display, Error, From)]
@@ -359,131 +352,18 @@ pub trait ConsignmentEx: Inventory {
         // 6.Prepare strict transfers
         let mut transfers = vec![];
         if options.strict {
-            transfers.push(self.strict_transfer(contract_id, vec![beneficiary])?);
+            transfers.push(self.transfer(contract_id, vec![beneficiary])?);
             for prev_seal in previous_states {
                 let transfer =
-                    self.strict_transfer(contract_id, [BuilderSeal::Concealed(prev_seal.seal)])?;
+                    self.transfer(contract_id, [BuilderSeal::Concealed(prev_seal.seal)])?;
                 transfers.push(transfer);
             }
         } else {
-            let transfer = self.strict_transfer(contract_id, vec![beneficiary])?;
+            let transfer = self.transfer(contract_id, vec![beneficiary])?;
             transfers = vec![transfer];
         }
 
         Ok(transfers)
-    }
-
-    #[allow(clippy::type_complexity)]
-    fn strict_transfer(
-        &mut self,
-        contract_id: ContractId,
-        seals: impl IntoIterator<Item = impl Into<BuilderSeal<SingleBlindSeal>>>,
-    ) -> Result<
-        Bindle<Transfer>,
-        ConsignerError<Self::Error, <<Self as Deref>::Target as Stash>::Error>,
-    > {
-        let mut consignment = self.strict_consign(contract_id, seals)?;
-        consignment.transfer = true;
-        Ok(consignment.into())
-        // TODO: Add known sigs to the bindle
-    }
-
-    fn strict_consign<Seal: ExposedSeal, const TYPE: bool>(
-        &mut self,
-        contract_id: ContractId,
-        seals: impl IntoIterator<Item = impl Into<BuilderSeal<Seal>>>,
-    ) -> Result<
-        Consignment<TYPE>,
-        ConsignerError<Self::Error, <<Self as Deref>::Target as Stash>::Error>,
-    > {
-        // 1. Collect initial set of anchored bundles
-        let mut opouts = self.public_opouts(contract_id)?;
-        let (outpoint_seals, terminal_seals) = seals
-            .into_iter()
-            .map(|seal| match seal.into() {
-                BuilderSeal::Revealed(seal) => (seal.outpoint(), seal.conceal()),
-                BuilderSeal::Concealed(seal) => (None, seal),
-            })
-            .unzip::<_, _, Vec<_>, Vec<_>>();
-        opouts.extend(self.opouts_by_outpoints(contract_id, outpoint_seals.into_iter().flatten())?);
-        opouts.extend(self.opouts_by_terminals(terminal_seals.iter().copied())?);
-
-        // 1.1. Get all public transitions
-        // 1.2. Collect all state transitions assigning state to the provided
-        // outpoints
-        let mut anchored_bundles = BTreeMap::<OpId, AnchoredBundle>::new();
-        let mut transitions = BTreeMap::<OpId, Transition>::new();
-        let mut terminals = BTreeMap::<BundleId, Terminal>::new();
-        for opout in opouts {
-            if opout.op == contract_id {
-                continue; // we skip genesis since it will be present anywhere
-            }
-            let transition = self.transition(opout.op)?;
-            transitions.insert(opout.op, transition.clone());
-            let anchored_bundle = self.anchored_bundle(opout.op)?;
-
-            // 2. Collect seals from terminal transitions to add to the consignment
-            // terminals
-            let bundle_id = anchored_bundle.bundle.bundle_id();
-            for (type_id, typed_assignments) in transition.assignments.iter() {
-                for index in 0..typed_assignments.len_u16() {
-                    let seal = typed_assignments.to_confidential_seals()[index as usize];
-                    if terminal_seals.contains(&seal) {
-                        terminals.insert(bundle_id, Terminal::new(seal.into()));
-                    } else if opout.no == index && opout.ty == *type_id {
-                        if let Some(seal) = typed_assignments
-                            .revealed_seal_at(index)
-                            .expect("index exists")
-                        {
-                            terminals.insert(bundle_id, Terminal::new(seal.into()));
-                        } else {
-                            return Err(ConsignerError::ConcealedPublicState(opout));
-                        }
-                    }
-                }
-            }
-
-            anchored_bundles.insert(opout.op, anchored_bundle.clone());
-        }
-
-        // 3. Collect all state transitions between terminals and genesis
-        let mut ids = vec![];
-        for transition in transitions.values() {
-            ids.extend(transition.inputs().iter().map(|input| input.prev_out.op));
-        }
-        while let Some(id) = ids.pop() {
-            if id == contract_id {
-                continue; // we skip genesis since it will be present anywhere
-            }
-            let transition = self.transition(id)?;
-            ids.extend(transition.inputs().iter().map(|input| input.prev_out.op));
-            transitions.insert(id, transition.clone());
-            anchored_bundles
-                .entry(id)
-                .or_insert(self.anchored_bundle(id)?.clone())
-                .bundle
-                .reveal_transition(transition)?;
-        }
-
-        let genesis = self.genesis(contract_id)?;
-        let schema_ifaces = self.schema(genesis.schema_id)?;
-        let mut consignment = Consignment::new(schema_ifaces.schema.clone(), genesis.clone());
-        for (iface_id, iimpl) in &schema_ifaces.iimpls {
-            let iface = self.iface_by_id(*iface_id)?;
-            consignment
-                .ifaces
-                .insert(*iface_id, IfacePair::with(iface.clone(), iimpl.clone()))
-                .expect("same collection size");
-        }
-        consignment.bundles = Confined::try_from_iter(anchored_bundles.into_values())
-            .map_err(|_| ConsignerError::TooManyBundles)?;
-        consignment.terminals =
-            Confined::try_from(terminals).map_err(|_| ConsignerError::TooManyTerminals)?;
-
-        // TODO: Conceal everything we do not need
-        // TODO: Add known sigs to the consignment
-
-        Ok(consignment)
     }
 }
 
