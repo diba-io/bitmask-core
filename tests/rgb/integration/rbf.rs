@@ -125,7 +125,7 @@ pub async fn create_simple_rbf_bitcoin_transfer() -> Result<()> {
     issuer_vault.sync(&explorer, SyncOptions::default()).await?;
 
     let list_transactions = &issuer_vault.list_transactions(false)?;
-    assert!(list_transactions.iter().any(|x| x.txid == tx_1.txid()));
+    assert!(!list_transactions.iter().any(|x| x.txid == tx_1.txid()));
     assert!(list_transactions.iter().any(|x| x.txid == tx_2.txid()));
 
     Ok(())

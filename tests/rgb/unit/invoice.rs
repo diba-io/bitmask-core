@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use amplify::{confinement::U32, hex::ToHex};
 use bitmask_core::{
     rgb::{
-        consignmnet::NewTransferOptions,
+        consignment::NewTransferOptions,
         transfer::{accept_transfer, create_invoice, pay_invoice},
     },
     util::init_logging,

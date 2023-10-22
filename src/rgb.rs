@@ -28,7 +28,7 @@ use thiserror::Error;
 pub mod accept;
 pub mod cambria;
 pub mod carbonado;
-pub mod consignmnet;
+pub mod consignment;
 pub mod constants;
 pub mod contract;
 pub mod crdt;
@@ -77,7 +77,7 @@ use crate::{
 };
 
 use self::{
-    consignmnet::NewTransferOptions,
+    consignment::NewTransferOptions,
     constants::{RGB_DEFAULT_FETCH_LIMIT, RGB_DEFAULT_NAME},
     contract::{export_boilerplate, export_contract, ExportContractError},
     crdt::{LocalRgbAccount, RawRgbAccount, RgbMerge},

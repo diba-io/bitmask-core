@@ -10,7 +10,7 @@ use amplify::hex::ToHex;
 use bp::{LockTime, Outpoint, SeqNo, Tx, TxIn, TxOut, TxVer, Txid, VarIntArray, Witness};
 
 #[cfg(not(target_arch = "wasm32"))]
-use esplora_block::{BlockingClient, Tx as ExploraTX};
+use esplora_block::{BlockingClient, Tx as ExplorerTX};
 
 use rgb::{prelude::DeriveInfo, MiningStatus, TerminalPath, Utxo};
 use rgbstd::{
@@ -359,14 +359,14 @@ pub enum ExploreClientExtError {
 pub trait ExploreClientExt {
     type Error: std::error::Error;
 
-    fn get_full_tx(&self, txid: &bitcoin::Txid) -> Result<ExploraTX, Self::Error>;
+    fn get_full_tx(&self, txid: &bitcoin::Txid) -> Result<ExplorerTX, Self::Error>;
 }
 
 #[cfg(not(target_arch = "wasm32"))]
 impl ExploreClientExt for BlockingClient {
     type Error = esplora_block::Error;
 
-    fn get_full_tx(&self, txid: &bitcoin::Txid) -> Result<ExploraTX, Self::Error> {
+    fn get_full_tx(&self, txid: &bitcoin::Txid) -> Result<ExplorerTX, Self::Error> {
         let resp = self
             .agent()
             .get(&format!("{}/tx/{}", self.url(), txid))

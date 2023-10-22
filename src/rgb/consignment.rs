@@ -335,7 +335,7 @@ pub trait ConsignmentEx: Inventory {
         let anchor = psbt.dbc_conclude(method)?;
         // TODO: Ensure that with PSBTv2 we remove flag allowing PSBT modification.
 
-        // 4. Prepare transfer
+        // 5. Prepare transfer
         let witness_txid = psbt.unsigned_tx.txid();
         self.consume_anchor(anchor)?;
         for (id, bundle) in bundles {

@@ -4,7 +4,7 @@ use crate::rgb::unit::utils::{
 };
 use bitmask_core::{
     rgb::{
-        consignmnet::NewTransferOptions,
+        consignment::NewTransferOptions,
         psbt::{create_psbt, extract_commit, NewPsbtOptions},
         transfer::pay_invoice,
     },

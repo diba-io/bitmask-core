@@ -7,7 +7,7 @@ use bitcoin::Txid;
 use bitmask_core::{
     bitcoin::{get_blockchain, new_mnemonic, sign_and_publish_psbt_file},
     rgb::{
-        accept_transfer, consignmnet::NewTransferOptions, create_watcher, get_contract,
+        accept_transfer, consignment::NewTransferOptions, create_watcher, get_contract,
         issue_contract, list_contracts, replace_transfer_asset, structs::ContractAmount,
         watcher_next_address,
     },

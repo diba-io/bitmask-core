@@ -22,7 +22,7 @@ use seals::txout::ExplicitSeal;
 use strict_encoding::{StrictDeserialize, TypeName};
 
 use crate::rgb::{
-    consignmnet::{ConsignmentEx, NewTransferOptions},
+    consignment::{ConsignmentEx, NewTransferOptions},
     prebuild::prebuild_extract_transfer,
 };
 

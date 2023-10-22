@@ -10,7 +10,7 @@ use amplify::{
 use bdk::blockchain::EsploraBlockchain;
 
 #[cfg(target_arch = "wasm32")]
-use bdk::esplora_client::{AsyncClient, Tx as ExploraTX};
+use bdk::esplora_client::{AsyncClient, Tx as ExplorerTX};
 
 use bech32::{decode, FromBase32};
 use bitcoin::{OutPoint, Script, Txid};
@@ -737,7 +737,7 @@ impl ExploreAsyncExt {
     pub async fn get_full_tx(
         client: &AsyncClient,
         txid: &bitcoin::Txid,
-    ) -> Result<ExploraTX, ExploreClientExtError> {
+    ) -> Result<ExplorerTX, ExploreClientExtError> {
         let resp = client
             .client()
             .get(&format!("{}/tx/{}", client.url(), txid))
@@ -750,7 +750,7 @@ impl ExploreAsyncExt {
         }
 
         Ok(resp
-            .json::<ExploraTX>()
+            .json::<ExplorerTX>()
             .await
             .expect("Invalid json parse in FullTx"))
     }
