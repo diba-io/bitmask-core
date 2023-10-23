@@ -1,7 +1,7 @@
 use amplify::confinement::{Confined, U32};
 use bitcoin::Address;
 use bitcoin_scripts::address::AddressCompat;
-use bp::{Outpoint, Txid};
+use bp::Txid;
 use core::fmt::Display;
 use rgb::{RgbWallet, TerminalPath};
 use std::{
@@ -290,8 +290,8 @@ pub struct RgbTransferV1 {
     pub consig: String,
     pub sender: bool,
     pub rbf: bool,
-    pub utxos: Vec<Outpoint>,
-    pub beneficiary: Vec<Beneficiary>,
+    pub utxos: Vec<String>,
+    pub beneficiaries: Vec<Beneficiary>,
 }
 
 impl Default for RgbTransferV1 {
@@ -304,7 +304,7 @@ impl Default for RgbTransferV1 {
             sender: Default::default(),
             rbf: Default::default(),
             utxos: vec![],
-            beneficiary: vec![],
+            beneficiaries: vec![],
         }
     }
 }

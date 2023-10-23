@@ -162,7 +162,7 @@ impl From<RgbTransferV0> for RgbTransferV1 {
             sender,
             rbf: false,
             utxos: vec![],
-            beneficiary: vec![],
+            beneficiaries: vec![],
         }
     }
 }

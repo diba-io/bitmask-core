@@ -64,14 +64,14 @@ use crate::{
         NewCollectible, NextAddressResponse, NextUtxoResponse, NextUtxosResponse, PsbtFeeRequest,
         PsbtRequest, PsbtResponse, PublicRgbBidResponse, PublicRgbOfferResponse,
         PublicRgbOffersResponse, ReIssueRequest, ReIssueResponse, RgbBidDetail, RgbBidRequest,
-        RgbBidResponse, RgbBidsResponse, RgbInternalTransferResponse, RgbInvoiceResponse,
-        RgbOfferBidsResponse, RgbOfferDetail, RgbOfferRequest, RgbOfferResponse,
-        RgbOfferUpdateRequest, RgbOfferUpdateResponse, RgbOffersResponse, RgbRemoveTransferRequest,
-        RgbReplaceResponse, RgbSaveTransferRequest, RgbSwapRequest, RgbSwapResponse,
-        RgbTransferDetail, RgbTransferRequest, RgbTransferResponse, RgbTransferStatusResponse,
-        RgbTransfersResponse, SchemaDetail, SchemasResponse, SimpleContractResponse, TransferType,
-        TxStatus, UDADetail, UtxoResponse, WatcherDetailResponse, WatcherRequest, WatcherResponse,
-        WatcherUtxoResponse,
+        RgbBidResponse, RgbBidsResponse, RgbInternalSaveTransferRequest,
+        RgbInternalTransferResponse, RgbInvoiceResponse, RgbOfferBidsResponse, RgbOfferDetail,
+        RgbOfferRequest, RgbOfferResponse, RgbOfferUpdateRequest, RgbOfferUpdateResponse,
+        RgbOffersResponse, RgbRemoveTransferRequest, RgbReplaceResponse, RgbSaveTransferRequest,
+        RgbSwapRequest, RgbSwapResponse, RgbTransferDetail, RgbTransferRequest,
+        RgbTransferResponse, RgbTransferStatusResponse, RgbTransfersResponse, SchemaDetail,
+        SchemasResponse, SimpleContractResponse, TransferType, TxStatus, UDADetail, UtxoResponse,
+        WatcherDetailResponse, WatcherRequest, WatcherResponse, WatcherUtxoResponse,
     },
     validators::RGBContext,
 };
@@ -825,135 +825,6 @@ pub async fn transfer_asset(
     Ok(resp)
 }
 
-pub async fn replace_transfer_asset(
-    sk: &str,
-    request: RgbTransferRequest,
-    options: NewTransferOptions,
-) -> Result<RgbReplaceResponse, TransferError> {
-    let (mut stock, mut rgb_account, mut rgb_transfers) = retrieve_stock_account_transfers(sk)
-        .await
-        .map_err(TransferError::IO)?;
-
-    let RgbInternalTransferResponse {
-        consig_id,
-        consig,
-        psbt,
-        commit,
-        outpoint,
-        consigs,
-        ..
-    } = internal_transfer_asset(
-        request.clone(),
-        options,
-        &mut stock,
-        &mut rgb_account,
-        &mut rgb_transfers,
-    )
-    .await?;
-
-    let mut rgb_wallet = match rgb_account.wallets.get(RGB_DEFAULT_NAME) {
-        Some(rgb_wallet) => rgb_wallet.to_owned(),
-        _ => return Err(TransferError::NoWatcher),
-    };
-
-    save_tap_commit_str(&outpoint, &commit, &request.terminal, &mut rgb_wallet);
-    rgb_account
-        .wallets
-        .insert(RGB_DEFAULT_NAME.to_owned(), rgb_wallet);
-
-    let resp = RgbReplaceResponse {
-        consig_id,
-        consig,
-        psbt,
-        commit,
-        consigs,
-    };
-
-    store_stock_account_transfers(sk, stock, rgb_account, rgb_transfers)
-        .await
-        .map_err(TransferError::IO)?;
-
-    Ok(resp)
-}
-
-async fn internal_transfer_asset(
-    request: RgbTransferRequest,
-    options: NewTransferOptions,
-    stock: &mut Stock,
-    rgb_account: &mut RgbAccountV1,
-    rgb_transfers: &mut RgbTransfersV1,
-) -> Result<RgbInternalTransferResponse, TransferError> {
-    let network = NETWORK.read().await.to_string();
-    let context = RGBContext::with(&network);
-
-    if let Err(err) = request.validate(&context) {
-        let errors = err
-            .flatten()
-            .into_iter()
-            .map(|(f, e)| (f, e.to_string()))
-            .collect();
-        return Err(TransferError::Validation(errors));
-    }
-
-    if rgb_account.wallets.get(RGB_DEFAULT_NAME).is_none() {
-        return Err(TransferError::NoWatcher);
-    }
-
-    let RgbTransferRequest {
-        rgb_invoice: invoice,
-        psbt,
-        ..
-    } = request;
-
-    let (psbt, mut transfers) =
-        pay_invoice(invoice.clone(), psbt, options, stock).map_err(TransferError::Pay)?;
-    let (outpoint, commit) = extract_commit(psbt.clone()).map_err(TransferError::Commitment)?;
-
-    let transfer = transfers.remove(0);
-    let consig_id = transfer.bindle_id().to_string();
-    let consig = transfer
-        .to_strict_serialized::<{ U32 }>()
-        .map_err(|err| TransferError::WrongConsig(err.to_string()))?;
-
-    let rgb_invoice = RgbInvoice::from_str(&invoice)
-        .map_err(|err| TransferError::WrongInvoice(err.to_string()))?;
-
-    let consig = consig.to_hex();
-    let commit = commit.to_hex();
-    let psbt = psbt.to_string();
-
-    internal_save_transfer(
-        rgb_invoice.iface.unwrap().to_string(),
-        consig.clone(),
-        true,
-        rgb_transfers,
-    )
-    .await
-    .map_err(TransferError::WrongSave)?;
-
-    let mut consigs = BTreeMap::default();
-    for item in transfers {
-        let transfer_id = item.bindle_id().to_string();
-        let transfer = item
-            .to_strict_serialized::<{ U32 }>()
-            .map_err(|err| TransferError::WrongConsig(err.to_string()))?;
-
-        let transfer = transfer.to_hex();
-        consigs.insert(transfer_id, transfer);
-    }
-
-    let resp = RgbInternalTransferResponse {
-        consig_id,
-        consig,
-        psbt,
-        commit,
-        outpoint: outpoint.to_string(),
-        consigs,
-    };
-
-    Ok(resp)
-}
-
 #[derive(Debug, Clone, Eq, PartialEq, Display, From, Error)]
 #[display(doc_comments)]
 pub enum RgbSwapError {
@@ -1476,6 +1347,7 @@ pub async fn create_swap_transfer(
     let counter_party = if presig { offer_pub } else { bid_pub };
     rgb_swap_bid.transfer_id = Some(consig_id.clone());
     rgb_swap_bid.transfer = Some(strict.to_hex());
+    rgb_swap_bid.swap_psbt = Some(final_psbt.clone());
 
     publish_swap_bid(sk, &counter_party, rgb_swap_bid, expire_at)
         .await
@@ -1490,6 +1362,138 @@ pub async fn create_swap_transfer(
         final_consig,
         final_psbt,
     })
+}
+
+async fn internal_transfer_asset(
+    request: RgbTransferRequest,
+    options: NewTransferOptions,
+    stock: &mut Stock,
+    rgb_account: &mut RgbAccountV1,
+    rgb_transfers: &mut RgbTransfersV1,
+) -> Result<RgbInternalTransferResponse, TransferError> {
+    let network = NETWORK.read().await.to_string();
+    let context = RGBContext::with(&network);
+
+    if let Err(err) = request.validate(&context) {
+        let errors = err
+            .flatten()
+            .into_iter()
+            .map(|(f, e)| (f, e.to_string()))
+            .collect();
+        return Err(TransferError::Validation(errors));
+    }
+
+    if rgb_account.wallets.get(RGB_DEFAULT_NAME).is_none() {
+        return Err(TransferError::NoWatcher);
+    }
+
+    let RgbTransferRequest {
+        rgb_invoice: invoice,
+        psbt,
+        ..
+    } = request;
+
+    let (psbt, mut transfers) =
+        pay_invoice(invoice.clone(), psbt, options, stock).map_err(TransferError::Pay)?;
+    let (outpoint, commit) = extract_commit(psbt.clone()).map_err(TransferError::Commitment)?;
+
+    let transfer = transfers.remove(0);
+    let consig_id = transfer.bindle_id().to_string();
+    let consig = transfer
+        .to_strict_serialized::<{ U32 }>()
+        .map_err(|err| TransferError::WrongConsig(err.to_string()))?;
+
+    let rgb_invoice = RgbInvoice::from_str(&invoice)
+        .map_err(|err| TransferError::WrongInvoice(err.to_string()))?;
+
+    let consig = consig.to_hex();
+    let commit = commit.to_hex();
+    let psbt_hex = psbt.to_string();
+
+    let iface = rgb_invoice.clone().iface.unwrap().to_string();
+    let internal_request = RgbInternalSaveTransferRequest::with(
+        consig_id.clone(),
+        consig.clone(),
+        iface,
+        true,
+        vec![rgb_invoice],
+        Some(psbt),
+    );
+
+    internal_save_transfer(internal_request, rgb_transfers).map_err(TransferError::WrongSave)?;
+
+    let mut consigs = BTreeMap::default();
+    for item in transfers {
+        let transfer_id = item.bindle_id().to_string();
+        let transfer = item
+            .to_strict_serialized::<{ U32 }>()
+            .map_err(|err| TransferError::WrongConsig(err.to_string()))?;
+
+        let transfer = transfer.to_hex();
+        consigs.insert(transfer_id, transfer);
+    }
+
+    let resp = RgbInternalTransferResponse {
+        consig_id,
+        consig,
+        psbt: psbt_hex,
+        commit,
+        outpoint: outpoint.to_string(),
+        consigs,
+    };
+
+    Ok(resp)
+}
+
+pub async fn internal_replace_transfer(
+    sk: &str,
+    request: RgbTransferRequest,
+    options: NewTransferOptions,
+) -> Result<RgbReplaceResponse, TransferError> {
+    let (mut stock, mut rgb_account, mut rgb_transfers) = retrieve_stock_account_transfers(sk)
+        .await
+        .map_err(TransferError::IO)?;
+
+    let RgbInternalTransferResponse {
+        consig_id,
+        consig,
+        psbt,
+        commit,
+        outpoint,
+        consigs,
+        ..
+    } = internal_transfer_asset(
+        request.clone(),
+        options,
+        &mut stock,
+        &mut rgb_account,
+        &mut rgb_transfers,
+    )
+    .await?;
+
+    let mut rgb_wallet = match rgb_account.wallets.get(RGB_DEFAULT_NAME) {
+        Some(rgb_wallet) => rgb_wallet.to_owned(),
+        _ => return Err(TransferError::NoWatcher),
+    };
+
+    save_tap_commit_str(&outpoint, &commit, &request.terminal, &mut rgb_wallet);
+    rgb_account
+        .wallets
+        .insert(RGB_DEFAULT_NAME.to_owned(), rgb_wallet);
+
+    let resp = RgbReplaceResponse {
+        consig_id,
+        consig,
+        psbt,
+        commit,
+        consigs,
+    };
+
+    store_stock_account_transfers(sk, stock, rgb_account, rgb_transfers)
+        .await
+        .map_err(TransferError::IO)?;
+
+    Ok(resp)
 }
 
 pub async fn accept_transfer(
@@ -1536,10 +1540,14 @@ pub enum SaveTransferError {
     Validation(BTreeMap<String, String>),
     /// I/O or connectivity error. {0}
     IO(RgbPersistenceError),
+    /// Occurs an error in parse swap psbt step. {0}
+    WrongPsbt(String),
     /// Occurs an error in parse consig step. {0}
     WrongConsig(AcceptTransferError),
     /// Occurs an error in parse consig swap step. {0}
     WrongConsigSwap(AcceptTransferError),
+    /// Occurs an error in parse invoice step. {0}
+    WrongInvoice(String),
     /// Occurs an error in swap step. {0}
     WrongSwap(RgbOfferErrors),
     /// Write I/O or connectivity error. {1} in {0}
@@ -1571,7 +1579,16 @@ pub async fn save_transfer(
         ..
     } = prebuild_extract_transfer(&consignment)?;
 
-    internal_save_transfer(iface, consignment, false, &mut rgb_transfers).await?;
+    let request = RgbInternalSaveTransferRequest::with(
+        consig_id.clone(),
+        consignment,
+        iface,
+        false,
+        vec![],
+        None,
+    );
+
+    internal_save_transfer(request, &mut rgb_transfers)?;
 
     let mut status = BTreeMap::new();
     status.insert(consig_id.clone(), false);
@@ -1586,12 +1603,19 @@ pub async fn save_transfer(
     })
 }
 
-pub async fn internal_save_transfer(
-    iface: String,
-    consignment: String,
-    sender: bool,
+pub fn internal_save_transfer(
+    request: RgbInternalSaveTransferRequest,
     rgb_transfers: &mut RgbTransfersV1,
 ) -> Result<(), SaveTransferError> {
+    let RgbInternalSaveTransferRequest {
+        iface,
+        consig: consignment,
+        sender,
+        utxos,
+        beneficiaries,
+        ..
+    } = request;
+
     let RgbExtractTransfer {
         consig_id,
         contract_id,
@@ -1606,7 +1630,9 @@ pub async fn internal_save_transfer(
         iface,
         tx_id,
         sender,
-        ..default!()
+        utxos,
+        beneficiaries,
+        rbf: true,
     };
 
     if let Some(transfers) = rgb_transfers.transfers.get(&contract_id.clone()) {
@@ -1794,9 +1820,38 @@ pub async fn internal_swap_transfers(
         }
     }
 
-    for my_swap in my_swaps {
-        if let Some(transfer) = my_swap.transfer {
-            internal_save_transfer(my_swap.iface, transfer, true, rgb_transfers).await?;
+    for RgbBidSwap {
+        iface,
+        buyer_invoice,
+        transfer_id,
+        transfer,
+        swap_psbt,
+        ..
+    } in my_swaps
+    {
+        if let Some(transfer) = transfer {
+            let psbt = if let Some(psbt) = swap_psbt {
+                Some(
+                    Psbt::from_str(&psbt)
+                        .map_err(|op| SaveTransferError::WrongPsbt(op.to_string()))?,
+                )
+            } else {
+                None
+            };
+
+            let invoice = RgbInvoice::from_str(&buyer_invoice)
+                .map_err(|op| SaveTransferError::WrongInvoice(op.to_string()))?;
+
+            let request = RgbInternalSaveTransferRequest::with(
+                transfer_id.unwrap_or_default(),
+                transfer,
+                iface,
+                true,
+                vec![invoice],
+                psbt,
+            );
+
+            internal_save_transfer(request, rgb_transfers)?;
         }
     }
 
