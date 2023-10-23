@@ -19,7 +19,10 @@ use crate::{
     structs::AttachInfo,
 };
 
-use super::structs::ContractAmount;
+use super::{
+    proxy::{pull_media, ProxyError},
+    structs::ContractAmount,
+};
 
 #[derive(Clone, Eq, PartialEq, Debug, Display, Error, From)]
 #[display(doc_comments)]
@@ -279,8 +282,7 @@ where
                 if let Some(preview) = token_data.preview {
                     media = MediaInfo {
                         ty: preview.ty.to_string(),
-                        source: String::from_utf8(preview.data.to_inner())
-                            .expect("invalid media_info data"),
+                        source: preview.data.to_hex(),
                     };
                 }
 
@@ -402,4 +404,23 @@ where
     };
 
     Ok(resp)
+}
+
+pub async fn extract_metadata(metadata: ContractMeta) -> Result<ContractMeta, ProxyError> {
+    let metadata = metadata.meta();
+    let metadata = match metadata {
+        ContractMetadata::UDA(mut uda) => {
+            let mut medias = vec![];
+            for mut media in uda.media {
+                let media_metadata = pull_media(media.source.to_string()).await?;
+                media.source = media_metadata.hyperlink;
+                medias.push(media);
+            }
+            uda.media = medias;
+            ContractMetadata::UDA(uda)
+        }
+        ContractMetadata::Collectible(item) => ContractMetadata::Collectible(item),
+    };
+
+    Ok(ContractMeta::with(metadata))
 }

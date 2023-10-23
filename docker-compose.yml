@@ -28,28 +28,9 @@ services:
         aliases:
           - node1
 
-  # Bitmaskd 0.6.0-rc.2
-  bitmaskd:
-    container_name: bitmaskd
-    image: bitmask/node:latest
-    platform: linux/amd64
-    build:
-      context: ./
-      dockerfile: ./docker/bitmask/Dockerfile.ST120
-    restart: unless-stopped
-    environment:
-      - BITCOIN_NETWORK=regtest
-      - BITCOIN_EXPLORER_API_REGTEST=http://node1:80/regtest/api
-    ports:
-      - 7071:7070
-    networks:
-      bmnet:
-        aliases:
-          - bitmaskd
-
   carbonado:
     container_name: carbonado
-    image: carbonado/node:latest
+    image: bitmask/carbonado:latest
     platform: linux/amd64
     build:
       context: ./
@@ -60,6 +41,21 @@ services:
       - BITCOIN_EXPLORER_API_REGTEST=http://node1:80/regtest/api
     ports:
       - 7070:7070
+    networks:
+      bmnet:
+        aliases:
+          - bitmaskd
+
+  rgb-proxy:
+    container_name: proxy
+    image: bitmask/proxy:latest
+    platform: linux/amd64
+    build:
+      context: ./
+      dockerfile: ./docker/rgb-proxy/Dockerfile
+    restart: unless-stopped
+    ports:
+      - 3001:3000
     networks:
       bmnet:
         aliases:

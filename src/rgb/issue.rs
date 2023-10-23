@@ -22,6 +22,8 @@ use strict_types::encoding::TypeName;
 
 use crate::structs::{IssueMetaRequest, IssueMetadata};
 
+use super::structs::MediaMetadata;
+
 #[derive(Clone, Eq, PartialEq, Debug, Display, Error, From)]
 #[display(doc_comments)]
 pub enum IssueContractError {
@@ -45,7 +47,7 @@ pub fn issue_contract<T>(
     seal: &str,
     network: &str,
     meta: Option<IssueMetaRequest>,
-    udas_data: BTreeMap<String, Vec<u8>>,
+    udas_data: BTreeMap<String, MediaMetadata>,
     resolver: &mut T,
     stock: &mut Stock,
 ) -> Result<Contract, IssueContractError>
@@ -155,7 +157,7 @@ fn issue_uda_asset(
     seal: &str,
     network: &str,
     meta: Option<IssueMetaRequest>,
-    udas_data: BTreeMap<String, Vec<u8>>,
+    udas_data: BTreeMap<String, MediaMetadata>,
 ) -> Result<Contract, BuilderError> {
     let iface = rgb21();
     let schema = uda_schema();
@@ -182,13 +184,12 @@ fn issue_uda_asset(
                 let media_ty: &'static str = Box::leak(uda[0].ty.to_string().into_boxed_str());
                 let mut hash: [u8; 32] = [0; 32];
                 if let Some(data) = udas_data.get(&uda[0].source) {
-                    hash.copy_from_slice(data);
+                    hash.copy_from_slice(&data.hash);
                 }
 
                 let preview = Some(EmbeddedMedia {
                     ty: MediaType::with(media_ty),
-                    data: SmallBlob::try_from_iter(uda[0].source.as_bytes().to_vec())
-                        .expect("invalid data"),
+                    data: SmallBlob::try_from_iter(hash).expect("invalid data"),
                 });
                 let media = Some(Attachment {
                     ty: MediaType::with(media_ty),

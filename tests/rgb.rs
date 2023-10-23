@@ -22,6 +22,7 @@ mod rgb {
         mod fungibles;
         mod import;
         mod issue;
+        mod proxy;
         mod rbf;
         mod states;
         mod swaps;

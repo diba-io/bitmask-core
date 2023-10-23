@@ -1,7 +1,7 @@
 #![allow(unused_imports)]
 #![allow(unused_variables)]
 use crate::rgb::resolvers::ExplorerResolver;
-use crate::structs::{AssetType, TxStatus};
+use crate::structs::{AssetType, MediaInfo, TxStatus};
 use crate::{debug, structs::IssueMetaRequest, structs::UtxoSpentStatus};
 use amplify::{
     confinement::Confined,
@@ -13,6 +13,7 @@ use bdk::blockchain::EsploraBlockchain;
 use bdk::esplora_client::{AsyncClient, Tx as ExplorerTX};
 
 use bech32::{decode, FromBase32};
+use bitcoin::hashes::{sha256, Hash};
 use bitcoin::{OutPoint, Script, Txid};
 use bitcoin_30::ScriptBuf;
 use bitcoin_scripts::{
@@ -31,6 +32,7 @@ use strict_encoding::StrictDeserialize;
 use wallet::onchain::ResolveTx;
 
 use super::resolvers::ExploreClientExtError;
+use super::structs::MediaMetadata;
 
 #[cfg(not(target_arch = "wasm32"))]
 pub async fn prefetch_resolver_rgb(
@@ -647,32 +649,40 @@ pub async fn prefetch_resolver_allocations(
     }
 }
 
-pub async fn prefetch_resolver_images(meta: Option<IssueMetaRequest>) -> BTreeMap<String, Vec<u8>> {
+pub async fn prefetch_resolver_images(
+    meta: Option<IssueMetaRequest>,
+) -> BTreeMap<String, MediaMetadata> {
     let mut data = BTreeMap::new();
     if let Some(IssueMetaRequest(meta)) = meta {
         match meta {
             crate::structs::IssueMetadata::UDA(items) => {
-                let mut hasher = blake3::Hasher::new();
-                let source = items[0].source.clone();
-                if let Some(bytes) = retrieve_data(&source).await {
-                    hasher.update(&bytes);
+                let MediaInfo { ty, source } = &items[0];
+                let bytes = if let Some(bytes) = retrieve_data(source).await {
+                    bytes
                 } else {
-                    hasher.update(source.as_bytes());
-                }
-                let uda_data = hasher.finalize();
-                data.insert(source, uda_data.as_bytes().to_vec());
+                    source.as_bytes().to_vec()
+                };
+
+                let digest: sha256::Hash = sha256::Hash::hash(&bytes);
+                let metadata =
+                    MediaMetadata::new(ty.to_string(), source.to_string(), digest.to_vec());
+
+                data.insert(source.to_string(), metadata);
             }
             crate::structs::IssueMetadata::Collectible(items) => {
                 for item in items {
-                    let mut hasher = blake3::Hasher::new();
-                    let source = item.media[0].source.clone();
-                    if let Some(bytes) = retrieve_data(&source).await {
-                        hasher.update(&bytes);
+                    let MediaInfo { ty, source } = &item.media[0];
+                    let bytes = if let Some(bytes) = retrieve_data(source).await {
+                        bytes
                     } else {
-                        hasher.update(source.as_bytes());
-                    }
-                    let uda_data = hasher.finalize();
-                    data.insert(source, uda_data.as_bytes().to_vec());
+                        source.as_bytes().to_vec()
+                    };
+
+                    let digest: sha256::Hash = sha256::Hash::hash(&bytes);
+                    let metadata =
+                        MediaMetadata::new(ty.to_string(), source.to_string(), digest.to_vec());
+
+                    data.insert(source.to_string(), metadata);
                 }
             }
         }

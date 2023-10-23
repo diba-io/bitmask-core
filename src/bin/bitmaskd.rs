@@ -25,9 +25,9 @@ use bitmask_core::{
         create_watcher, full_transfer_asset, get_contract, import as rgb_import, issue_contract,
         list_contracts, list_interfaces, list_schemas, list_transfers as list_rgb_transfers,
         reissue_contract, remove_transfer as remove_rgb_transfer,
-        save_transfer as save_rgb_transfer, transfer_asset, watcher_address,
-        watcher_details as rgb_watcher_details, watcher_next_address, watcher_next_utxo,
-        watcher_utxo,
+        save_transfer as save_rgb_transfer, structs::RgbProxyConsigUpload, transfer_asset,
+        watcher_address, watcher_details as rgb_watcher_details, watcher_next_address,
+        watcher_next_utxo, watcher_utxo,
     },
     structs::{
         AcceptRequest, FileMetadata, FullRgbTransferRequest, ImportRequest, InvoiceRequest,
@@ -618,6 +618,17 @@ async fn co_server_retrieve(Path(name): Path<String>) -> Result<impl IntoRespons
     }
 }
 
+async fn rgb_proxy_consig_save(
+    Json(request): Json<RgbProxyConsigUpload>,
+) -> Result<impl IntoResponse, AppError> {
+    Ok((StatusCode::OK, Json(request)))
+}
+
+async fn rgb_proxy_consig_retrieve(Path(id): Path<String>) -> Result<impl IntoResponse, AppError> {
+    info!("GET /proxy/consignment/{id}");
+    Ok(())
+}
+
 const BMC_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 async fn status() -> Result<impl IntoResponse, AppError> {
@@ -699,7 +710,9 @@ async fn main() -> Result<()> {
         .route("/carbonado/:pk/:name", get(co_retrieve))
         .route("/carbonado/:pk/:name", post(co_store))
         .route("/carbonado/:pk/:name/force", post(co_force_store))
-        .route("/carbonado/:pk/:name/metadata", get(co_metadata));
+        .route("/carbonado/:pk/:name/metadata", get(co_metadata))
+        .route("/proxy/consignment/", post(rgb_proxy_consig_save))
+        .route("/proxy/consignment/:id", get(rgb_proxy_consig_retrieve));
 
     let network = get_network().await;
     switch_network(&network).await?;

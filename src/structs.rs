@@ -2,7 +2,6 @@ use bp::Outpoint;
 use garde::Validate;
 use psbt::Psbt;
 use rgb::MiningStatus;
-use rgbwallet::RgbInvoice;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
 use zeroize::{Zeroize, ZeroizeOnDrop};
@@ -736,6 +735,9 @@ pub struct RgbInternalSaveTransferRequest {
     /// Consignment Data (Hex)
     #[garde(ascii)]
     pub consig: String,
+    /// Beneficiary
+    #[garde(ascii)]
+    pub beneficiary: String,
     /// Sender?
     #[garde(skip)]
     pub sender: bool,
@@ -743,8 +745,8 @@ pub struct RgbInternalSaveTransferRequest {
     #[garde(length(min = 0, max = 999))]
     pub utxos: Vec<String>,
     /// List of Beneficiaries(aka. invoices)
-    #[garde(length(min = 0, max = 999))]
-    pub beneficiaries: Vec<String>,
+    #[garde(skip)]
+    pub beneficiaries: Option<BTreeMap<String, String>>,
     /// PSBT related with Transfer
     #[garde(skip)]
     pub psbt: Option<Psbt>,
@@ -754,9 +756,10 @@ impl RgbInternalSaveTransferRequest {
     pub(crate) fn with(
         consig_id: String,
         consig: String,
+        beneficiary: String,
         iface: String,
         sender: bool,
-        beneficiaries: Vec<RgbInvoice>,
+        beneficiaries: Option<BTreeMap<String, String>>,
         psbt: Option<Psbt>,
     ) -> Self {
         let mut utxos = vec![];
@@ -768,15 +771,11 @@ impl RgbInternalSaveTransferRequest {
                 .collect();
         }
 
-        let beneficiaries = beneficiaries
-            .into_iter()
-            .map(|x| x.beneficiary.to_string())
-            .collect();
-
         Self {
             consig_id,
             iface,
             consig,
+            beneficiary,
             sender,
             utxos,
             beneficiaries,

@@ -72,7 +72,7 @@ psbt = { version = "0.10.0-alpha.2", features = [
     "construct",
 ] }
 regex = "1.7.0"
-reqwest = { version = "0.11.22", features = ["json"] }
+reqwest = { version = "0.11.22", features = ["json", "multipart"] }
 rgb-std = { version = "0.10.9" }
 rgb-wallet = { version = "0.10.9" }
 rgb-schemata = { version = "0.10.1" }

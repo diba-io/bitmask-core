@@ -230,6 +230,23 @@ pub struct ContractBoilerplate {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, Default)]
+pub struct MediaMetadata {
+    pub mime: String,
+    pub hyperlink: String,
+    pub hash: Vec<u8>,
+}
+
+impl MediaMetadata {
+    pub fn new(mime: String, hyperlink: String, hash: Vec<u8>) -> Self {
+        Self {
+            mime,
+            hyperlink,
+            hash,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, Default)]
 pub struct RgbAccount {
     pub wallets: HashMap<String, RgbWallet>,
 }
@@ -238,6 +255,7 @@ pub struct RgbAccount {
 pub struct RgbAccountV1 {
     pub wallets: HashMap<String, RgbWallet>,
     pub hidden_contracts: Vec<String>,
+    pub invoices: Vec<String>,
 }
 
 #[derive(
@@ -294,6 +312,27 @@ pub struct RgbTransferV1 {
     pub beneficiaries: Vec<Beneficiary>,
 }
 
+impl RgbTransferV1 {
+    pub fn new(
+        consig_id: String,
+        consig: String,
+        iface: String,
+        tx_id: Txid,
+        beneficiaries: Vec<String>,
+    ) -> Self {
+        Self {
+            consig_id,
+            tx_id,
+            iface,
+            consig,
+            beneficiaries,
+            sender: false,
+            rbf: true,
+            utxos: vec![],
+        }
+    }
+}
+
 impl Default for RgbTransferV1 {
     fn default() -> Self {
         Self {
@@ -316,4 +355,60 @@ pub struct RgbExtractTransfer {
     pub tx_id: Txid,
     pub transfer: Bindle<Transfer>,
     pub strict: Confined<Vec<u8>, 0, U32>,
+}
+
+pub type RgbProxyConsigUploadReq = RgbProxyUploadReq<RgbProxyConsigUpload>;
+pub type RgbProxyMediaUploadReq = RgbProxyUploadReq<RgbProxyMedia>;
+pub type RgbProxyMediaReq = RgbProxyMedia;
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct RgbProxyMedia {
+    pub attachment_id: String,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct RgbProxyConsigReq {
+    pub recipient_id: String,
+}
+
+pub type RgbProxyConsigUploadRes = RgbProxyRes<bool>;
+pub type RgbProxyMediaUploadRes = RgbProxyRes<bool>;
+
+pub type RgbProxyConsigRes = RgbProxyRes<RgbProxyConsig>;
+pub type RgbProxyMediaRes = RgbProxyRes<String>;
+
+pub type RgbProxyConsigFileReq = RgbProxyFileReq<RgbProxyConsigUpload>;
+pub type RgbProxyMediaFileReq = RgbProxyFileReq<RgbProxyMedia>;
+
+#[derive(Clone, Serialize, Deserialize, Debug, Default)]
+
+pub struct RgbProxyRes<T> {
+    pub jsonrpc: String,
+    pub id: String,
+    pub result: T,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct RgbProxyFileReq<T> {
+    pub params: T,
+    pub file_name: String,
+    pub bytes: Vec<u8>,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct RgbProxyUploadReq<T> {
+    pub params: T,
+    pub file_name: String,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct RgbProxyConsigUpload {
+    pub recipient_id: String,
+    pub txid: String,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct RgbProxyConsig {
+    pub consignment: String,
+    pub txid: String,
 }

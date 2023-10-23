@@ -7,6 +7,7 @@ pub mod constants;
 pub mod error;
 pub mod lightning;
 pub mod nostr;
+pub mod proxy;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod regtest;
 pub mod rgb;
