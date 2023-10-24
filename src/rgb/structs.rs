@@ -363,6 +363,7 @@ pub type RgbProxyConsigFileReq = RgbProxyFileReq<RgbProxyConsigUpload>;
 
 pub type RgbProxyConsigUploadRes = RgbProxyRes<bool>;
 pub type RgbProxyConsigRes = RgbProxyRes<RgbProxyConsig>;
+pub type RgbProxyConsigErrorRes = RgbProxyErrorRes<String>;
 
 pub type RgbProxyMediaCarbonadoReq = RgbProxyCarbonadoReq<RgbProxyMedia>;
 pub type RgbProxyMediaUploadReq = RgbProxyUploadReq<RgbProxyMedia>;
@@ -451,6 +452,14 @@ pub struct RgbProxyRes<T> {
     pub jsonrpc: String,
     pub id: String,
     pub result: T,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug, Default)]
+
+pub struct RgbProxyErrorRes<T> {
+    pub jsonrpc: String,
+    pub id: String,
+    pub error: T,
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]

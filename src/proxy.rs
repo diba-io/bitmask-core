@@ -96,13 +96,13 @@ mod server {
 
     pub async fn proxy_consig_retrieve(
         request_id: String,
-    ) -> Result<RgbProxyConsigRes, ProxyServerError> {
+    ) -> Result<Option<RgbProxyConsigRes>, ProxyServerError> {
         fetch_consignment_get(request_id).await
     }
 
     pub async fn proxy_media_retrieve(
         attachment_id: String,
-    ) -> Result<RgbProxyMediaRes, ProxyServerError> {
+    ) -> Result<Option<RgbProxyMediaRes>, ProxyServerError> {
         fetch_media_get(attachment_id).await
     }
 
@@ -166,7 +166,7 @@ mod server {
 
     async fn fetch_consignment_get(
         recipient_id: String,
-    ) -> Result<RgbProxyConsigRes, ProxyServerError> {
+    ) -> Result<Option<RgbProxyConsigRes>, ProxyServerError> {
         let endpoints = RGB_PROXY_ENDPOINT.read().await.to_string();
         let url = format!("{endpoints}/json-rpc");
 
@@ -184,8 +184,10 @@ mod server {
             ProxyServerError::Server(format!("Error sending JSON POST request to {url}"))
         })?;
 
-        let resp =
-            serde_json::from_str(&resp).map_err(|op| ProxyServerError::Parse(op.to_string()))?;
+        let resp = match serde_json::from_str(&resp) {
+            Ok(resp) => Some(resp),
+            Err(_) => None,
+        };
         Ok(resp)
     }
 
@@ -216,7 +218,9 @@ mod server {
         Ok(resp)
     }
 
-    async fn fetch_media_get(attachment_id: String) -> Result<RgbProxyMediaRes, ProxyServerError> {
+    async fn fetch_media_get(
+        attachment_id: String,
+    ) -> Result<Option<RgbProxyMediaRes>, ProxyServerError> {
         let endpoints = RGB_PROXY_ENDPOINT.read().await.to_string();
         let url = format!("{endpoints}/json-rpc");
 
@@ -234,8 +238,11 @@ mod server {
             ProxyServerError::Server(format!("Error sending JSON POST request to {url}"))
         })?;
 
-        let resp: RgbProxyMediaRes =
-            serde_json::from_str(&resp).map_err(|op| ProxyServerError::Parse(op.to_string()))?;
+        let resp = match serde_json::from_str(&resp) {
+            Ok(resp) => Some(resp),
+            Err(_) => None,
+        };
+
         Ok(resp)
     }
 }
@@ -297,7 +304,7 @@ mod client {
 
     pub async fn proxy_consig_retrieve(
         request_id: String,
-    ) -> Result<RgbProxyConsigRes, ProxyServerError> {
+    ) -> Result<Option<RgbProxyConsigRes>, ProxyServerError> {
         let endpoint = BITMASK_ENDPOINT.read().await.to_string();
 
         let request_id = request_id.replace("utxob:", "");
@@ -306,14 +313,17 @@ mod client {
             .await
             .map_err(|op| ProxyServerError::Parse(op.to_string()))?;
 
-        let result = serde_json::from_str::<RgbProxyConsigRes>(&reponse)
-            .map_err(|op| ProxyServerError::Parse(op.to_string()))?;
-        Ok(result.clone())
+        let resp = match serde_json::from_str::<RgbProxyConsigRes>(&reponse) {
+            Ok(resp) => Some(resp),
+            Err(_) => None,
+        };
+
+        Ok(resp)
     }
 
     pub async fn proxy_media_retrieve(
         attachment_id: String,
-    ) -> Result<RgbProxyMediaRes, ProxyServerError> {
+    ) -> Result<Option<RgbProxyMediaRes>, ProxyServerError> {
         let endpoint = BITMASK_ENDPOINT.read().await.to_string();
 
         let url = format!("{endpoint}/proxy/media/{attachment_id}");
@@ -321,8 +331,10 @@ mod client {
             .await
             .map_err(|op| ProxyServerError::Parse(op.to_string()))?;
 
-        let result = serde_json::from_str::<RgbProxyMediaRes>(&reponse)
-            .map_err(|op| ProxyServerError::Parse(op.to_string()))?;
-        Ok(result.clone())
+        let resp = match serde_json::from_str::<RgbProxyMediaRes>(&reponse) {
+            Ok(resp) => Some(resp),
+            Err(_) => None,
+        };
+        Ok(resp)
     }
 }

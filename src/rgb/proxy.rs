@@ -64,7 +64,11 @@ pub async fn pull_consignmnet(consig_or_receipt_id: String) -> Result<Option<Str
         .await
         .map_err(ProxyError::IO)?;
 
-    let bytes = &base64::decode(&resp.result.consignment).map_err(|op| {
+    if resp.is_none() {
+        return Ok(None);
+    }
+
+    let bytes = &base64::decode(&resp.unwrap().result.consignment).map_err(|op| {
         ProxyError::SerializeRetrieve("consignment.get".to_string(), op.to_string())
     })?;
 
@@ -101,16 +105,20 @@ pub async fn pull_media(media_id: String) -> Result<Option<MediaMetadata>, Proxy
         .await
         .map_err(ProxyError::IO)?;
 
-    let bytes = base64::decode(&resp.result)
+    if resp.is_none() {
+        return Ok(None);
+    }
+
+    let bytes = base64::decode(&resp.unwrap().result)
         .map_err(|op| ProxyError::SerializeRetrieve("metadata".to_string(), op.to_string()))?;
 
     if bytes.is_empty() {
         Ok(None)
     } else {
-        let metadata = from_bytes(&bytes).map_err(|op| {
+        let metadata: MediaMetadata = from_bytes(&bytes).map_err(|op| {
             ProxyError::SerializeRetrieve("metadata.postcard".to_string(), op.to_string())
         })?;
 
-        Ok(metadata)
+        Ok(Some(metadata))
     }
 }
