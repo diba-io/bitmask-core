@@ -357,9 +357,83 @@ pub struct RgbExtractTransfer {
     pub strict: Confined<Vec<u8>, 0, U32>,
 }
 
+pub type RgbProxyConsigCarbonadoReq = RgbProxyCarbonadoReq<RgbProxyConsigUpload>;
 pub type RgbProxyConsigUploadReq = RgbProxyUploadReq<RgbProxyConsigUpload>;
+pub type RgbProxyConsigFileReq = RgbProxyFileReq<RgbProxyConsigUpload>;
+
+pub type RgbProxyConsigUploadRes = RgbProxyRes<bool>;
+pub type RgbProxyConsigRes = RgbProxyRes<RgbProxyConsig>;
+
+pub type RgbProxyMediaCarbonadoReq = RgbProxyCarbonadoReq<RgbProxyMedia>;
 pub type RgbProxyMediaUploadReq = RgbProxyUploadReq<RgbProxyMedia>;
+pub type RgbProxyMediaUploadRes = RgbProxyRes<bool>;
+pub type RgbProxyMediaFileReq = RgbProxyFileReq<RgbProxyMedia>;
 pub type RgbProxyMediaReq = RgbProxyMedia;
+pub type RgbProxyMediaRes = RgbProxyRes<String>;
+
+impl From<RgbProxyConsigCarbonadoReq> for RgbProxyConsigFileReq {
+    fn from(value: RgbProxyConsigCarbonadoReq) -> Self {
+        let RgbProxyConsigCarbonadoReq {
+            params,
+            file_name,
+            hex,
+        } = value;
+
+        Self {
+            params,
+            file_name,
+            bytes: hex::decode(hex).expect("Error when parse hexadecimal data"),
+        }
+    }
+}
+
+impl From<RgbProxyConsigFileReq> for RgbProxyConsigCarbonadoReq {
+    fn from(value: RgbProxyConsigFileReq) -> Self {
+        let RgbProxyConsigFileReq {
+            params,
+            file_name,
+            bytes,
+        } = value;
+
+        Self {
+            params,
+            file_name,
+            hex: hex::encode(bytes),
+        }
+    }
+}
+
+impl From<RgbProxyMediaCarbonadoReq> for RgbProxyMediaFileReq {
+    fn from(value: RgbProxyMediaCarbonadoReq) -> Self {
+        let RgbProxyMediaCarbonadoReq {
+            params,
+            file_name,
+            hex,
+        } = value;
+
+        Self {
+            params,
+            file_name,
+            bytes: hex::decode(hex).expect("Error when parse hexadecimal data"),
+        }
+    }
+}
+
+impl From<RgbProxyMediaFileReq> for RgbProxyMediaCarbonadoReq {
+    fn from(value: RgbProxyMediaFileReq) -> Self {
+        let RgbProxyMediaFileReq {
+            params,
+            file_name,
+            bytes,
+        } = value;
+
+        Self {
+            params,
+            file_name,
+            hex: hex::encode(bytes),
+        }
+    }
+}
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct RgbProxyMedia {
@@ -370,15 +444,6 @@ pub struct RgbProxyMedia {
 pub struct RgbProxyConsigReq {
     pub recipient_id: String,
 }
-
-pub type RgbProxyConsigUploadRes = RgbProxyRes<bool>;
-pub type RgbProxyMediaUploadRes = RgbProxyRes<bool>;
-
-pub type RgbProxyConsigRes = RgbProxyRes<RgbProxyConsig>;
-pub type RgbProxyMediaRes = RgbProxyRes<String>;
-
-pub type RgbProxyConsigFileReq = RgbProxyFileReq<RgbProxyConsigUpload>;
-pub type RgbProxyMediaFileReq = RgbProxyFileReq<RgbProxyMedia>;
 
 #[derive(Clone, Serialize, Deserialize, Debug, Default)]
 
@@ -393,6 +458,13 @@ pub struct RgbProxyFileReq<T> {
     pub params: T,
     pub file_name: String,
     pub bytes: Vec<u8>,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct RgbProxyCarbonadoReq<T> {
+    pub params: T,
+    pub file_name: String,
+    pub hex: String,
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]

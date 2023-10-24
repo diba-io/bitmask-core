@@ -5,9 +5,9 @@ use crate::structs::{
     SecretString, SignPsbtRequest, WatcherRequest,
 };
 // use crate::{carbonado, lightning, rgb};
-
 use js_sys::Promise;
 use serde::de::DeserializeOwned;
+use std::collections::BTreeMap;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::{future_to_promise, JsFuture};
 
@@ -918,6 +918,64 @@ pub mod rgb {
 
         future_to_promise(async move {
             match crate::rgb::list_my_bids(&nostr_hex_sk).await {
+                Ok(result) => Ok(JsValue::from_string(
+                    serde_json::to_string(&result).unwrap(),
+                )),
+                Err(err) => Err(JsValue::from_string(err.to_string())),
+            }
+        })
+    }
+
+    #[wasm_bindgen]
+    pub fn import_consignments(request: JsValue) -> Promise {
+        set_panic_hook();
+
+        future_to_promise(async move {
+            let req: BTreeMap<String, String> = serde_wasm_bindgen::from_value(request).unwrap();
+            match crate::rgb::import_consignments(req).await {
+                Ok(result) => Ok(JsValue::from_string(
+                    serde_json::to_string(&result).unwrap(),
+                )),
+                Err(err) => Err(JsValue::from_string(err.to_string())),
+            }
+        })
+    }
+
+    #[wasm_bindgen]
+    pub fn get_consignment(request: String) -> Promise {
+        set_panic_hook();
+
+        future_to_promise(async move {
+            match crate::rgb::get_consignment(request).await {
+                Ok(result) => Ok(JsValue::from_string(
+                    serde_json::to_string(&result).unwrap(),
+                )),
+                Err(err) => Err(JsValue::from_string(err.to_string())),
+            }
+        })
+    }
+
+    #[wasm_bindgen]
+    pub fn import_medias(request: JsValue) -> Promise {
+        set_panic_hook();
+
+        future_to_promise(async move {
+            let req: BTreeMap<String, String> = serde_wasm_bindgen::from_value(request).unwrap();
+            match crate::rgb::import_consignments(req).await {
+                Ok(result) => Ok(JsValue::from_string(
+                    serde_json::to_string(&result).unwrap(),
+                )),
+                Err(err) => Err(JsValue::from_string(err.to_string())),
+            }
+        })
+    }
+
+    #[wasm_bindgen]
+    pub fn get_media(request: String) -> Promise {
+        set_panic_hook();
+
+        future_to_promise(async move {
+            match crate::rgb::get_consignment(request).await {
                 Ok(result) => Ok(JsValue::from_string(
                     serde_json::to_string(&result).unwrap(),
                 )),

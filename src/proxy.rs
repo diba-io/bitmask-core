@@ -7,11 +7,13 @@ pub enum ProxyServerError {
     Server(String),
     /// JSON RPC Parse error. {0}
     Parse(String),
+    /// All endpoints failed error
+    AllEndpointsFailed,
 }
 
 #[cfg(not(target_arch = "wasm32"))]
 pub use server::{
-    proxy_consig_retrieve, proxy_consig_store, proxy_media_retrieve, proxy_media_store,
+    handle_file, proxy_consig_retrieve, proxy_consig_store, proxy_media_retrieve, proxy_media_store,
 };
 #[cfg(not(target_arch = "wasm32"))]
 mod server {
@@ -43,11 +45,11 @@ mod server {
 
         let filepath = handle_file(&file_name, bytes.len())
             .await
-            .map_err(|op| ProxyServerError::IO(op.to_string()))?;
+            .map_err(|op| ProxyServerError::Server(op.to_string()))?;
 
         fs::write(filepath.clone(), bytes)
             .await
-            .map_err(|op| ProxyServerError::IO(op.to_string()))?;
+            .map_err(|op| ProxyServerError::Server(op.to_string()))?;
 
         let request_data = RgbProxyConsigUploadReq {
             params,
@@ -55,9 +57,9 @@ mod server {
         };
 
         let resp = fetch_consignment_post(request_data).await?;
-        fs::remove_file(file_name)
+        fs::remove_file(filepath)
             .await
-            .map_err(|op| ProxyServerError::IO(op.to_string()))?;
+            .map_err(|op| ProxyServerError::Server(op.to_string()))?;
 
         Ok(resp)
     }
@@ -85,7 +87,7 @@ mod server {
         };
 
         let resp = fetch_media_post(request_data).await?;
-        fs::remove_file(file_name)
+        fs::remove_file(filepath)
             .await
             .map_err(|op| ProxyServerError::IO(op.to_string()))?;
 
@@ -102,6 +104,36 @@ mod server {
         attachment_id: String,
     ) -> Result<RgbProxyMediaRes, ProxyServerError> {
         fetch_media_get(attachment_id).await
+    }
+
+    pub async fn handle_file(name: &str, bytes: usize) -> Result<PathBuf, ProxyServerError> {
+        let mut final_name = name.to_string();
+        let network = NETWORK.read().await.to_string();
+        let networks = ["bitcoin", "testnet", "signet", "regtest"];
+        if !networks.into_iter().any(|x| name.contains(x)) {
+            final_name = format!("{network}-{name}");
+        }
+
+        let filepath = std::path::Path::new(
+            &std::env::var("RGB_PROXY_DIR").unwrap_or("/tmp/bitmaskd/proxy".to_owned()),
+        )
+        .join(final_name);
+
+        let filedir = filepath.parent().unwrap();
+        fs::create_dir_all(filedir)
+            .await
+            .map_err(|op| ProxyServerError::IO(op.to_string()))?;
+
+        if bytes == 0 {
+            info!(format!("read {}", filepath.to_string_lossy()));
+        } else {
+            info!(format!(
+                "write {bytes} bytes to {}",
+                filepath.to_string_lossy()
+            ));
+        }
+
+        Ok(filepath)
     }
 
     async fn fetch_consignment_post(
@@ -206,36 +238,6 @@ mod server {
             serde_json::from_str(&resp).map_err(|op| ProxyServerError::Parse(op.to_string()))?;
         Ok(resp)
     }
-
-    async fn handle_file(name: &str, bytes: usize) -> Result<PathBuf, ProxyServerError> {
-        let mut final_name = name.to_string();
-        let network = NETWORK.read().await.to_string();
-        let networks = ["bitcoin", "testnet", "signet", "regtest"];
-        if !networks.into_iter().any(|x| name.contains(x)) {
-            final_name = format!("{network}-{name}");
-        }
-
-        let filepath = std::path::Path::new(
-            &std::env::var("RGB_PROXY_DIR").unwrap_or("/tmp/bitmaskd/proxy".to_owned()),
-        )
-        .join(final_name);
-
-        let filedir = filepath.parent().unwrap();
-        fs::create_dir_all(filedir)
-            .await
-            .map_err(|op| ProxyServerError::IO(op.to_string()))?;
-
-        if bytes == 0 {
-            info!(format!("read {}", filepath.to_string_lossy()));
-        } else {
-            info!(format!(
-                "write {bytes} bytes to {}",
-                filepath.to_string_lossy()
-            ));
-        }
-
-        Ok(filepath)
-    }
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -245,35 +247,82 @@ pub use client::{
 
 #[cfg(target_arch = "wasm32")]
 mod client {
-
-    use crate::rgb::structs::{
-        RgbProxyConsigFileReq, RgbProxyConsigRes, RgbProxyConsigUploadRes, RgbProxyMediaFileReq,
-        RgbProxyMediaRes, RgbProxyMediaUploadRes,
+    use crate::{
+        constants::{BITMASK_ENDPOINT, NETWORK},
+        rgb::structs::{
+            RgbProxyConsigCarbonadoReq, RgbProxyConsigFileReq, RgbProxyConsigRes,
+            RgbProxyConsigUploadRes, RgbProxyMediaCarbonadoReq, RgbProxyMediaFileReq,
+            RgbProxyMediaRes, RgbProxyMediaUploadRes,
+        },
+        util::{get, post_json},
     };
 
     use super::ProxyServerError;
 
     pub async fn proxy_consig_store(
-        _request: RgbProxyConsigFileReq,
+        request: RgbProxyConsigFileReq,
     ) -> Result<RgbProxyConsigUploadRes, ProxyServerError> {
-        todo!()
+        let network = NETWORK.read().await.to_string();
+        let endpoint = BITMASK_ENDPOINT.read().await.to_string();
+
+        let name = request.clone().file_name;
+        let url = format!("{endpoint}/proxy/consignment/{network}-{name}");
+        let body = RgbProxyConsigCarbonadoReq::from(request);
+        let (reponse, _) = post_json(&url, &body.clone())
+            .await
+            .map_err(|op| ProxyServerError::Parse(op.to_string()))?;
+
+        let result = serde_json::from_str::<RgbProxyConsigUploadRes>(&reponse)
+            .map_err(|op| ProxyServerError::Parse(op.to_string()))?;
+        Ok(result.clone())
     }
 
     pub async fn proxy_media_store(
-        _request: RgbProxyMediaFileReq,
+        request: RgbProxyMediaFileReq,
     ) -> Result<RgbProxyMediaUploadRes, ProxyServerError> {
-        todo!()
+        let network = NETWORK.read().await.to_string();
+        let endpoint = BITMASK_ENDPOINT.read().await.to_string();
+
+        let name = request.clone().file_name;
+        let url = format!("{endpoint}/proxy/media/{network}-{name}");
+        let body = RgbProxyMediaCarbonadoReq::from(request);
+        let (reponse, _) = post_json(&url, &body.clone())
+            .await
+            .map_err(|op| ProxyServerError::Parse(op.to_string()))?;
+
+        let result = serde_json::from_str::<RgbProxyMediaUploadRes>(&reponse)
+            .map_err(|op| ProxyServerError::Parse(op.to_string()))?;
+        Ok(result.clone())
     }
 
     pub async fn proxy_consig_retrieve(
-        _request_id: String,
+        request_id: String,
     ) -> Result<RgbProxyConsigRes, ProxyServerError> {
-        todo!()
+        let endpoint = BITMASK_ENDPOINT.read().await.to_string();
+
+        let request_id = request_id.replace("utxob:", "");
+        let url = format!("{endpoint}/proxy/consignment/{request_id}");
+        let reponse = get(&url, None)
+            .await
+            .map_err(|op| ProxyServerError::Parse(op.to_string()))?;
+
+        let result = serde_json::from_str::<RgbProxyConsigRes>(&reponse)
+            .map_err(|op| ProxyServerError::Parse(op.to_string()))?;
+        Ok(result.clone())
     }
 
     pub async fn proxy_media_retrieve(
-        _attachment_id: String,
+        attachment_id: String,
     ) -> Result<RgbProxyMediaRes, ProxyServerError> {
-        todo!()
+        let endpoint = BITMASK_ENDPOINT.read().await.to_string();
+
+        let url = format!("{endpoint}/proxy/media/{attachment_id}");
+        let reponse = get(&url, None)
+            .await
+            .map_err(|op| ProxyServerError::Parse(op.to_string()))?;
+
+        let result = serde_json::from_str::<RgbProxyMediaRes>(&reponse)
+            .map_err(|op| ProxyServerError::Parse(op.to_string()))?;
+        Ok(result.clone())
     }
 }

@@ -2,13 +2,15 @@
 
 use std::{collections::BTreeMap, str::FromStr};
 
+use amplify::hex::ToHex;
 use anyhow::Result;
 use bitmask_core::{
     bitcoin::new_mnemonic,
     rgb::{
         create_watcher, get_contract,
-        proxy::{pull_consignmnet, push_consignmnets},
-        structs::ContractAmount,
+        prefetch::prefetch_resolver_images,
+        proxy::{pull_consignmnet, pull_media, push_consignments, push_medias},
+        structs::{ContractAmount, MediaMetadata},
         watcher_next_address,
     },
     structs::{RgbTransferResponse, SecretString, WatcherRequest},
@@ -16,12 +18,12 @@ use bitmask_core::{
 use rgbwallet::RgbInvoice;
 
 use crate::rgb::integration::utils::{
-    create_new_invoice, create_new_psbt_v2, create_new_transfer, issuer_issue_contract_v2,
-    send_some_coins, UtxoFilter,
+    create_new_invoice, create_new_psbt_v2, create_new_transfer, get_uda_data,
+    issuer_issue_contract_v2, send_some_coins, UtxoFilter,
 };
 
 #[tokio::test]
-pub async fn store_and_retrieve_file_by_proxy() -> Result<()> {
+pub async fn store_and_retrieve_transfer_by_proxy() -> Result<()> {
     // 1. Initial Setup
     let issuer_keys = new_mnemonic(&SecretString("".to_string())).await?;
     let owner_keys = new_mnemonic(&SecretString("".to_string())).await?;
@@ -98,11 +100,26 @@ pub async fn store_and_retrieve_file_by_proxy() -> Result<()> {
     let mut consigs = BTreeMap::new();
     consigs.insert(consig_or_receipt_id.clone(), expected.clone());
 
-    push_consignmnets(consigs).await?;
+    push_consignments(consigs).await?;
 
     // 6. Retrieve in RGB Proxy
-    let consig = pull_consignmnet(consig_or_receipt_id).await?;
-    assert_eq!(expected.to_string(), consig.unwrap_or_default().to_string());
+    let consig = pull_consignmnet(consig_or_receipt_id)
+        .await?
+        .unwrap_or_default();
+    assert_eq!(expected.to_string(), consig.to_string());
 
+    Ok(())
+}
+
+#[tokio::test]
+pub async fn store_and_retrieve_media_by_proxy() -> Result<()> {
+    // 1. Initial Setup
+    let uda_data = get_uda_data();
+    let uda_data = prefetch_resolver_images(Some(uda_data)).await;
+    push_medias(uda_data.clone()).await?;
+    let uda: MediaMetadata = uda_data.values().collect::<Vec<_>>()[0].clone();
+    let result = pull_media(uda.hash.to_hex()).await?;
+
+    assert_eq!(uda.hash, result.hash);
     Ok(())
 }

@@ -134,9 +134,9 @@ jobs:
       # - uses: Swatinem/rust-cache@v2
       - uses: jetli/wasm-pack-action@v0.4.0
 
-      - name: Up Bitcoin Node
+      - name: Up Bitcoin Node & RGB Proxy
         run: |
-          docker compose up -d node1
+          docker compose up -d node1 rgb-proxy
 
       - name: Setup Bitcoin Node
         run: |

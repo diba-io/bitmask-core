@@ -33,12 +33,13 @@ mod rgb {
     }
 
     mod web {
-        mod contracts;
-        mod imports;
-        mod stl_ids;
-        mod stl_load;
-        mod swaps;
-        mod transfers;
+        // mod contracts;
+        // mod imports;
+        mod proxy;
+        // mod stl_ids;
+        // mod stl_load;
+        // mod swaps;
+        // mod transfers;
         mod utils;
     }
 

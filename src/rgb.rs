@@ -102,13 +102,13 @@ use self::{
         prefetch_resolver_user_utxo_status, prefetch_resolver_utxos, prefetch_resolver_waddress,
         prefetch_resolver_wutxo,
     },
-    proxy::{pull_consignmnet, push_consignmnets, push_medias, ProxyError},
+    proxy::{pull_consignmnet, pull_media, push_consignments, push_medias, ProxyError},
     psbt::{
         save_tap_commit_str, set_tapret_output, CreatePsbtError, EstimateFeeError, NewPsbtOptions,
     },
     structs::{
-        ContractAmount, ContractBoilerplate, RgbAccountV1, RgbExtractTransfer, RgbTransferV1,
-        RgbTransfersV1,
+        ContractAmount, ContractBoilerplate, MediaMetadata, RgbAccountV1, RgbExtractTransfer,
+        RgbTransferV1, RgbTransfersV1,
     },
     swap::{
         get_public_offer, get_swap_bid, get_swap_bid_by_buyer, get_swap_bids_by_seller,
@@ -472,9 +472,15 @@ pub async fn create_invoice(
     sk: &str,
     request: InvoiceRequest,
 ) -> Result<InvoiceResponse, InvoiceError> {
-    let mut stock = retrieve_rgb_stock(sk).await.map_err(InvoiceError::IO)?;
+    let (mut stock, mut rgb_account) =
+        retrieve_stock_account(sk).await.map_err(InvoiceError::IO)?;
+
     let invoice = internal_create_invoice(request, &mut stock).await?;
-    store_rgb_stock(sk, stock).await.map_err(InvoiceError::IO)?;
+    rgb_account.invoices.push(invoice.to_string());
+
+    store_stock_account(sk, stock, rgb_account)
+        .await
+        .map_err(InvoiceError::IO)?;
 
     Ok(InvoiceResponse {
         invoice: invoice.to_string(),
@@ -1707,7 +1713,7 @@ pub async fn internal_save_transfer(
             .insert(contract_id.clone(), vec![rgb_transfer]);
     }
 
-    push_consignmnets(beneficiaries)
+    push_consignments(beneficiaries)
         .await
         .map_err(SaveTransferError::Proxy)?;
 
@@ -2817,6 +2823,26 @@ pub async fn clear_stock(sk: &str) {
     store_rgb_stock(sk, Stock::default())
         .await
         .expect("unable clear stock");
+}
+
+pub async fn import_consignments(req: BTreeMap<String, String>) -> Result<bool> {
+    push_consignments(req).await?;
+    Ok(true)
+}
+
+pub async fn get_consignment(req: String) -> Result<Option<String>> {
+    let resp = pull_consignmnet(req).await?;
+    Ok(resp)
+}
+
+pub async fn import_medias(req: BTreeMap<String, MediaMetadata>) -> Result<bool> {
+    push_medias(req).await?;
+    Ok(true)
+}
+
+pub async fn get_media(req: String) -> Result<Option<MediaMetadata>> {
+    let resp = pull_media(req).await?;
+    Ok(resp)
 }
 
 pub async fn decode_invoice(invoice: String) -> Result<RgbInvoiceResponse> {

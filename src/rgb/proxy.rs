@@ -31,8 +31,8 @@ pub enum ProxyError {
     SerializeWrite(String, String),
 }
 
-pub async fn push_consignmnets(consignmnets: BTreeMap<String, String>) -> Result<(), ProxyError> {
-    for (recipient_id, transfer) in consignmnets {
+pub async fn push_consignments(consignments: BTreeMap<String, String>) -> Result<(), ProxyError> {
+    for (recipient_id, transfer) in consignments {
         let hashed_name = blake3::hash(recipient_id.as_bytes())
             .to_hex()
             .to_lowercase();
@@ -96,7 +96,7 @@ pub async fn push_medias(medias: BTreeMap<String, MediaMetadata>) -> Result<(), 
     Ok(())
 }
 
-pub async fn pull_media(media_id: String) -> Result<MediaMetadata, ProxyError> {
+pub async fn pull_media(media_id: String) -> Result<Option<MediaMetadata>, ProxyError> {
     let resp = proxy_media_retrieve(media_id)
         .await
         .map_err(ProxyError::IO)?;
@@ -104,9 +104,13 @@ pub async fn pull_media(media_id: String) -> Result<MediaMetadata, ProxyError> {
     let bytes = base64::decode(&resp.result)
         .map_err(|op| ProxyError::SerializeRetrieve("metadata".to_string(), op.to_string()))?;
 
-    let metadata = from_bytes(&bytes).map_err(|op| {
-        ProxyError::SerializeRetrieve("metadata.postcard".to_string(), op.to_string())
-    })?;
+    if bytes.is_empty() {
+        Ok(None)
+    } else {
+        let metadata = from_bytes(&bytes).map_err(|op| {
+            ProxyError::SerializeRetrieve("metadata.postcard".to_string(), op.to_string())
+        })?;
 
-    Ok(metadata)
+        Ok(metadata)
+    }
 }
