@@ -1,15 +1,16 @@
+use std::collections::BTreeMap;
+
+use js_sys::Promise;
+use serde::de::DeserializeOwned;
+use wasm_bindgen::prelude::*;
+use wasm_bindgen_futures::{future_to_promise, JsFuture};
+
 use crate::structs::{
     AcceptRequest, FullRgbTransferRequest, ImportRequest, InvoiceRequest, IssueRequest,
     PsbtRequest, PublishPsbtRequest, ReIssueRequest, RgbBidRequest, RgbOfferRequest,
     RgbRemoveTransferRequest, RgbSaveTransferRequest, RgbSwapRequest, RgbTransferRequest,
     SecretString, SignPsbtRequest, WatcherRequest,
 };
-// use crate::{carbonado, lightning, rgb};
-use js_sys::Promise;
-use serde::de::DeserializeOwned;
-use std::collections::BTreeMap;
-use wasm_bindgen::prelude::*;
-use wasm_bindgen_futures::{future_to_promise, JsFuture};
 
 pub fn set_panic_hook() {
     // When the `console_error_panic_hook` feature is enabled, we can call the
@@ -375,6 +376,8 @@ pub mod bitcoin {
 }
 
 pub mod rgb {
+    use crate::rgb::structs::MediaMetadata;
+
     use super::*;
 
     #[allow(clippy::too_many_arguments)]
@@ -942,11 +945,11 @@ pub mod rgb {
     }
 
     #[wasm_bindgen]
-    pub fn get_consignment(request: String) -> Promise {
+    pub fn get_consignment(consig_or_receipt_id: String) -> Promise {
         set_panic_hook();
 
         future_to_promise(async move {
-            match crate::rgb::get_consignment(request).await {
+            match crate::rgb::get_consignment(consig_or_receipt_id).await {
                 Ok(result) => Ok(JsValue::from_string(
                     serde_json::to_string(&result).unwrap(),
                 )),
@@ -956,12 +959,13 @@ pub mod rgb {
     }
 
     #[wasm_bindgen]
-    pub fn import_medias(request: JsValue) -> Promise {
+    pub fn import_media(request: JsValue) -> Promise {
         set_panic_hook();
 
         future_to_promise(async move {
-            let req: BTreeMap<String, String> = serde_wasm_bindgen::from_value(request).unwrap();
-            match crate::rgb::import_consignments(req).await {
+            let req: BTreeMap<String, MediaMetadata> =
+                serde_wasm_bindgen::from_value(request).unwrap();
+            match crate::rgb::import_media(req).await {
                 Ok(result) => Ok(JsValue::from_string(
                     serde_json::to_string(&result).unwrap(),
                 )),
@@ -971,11 +975,11 @@ pub mod rgb {
     }
 
     #[wasm_bindgen]
-    pub fn get_media(request: String) -> Promise {
+    pub fn get_media(media_id: String) -> Promise {
         set_panic_hook();
 
         future_to_promise(async move {
-            match crate::rgb::get_consignment(request).await {
+            match crate::rgb::get_media(media_id).await {
                 Ok(result) => Ok(JsValue::from_string(
                     serde_json::to_string(&result).unwrap(),
                 )),

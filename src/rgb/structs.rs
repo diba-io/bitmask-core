@@ -233,7 +233,7 @@ pub struct ContractBoilerplate {
 pub struct MediaMetadata {
     pub mime: String,
     pub hyperlink: String,
-    pub hash: Vec<u8>,
+    pub hash: String,
 }
 
 impl MediaMetadata {
@@ -241,7 +241,7 @@ impl MediaMetadata {
         Self {
             mime,
             hyperlink,
-            hash,
+            hash: hex::encode(hash),
         }
     }
 }

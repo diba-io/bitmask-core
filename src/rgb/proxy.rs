@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use amplify::{confinement::U32, hex::ToHex};
+use amplify::confinement::U32;
 use postcard::{from_bytes, to_allocvec};
 use strict_encoding::StrictSerialize;
 
@@ -59,7 +59,7 @@ pub async fn push_consignments(consignments: BTreeMap<String, String>) -> Result
     Ok(())
 }
 
-pub async fn pull_consignmnet(consig_or_receipt_id: String) -> Result<Option<String>, ProxyError> {
+pub async fn pull_consignment(consig_or_receipt_id: String) -> Result<Option<String>, ProxyError> {
     let resp = proxy_consig_retrieve(consig_or_receipt_id)
         .await
         .map_err(ProxyError::IO)?;
@@ -81,7 +81,7 @@ pub async fn pull_consignmnet(consig_or_receipt_id: String) -> Result<Option<Str
 
 pub async fn push_medias(medias: BTreeMap<String, MediaMetadata>) -> Result<(), ProxyError> {
     for (_, metadata) in medias {
-        let attachment_id = metadata.hash.to_hex();
+        let attachment_id = metadata.hash.clone();
         let file_name = blake3::hash(attachment_id.as_bytes())
             .to_hex()
             .to_lowercase();
