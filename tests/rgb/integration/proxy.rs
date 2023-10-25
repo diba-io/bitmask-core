@@ -102,7 +102,7 @@ pub async fn store_and_retrieve_transfer_by_proxy() -> Result<()> {
     push_consignments(consigs).await?;
 
     // 6. Retrieve in RGB Proxy
-    let consig = pull_consignment(consig_or_receipt_id)
+    let consig = pull_consignment(&consig_or_receipt_id)
         .await?
         .unwrap_or_default();
     assert_eq!(expected.to_string(), consig.to_string());

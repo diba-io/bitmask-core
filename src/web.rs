@@ -949,7 +949,7 @@ pub mod rgb {
         set_panic_hook();
 
         future_to_promise(async move {
-            match crate::rgb::get_consignment(consig_or_receipt_id).await {
+            match crate::rgb::get_consignment(&consig_or_receipt_id).await {
                 Ok(result) => Ok(JsValue::from_string(
                     serde_json::to_string(&result).unwrap(),
                 )),
@@ -979,7 +979,7 @@ pub mod rgb {
         set_panic_hook();
 
         future_to_promise(async move {
-            match crate::rgb::get_media(media_id).await {
+            match crate::rgb::get_media(&media_id).await {
                 Ok(result) => Ok(JsValue::from_string(
                     serde_json::to_string(&result).unwrap(),
                 )),

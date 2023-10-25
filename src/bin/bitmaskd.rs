@@ -641,7 +641,7 @@ async fn rgb_proxy_consig_retrieve(Path(id): Path<String>) -> Result<impl IntoRe
     info!("GET /proxy/consignment/{id}");
 
     let id: String = format!("utxob:{id}");
-    let resp = proxy_consig_retrieve(id).await?;
+    let resp = proxy_consig_retrieve(&id).await?;
     Ok((StatusCode::OK, Json(resp)))
 }
 
@@ -657,7 +657,7 @@ async fn rgb_proxy_media_save(
 
 async fn rgb_proxy_media_retrieve(Path(id): Path<String>) -> Result<impl IntoResponse, AppError> {
     info!("GET /proxy/media/{id}");
-    let resp = proxy_media_retrieve(id).await?;
+    let resp = proxy_media_retrieve(&id).await?;
     Ok((StatusCode::OK, Json(resp)))
 }
 

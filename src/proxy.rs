@@ -95,13 +95,13 @@ mod server {
     }
 
     pub async fn proxy_consig_retrieve(
-        request_id: String,
+        request_id: &str,
     ) -> Result<Option<RgbProxyConsigRes>, ProxyServerError> {
         fetch_consignment_get(request_id).await
     }
 
     pub async fn proxy_media_retrieve(
-        attachment_id: String,
+        attachment_id: &str,
     ) -> Result<Option<RgbProxyMediaRes>, ProxyServerError> {
         fetch_media_get(attachment_id).await
     }
@@ -165,19 +165,19 @@ mod server {
     }
 
     async fn fetch_consignment_get(
-        recipient_id: String,
+        recipient_id: &str,
     ) -> Result<Option<RgbProxyConsigRes>, ProxyServerError> {
         let endpoints = RGB_PROXY_ENDPOINT.read().await.to_string();
         let url = format!("{endpoints}/json-rpc");
 
         let body = serde_json::to_string(&RgbProxyConsigReq {
-            recipient_id: recipient_id.clone(),
+            recipient_id: recipient_id.to_string(),
         })
         .unwrap_or_default();
         let form = multipart::Form::new()
             .text("method", "consignment.get")
             .text("jsonrpc", "2.0")
-            .text("id", recipient_id)
+            .text("id", recipient_id.to_string())
             .text("params", body);
 
         let (resp, _) = post_data(&url, form).await.map_err(|_| {
@@ -219,19 +219,19 @@ mod server {
     }
 
     async fn fetch_media_get(
-        attachment_id: String,
+        attachment_id: &str,
     ) -> Result<Option<RgbProxyMediaRes>, ProxyServerError> {
         let endpoints = RGB_PROXY_ENDPOINT.read().await.to_string();
         let url = format!("{endpoints}/json-rpc");
 
         let body = serde_json::to_string(&RgbProxyMediaReq {
-            attachment_id: attachment_id.clone(),
+            attachment_id: attachment_id.to_string(),
         })
         .unwrap_or_default();
         let form = multipart::Form::new()
             .text("method", "media.get")
             .text("jsonrpc", "2.0")
-            .text("id", attachment_id)
+            .text("id", attachment_id.to_string())
             .text("params", body);
 
         let (resp, _) = post_data(&url, form).await.map_err(|_| {
@@ -303,7 +303,7 @@ mod client {
     }
 
     pub async fn proxy_consig_retrieve(
-        request_id: String,
+        request_id: &str,
     ) -> Result<Option<RgbProxyConsigRes>, ProxyServerError> {
         let endpoint = BITMASK_ENDPOINT.read().await.to_string();
 
@@ -322,7 +322,7 @@ mod client {
     }
 
     pub async fn proxy_media_retrieve(
-        attachment_id: String,
+        attachment_id: &str,
     ) -> Result<Option<RgbProxyMediaRes>, ProxyServerError> {
         let endpoint = BITMASK_ENDPOINT.read().await.to_string();
 

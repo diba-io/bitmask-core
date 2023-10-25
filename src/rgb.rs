@@ -1959,7 +1959,7 @@ pub async fn internal_update_transfers(
 
     let mut new_transfers = vec![];
     for (seal, iface) in retrieve_by_seal {
-        if let Some(transfer) = pull_consignment(seal.clone())
+        if let Some(transfer) = pull_consignment(&seal)
             .await
             .map_err(TransferError::Proxy)?
         {
@@ -2830,7 +2830,7 @@ pub async fn import_consignments(req: BTreeMap<String, String>) -> Result<bool> 
     Ok(true)
 }
 
-pub async fn get_consignment(consig_or_receipt_id: String) -> Result<Option<String>> {
+pub async fn get_consignment(consig_or_receipt_id: &str) -> Result<Option<String>> {
     let resp = pull_consignment(consig_or_receipt_id).await?;
     Ok(resp)
 }
@@ -2840,7 +2840,7 @@ pub async fn import_media(req: BTreeMap<String, MediaMetadata>) -> Result<bool> 
     Ok(true)
 }
 
-pub async fn get_media(media_id: String) -> Result<Option<MediaMetadata>> {
+pub async fn get_media(media_id: &str) -> Result<Option<MediaMetadata>> {
     let resp = pull_media(media_id).await?;
     Ok(resp)
 }
