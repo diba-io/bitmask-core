@@ -2,14 +2,13 @@
 
 use std::{collections::BTreeMap, str::FromStr};
 
-use amplify::hex::ToHex;
 use anyhow::Result;
 use bitmask_core::{
     bitcoin::new_mnemonic,
     rgb::{
         create_watcher, get_contract,
         prefetch::prefetch_resolver_images,
-        proxy::{pull_consignmnet, pull_media, push_consignments, push_medias},
+        proxy::{pull_consignment, pull_media, push_consignments, push_medias},
         structs::{ContractAmount, MediaMetadata},
         watcher_next_address,
     },
@@ -103,7 +102,7 @@ pub async fn store_and_retrieve_transfer_by_proxy() -> Result<()> {
     push_consignments(consigs).await?;
 
     // 6. Retrieve in RGB Proxy
-    let consig = pull_consignmnet(consig_or_receipt_id)
+    let consig = pull_consignment(consig_or_receipt_id)
         .await?
         .unwrap_or_default();
     assert_eq!(expected.to_string(), consig.to_string());
@@ -118,7 +117,7 @@ pub async fn store_and_retrieve_media_by_proxy() -> Result<()> {
     let uda_data = prefetch_resolver_images(Some(uda_data)).await;
     push_medias(uda_data.clone()).await?;
     let uda: MediaMetadata = uda_data.values().collect::<Vec<_>>()[0].clone();
-    let result = pull_media(uda.hash.to_hex()).await?.unwrap();
+    let result = pull_media(hex::encode(&uda.hash)).await?.unwrap();
 
     assert_eq!(uda.hash, result.hash);
     Ok(())
