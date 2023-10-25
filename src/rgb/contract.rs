@@ -412,7 +412,7 @@ pub async fn extract_metadata(metadata: ContractMeta) -> Result<ContractMeta, Pr
         ContractMetadata::UDA(mut uda) => {
             let mut medias = vec![];
             for mut media in uda.media {
-                if let Some(media_metadata) = pull_media(media.source.to_string()).await? {
+                if let Some(media_metadata) = pull_media(&media.source).await? {
                     media.source = media_metadata.hyperlink;
                     medias.push(media);
                 }

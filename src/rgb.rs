@@ -102,7 +102,7 @@ use self::{
         prefetch_resolver_user_utxo_status, prefetch_resolver_utxos, prefetch_resolver_waddress,
         prefetch_resolver_wutxo,
     },
-    proxy::{pull_consignmnet, pull_media, push_consignments, push_medias, ProxyError},
+    proxy::{pull_consignment, pull_media, push_consignments, push_medias, ProxyError},
     psbt::{
         save_tap_commit_str, set_tapret_output, CreatePsbtError, EstimateFeeError, NewPsbtOptions,
     },
@@ -123,7 +123,7 @@ use self::{
     },
 };
 
-#[derive(Debug, Clone, Eq, PartialEq, Display, From, Error)]
+#[derive(Debug, Clone, PartialEq, Display, From, Error)]
 #[display(doc_comments)]
 pub enum IssueError {
     /// Some request data is missing. {0:?}
@@ -1959,7 +1959,7 @@ pub async fn internal_update_transfers(
 
     let mut new_transfers = vec![];
     for (seal, iface) in retrieve_by_seal {
-        if let Some(transfer) = pull_consignmnet(seal.clone())
+        if let Some(transfer) = pull_consignment(&seal)
             .await
             .map_err(TransferError::Proxy)?
         {
@@ -2830,18 +2830,18 @@ pub async fn import_consignments(req: BTreeMap<String, String>) -> Result<bool> 
     Ok(true)
 }
 
-pub async fn get_consignment(req: String) -> Result<Option<String>> {
-    let resp = pull_consignmnet(req).await?;
+pub async fn get_consignment(consig_or_receipt_id: &str) -> Result<Option<String>> {
+    let resp = pull_consignment(consig_or_receipt_id).await?;
     Ok(resp)
 }
 
-pub async fn import_medias(req: BTreeMap<String, MediaMetadata>) -> Result<bool> {
+pub async fn import_media(req: BTreeMap<String, MediaMetadata>) -> Result<bool> {
     push_medias(req).await?;
     Ok(true)
 }
 
-pub async fn get_media(req: String) -> Result<Option<MediaMetadata>> {
-    let resp = pull_media(req).await?;
+pub async fn get_media(media_id: &str) -> Result<Option<MediaMetadata>> {
+    let resp = pull_media(media_id).await?;
     Ok(resp)
 }
 
