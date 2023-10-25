@@ -1,7 +1,7 @@
 use amplify::confinement::{Confined, U32};
 use bitcoin::Address;
 use bitcoin_scripts::address::AddressCompat;
-use bp::{Outpoint, Txid};
+use bp::Txid;
 use core::fmt::Display;
 use rgb::{RgbWallet, TerminalPath};
 use std::{
@@ -230,6 +230,23 @@ pub struct ContractBoilerplate {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, Default)]
+pub struct MediaMetadata {
+    pub mime: String,
+    pub hyperlink: String,
+    pub hash: String,
+}
+
+impl MediaMetadata {
+    pub fn new(mime: String, hyperlink: String, hash: Vec<u8>) -> Self {
+        Self {
+            mime,
+            hyperlink,
+            hash: hex::encode(hash),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, Default)]
 pub struct RgbAccount {
     pub wallets: HashMap<String, RgbWallet>,
 }
@@ -238,6 +255,7 @@ pub struct RgbAccount {
 pub struct RgbAccountV1 {
     pub wallets: HashMap<String, RgbWallet>,
     pub hidden_contracts: Vec<String>,
+    pub invoices: Vec<String>,
 }
 
 #[derive(
@@ -290,8 +308,29 @@ pub struct RgbTransferV1 {
     pub consig: String,
     pub sender: bool,
     pub rbf: bool,
-    pub utxos: Vec<Outpoint>,
-    pub beneficiary: Vec<Beneficiary>,
+    pub utxos: Vec<String>,
+    pub beneficiaries: Vec<Beneficiary>,
+}
+
+impl RgbTransferV1 {
+    pub fn new(
+        consig_id: String,
+        consig: String,
+        iface: String,
+        tx_id: Txid,
+        beneficiaries: Vec<String>,
+    ) -> Self {
+        Self {
+            consig_id,
+            tx_id,
+            iface,
+            consig,
+            beneficiaries,
+            sender: false,
+            rbf: true,
+            utxos: vec![],
+        }
+    }
 }
 
 impl Default for RgbTransferV1 {
@@ -304,7 +343,7 @@ impl Default for RgbTransferV1 {
             sender: Default::default(),
             rbf: Default::default(),
             utxos: vec![],
-            beneficiary: vec![],
+            beneficiaries: vec![],
         }
     }
 }
@@ -316,4 +355,141 @@ pub struct RgbExtractTransfer {
     pub tx_id: Txid,
     pub transfer: Bindle<Transfer>,
     pub strict: Confined<Vec<u8>, 0, U32>,
+}
+
+pub type RgbProxyConsigCarbonadoReq = RgbProxyCarbonadoReq<RgbProxyConsigUpload>;
+pub type RgbProxyConsigUploadReq = RgbProxyUploadReq<RgbProxyConsigUpload>;
+pub type RgbProxyConsigFileReq = RgbProxyFileReq<RgbProxyConsigUpload>;
+
+pub type RgbProxyConsigUploadRes = RgbProxyRes<bool>;
+pub type RgbProxyConsigRes = RgbProxyRes<RgbProxyConsig>;
+pub type RgbProxyConsigErrorRes = RgbProxyErrorRes<String>;
+
+pub type RgbProxyMediaCarbonadoReq = RgbProxyCarbonadoReq<RgbProxyMedia>;
+pub type RgbProxyMediaUploadReq = RgbProxyUploadReq<RgbProxyMedia>;
+pub type RgbProxyMediaUploadRes = RgbProxyRes<bool>;
+pub type RgbProxyMediaFileReq = RgbProxyFileReq<RgbProxyMedia>;
+pub type RgbProxyMediaReq = RgbProxyMedia;
+pub type RgbProxyMediaRes = RgbProxyRes<String>;
+
+impl From<RgbProxyConsigCarbonadoReq> for RgbProxyConsigFileReq {
+    fn from(value: RgbProxyConsigCarbonadoReq) -> Self {
+        let RgbProxyConsigCarbonadoReq {
+            params,
+            file_name,
+            hex,
+        } = value;
+
+        Self {
+            params,
+            file_name,
+            bytes: hex::decode(hex).expect("Error when parse hexadecimal data"),
+        }
+    }
+}
+
+impl From<RgbProxyConsigFileReq> for RgbProxyConsigCarbonadoReq {
+    fn from(value: RgbProxyConsigFileReq) -> Self {
+        let RgbProxyConsigFileReq {
+            params,
+            file_name,
+            bytes,
+        } = value;
+
+        Self {
+            params,
+            file_name,
+            hex: hex::encode(bytes),
+        }
+    }
+}
+
+impl From<RgbProxyMediaCarbonadoReq> for RgbProxyMediaFileReq {
+    fn from(value: RgbProxyMediaCarbonadoReq) -> Self {
+        let RgbProxyMediaCarbonadoReq {
+            params,
+            file_name,
+            hex,
+        } = value;
+
+        Self {
+            params,
+            file_name,
+            bytes: hex::decode(hex).expect("Error when parse hexadecimal data"),
+        }
+    }
+}
+
+impl From<RgbProxyMediaFileReq> for RgbProxyMediaCarbonadoReq {
+    fn from(value: RgbProxyMediaFileReq) -> Self {
+        let RgbProxyMediaFileReq {
+            params,
+            file_name,
+            bytes,
+        } = value;
+
+        Self {
+            params,
+            file_name,
+            hex: hex::encode(bytes),
+        }
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct RgbProxyMedia {
+    pub attachment_id: String,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct RgbProxyConsigReq {
+    pub recipient_id: String,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug, Default)]
+
+pub struct RgbProxyRes<T> {
+    pub jsonrpc: String,
+    pub id: String,
+    pub result: T,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug, Default)]
+
+pub struct RgbProxyErrorRes<T> {
+    pub jsonrpc: String,
+    pub id: String,
+    pub error: T,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct RgbProxyFileReq<T> {
+    pub params: T,
+    pub file_name: String,
+    pub bytes: Vec<u8>,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct RgbProxyCarbonadoReq<T> {
+    pub params: T,
+    pub file_name: String,
+    pub hex: String,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct RgbProxyUploadReq<T> {
+    pub params: T,
+    pub file_name: String,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct RgbProxyConsigUpload {
+    pub recipient_id: String,
+    pub txid: String,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct RgbProxyConsig {
+    pub consignment: String,
+    pub txid: String,
 }

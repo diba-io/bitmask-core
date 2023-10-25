@@ -254,6 +254,8 @@ pub struct RgbBid {
     pub transfer_id: Option<String>,
     #[garde(skip)]
     pub transfer: Option<String>,
+    #[garde(skip)]
+    pub swap_psbt: Option<String>,
 }
 
 impl RgbBid {
@@ -329,6 +331,8 @@ pub struct RgbBidSwap {
     #[garde(skip)]
     pub transfer: Option<String>,
     #[garde(skip)]
+    pub swap_psbt: Option<String>,
+    #[garde(skip)]
     pub tap_outpoint: Option<String>,
     #[garde(skip)]
     pub tap_commit: Option<String>,
@@ -349,6 +353,7 @@ impl From<RgbBid> for RgbBidSwap {
             transfer_id,
             transfer,
             iface,
+            swap_psbt,
             ..
         } = value;
 
@@ -365,6 +370,7 @@ impl From<RgbBid> for RgbBidSwap {
             public,
             transfer_id,
             transfer,
+            swap_psbt,
             ..Default::default()
         }
     }

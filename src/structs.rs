@@ -1,5 +1,6 @@
 use bp::Outpoint;
 use garde::Validate;
+use psbt::Psbt;
 use rgb::MiningStatus;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
@@ -716,6 +717,71 @@ pub struct SelfFullRgbTransferRequest {
     /// Bitcoin Fee
     #[garde(skip)]
     pub fee: Option<u64>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+#[derive(Validate)]
+#[garde(context(RGBContext))]
+pub struct RgbInternalSaveTransferRequest {
+    /// The Consignment ID
+    #[garde(ascii)]
+    #[garde(length(min = 0, max = 100))]
+    pub consig_id: String,
+    /// The Face Symbol
+    #[garde(ascii)]
+    #[garde(length(min = 0, max = 100))]
+    pub iface: String,
+    /// Consignment Data (Hex)
+    #[garde(ascii)]
+    pub consig: String,
+    /// Beneficiary
+    #[garde(ascii)]
+    pub beneficiary: String,
+    /// Sender?
+    #[garde(skip)]
+    pub sender: bool,
+    /// UTXO realted with Transfer
+    #[garde(length(min = 0, max = 999))]
+    pub utxos: Vec<String>,
+    /// List of Beneficiaries(aka. invoices)
+    #[garde(skip)]
+    pub beneficiaries: Option<BTreeMap<String, String>>,
+    /// PSBT related with Transfer
+    #[garde(skip)]
+    pub psbt: Option<Psbt>,
+}
+
+impl RgbInternalSaveTransferRequest {
+    pub(crate) fn with(
+        consig_id: String,
+        consig: String,
+        beneficiary: String,
+        iface: String,
+        sender: bool,
+        beneficiaries: Option<BTreeMap<String, String>>,
+        psbt: Option<Psbt>,
+    ) -> Self {
+        let mut utxos = vec![];
+        if let Some(psbt) = psbt.clone() {
+            utxos = psbt
+                .inputs
+                .into_iter()
+                .map(|x| x.previous_outpoint.to_string())
+                .collect();
+        }
+
+        Self {
+            consig_id,
+            iface,
+            consig,
+            beneficiary,
+            sender,
+            utxos,
+            beneficiaries,
+            psbt,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

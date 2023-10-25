@@ -1,5 +1,9 @@
 use anyhow::{Context, Result};
 use bech32::{decode, encode, FromBase32, ToBase32, Variant};
+
+#[cfg(not(target_arch = "wasm32"))]
+use reqwest::multipart::Form;
+
 #[cfg(target_arch = "wasm32")]
 use reqwest::{self, header::AUTHORIZATION};
 use serde::Serialize;
@@ -134,6 +138,46 @@ pub async fn post_json<T: Serialize>(url: &str, body: &T) -> Result<(String, u16
         .post(url)
         .body(serde_json::to_string(body)?)
         .header("Content-Type", "application/json; charset=UTF-8")
+        .send()
+        .await
+        .context(format!("Error sending JSON POST request to {url}"))?;
+
+    let status_code = response.status().as_u16();
+
+    let response_text = response.text().await.context(format!(
+        "Error in parsing server response for POST JSON request to {url}"
+    ))?;
+
+    Ok((response_text, status_code))
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub async fn upload_data(url: &str, form: Form) -> Result<(String, u16)> {
+    let client = reqwest::Client::new();
+    let response = client
+        .post(url)
+        .multipart(form)
+        .header("Content-Type", "multipart/form-data; charset=UTF-8")
+        .send()
+        .await
+        .context(format!("Error sending JSON POST request to {url}"))?;
+
+    let status_code = response.status().as_u16();
+
+    let response_text = response.text().await.context(format!(
+        "Error in parsing server response for POST JSON request to {url}"
+    ))?;
+
+    Ok((response_text, status_code))
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub async fn post_data(url: &str, form: Form) -> Result<(String, u16)> {
+    let client = reqwest::Client::new();
+    let response = client
+        .post(url)
+        .multipart(form)
+        .header("Content-Type", "multipart/form-data; charset=UTF-8")
         .send()
         .await
         .context(format!("Error sending JSON POST request to {url}"))?;

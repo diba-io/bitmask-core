@@ -27,6 +27,7 @@ pub enum RgbMergeError {
 pub struct RawRgbAccount {
     pub wallets: HashMap<String, RawRgbWallet>,
     pub hidden_contracts: Vec<String>,
+    pub invoices: Vec<String>,
 }
 
 impl From<RgbAccountV0> for RawRgbAccount {
@@ -46,6 +47,7 @@ impl From<RgbAccountV1> for RawRgbAccount {
     fn from(wallet: RgbAccountV1) -> Self {
         Self {
             hidden_contracts: wallet.hidden_contracts,
+            invoices: wallet.invoices,
             wallets: wallet
                 .wallets
                 .into_iter()
@@ -59,6 +61,7 @@ impl From<RawRgbAccount> for RgbAccountV1 {
     fn from(raw_account: RawRgbAccount) -> Self {
         Self {
             hidden_contracts: raw_account.hidden_contracts,
+            invoices: raw_account.invoices,
             wallets: raw_account
                 .wallets
                 .into_iter()

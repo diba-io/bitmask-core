@@ -8,7 +8,7 @@ use bitmask_core::{
     bitcoin::{get_blockchain, new_mnemonic, sign_and_publish_psbt_file},
     rgb::{
         accept_transfer, consignmnet::NewTransferOptions, create_watcher, get_contract,
-        issue_contract, list_contracts, replace_transfer_asset, structs::ContractAmount,
+        internal_replace_transfer, issue_contract, list_contracts, structs::ContractAmount,
         transfer::extract_transfer, watcher_next_address,
     },
     structs::{
@@ -444,7 +444,7 @@ pub async fn create_batch_transfer() -> Result<()> {
     let rgb_invoice = RgbInvoice::from_str(&owner_resp.invoice)?;
     let options = NewTransferOptions::with(true, vec![rgb_invoice]);
 
-    let replace_transfer_rep = replace_transfer_asset(&issuer_sk, transfer_req, options).await?;
+    let replace_transfer_rep = internal_replace_transfer(&issuer_sk, transfer_req, options).await?;
 
     // 9. Sign and Broadcast
     let RgbReplaceResponse {

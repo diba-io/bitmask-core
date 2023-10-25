@@ -150,6 +150,10 @@ pub static LNDHUB_ENDPOINT: Lazy<RwLock<String>> =
 pub static BITMASK_ENDPOINT: Lazy<RwLock<String>> =
     Lazy::new(|| RwLock::new(dot_env("BITMASK_ENDPOINT")));
 
+// rgb proxy node
+pub static RGB_PROXY_ENDPOINT: Lazy<RwLock<String>> =
+    Lazy::new(|| RwLock::new(dot_env("RGB_PROXY_ENDPOINT")));
+
 // carbonado
 pub static CARBONADO_ENDPOINT: Lazy<RwLock<String>> =
     Lazy::new(|| RwLock::new(dot_env("CARBONADO_ENDPOINT")));
