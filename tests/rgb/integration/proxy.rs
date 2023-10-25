@@ -117,7 +117,7 @@ pub async fn store_and_retrieve_media_by_proxy() -> Result<()> {
     let uda_data = prefetch_resolver_images(Some(uda_data)).await;
     push_medias(uda_data.clone()).await?;
     let uda: MediaMetadata = uda_data.values().collect::<Vec<_>>()[0].clone();
-    let result = pull_media(hex::encode(&uda.hash)).await?.unwrap();
+    let result = pull_media(&uda.hash).await?.unwrap();
 
     assert_eq!(uda.hash, result.hash);
     Ok(())
