@@ -7,14 +7,14 @@ use bitmask_core::{
     nostr::{new_nostr_pubkey, update_nostr_pubkey},
     util::init_logging,
 };
-use std::{thread, time};
+use std::{thread, time::Duration};
 
 async fn new_wallet() -> Result<CreateWalletResponse> {
     // we generate a random string to be used as username and password
     let random_number = bip39::rand::random::<u64>();
     let s = hex::encode(random_number.to_le_bytes());
     // We put to sleep the test to avoid hit too fast the API
-    thread::sleep(time::Duration::from_secs(1));
+    thread::sleep(Duration::from_secs(1));
     let res = create_wallet(&s, &s).await?;
 
     Ok(res)
@@ -30,7 +30,7 @@ pub async fn new_nostr_pubkey_test() -> Result<()> {
         alice = username;
     }
     let alice_response = auth(&alice, &alice).await?;
-    thread::sleep(time::Duration::from_secs(1));
+    thread::sleep(Duration::from_secs(1));
 
     use nostr_sdk::prelude::*;
 
@@ -56,7 +56,7 @@ pub async fn update_nostr_pubkey_test() -> Result<()> {
         alice = username;
     }
     let alice_response = auth(&alice, &alice).await?;
-    thread::sleep(time::Duration::from_secs(1));
+    thread::sleep(Duration::from_secs(1));
 
     use nostr_sdk::prelude::*;
 

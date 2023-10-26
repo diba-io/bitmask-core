@@ -144,9 +144,8 @@ pub enum IssueError {
 pub async fn issue_contract(sk: &str, request: IssueRequest) -> Result<IssueResponse, IssueError> {
     if let Err(err) = request.validate(&RGBContext::default()) {
         let errors = err
-            .flatten()
-            .into_iter()
-            .map(|(f, e)| (f, e.to_string()))
+            .iter()
+            .map(|(f, e)| (f.to_string(), e.to_string()))
             .collect();
         return Err(IssueError::Validation(errors));
     }
@@ -283,9 +282,8 @@ pub async fn reissue_contract(
 ) -> Result<ReIssueResponse, IssueError> {
     if let Err(err) = request.validate(&RGBContext::default()) {
         let errors = err
-            .flatten()
-            .into_iter()
-            .map(|(f, e)| (f, e.to_string()))
+            .iter()
+            .map(|(f, e)| (f.to_string(), e.to_string()))
             .collect();
         return Err(IssueError::Validation(errors));
     }
@@ -493,9 +491,8 @@ async fn internal_create_invoice(
 ) -> Result<RgbInvoice, InvoiceError> {
     if let Err(err) = request.validate(&RGBContext::default()) {
         let errors = err
-            .flatten()
-            .into_iter()
-            .map(|(f, e)| (f, e.to_string()))
+            .iter()
+            .map(|(f, e)| (f.to_string(), e.to_string()))
             .collect();
         return Err(InvoiceError::Validation(errors));
     }
@@ -588,9 +585,8 @@ async fn internal_create_psbt(
 ) -> Result<PsbtResponse, PsbtError> {
     if let Err(err) = request.validate(&RGBContext::default()) {
         let errors = err
-            .flatten()
-            .into_iter()
-            .map(|(f, e)| (f, e.to_string()))
+            .iter()
+            .map(|(f, e)| (f.to_string(), e.to_string()))
             .collect();
         return Err(PsbtError::Validation(errors));
     }
@@ -705,9 +701,8 @@ pub async fn full_transfer_asset(
 ) -> Result<RgbTransferResponse, TransferError> {
     if let Err(err) = request.validate(&RGBContext::default()) {
         let errors = err
-            .flatten()
-            .into_iter()
-            .map(|(f, e)| (f, e.to_string()))
+            .iter()
+            .map(|(f, e)| (f.to_string(), e.to_string()))
             .collect();
         return Err(TransferError::Validation(errors));
     }
@@ -931,9 +926,8 @@ pub async fn create_seller_offer(
 ) -> Result<RgbOfferResponse, RgbSwapError> {
     if let Err(err) = request.validate(&RGBContext::default()) {
         let errors = err
-            .flatten()
-            .into_iter()
-            .map(|(f, e)| (f, e.to_string()))
+            .iter()
+            .map(|(f, e)| (f.to_string(), e.to_string()))
             .collect();
         return Err(RgbSwapError::Validation(errors));
     }
@@ -1058,9 +1052,8 @@ pub async fn update_seller_offer(
 ) -> Result<RgbOfferUpdateResponse, RgbSwapError> {
     if let Err(err) = request.validate(&RGBContext::default()) {
         let errors = err
-            .flatten()
-            .into_iter()
-            .map(|(f, e)| (f, e.to_string()))
+            .iter()
+            .map(|(f, e)| (f.to_string(), e.to_string()))
             .collect();
         return Err(RgbSwapError::Validation(errors));
     }
@@ -1107,9 +1100,8 @@ pub async fn create_buyer_bid(
 ) -> Result<RgbBidResponse, RgbSwapError> {
     if let Err(err) = request.validate(&RGBContext::default()) {
         let errors = err
-            .flatten()
-            .into_iter()
-            .map(|(f, e)| (f, e.to_string()))
+            .iter()
+            .map(|(f, e)| (f.to_string(), e.to_string()))
             .collect();
         return Err(RgbSwapError::Validation(errors));
     }
@@ -1273,9 +1265,8 @@ pub async fn create_swap_transfer(
 ) -> Result<RgbSwapResponse, RgbSwapError> {
     if let Err(err) = request.validate(&RGBContext::default()) {
         let errors = err
-            .flatten()
-            .into_iter()
-            .map(|(f, e)| (f, e.to_string()))
+            .iter()
+            .map(|(f, e)| (f.to_string(), e.to_string()))
             .collect();
         return Err(RgbSwapError::Validation(errors));
     }
@@ -1417,9 +1408,8 @@ async fn internal_transfer_asset(
 
     if let Err(err) = request.validate(&context) {
         let errors = err
-            .flatten()
-            .into_iter()
-            .map(|(f, e)| (f, e.to_string()))
+            .iter()
+            .map(|(f, e)| (f.to_string(), e.to_string()))
             .collect();
         return Err(TransferError::Validation(errors));
     }
@@ -1546,9 +1536,8 @@ pub async fn accept_transfer(
 ) -> Result<AcceptResponse, TransferError> {
     if let Err(err) = request.validate(&RGBContext::default()) {
         let errors = err
-            .flatten()
-            .into_iter()
-            .map(|(f, e)| (f, e.to_string()))
+            .iter()
+            .map(|(f, e)| (f.to_string(), e.to_string()))
             .collect();
         return Err(TransferError::Validation(errors));
     }
@@ -1606,9 +1595,8 @@ pub async fn save_transfer(
 ) -> Result<RgbTransferStatusResponse, SaveTransferError> {
     if let Err(err) = request.validate(&RGBContext::default()) {
         let errors = err
-            .flatten()
-            .into_iter()
-            .map(|(f, e)| (f, e.to_string()))
+            .iter()
+            .map(|(f, e)| (f.to_string(), e.to_string()))
             .collect();
         return Err(SaveTransferError::Validation(errors));
     }
@@ -1726,9 +1714,8 @@ pub async fn remove_transfer(
 ) -> Result<RgbTransferStatusResponse, SaveTransferError> {
     if let Err(err) = request.validate(&RGBContext::default()) {
         let errors = err
-            .flatten()
-            .into_iter()
-            .map(|(f, e)| (f, e.to_string()))
+            .iter()
+            .map(|(f, e)| (f.to_string(), e.to_string()))
             .collect();
         return Err(SaveTransferError::Validation(errors));
     }

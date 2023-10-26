@@ -64,9 +64,8 @@ pub async fn prebuild_transfer_asset(
 > {
     if let Err(err) = request.validate(&RGBContext::default()) {
         let errors = err
-            .flatten()
-            .into_iter()
-            .map(|(f, e)| (f, e.to_string()))
+            .iter()
+            .map(|(f, e)| (f.to_string(), e.to_string()))
             .collect();
         return Err(TransferError::Validation(errors));
     }
@@ -404,9 +403,8 @@ pub async fn prebuild_seller_swap(
 > {
     if let Err(err) = request.validate(&RGBContext::default()) {
         let errors = err
-            .flatten()
-            .into_iter()
-            .map(|(f, e)| (f, e.to_string()))
+            .iter()
+            .map(|(f, e)| (f.to_string(), e.to_string()))
             .collect();
         return Err(RgbSwapError::Validation(errors));
     }
@@ -674,9 +672,8 @@ pub async fn prebuild_buyer_swap(
 ) -> Result<(RgbBid, Vec<PsbtInputRequest>, Vec<String>, u64), RgbSwapError> {
     if let Err(err) = request.validate(&RGBContext::default()) {
         let errors = err
-            .flatten()
-            .into_iter()
-            .map(|(f, e)| (f, e.to_string()))
+            .iter()
+            .map(|(f, e)| (f.to_string(), e.to_string()))
             .collect();
         return Err(RgbSwapError::Validation(errors));
     }
