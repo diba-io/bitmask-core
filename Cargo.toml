@@ -57,17 +57,17 @@ descriptor-wallet = { version = "0.10.0-alpha.2", features = [
 futures = { version = "0.3.28", features = [
     "executor",
 ], default-features = true }
-garde = { version = "0.11", features = ["derive"], default-features = false }
+garde = { version = "0.16", features = ["derive"], default-features = false }
 rand = "0.8.5"
 getrandom = { version = "0.2.10", features = ["js"] }
 hex = "0.4.3"
 indexmap = "2.0.2"
-lightning-invoice = "0.23.0"
+lightning-invoice = "0.26.0"
 log = "0.4.20"
-miniscript_crate = { package = "miniscript", version = "9.0.1", features = [
+miniscript_crate = { package = "miniscript", version = "9.0.2", features = [
     "compiler",
 ] }
-nostr-sdk = "0.22.0"
+nostr-sdk = "0.24.0"
 once_cell = "1.17.1"
 payjoin = { version = "0.8.0", features = ["send"] }
 postcard = { version = "1.0.7", features = ["alloc"] }
@@ -134,7 +134,7 @@ anyhow = "1.0.71"
 blake3 = "1.4.1"
 rgb-std = { version = "0.10.2" }
 serde = "1.0.164"
-toml = { version = "0.7.5", features = ["preserve_order"] }
+toml = { version = "0.8.4", features = ["preserve_order"] }
 
 [patch.crates-io]
 # TODO: Publish PR to official repos

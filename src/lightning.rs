@@ -1,7 +1,7 @@
 use std::{collections::HashMap, str::FromStr};
 
 use anyhow::Result;
-use lightning_invoice::Invoice;
+use lightning_invoice::Bolt11Invoice;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -200,8 +200,8 @@ pub async fn create_invoice(
 }
 
 /// Decode a lightning invoice (bolt11)
-pub fn decode_invoice(payment_request: &str) -> Result<Invoice> {
-    let invoice = Invoice::from_str(payment_request)?;
+pub fn decode_invoice(payment_request: &str) -> Result<Bolt11Invoice> {
+    let invoice = Bolt11Invoice::from_str(payment_request)?;
 
     Ok(invoice)
 }

@@ -124,7 +124,7 @@ pub struct IssueRequest {
     pub name: String,
     /// Description of the asset
     #[garde(ascii)]
-    #[garde(length(min = 0, max = u8::MAX))]
+    #[garde(length(min = u8::MIN.into(), max = u8::MAX.into()))]
     pub description: String,
     /// Amount of the asset
     #[garde(range(min = u64::MIN, max = u64::MAX))]
@@ -159,7 +159,7 @@ pub struct SelfIssueRequest {
     pub name: String,
     /// Description of the asset
     #[garde(ascii)]
-    #[garde(length(min = 0, max = u8::MAX))]
+    #[garde(length(min = u8::MIN.into(), max = u8::MAX.into()))]
     pub description: String,
     /// contract metadata (only RGB21/UDA)
     #[garde(custom(verify_media_types))]
@@ -217,10 +217,10 @@ pub struct NewCollectible {
     pub name: String,
     /// Description of the asset
     #[garde(ascii)]
-    #[garde(length(min = 0, max = u8::MAX))]
+    #[garde(length(min = u8::MIN.into(), max = u8::MAX.into()))]
     pub description: String,
     /// attachments and media
-    #[garde(length(min = 1, max = u8::MAX))]
+    #[garde(length(min = u8::MIN.into(), max = u8::MAX.into()))]
     pub media: Vec<MediaInfo>,
 }
 
@@ -236,7 +236,7 @@ pub struct MediaInfo {
     pub ty: String,
     /// Source (aka. hyperlink) of the media
     #[garde(ascii)]
-    #[garde(length(min = 0, max = u16::MAX))]
+    #[garde(length(min = u16::MIN.into(), max = u16::MAX.into()))]
     pub source: String,
 }
 
@@ -252,7 +252,7 @@ pub struct AttachInfo {
     pub ty: String,
     /// Source (aka. hyperlink) of the media
     #[garde(ascii)]
-    #[garde(length(min = 0, max = u16::MAX))]
+    #[garde(length(min = u16::MIN.into(), max = u16::MAX.into()))]
     pub source: String,
 }
 
@@ -348,7 +348,7 @@ pub struct ImportRequest {
     pub import: AssetType,
     /// The payload data (in hexadecimal)
     #[garde(ascii)]
-    #[garde(length(min = 0, max = U64))]
+    #[garde(length(min = 0, max = usize::MAX))]
     pub data: String,
 }
 
@@ -605,7 +605,7 @@ pub struct PsbtResponse {
 #[garde(context(RGBContext))]
 pub struct SignPsbtRequest {
     /// PSBT encoded in Base64
-    #[garde(length(min = 0, max = u64::MAX))]
+    #[garde(length(min = 0, max = usize::MAX))]
     pub psbt: String,
     /// Descriptors to Sign
     // TODO: Check secure way to validate xpriv desc
@@ -628,7 +628,7 @@ pub struct SignedPsbtResponse {
 #[garde(context(RGBContext))]
 pub struct PublishPsbtRequest {
     /// PSBT encoded in Base64
-    #[garde(length(min = 0, max = u64::MAX))]
+    #[garde(length(min = 0, max = usize::MAX))]
     pub psbt: String,
 }
 
@@ -653,7 +653,7 @@ pub struct RgbTransferRequest {
     pub rgb_invoice: String,
     /// PSBT File Information
     #[garde(ascii)]
-    #[garde(length(min = 0, max = U64))]
+    #[garde(length(min = 0, max = usize::MAX))]
     pub psbt: String,
     /// Asset UTXO Terminal (ex. /0/0)
     #[garde(custom(verify_terminal_path))]
@@ -836,7 +836,7 @@ pub struct RgbInternalTransferResponse {
 pub struct AcceptRequest {
     /// Consignment encoded in hexadecimal
     #[garde(ascii)]
-    #[garde(length(min = 0, max = U64))]
+    #[garde(length(min = 0, max = usize::MAX))]
     pub consignment: String,
     /// Force Consignment accept
     #[garde(skip)]
@@ -864,7 +864,7 @@ pub struct RgbSaveTransferRequest {
     pub iface: String,
     /// Consignment encoded in hexadecimal
     #[garde(ascii)]
-    #[garde(length(min = 0, max = U64))]
+    #[garde(length(min = 0, max = usize::MAX))]
     pub consignment: String,
 }
 
