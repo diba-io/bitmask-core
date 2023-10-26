@@ -22,9 +22,12 @@ use strict_types::encoding::TypeName;
 
 use crate::structs::{IssueMetaRequest, IssueMetadata};
 
-#[derive(Clone, Eq, PartialEq, Debug, Display, Error, From)]
+use super::structs::MediaMetadata;
+
+#[derive(Clone, PartialEq, Debug, Display, Error, From)]
 #[display(doc_comments)]
 pub enum IssueContractError {
+    Issue(IssueError),
     Forge(BuilderError),
     /// The contract interface {0} is not supported in issuer operation
     NoContractSupport(String),
@@ -45,7 +48,7 @@ pub fn issue_contract<T>(
     seal: &str,
     network: &str,
     meta: Option<IssueMetaRequest>,
-    udas_data: BTreeMap<String, Vec<u8>>,
+    udas_data: BTreeMap<String, MediaMetadata>,
     resolver: &mut T,
     stock: &mut Stock,
 ) -> Result<Contract, IssueContractError>
@@ -82,7 +85,7 @@ where
         }
     };
 
-    let resp = contract_issued.map_err(IssueContractError::Forge)?;
+    let resp = contract_issued.map_err(IssueContractError::Issue)?;
     let contract_id = resp.contract_id().to_string();
     let resp = resp.validate(resolver).map_err(|consig| {
         IssueContractError::ContractInvalid(
@@ -107,7 +110,7 @@ fn issue_fungible_asset(
     supply: u64,
     seal: &str,
     network: &str,
-) -> Result<Contract, BuilderError> {
+) -> Result<Contract, IssueError> {
     let iface = rgb20();
     let schema = nia_schema();
     let iimpl = nia_rgb20();
@@ -144,6 +147,14 @@ fn issue_fungible_asset(
     Ok(contract)
 }
 
+#[derive(Clone, PartialEq, Debug, Display, Error, From)]
+#[display(doc_comments)]
+pub enum IssueError {
+    RgbError(#[from] BuilderError),
+
+    HexError(#[from] hex::FromHexError),
+}
+
 /// RGB21 interface
 #[allow(clippy::too_many_arguments)]
 fn issue_uda_asset(
@@ -155,8 +166,8 @@ fn issue_uda_asset(
     seal: &str,
     network: &str,
     meta: Option<IssueMetaRequest>,
-    udas_data: BTreeMap<String, Vec<u8>>,
-) -> Result<Contract, BuilderError> {
+    udas_data: BTreeMap<String, MediaMetadata>,
+) -> Result<Contract, IssueError> {
     let iface = rgb21();
     let schema = uda_schema();
     let iimpl = uda_rgb21();
@@ -182,13 +193,12 @@ fn issue_uda_asset(
                 let media_ty: &'static str = Box::leak(uda[0].ty.to_string().into_boxed_str());
                 let mut hash: [u8; 32] = [0; 32];
                 if let Some(data) = udas_data.get(&uda[0].source) {
-                    hash.copy_from_slice(data);
+                    hash.copy_from_slice(&hex::decode(&data.hash)?);
                 }
 
                 let preview = Some(EmbeddedMedia {
                     ty: MediaType::with(media_ty),
-                    data: SmallBlob::try_from_iter(uda[0].source.as_bytes().to_vec())
-                        .expect("invalid data"),
+                    data: SmallBlob::try_from_iter(hash).expect("invalid data"),
                 });
                 let media = Some(Attachment {
                     ty: MediaType::with(media_ty),

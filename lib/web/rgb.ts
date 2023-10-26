@@ -173,6 +173,21 @@ export const myOffers = async (
 export const myBids = async (nostrHexSk: string): Promise<RgbBidsResponse> =>
   JSON.parse(await BMC.my_bids(nostrHexSk));
 
+export const importConsignments = async (
+  request: ImportConsignmentsRequest
+): Promise<boolean> => JSON.parse(await BMC.import_consignments(request));
+
+export const getConsignment = async (
+  consigOrReceiptId: string
+): Promise<string> => JSON.parse(await BMC.get_consignment(consigOrReceiptId));
+
+export const importMedia = async (
+  request: ImportMediaRequest
+): Promise<boolean> => JSON.parse(await BMC.import_media(request));
+
+export const getMedia = async (mediaId: string): Promise<MediaMetadata> =>
+  JSON.parse(await BMC.get_media(mediaId));
+
 // Core type interfaces based on structs defined within the bitmask-core Rust crate:
 // https://github.com/diba-io/bitmask-core/blob/development/src/structs.rs
 
@@ -407,14 +422,14 @@ export interface PublishedPsbtResponse {
 
 export interface SignedPsbtResponse {
   /// PSBT is signed?
-  sign: boolean,
+  sign: boolean;
   /// PSBT signed
-  psbt: string,
+  psbt: string;
 }
 
 export interface PublishPsbtRequest {
   /// PSBT encoded in Base64
-  psbt: string,
+  psbt: string;
 }
 
 export interface RgbTransferRequest {
@@ -820,4 +835,18 @@ export interface RgbBidDetail {
   assetAmount: bigint;
   /// Bitcoin Price
   bitcoinPrice: bigint;
+}
+
+export interface ImportConsignmentsRequest {
+  [consignmentId: string]: string;
+}
+
+export interface MediaMetadata {
+  mime: string;
+  hyperlink: string;
+  hash: string;
+}
+
+export interface ImportMediaRequest {
+  [mediaId: string]: MediaMetadata;
 }

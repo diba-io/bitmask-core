@@ -33,7 +33,7 @@ use crate::rgb::{
     prefetch::{
         prefetch_resolver_allocations, prefetch_resolver_user_utxo_status, prefetch_resolver_utxos,
     },
-    psbt::estimate_fee_tx,
+    psbt::estimate_fee,
     resolvers::ExplorerResolver,
     structs::AddressAmount,
     structs::RgbExtractTransfer,
@@ -347,7 +347,7 @@ pub async fn prebuild_transfer_asset(
                 .collect();
             prefetch_resolver_txs(txids, resolver).await;
 
-            let (change_value, fee) = estimate_fee_tx(
+            let (change_value, fee) = estimate_fee(
                 assets_inputs.clone(),
                 bitcoin_inputs.clone(),
                 bitcoin_changes.clone(),
@@ -835,7 +835,7 @@ pub async fn prebuild_buyer_swap(
                 .collect();
             prefetch_resolver_txs(txids, resolver).await;
 
-            let (change_value, fee) = estimate_fee_tx(
+            let (change_value, fee) = estimate_fee(
                 vec![],
                 bitcoin_inputs.clone(),
                 bitcoin_changes.clone(),
@@ -906,9 +906,10 @@ pub fn prebuild_extract_transfer(
         Err(err) => return Err(SaveTransferError::WrongConsigSwap(err)),
     };
 
+    let consig_id = transfer.id().to_string();
     let contract_id = transfer.contract_id().to_string();
     Ok(RgbExtractTransfer {
-        consig_id: transfer.id().to_string(),
+        consig_id,
         strict: confined,
         contract_id,
         tx_id,

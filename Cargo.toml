@@ -1,10 +1,11 @@
 [package]
 name = "bitmask-core"
-version = "0.6.4-rc.1"
+version = "0.7.0-beta.1"
 authors = [
     "Jose Diego Robles <jose@diba.io>",
     "Hunter Trujillo <hunter@diba.io>",
     "Francisco Calderón <francisco@diba.io>",
+    "Armando Dutra <armando@diba.io>",
 ]
 description = "Core functionality for the BitMask wallet"
 edition = "2021"
@@ -29,7 +30,11 @@ server = ["tokio/full", "tower-http/cors"]
 anyhow = "1.0.75"
 amplify = "4.5.0"
 argon2 = "0.5.2"
+automerge = "0.5.2"
+autosurgeon = "0.8"
+baid58 = "0.4.4"
 base64 = { package = "base64-compat", version = "1.0.0" }
+base85 = "2.0.0"
 bech32 = "0.9.1"
 bip39 = { version = "2.0.0", features = ["rand"] }
 bitcoin_30 = { package = "bitcoin", version = "0.30", features = ["base64"] }
@@ -37,10 +42,12 @@ bitcoin = { version = "0.29.2", features = ["base64"] }
 bitcoin_hashes = "0.13.0"
 bitcoin_scripts = "0.10.0-alpha.2"
 bitcoin_blockchain = "0.10.0-alpha.2"
+blake3 = "1.5.0"
 bp-core = { version = "0.10.11", features = ["stl"] }
 bp-seals = "0.10.11"
-commit_verify = { version = "0.10.6", features = ["stl"] }
 carbonado = "0.3.3"
+chrono = "0.4"
+commit_verify = { version = "0.10.6", features = ["stl"] }
 console_error_panic_hook = "0.1.7"
 descriptor-wallet = { version = "0.10.0-alpha.2", features = [
     "descriptors",
@@ -72,7 +79,7 @@ psbt = { version = "0.10.0-alpha.2", features = [
     "construct",
 ] }
 regex = "1.7.0"
-reqwest = { version = "0.11.22", features = ["json"] }
+reqwest = { version = "0.11.22", features = ["json", "multipart"] }
 rgb-std = { version = "0.10.9" }
 rgb-wallet = { version = "0.10.9" }
 rgb-schemata = { version = "0.10.1" }
@@ -85,12 +92,6 @@ strict_types = "1.6.3"
 thiserror = "1.0"
 tokio = { version = "1.33.0", features = ["macros", "sync"] }
 zeroize = "1.6.0"
-blake3 = "1.5.0"
-base85 = "2.0.0"
-automerge = "0.5.2"
-autosurgeon = "0.8"
-baid58 = "0.4.4"
-chrono = "0.4"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 bdk = { version = "0.28.2", features = [

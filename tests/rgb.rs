@@ -13,6 +13,7 @@ mod rgb {
         // TODO: Review after support multi-token transfer
         // mod collectibles;
         mod accept;
+        mod batch;
         mod cambria;
         mod collectibles;
         mod crdt;
@@ -21,6 +22,7 @@ mod rgb {
         mod fungibles;
         mod import;
         mod issue;
+        mod proxy;
         mod rbf;
         mod states;
         mod swaps;
@@ -33,6 +35,7 @@ mod rgb {
     mod web {
         mod contracts;
         mod imports;
+        mod proxy;
         mod stl_ids;
         mod stl_load;
         mod swaps;

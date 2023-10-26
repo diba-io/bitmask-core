@@ -4,7 +4,8 @@ use crate::rgb::unit::utils::{
 };
 use bitmask_core::{
     rgb::{
-        psbt::{create_psbt, extract_commit, PsbtNewOptions},
+        consignment::NewTransferOptions,
+        psbt::{create_psbt, extract_commit, NewPsbtOptions},
         transfer::pay_invoice,
     },
     structs::{PsbtInputRequest, SecretString},
@@ -36,7 +37,7 @@ async fn allow_create_psbt_file() -> anyhow::Result<()> {
         Some("/0/1".to_string()),
         None,
         &tx_resolver,
-        PsbtNewOptions::default(),
+        NewPsbtOptions::default(),
     );
     assert!(psbt.is_ok());
 
@@ -53,7 +54,8 @@ async fn allow_extract_commit_from_psbt() -> anyhow::Result<()> {
     let seal = "tapret1st:ed823b41d8b9309933826b18e4af530363b359f05919c02bbe72f28cec6dec3e:0";
     let invoice = create_fake_invoice(contract_id, seal, &mut stock);
 
-    let result = pay_invoice(invoice.to_string(), psbt.to_string(), &mut stock);
+    let options = NewTransferOptions::default();
+    let result = pay_invoice(invoice.to_string(), psbt.to_string(), options, &mut stock);
     assert!(result.is_ok());
 
     let (psbt, _) = result.unwrap();

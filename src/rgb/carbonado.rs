@@ -8,10 +8,7 @@ use strict_encoding::{StrictDeserialize, StrictSerialize};
 use crate::carbonado::server_store;
 use crate::rgb::crdt::{LocalRgbAccount, LocalRgbOffers, RawRgbAccount};
 
-use crate::rgb::{
-    structs::RgbTransfers,
-    swap::{RgbBids, RgbOffers},
-};
+use crate::rgb::swap::{RgbBids, RgbOffers};
 use crate::{
     carbonado::{retrieve, server_retrieve, store},
     rgb::{
@@ -22,9 +19,12 @@ use crate::{
     },
 };
 
+use super::cambria::RgbtransferVersions;
+use super::structs::RgbTransfersV1;
 use super::swap::{PublicRgbOffers, RgbBidSwap};
 
 const RGB_ACCOUNT_VERSION: [u8; 2] = *b"v1";
+const RGB_TRANSFER_VERSION: [u8; 2] = *b"v1";
 
 #[derive(Debug, Clone, Eq, PartialEq, Display, From, Error)]
 #[display(doc_comments)]
@@ -106,7 +106,7 @@ pub async fn store_wallets(
 pub async fn store_transfers(
     sk: &str,
     name: &str,
-    rgb_transfers: &RgbTransfers,
+    rgb_transfers: &RgbTransfersV1,
 ) -> Result<(), StorageError> {
     let data = to_allocvec(rgb_transfers)
         .map_err(|op| StorageError::StrictWrite(name.to_string(), op.to_string()))?;
@@ -120,7 +120,7 @@ pub async fn store_transfers(
         &format!("{hashed_name}.c15"),
         &data,
         true,
-        Some(RGB_STRICT_TYPE_VERSION.to_vec()),
+        Some(RGB_TRANSFER_VERSION.to_vec()),
     )
     .await
     .map_err(|op| StorageError::CarbonadoWrite(name.to_string(), op.to_string()))
@@ -212,19 +212,24 @@ pub async fn retrieve_wallets(sk: &str, name: &str) -> Result<RgbAccountV1, Stor
     }
 }
 
-pub async fn retrieve_transfers(sk: &str, name: &str) -> Result<RgbTransfers, StorageError> {
+pub async fn retrieve_transfers(sk: &str, name: &str) -> Result<RgbTransfersV1, StorageError> {
     let hashed_name = blake3::hash(format!("{LIB_ID_RGB}-{name}").as_bytes())
         .to_hex()
         .to_lowercase();
 
-    let (data, _) = retrieve(sk, &format!("{hashed_name}.c15"), vec![])
+    let (data, metadata) = retrieve(sk, &format!("{hashed_name}.c15"), vec![])
         .await
         .map_err(|op| StorageError::CarbonadoRetrieve(name.to_string(), op.to_string()))?;
 
     if data.is_empty() {
-        Ok(RgbTransfers::default())
+        Ok(RgbTransfersV1::default())
     } else {
-        let rgb_wallets = from_bytes(&data)
+        let mut version: [u8; 8] = default!();
+        if let Some(metadata) = metadata {
+            version.copy_from_slice(&metadata);
+        }
+
+        let rgb_wallets = RgbtransferVersions::from_bytes(data, version)
             .map_err(|op| StorageError::StrictRetrieve(name.to_string(), op.to_string()))?;
         Ok(rgb_wallets)
     }

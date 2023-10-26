@@ -97,7 +97,7 @@ pub fn create_psbt(
     terminal_change: Option<String>,
     wallet: Option<RgbWallet>,
     tx_resolver: &impl ResolveTx,
-    options: PsbtNewOptions,
+    options: NewPsbtOptions,
 ) -> Result<(Psbt, String), CreatePsbtError> {
     if psbt_inputs.is_empty() {
         return Err(CreatePsbtError::EmptyInputs);
@@ -129,11 +129,12 @@ pub fn create_psbt(
 
     // Define Input Descriptors
     for psbt_input in psbt_inputs {
-        let new_input = InputDescriptor::resolve_psbt_input(
+        let new_input = InputDescriptor::from_request(
             psbt_input,
             global_descriptor.clone(),
-            wallet.clone(),
             tx_resolver,
+            wallet.clone(),
+            Some(options.clone()),
         )
         .map_err(CreatePsbtError::WrongInput)?;
 
@@ -335,7 +336,7 @@ pub enum EstimateFeeError {
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn estimate_fee_tx<T>(
+pub fn estimate_fee<T>(
     assets_inputs: Vec<PsbtInputRequest>,
     bitcoin_inputs: Vec<PsbtInputRequest>,
     bitcoin_changes: Vec<String>,
@@ -413,11 +414,12 @@ where
 
     let mut inputs = vec![];
     for psbt_input in psbt_inputs {
-        let new_input = InputDescriptor::resolve_psbt_input(
+        let new_input = InputDescriptor::from_request(
             psbt_input,
             global_descriptor.clone(),
-            Some(wallet.clone()),
             resolver,
+            Some(wallet.clone()),
+            None,
         )
         .map_err(EstimateFeeError::WrongPsbtInput)?;
         inputs.push(new_input);
@@ -473,66 +475,84 @@ where
 pub trait PsbtInputEx<T> {
     type Error: std::error::Error;
 
-    fn resolve_psbt_input(
+    fn from_request(
         psbt_input: PsbtInputRequest,
         descriptor: Descriptor<DerivationAccount>,
-        wallet: Option<RgbWallet>,
         tx_resolver: &impl ResolveTx,
+        wallet: Option<RgbWallet>,
+        options: Option<NewPsbtOptions>,
     ) -> Result<T, Self::Error>;
 }
 
 impl PsbtInputEx<InputDescriptor> for InputDescriptor {
     type Error = PsbtInputError;
 
-    fn resolve_psbt_input(
+    fn from_request(
         psbt_input: PsbtInputRequest,
         descriptor: Descriptor<DerivationAccount>,
-        wallet: Option<RgbWallet>,
         tx_resolver: &impl ResolveTx,
+        wallet: Option<RgbWallet>,
+        options: Option<NewPsbtOptions>,
     ) -> Result<Self, Self::Error> {
-        let sighash: PsbtSigHashRequest = psbt_input.sigh_hash.unwrap_or_default();
+        let opt = options.unwrap_or_default();
         let outpoint: OutPoint = psbt_input.utxo.parse().expect("invalid outpoint parse");
 
-        let mut input: InputDescriptor = InputDescriptor {
+        let sighash: PsbtSigHashRequest = psbt_input.sigh_hash.unwrap_or_default();
+        let sighash_type = EcdsaSighashType::from_consensus(sighash as u32);
+
+        let terminal = psbt_input
+            .utxo_terminal
+            .parse::<DerivationSubpath<UnhardenedIndex>>()
+            .map_err(|_| PsbtInputError::WrongTerminal)?;
+
+        let seq_no = if opt.rbf {
+            SeqNo::rbf()
+        } else {
+            SeqNo::default()
+        };
+
+        let mut input = InputDescriptor {
             outpoint,
-            terminal: psbt_input
-                .utxo_terminal
-                .parse::<DerivationSubpath<UnhardenedIndex>>()
-                .map_err(|_| PsbtInputError::WrongTerminal)?,
-            seq_no: SeqNo::default(),
+            terminal,
+            seq_no,
+            sighash_type,
             tweak: None,
-            sighash_type: EcdsaSighashType::from_consensus(sighash as u32),
         };
 
         // Verify TapTweak (User Input or Watcher inspect)
-        if let Some(tapret) = psbt_input.tapret {
-            input.tweak = Some((
-                Fingerprint::default(),
-                tapret
+        input.tweak = match psbt_input.tapret {
+            Some(taptweak) => {
+                let fp = Fingerprint::default();
+                let taptweak = taptweak
                     .parse::<sha256::Hash>()
-                    .map_err(|op| PsbtInputError::WrongInputTweak(op.to_string()))?,
-            ))
-        } else if let Some(tweak) = complete_input_desc(
-            descriptor.clone(),
-            input.clone(),
-            wallet.clone(),
-            tx_resolver,
-        )
-        .map_err(|op| PsbtInputError::WrongWatcherTweak(op.to_string()))?
-        {
-            input.tweak = Some((
-                Fingerprint::default(),
-                tweak
-                    .parse::<sha256::Hash>()
-                    .map_err(|op| PsbtInputError::WrongWatcherTweak(op.to_string()))?,
-            ))
-        }
+                    .map_err(|op| PsbtInputError::WrongInputTweak(op.to_string()))?;
+                Some((fp, taptweak))
+            }
+            None => {
+                let watcher_taptweak = retrieve_tapret(
+                    descriptor.clone(),
+                    input.clone(),
+                    wallet.clone(),
+                    tx_resolver,
+                )
+                .map_err(|op| PsbtInputError::WrongWatcherTweak(op.to_string()))?;
 
+                if let Some(taptweak) = watcher_taptweak {
+                    let fp = Fingerprint::default();
+                    let taptweak = taptweak
+                        .parse::<sha256::Hash>()
+                        .map_err(|op| PsbtInputError::WrongInputTweak(op.to_string()))?;
+                    Some((fp, taptweak))
+                } else {
+                    None
+                }
+            }
+        };
         Ok(input)
     }
 }
 
-fn complete_input_desc(
+fn retrieve_tapret(
     descriptor: Descriptor<DerivationAccount>,
     input: InputDescriptor,
     wallet: Option<RgbWallet>,
@@ -642,7 +662,7 @@ pub trait PsbtEx<T> {
         change_index: Vec<UnhardenedIndex>,
         fee: u64,
         tx_resolver: &impl ResolveTx,
-        options: PsbtNewOptions,
+        options: NewPsbtOptions,
     ) -> Result<T, Self::Error>;
 }
 
@@ -687,29 +707,41 @@ pub enum PsbtConstructError {
 
 #[derive(Clone, Debug, Display, Error, From)]
 #[display(doc_comments)]
-pub struct PsbtNewOptions {
+pub struct NewPsbtOptions {
     pub set_tapret: bool,
-    pub check_inflation: bool,
     pub force_inflation: u64,
+    pub rbf: bool,
 }
 
-impl Default for PsbtNewOptions {
+impl Default for NewPsbtOptions {
     fn default() -> Self {
         Self {
+            rbf: true,
             set_tapret: true,
-            check_inflation: true,
             force_inflation: 0,
         }
     }
 }
 
-impl PsbtNewOptions {
+impl NewPsbtOptions {
+    pub fn with(rbf: bool) -> Self {
+        Self {
+            rbf,
+            set_tapret: true,
+            force_inflation: 0,
+        }
+    }
+
     pub fn set_inflaction(inflaction: u64) -> Self {
         Self {
+            rbf: true,
             set_tapret: true,
-            check_inflation: false,
             force_inflation: inflaction,
         }
+    }
+
+    pub fn check_inflaction(self) -> bool {
+        self.force_inflation == 0
     }
 }
 
@@ -723,7 +755,7 @@ impl PsbtEx<Psbt> for Psbt {
         change_index: Vec<UnhardenedIndex>,
         fee: u64,
         tx_resolver: &impl ResolveTx,
-        options: PsbtNewOptions,
+        options: NewPsbtOptions,
     ) -> Result<Psbt, PsbtConstructError> {
         let mut xpub = bmap! {};
         descriptor.for_each_key(|account| {
@@ -944,7 +976,7 @@ impl PsbtEx<Psbt> for Psbt {
             })
             .collect();
 
-        let change = if !options.check_inflation {
+        let change = if !options.clone().check_inflaction() {
             options.force_inflation
         } else {
             match total_spent.checked_sub(total_sent + fee) {
