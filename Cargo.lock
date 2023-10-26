@@ -111,7 +111,7 @@ dependencies = [
  "serde_json",
  "serde_yaml",
  "stringly_conversions",
- "toml",
+ "toml 0.8.4",
  "wasm-bindgen",
 ]
 
@@ -558,8 +558,8 @@ checksum = "73290177011694f38ec25e165d0387ab7ea749a4b81cd4c80dae5988229f7a57"
 
 [[package]]
 name = "bitcoin_blockchain"
-version = "0.10.0-alpha.2"
-source = "git+https://github.com/crisdut/bp-foundation?branch=release/0.10.0-alpha.2#1495a3ef505e88bb947208acbbe86e05c1cfe2d6"
+version = "0.10.0"
+source = "git+https://github.com/crisdut/bp-foundation?branch=feat/bump-amplify-4#75535db4372c770b758b125442ba2721c5815d26"
 dependencies = [
  "amplify",
  "chrono",
@@ -597,8 +597,8 @@ dependencies = [
 
 [[package]]
 name = "bitcoin_hd"
-version = "0.10.0-alpha.2"
-source = "git+https://github.com/crisdut/descriptor-wallet?branch=exp/tapret-transfers#dbdb29be000f7df6ff6108511310e18ac34cd40e"
+version = "0.10.1"
+source = "git+https://github.com/crisdut/descriptor-wallet?branch=feat/bump-amplify-4#d9d754b239d9793c80799a057da06b4aad365f8b"
 dependencies = [
  "amplify",
  "bitcoin 0.29.2",
@@ -610,8 +610,8 @@ dependencies = [
 
 [[package]]
 name = "bitcoin_onchain"
-version = "0.10.0-alpha.2"
-source = "git+https://github.com/crisdut/descriptor-wallet?branch=exp/tapret-transfers#dbdb29be000f7df6ff6108511310e18ac34cd40e"
+version = "0.10.1"
+source = "git+https://github.com/crisdut/descriptor-wallet?branch=feat/bump-amplify-4#d9d754b239d9793c80799a057da06b4aad365f8b"
 dependencies = [
  "amplify",
  "bitcoin 0.29.2",
@@ -624,8 +624,8 @@ dependencies = [
 
 [[package]]
 name = "bitcoin_scripts"
-version = "0.10.0-alpha.2"
-source = "git+https://github.com/crisdut/bp-foundation?branch=release/0.10.0-alpha.2#1495a3ef505e88bb947208acbbe86e05c1cfe2d6"
+version = "0.10.0"
+source = "git+https://github.com/crisdut/bp-foundation?branch=feat/bump-amplify-4#75535db4372c770b758b125442ba2721c5815d26"
 dependencies = [
  "amplify",
  "bitcoin 0.29.2",
@@ -713,7 +713,7 @@ dependencies = [
  "strict_types",
  "thiserror",
  "tokio",
- "toml",
+ "toml 0.7.8",
  "tower-http",
  "wasm-bindgen",
  "wasm-bindgen-futures",
@@ -1227,8 +1227,8 @@ dependencies = [
 
 [[package]]
 name = "descriptor-wallet"
-version = "0.10.0-alpha.2"
-source = "git+https://github.com/crisdut/descriptor-wallet?branch=exp/tapret-transfers#dbdb29be000f7df6ff6108511310e18ac34cd40e"
+version = "0.10.1"
+source = "git+https://github.com/crisdut/descriptor-wallet?branch=feat/bump-amplify-4#d9d754b239d9793c80799a057da06b4aad365f8b"
 dependencies = [
  "amplify",
  "bitcoin 0.29.2",
@@ -1244,8 +1244,8 @@ dependencies = [
 
 [[package]]
 name = "descriptors"
-version = "0.10.0-alpha.2"
-source = "git+https://github.com/crisdut/descriptor-wallet?branch=exp/tapret-transfers#dbdb29be000f7df6ff6108511310e18ac34cd40e"
+version = "0.10.1"
+source = "git+https://github.com/crisdut/descriptor-wallet?branch=feat/bump-amplify-4#d9d754b239d9793c80799a057da06b4aad365f8b"
 dependencies = [
  "amplify",
  "bitcoin 0.29.2",
@@ -2580,8 +2580,8 @@ dependencies = [
 
 [[package]]
 name = "psbt"
-version = "0.10.0-alpha.2"
-source = "git+https://github.com/crisdut/descriptor-wallet?branch=exp/tapret-transfers#dbdb29be000f7df6ff6108511310e18ac34cd40e"
+version = "0.10.1"
+source = "git+https://github.com/crisdut/descriptor-wallet?branch=feat/bump-amplify-4#d9d754b239d9793c80799a057da06b4aad365f8b"
 dependencies = [
  "amplify",
  "bitcoin 0.29.2",
@@ -2735,7 +2735,7 @@ dependencies = [
 [[package]]
 name = "rgb-contracts"
 version = "0.10.2"
-source = "git+https://github.com/crisdut/rgb?branch=release/bmc-v0.7#def1509ccdba9b0d7d2f845918ab917e63f50d56"
+source = "git+https://github.com/crisdut/rgb?branch=feat/improviments#5dc0651cd4fcc90007ed422887a71abbec92d47b"
 dependencies = [
  "amplify",
  "baid58",
@@ -2775,7 +2775,7 @@ dependencies = [
 [[package]]
 name = "rgb-persist-fs"
 version = "0.10.0"
-source = "git+https://github.com/crisdut/rgb?branch=release/bmc-v0.7#def1509ccdba9b0d7d2f845918ab917e63f50d56"
+source = "git+https://github.com/crisdut/rgb?branch=feat/improviments#5dc0651cd4fcc90007ed422887a71abbec92d47b"
 dependencies = [
  "amplify",
  "rgb-std",
@@ -2802,7 +2802,7 @@ dependencies = [
 [[package]]
 name = "rgb-std"
 version = "0.10.9"
-source = "git+https://github.com/crisdut/rgb-wallet?branch=release/bmc-v0.7#24ccc941932dd4fd34a33e5b9e1695cf784ea446"
+source = "git+https://github.com/crisdut/rgb-wallet?branch=feat/improviments#a94dd7a3ad79347eb27ebe676c6def3ae516159f"
 dependencies = [
  "amplify",
  "baid58",
@@ -2821,7 +2821,7 @@ dependencies = [
 [[package]]
 name = "rgb-wallet"
 version = "0.10.9"
-source = "git+https://github.com/crisdut/rgb-wallet?branch=release/bmc-v0.7#24ccc941932dd4fd34a33e5b9e1695cf784ea446"
+source = "git+https://github.com/crisdut/rgb-wallet?branch=feat/improviments#a94dd7a3ad79347eb27ebe676c6def3ae516159f"
 dependencies = [
  "amplify",
  "baid58",
@@ -3308,8 +3308,8 @@ dependencies = [
 
 [[package]]
 name = "slip132"
-version = "0.10.0-alpha.2"
-source = "git+https://github.com/crisdut/descriptor-wallet?branch=exp/tapret-transfers#dbdb29be000f7df6ff6108511310e18ac34cd40e"
+version = "0.10.1"
+source = "git+https://github.com/crisdut/descriptor-wallet?branch=feat/bump-amplify-4#d9d754b239d9793c80799a057da06b4aad365f8b"
 dependencies = [
  "amplify",
  "bitcoin 0.29.2",
@@ -3441,7 +3441,7 @@ dependencies = [
  "serde_yaml",
  "sha2 0.10.8",
  "strict_encoding",
- "toml",
+ "toml 0.8.4",
 ]
 
 [[package]]
@@ -3694,15 +3694,27 @@ dependencies = [
 
 [[package]]
 name = "toml"
-version = "0.8.4"
+version = "0.7.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2ef75d881185fd2df4a040793927c153d863651108a93c7e17a9e591baa95cc6"
+checksum = "dd79e69d3b627db300ff956027cc6c3798cef26d22526befdfcd12feeb6d2257"
 dependencies = [
  "indexmap 2.0.2",
  "serde",
  "serde_spanned",
  "toml_datetime",
- "toml_edit",
+ "toml_edit 0.19.15",
+]
+
+[[package]]
+name = "toml"
+version = "0.8.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2ef75d881185fd2df4a040793927c153d863651108a93c7e17a9e591baa95cc6"
+dependencies = [
+ "serde",
+ "serde_spanned",
+ "toml_datetime",
+ "toml_edit 0.20.4",
 ]
 
 [[package]]
@@ -3712,6 +3724,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3550f4e9685620ac18a50ed434eb3aec30db8ba93b0287467bca5826ea25baf1"
 dependencies = [
  "serde",
+]
+
+[[package]]
+name = "toml_edit"
+version = "0.19.15"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1b5bb770da30e5cbfde35a2d7b9b8a2c4b8ef89548a7a6aeab5c9a576e3e7421"
+dependencies = [
+ "indexmap 2.0.2",
+ "serde",
+ "serde_spanned",
+ "toml_datetime",
+ "winnow",
 ]
 
 [[package]]
