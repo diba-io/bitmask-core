@@ -437,13 +437,14 @@ where
             .map_err(|op| EstimateFeeError::WrongTerminal(op.to_string()))?;
     }
 
-    let pre_psbt = Psbt::construct(
+    let pre_psbt = Psbt::new(
         &global_descriptor,
         &inputs,
         &outputs,
         change_index.to_vec(),
         0,
         resolver,
+        NewPsbtOptions::default(),
     )
     .map_err(|op| EstimateFeeError::PreBuildFail(op.to_string()))?;
 
