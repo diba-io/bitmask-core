@@ -1396,6 +1396,22 @@ pub async fn create_swap_transfer(
     })
 }
 
+pub async fn direct_swap_transfer(
+    sk: &str,
+    request: RgbBidRequest,
+) -> Result<RgbSwapResponse, RgbSwapError> {
+    let bid_response = create_buyer_bid(sk, request.clone()).await?;
+    create_swap_transfer(
+        sk,
+        RgbSwapRequest {
+            offer_id: request.offer_id,
+            bid_id: bid_response.bid_id,
+            swap_psbt: bid_response.swap_psbt,
+        },
+    )
+    .await
+}
+
 async fn internal_transfer_asset(
     request: RgbTransferRequest,
     options: NewTransferOptions,

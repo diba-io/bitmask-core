@@ -874,6 +874,21 @@ pub mod rgb {
     }
 
     #[wasm_bindgen]
+    pub fn direct_swap(nostr_hex_sk: String, request: JsValue) -> Promise {
+        set_panic_hook();
+
+        future_to_promise(async move {
+            let bid_req: RgbBidRequest = serde_wasm_bindgen::from_value(request).unwrap();
+            match crate::rgb::direct_swap_transfer(&nostr_hex_sk, bid_req).await {
+                Ok(result) => Ok(JsValue::from_string(
+                    serde_json::to_string(&result).unwrap(),
+                )),
+                Err(err) => Err(JsValue::from_string(err.to_string())),
+            }
+        })
+    }
+
+    #[wasm_bindgen]
     pub fn public_offers(nostr_hex_sk: String) -> Promise {
         set_panic_hook();
 

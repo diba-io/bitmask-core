@@ -157,6 +157,12 @@ export const createSwap = async (
 ): Promise<RgbSwapResponse> =>
   JSON.parse(await BMC.create_swap(nostrHexSk, request));
 
+export const directSwap = async (
+  nostrHexSk: string,
+  request: RgbBidRequest
+): Promise<RgbSwapResponse> =>
+  JSON.parse(await BMC.direct_swap(nostrHexSk, request));
+
 export const publicOffers = async (
   nostrHexSk: string
 ): Promise<PublicRgbOffersResponse> =>
