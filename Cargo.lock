@@ -865,9 +865,9 @@ checksum = "a2bd12c1caf447e69cd4528f47f94d203fd2582878ecb9e9465484c4148a8223"
 
 [[package]]
 name = "carbonado"
-version = "0.3.4"
+version = "0.3.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6507f8aaea3e7f181e84854527127bfc7452f0261ec7e494421b5d85c7a23d61"
+checksum = "fd620e86e3f9b4751cbd5199d54d8ed626e70f979691668d75ead7e952245196"
 dependencies = [
  "bao",
  "bech32",
@@ -880,7 +880,7 @@ dependencies = [
  "nom",
  "once_cell",
  "pretty_env_logger",
- "secp256k1 0.28.0",
+ "secp256k1 0.27.0",
  "serde",
  "snap",
  "thiserror",
@@ -2993,17 +2993,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "secp256k1"
-version = "0.28.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2acea373acb8c21ecb5a23741452acd2593ed44ee3d343e72baaa143bc89d0d5"
-dependencies = [
- "rand",
- "secp256k1-sys 0.9.0",
- "serde",
-]
-
-[[package]]
 name = "secp256k1-sys"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3017,15 +3006,6 @@ name = "secp256k1-sys"
 version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "70a129b9e9efbfb223753b9163c4ab3b13cff7fd9c7f010fbac25ab4099fa07e"
-dependencies = [
- "cc",
-]
-
-[[package]]
-name = "secp256k1-sys"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "09e67c467c38fd24bd5499dc9a18183b31575c12ee549197e3e20d57aa4fe3b7"
 dependencies = [
  "cc",
 ]
