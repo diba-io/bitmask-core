@@ -388,7 +388,9 @@ export interface PsbtRequest {
   /// Bitcoin Change Addresses (format: {address}:{amount})
   bitcoin_changes: string[];
   /// Bitcoin Fee
-  fee: PsbtFeeRequest;
+  fee: PsbtFeeRequest//
+  /// Allow RBF
+  rbf: boolean,
 }
 
 interface PsbtInputRequest {
@@ -400,6 +402,25 @@ interface PsbtInputRequest {
   utxo_terminal: string;
   /// Asset or Bitcoin Tweak
   tapret?: string;
+  /// Asset or Bitcoin Tweak
+  sigh_hash?: PsbtSigHashRequest,
+}
+
+interface PsbtSigHashRequest {
+    "All": string,
+    /// 0x2: Sign no outputs --- anyone can choose the destination.
+    "None": string,
+    /// 0x3: Sign the output whose index matches this input's index. If none exists,
+    /// sign the hash `0000000000000000000000000000000000000000000000000000000000000001`.
+    /// (This rule is probably an unintentional C++ism, but it's consensus so we have
+    /// to follow it.)
+    "Single": string,
+    /// 0x81: Sign all outputs but only this input.
+    "AllPlusAnyoneCanPay": string,
+    /// 0x82: Sign no outputs and only this input.
+    "NonePlusAnyoneCanPay": string,
+    /// 0x83: Sign one output and only this input (see `Single` for what "one output" means).
+    "SinglePlusAnyoneCanPay": string,
 }
 
 interface PsbtFeeRequest {
@@ -417,6 +438,8 @@ export interface PsbtResponse {
 export interface SignPsbtRequest {
   /// PSBT encoded in Base64
   psbt: string;
+  /// Descriptors to Sign
+  descriptors: string[],
 }
 
 export interface PublishedPsbtResponse {
@@ -706,6 +729,8 @@ export interface RgbOfferRequest {
   changeTerminal: string;
   /// Bitcoin Change Addresses (format: {address}:{amount})
   bitcoinChanges: string[];
+  presig: boolean,
+  expire_at?: number,
 }
 
 export interface RgbOfferResponse {
