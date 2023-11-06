@@ -377,9 +377,7 @@ pub async fn fund_vault(
     btc_descriptor_xprv: &SecretString,
     btc_change_descriptor_xprv: &SecretString,
     assets_address_1: &str,
-    assets_address_2: &str,
     uda_address_1: &str,
-    uda_address_2: &str,
     fee_rate: Option<f32>,
 ) -> Result<FundVaultDetails, BitcoinError> {
     let wallet = get_wallet(btc_descriptor_xprv, Some(btc_change_descriptor_xprv)).await?;
@@ -391,9 +389,7 @@ pub async fn fund_vault(
     };
 
     let assets_address_1 = Address::from_str(assets_address_1)?;
-    let assets_address_2 = Address::from_str(assets_address_2)?;
     let uda_address_1 = Address::from_str(uda_address_1)?;
-    let uda_address_2 = Address::from_str(uda_address_2)?;
 
     let mut rng = StdRng::from_entropy();
 
@@ -401,30 +397,13 @@ pub async fn fund_vault(
         address: assets_address_1,
         amount: rng.gen_range(600..1500),
     };
-    let asset_invoice_2 = SatsInvoice {
-        address: assets_address_2,
-        amount: rng.gen_range(600..1500),
-    };
     let uda_invoice_1 = SatsInvoice {
         address: uda_address_1,
         amount: rng.gen_range(600..1500),
     };
-    let uda_invoice_2 = SatsInvoice {
-        address: uda_address_2,
-        amount: rng.gen_range(600..1500),
-    };
 
-    let asset_tx_details = create_transaction(
-        vec![
-            asset_invoice_1,
-            asset_invoice_2,
-            uda_invoice_1,
-            uda_invoice_2,
-        ],
-        &wallet,
-        fee_rate,
-    )
-    .await?;
+    let asset_tx_details =
+        create_transaction(vec![asset_invoice_1, uda_invoice_1], &wallet, fee_rate).await?;
 
     let asset_txid = asset_tx_details.txid;
 

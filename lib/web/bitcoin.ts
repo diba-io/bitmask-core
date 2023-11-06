@@ -71,9 +71,7 @@ export const fundVault = async (
   descriptor: string,
   changeDescriptor: string,
   assetAddress1: string,
-  assetAddress2: string,
   udaAddress1: string,
-  udaAddress2: string,
   feeRate: number
 ): Promise<FundVaultDetails> =>
   JSON.parse(
@@ -81,9 +79,7 @@ export const fundVault = async (
       descriptor,
       changeDescriptor,
       assetAddress1,
-      assetAddress2,
       udaAddress1,
-      udaAddress2,
       feeRate
     )
   );
