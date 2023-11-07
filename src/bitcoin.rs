@@ -420,9 +420,9 @@ pub async fn fund_vault(
 
     Ok(FundVaultDetails {
         assets_output: Some(asset_outputs[0].to_owned()),
-        assets_change_output: Some(asset_outputs[1].to_owned()),
-        udas_output: Some(asset_outputs[2].to_owned()),
-        udas_change_output: Some(asset_outputs[3].to_owned()),
+        assets_change_output: None,
+        udas_output: Some(asset_outputs[1].to_owned()),
+        udas_change_output: None,
         is_funded: true,
     })
 }
