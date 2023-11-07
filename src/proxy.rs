@@ -255,7 +255,7 @@ pub use client::{
 #[cfg(target_arch = "wasm32")]
 mod client {
     use crate::{
-        constants::{BITMASK_ENDPOINT, NETWORK},
+        constants::{NETWORK, RGB_PROXY_ENDPOINT},
         rgb::structs::{
             RgbProxyConsigCarbonadoReq, RgbProxyConsigFileReq, RgbProxyConsigRes,
             RgbProxyConsigUploadRes, RgbProxyMediaCarbonadoReq, RgbProxyMediaFileReq,
@@ -270,7 +270,7 @@ mod client {
         request: RgbProxyConsigFileReq,
     ) -> Result<RgbProxyConsigUploadRes, ProxyServerError> {
         let network = NETWORK.read().await.to_string();
-        let endpoint = BITMASK_ENDPOINT.read().await.to_string();
+        let endpoint = RGB_PROXY_ENDPOINT.read().await.to_string();
 
         let name = request.clone().file_name;
         let url = format!("{endpoint}/proxy/consignment/{network}-{name}");
@@ -288,7 +288,7 @@ mod client {
         request: RgbProxyMediaFileReq,
     ) -> Result<RgbProxyMediaUploadRes, ProxyServerError> {
         let network = NETWORK.read().await.to_string();
-        let endpoint = BITMASK_ENDPOINT.read().await.to_string();
+        let endpoint = RGB_PROXY_ENDPOINT.read().await.to_string();
 
         let name = request.clone().file_name;
         let url = format!("{endpoint}/proxy/media/{network}-{name}");
@@ -305,7 +305,7 @@ mod client {
     pub async fn proxy_consig_retrieve(
         request_id: &str,
     ) -> Result<Option<RgbProxyConsigRes>, ProxyServerError> {
-        let endpoint = BITMASK_ENDPOINT.read().await.to_string();
+        let endpoint = RGB_PROXY_ENDPOINT.read().await.to_string();
 
         let request_id = request_id.replace("utxob:", "");
         let url = format!("{endpoint}/proxy/consignment/{request_id}");
@@ -324,7 +324,7 @@ mod client {
     pub async fn proxy_media_retrieve(
         attachment_id: &str,
     ) -> Result<Option<RgbProxyMediaRes>, ProxyServerError> {
-        let endpoint = BITMASK_ENDPOINT.read().await.to_string();
+        let endpoint = RGB_PROXY_ENDPOINT.read().await.to_string();
 
         let url = format!("{endpoint}/proxy/media/{attachment_id}");
         let reponse = get(&url, None)
