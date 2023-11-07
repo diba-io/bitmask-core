@@ -518,19 +518,7 @@ async fn create_presig_scriptless_swap() -> anyhow::Result<()> {
     )
     .await?;
 
-    let assets_address_2 = get_new_address(
-        &SecretString(seller_keys.public.rgb_assets_descriptor_xpub.clone()),
-        None,
-    )
-    .await?;
-
     let uda_address_1 = get_new_address(
-        &SecretString(seller_keys.public.rgb_udas_descriptor_xpub.clone()),
-        None,
-    )
-    .await?;
-
-    let uda_address_2 = get_new_address(
         &SecretString(seller_keys.public.rgb_udas_descriptor_xpub.clone()),
         None,
     )
