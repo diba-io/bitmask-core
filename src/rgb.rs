@@ -1563,10 +1563,10 @@ pub async fn accept_transfer(
         ..default!()
     };
 
-    let AcceptRequest { consignment, force } = request;
+    let AcceptRequest { consignment, .. } = request;
     prefetch_resolver_rgb(&consignment, &mut resolver, None).await;
 
-    let transfer = accept_rgb_transfer(consignment, force, &mut resolver, &mut stock)
+    let transfer = accept_rgb_transfer(consignment, false, &mut resolver, &mut stock)
         .map_err(TransferError::Accept)?;
 
     let resp = AcceptResponse {
@@ -2113,7 +2113,7 @@ pub async fn get_contract(sk: &str, contract_id: &str) -> Result<ContractRespons
 
                 if let Ok(contract_iface) = stock.contract_iface(contract_id, iface.iface_id()) {
                     sync_wallet(contract_index, &mut fetch_wallet, &mut resolver);
-                    prefetch_resolver_allocations(contract_iface, &mut resolver).await;
+                    prefetch_resolver_allocations(contract_iface, &mut resolver, true).await;
                     prefetch_resolver_utxos(
                         contract_index,
                         &mut fetch_wallet,
@@ -2239,7 +2239,7 @@ pub async fn list_contracts(sk: &str, hidden_contracts: bool) -> Result<Contract
                 .contract_iface(contract_id, iface.iface_id())
                 .expect("Iface not found");
 
-            prefetch_resolver_allocations(contract_iface, &mut resolver).await;
+            prefetch_resolver_allocations(contract_iface, &mut resolver, true).await;
             let mut resp = export_contract(contract_id, &mut stock, &mut resolver, &mut wallet)?;
             resp.meta = if let Some(meta) = resp.meta {
                 Some(
@@ -2866,4 +2866,92 @@ pub async fn decode_invoice(invoice: String) -> Result<RgbInvoiceResponse> {
         contract_id,
         amount,
     })
+}
+
+pub async fn inspect_contract(
+    stock: &mut Stock,
+    rgb_account: RgbAccountV1,
+    contract_id: &str,
+) -> Result<ContractResponse> {
+    let mut resolver = ExplorerResolver {
+        explorer_url: BITCOIN_EXPLORER_API.read().await.to_string(),
+        ..default!()
+    };
+
+    let contract_id = ContractId::from_str(contract_id)?;
+    let wallet = rgb_account.wallets.get(RGB_DEFAULT_NAME);
+    let mut wallet = match wallet {
+        Some(wallet) => {
+            let mut fetch_wallet = wallet.to_owned();
+            for contract_type in [AssetType::RGB20, AssetType::RGB21] {
+                let contract_index = contract_type.clone() as u32;
+                let iface_name = contract_type.to_string().to_uppercase().clone();
+
+                let iface = stock
+                    .iface_by_name(&tn!(iface_name.clone()))
+                    .map_err(|_| TransferError::NoIface)?;
+
+                if let Ok(contract_iface) = stock.contract_iface(contract_id, iface.iface_id()) {
+                    sync_wallet(contract_index, &mut fetch_wallet, &mut resolver);
+                    prefetch_resolver_allocations(contract_iface, &mut resolver, true).await;
+                    prefetch_resolver_utxos(
+                        contract_index,
+                        &mut fetch_wallet,
+                        &mut resolver,
+                        Some(RGB_DEFAULT_FETCH_LIMIT),
+                    )
+                    .await;
+                }
+            }
+
+            Some(fetch_wallet)
+        }
+        _ => None,
+    };
+
+    let contract = export_contract(contract_id, stock, &mut resolver, &mut wallet)?;
+    Ok(contract)
+}
+
+pub async fn read_contract(sk: &str, contract_id: &str) -> Result<ContractResponse> {
+    let mut resolver = ExplorerResolver {
+        explorer_url: BITCOIN_EXPLORER_API.read().await.to_string(),
+        ..default!()
+    };
+
+    let (mut stock, rgb_account) = retrieve_stock_account(sk).await?;
+
+    let contract_id = ContractId::from_str(contract_id)?;
+    let wallet = rgb_account.wallets.get(RGB_DEFAULT_NAME);
+    let mut wallet = match wallet {
+        Some(wallet) => {
+            let mut fetch_wallet = wallet.to_owned();
+            for contract_type in [AssetType::RGB20, AssetType::RGB21] {
+                let contract_index = contract_type.clone() as u32;
+                let iface_name = contract_type.to_string().to_uppercase().clone();
+
+                let iface = stock
+                    .iface_by_name(&tn!(iface_name.clone()))
+                    .map_err(|_| TransferError::NoIface)?;
+
+                if let Ok(contract_iface) = stock.contract_iface(contract_id, iface.iface_id()) {
+                    sync_wallet(contract_index, &mut fetch_wallet, &mut resolver);
+                    prefetch_resolver_allocations(contract_iface, &mut resolver, true).await;
+                    prefetch_resolver_utxos(
+                        contract_index,
+                        &mut fetch_wallet,
+                        &mut resolver,
+                        Some(RGB_DEFAULT_FETCH_LIMIT),
+                    )
+                    .await;
+                }
+            }
+
+            Some(fetch_wallet)
+        }
+        _ => None,
+    };
+
+    let contract = export_contract(contract_id, &mut stock, &mut resolver, &mut wallet)?;
+    Ok(contract)
 }

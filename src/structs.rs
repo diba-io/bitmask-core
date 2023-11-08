@@ -96,9 +96,7 @@ pub struct EncryptedWalletDataV04 {
 #[serde(rename_all = "camelCase")]
 pub struct FundVaultDetails {
     pub assets_output: Option<String>,
-    pub assets_change_output: Option<String>,
     pub udas_output: Option<String>,
-    pub udas_change_output: Option<String>,
     pub is_funded: bool,
 }
 

@@ -203,7 +203,5 @@ export interface WalletData {
 
 export interface FundVaultDetails {
   assetsOutput?: string;
-  assetsChangeOutput?: string;
   udasOutput?: string;
-  udasChangeOutput?: string;
 }

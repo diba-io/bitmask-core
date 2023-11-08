@@ -409,7 +409,7 @@ pub async fn fund_vault(
 
     info!(format!("asset txid: {asset_txid}"));
 
-    let asset_outputs: Vec<String> = asset_tx_details
+    let mut asset_outputs: Vec<String> = asset_tx_details
         .transaction
         .expect("asset tx should exist but doesn't")
         .output
@@ -418,11 +418,12 @@ pub async fn fund_vault(
         .map(|(i, _)| format!("{asset_txid}:{i}"))
         .collect();
 
+    let assets_output = asset_outputs.pop();
+    let udas_output = asset_outputs.pop();
+
     Ok(FundVaultDetails {
-        assets_output: Some(asset_outputs[0].to_owned()),
-        assets_change_output: None,
-        udas_output: Some(asset_outputs[1].to_owned()),
-        udas_change_output: None,
+        assets_output,
+        udas_output,
         is_funded: true,
     })
 }
@@ -450,21 +451,13 @@ pub async fn get_assets_vault(
     let mut uda_utxos: Vec<String> = uda_utxos.iter().map(utxo_string).collect();
     uda_utxos.sort();
 
-    let assets_change_output = assets_utxos.pop();
     let assets_output = assets_utxos.pop();
-    let udas_change_output = uda_utxos.pop();
     let udas_output = uda_utxos.pop();
 
-    let is_funded = assets_change_output.is_some()
-        && assets_output.is_some()
-        && udas_change_output.is_some()
-        && udas_output.is_some();
-
+    let is_funded = assets_output.is_some() && udas_output.is_some();
     Ok(FundVaultDetails {
         assets_output,
-        assets_change_output,
         udas_output,
-        udas_change_output,
         is_funded,
     })
 }
