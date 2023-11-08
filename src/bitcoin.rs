@@ -409,7 +409,7 @@ pub async fn fund_vault(
 
     info!(format!("asset txid: {asset_txid}"));
 
-    let mut asset_outputs: Vec<String> = asset_tx_details
+    let asset_outputs: Vec<String> = asset_tx_details
         .transaction
         .expect("asset tx should exist but doesn't")
         .output
@@ -418,8 +418,8 @@ pub async fn fund_vault(
         .map(|(i, _)| format!("{asset_txid}:{i}"))
         .collect();
 
-    let assets_output = asset_outputs.pop();
-    let udas_output = asset_outputs.pop();
+    let assets_output = Some(asset_outputs[0].to_owned());
+    let udas_output = Some(asset_outputs[1].to_owned());
 
     Ok(FundVaultDetails {
         assets_output,
