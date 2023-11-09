@@ -39,6 +39,7 @@ services:
     environment:
       - BITCOIN_NETWORK=regtest
       - BITCOIN_EXPLORER_API_REGTEST=http://node1:80/regtest/api
+      - RGB_PROXY_ENDPOINT=http://localhost:3001
     ports:
       - 7070:7070
     networks:

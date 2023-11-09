@@ -27,6 +27,13 @@ export const psbtSignFile = async (
 ): Promise<SignedPsbtResponse> =>
   JSON.parse(await BMC.psbt_sign_file(nostrHexSk, request));
 
+export const psbtSignAndPublishFile = async (
+  nostrHexSk: string,
+  request: SignPsbtRequest
+): Promise<SignedPsbtResponse> =>
+  JSON.parse(await BMC.psbt_sign_and_publish_file(nostrHexSk, request));
+
+
 export const transferAsset = async (
   nostrHexSk: string,
   request: RgbTransferRequest
