@@ -62,6 +62,12 @@ export const listContracts = async (
 ): Promise<ContractsResponse> =>
   JSON.parse(await BMC.list_contracts(nostrHexSk));
 
+export const hideContract = async (
+  nostrHexSk: string,
+  contractId: string
+): Promise<ContractHiddenResponse> =>
+  JSON.parse(await BMC.hidden_contract(nostrHexSk, contractId));
+
 export const listInterfaces = async (
   nostrHexSk: string
 ): Promise<InterfacesResponse> =>
@@ -193,12 +199,11 @@ export const getConsignment = async (
   consigOrReceiptId: string
 ): Promise<string> => JSON.parse(await BMC.get_consignment(consigOrReceiptId));
 
-export const importMedia = async (
-  request: ImportMediaRequest
-): Promise<boolean> => JSON.parse(await BMC.import_media(request));
+export const importUdaData = async (request: MediaRequest): Promise<boolean> =>
+  JSON.parse(await BMC.import_uda_data(request));
 
 export const getMedia = async (mediaId: string): Promise<MediaMetadata> =>
-  JSON.parse(await BMC.get_media(mediaId));
+  JSON.parse(await BMC.get_media_metadata(mediaId));
 
 // Core type interfaces based on structs defined within the bitmask-core Rust crate:
 // https://github.com/diba-io/bitmask-core/blob/development/src/structs.rs
@@ -295,7 +300,6 @@ export interface ContractMediaDetail {
   media?: MediaInfo;
   /// Attachments of the uda
   attachments: MediaInfo[];
-
 }
 
 /**
@@ -551,6 +555,13 @@ export interface AcceptResponse {
 export interface ContractsResponse {
   /// List of avaliable contracts
   contracts: ImportResponse[];
+}
+
+export interface ContractHiddenResponse {
+  /// The contract id
+  contractId: string;
+  /// is hidden
+  hidden: boolean;
 }
 
 export interface InterfacesResponse {
@@ -903,43 +914,43 @@ export interface RgbBidDetail {
 }
 
 export interface IssueMediaRequest {
-  preview?: MediaInfo,
-  media?: MediaInfo,
-  attachments: MediaInfo[],
+  preview?: MediaInfo;
+  media?: MediaInfo;
+  attachments: MediaInfo[];
 }
 
 export interface MediaRequest {
-  preview?: MediaItemRequest,
-  media?:MediaItemRequest,
-  attachments: MediaItemRequest[],
+  preview?: MediaItemRequest;
+  media?: MediaItemRequest;
+  attachments: MediaItemRequest[];
 }
 
 export interface MediaExtractRequest {
-  encode: MediaEncode,
-  item: MediaItemRequest,
+  encode: MediaEncode;
+  item: MediaItemRequest;
 }
 export interface MediaItemRequest {
   /// Media Type
-  type: string,
+  type: string;
   /// Media URI
-  uri: String,
+  uri: string;
 }
 
-export interface  MediaResponse {
-  preview?: MediaView,
-  media?: MediaView,
-  attachments: MediaView[],
+export interface MediaResponse {
+  preview?: MediaView;
+  media?: MediaView;
+  attachments: MediaView[];
 }
 
 export interface MediaView {
   /// Media ID
-  id: string,
+  id: string;
   /// Media Type
-  type: string,
+  type: string;
   /// Media Encoded Representation
-  source: string,
+  source: string;
   /// Media Encoded Type
-  encode: MediaEncode,
+  encode: MediaEncode;
 }
 
 export interface MediaEncode {
@@ -951,12 +962,8 @@ export interface ImportConsignmentsRequest {
   [consignmentId: string]: string;
 }
 export interface MediaMetadata {
-  id: string,
-  mime: string,
-  uri: string,
-  digest: string,
-}
-
-export interface ImportMediaRequest {
-  [mediaId: string]: MediaMetadata;
+  id: string;
+  mime: string;
+  uri: string;
+  digest: string;
 }
