@@ -5,7 +5,7 @@ use crate::rgb::unit::utils::{
 use bitmask_core::{
     rgb::{
         consignment::NewTransferOptions,
-        psbt::{create_psbt, extract_commit, NewPsbtOptions},
+        psbt::{create_psbt, extract_output_commit, NewPsbtOptions},
         transfer::pay_invoice,
     },
     structs::{PsbtInputRequest, SecretString},
@@ -45,7 +45,7 @@ async fn allow_create_psbt_file() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
-async fn allow_extract_commit_from_psbt() -> anyhow::Result<()> {
+async fn allow_extract_output_commit_from_psbt() -> anyhow::Result<()> {
     let mut stock = Stock::default();
     let psbt = create_fake_psbt();
 
@@ -60,7 +60,7 @@ async fn allow_extract_commit_from_psbt() -> anyhow::Result<()> {
 
     let (psbt, _) = result.unwrap();
 
-    let commit = extract_commit(psbt);
+    let commit = extract_output_commit(psbt);
     assert!(commit.is_ok());
     Ok(())
 }

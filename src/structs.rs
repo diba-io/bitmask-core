@@ -96,9 +96,7 @@ pub struct EncryptedWalletDataV04 {
 #[serde(rename_all = "camelCase")]
 pub struct FundVaultDetails {
     pub assets_output: Option<String>,
-    pub assets_change_output: Option<String>,
     pub udas_output: Option<String>,
-    pub udas_change_output: Option<String>,
     pub is_funded: bool,
 }
 
@@ -823,6 +821,8 @@ pub struct RgbInternalTransferResponse {
     pub psbt: String,
     /// Outpoint (used to spend output)
     pub outpoint: String,
+    /// Outpoint Amount (used to spend output)
+    pub amount: u64,
     /// Tapret Commitment (used to spend output)
     pub commit: String,
     /// Strict Consignments (in hexadecimal)

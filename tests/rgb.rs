@@ -21,6 +21,7 @@ mod rgb {
         mod dustless;
         mod fungibles;
         mod import;
+        mod inspect;
         mod issue;
         mod proxy;
         mod rbf;
@@ -35,6 +36,7 @@ mod rgb {
     mod web {
         mod contracts;
         mod imports;
+        // mod inspect;
         mod proxy;
         mod stl_ids;
         mod stl_load;

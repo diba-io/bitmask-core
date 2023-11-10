@@ -377,9 +377,7 @@ pub async fn fund_vault(
     btc_descriptor_xprv: &SecretString,
     btc_change_descriptor_xprv: &SecretString,
     assets_address_1: &str,
-    assets_address_2: &str,
     uda_address_1: &str,
-    uda_address_2: &str,
     fee_rate: Option<f32>,
 ) -> Result<FundVaultDetails, BitcoinError> {
     let wallet = get_wallet(btc_descriptor_xprv, Some(btc_change_descriptor_xprv)).await?;
@@ -391,9 +389,7 @@ pub async fn fund_vault(
     };
 
     let assets_address_1 = Address::from_str(assets_address_1)?;
-    let assets_address_2 = Address::from_str(assets_address_2)?;
     let uda_address_1 = Address::from_str(uda_address_1)?;
-    let uda_address_2 = Address::from_str(uda_address_2)?;
 
     let mut rng = StdRng::from_entropy();
 
@@ -401,30 +397,13 @@ pub async fn fund_vault(
         address: assets_address_1,
         amount: rng.gen_range(600..1500),
     };
-    let asset_invoice_2 = SatsInvoice {
-        address: assets_address_2,
-        amount: rng.gen_range(600..1500),
-    };
     let uda_invoice_1 = SatsInvoice {
         address: uda_address_1,
         amount: rng.gen_range(600..1500),
     };
-    let uda_invoice_2 = SatsInvoice {
-        address: uda_address_2,
-        amount: rng.gen_range(600..1500),
-    };
 
-    let asset_tx_details = create_transaction(
-        vec![
-            asset_invoice_1,
-            asset_invoice_2,
-            uda_invoice_1,
-            uda_invoice_2,
-        ],
-        &wallet,
-        fee_rate,
-    )
-    .await?;
+    let asset_tx_details =
+        create_transaction(vec![asset_invoice_1, uda_invoice_1], &wallet, fee_rate).await?;
 
     let asset_txid = asset_tx_details.txid;
 
@@ -439,11 +418,12 @@ pub async fn fund_vault(
         .map(|(i, _)| format!("{asset_txid}:{i}"))
         .collect();
 
+    let assets_output = Some(asset_outputs[0].to_owned());
+    let udas_output = Some(asset_outputs[1].to_owned());
+
     Ok(FundVaultDetails {
-        assets_output: Some(asset_outputs[0].to_owned()),
-        assets_change_output: Some(asset_outputs[1].to_owned()),
-        udas_output: Some(asset_outputs[2].to_owned()),
-        udas_change_output: Some(asset_outputs[3].to_owned()),
+        assets_output,
+        udas_output,
         is_funded: true,
     })
 }
@@ -471,21 +451,13 @@ pub async fn get_assets_vault(
     let mut uda_utxos: Vec<String> = uda_utxos.iter().map(utxo_string).collect();
     uda_utxos.sort();
 
-    let assets_change_output = assets_utxos.pop();
     let assets_output = assets_utxos.pop();
-    let udas_change_output = uda_utxos.pop();
     let udas_output = uda_utxos.pop();
 
-    let is_funded = assets_change_output.is_some()
-        && assets_output.is_some()
-        && udas_change_output.is_some()
-        && udas_output.is_some();
-
+    let is_funded = assets_output.is_some() && udas_output.is_some();
     Ok(FundVaultDetails {
         assets_output,
-        assets_change_output,
         udas_output,
-        udas_change_output,
         is_funded,
     })
 }

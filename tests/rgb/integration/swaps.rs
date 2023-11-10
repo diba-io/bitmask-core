@@ -63,19 +63,7 @@ async fn create_scriptless_swap() -> anyhow::Result<()> {
     )
     .await?;
 
-    let assets_address_2 = get_new_address(
-        &SecretString(seller_keys.public.rgb_assets_descriptor_xpub.clone()),
-        None,
-    )
-    .await?;
-
     let uda_address_1 = get_new_address(
-        &SecretString(seller_keys.public.rgb_udas_descriptor_xpub.clone()),
-        None,
-    )
-    .await?;
-
-    let uda_address_2 = get_new_address(
         &SecretString(seller_keys.public.rgb_udas_descriptor_xpub.clone()),
         None,
     )
@@ -88,9 +76,7 @@ async fn create_scriptless_swap() -> anyhow::Result<()> {
         &btc_descriptor_xprv,
         &btc_change_descriptor_xprv,
         &assets_address_1,
-        &assets_address_2,
         &uda_address_1,
-        &uda_address_2,
         Some(1.1),
     )
     .await?;
@@ -305,19 +291,7 @@ async fn create_scriptless_swap_for_uda() -> anyhow::Result<()> {
     )
     .await?;
 
-    let assets_address_2 = get_new_address(
-        &SecretString(seller_keys.public.rgb_assets_descriptor_xpub.clone()),
-        None,
-    )
-    .await?;
-
     let uda_address_1 = get_new_address(
-        &SecretString(seller_keys.public.rgb_udas_descriptor_xpub.clone()),
-        None,
-    )
-    .await?;
-
-    let uda_address_2 = get_new_address(
         &SecretString(seller_keys.public.rgb_udas_descriptor_xpub.clone()),
         None,
     )
@@ -330,9 +304,7 @@ async fn create_scriptless_swap_for_uda() -> anyhow::Result<()> {
         &btc_descriptor_xprv,
         &btc_change_descriptor_xprv,
         &assets_address_1,
-        &assets_address_2,
         &uda_address_1,
-        &uda_address_2,
         Some(1.1),
     )
     .await?;
@@ -546,19 +518,7 @@ async fn create_presig_scriptless_swap() -> anyhow::Result<()> {
     )
     .await?;
 
-    let assets_address_2 = get_new_address(
-        &SecretString(seller_keys.public.rgb_assets_descriptor_xpub.clone()),
-        None,
-    )
-    .await?;
-
     let uda_address_1 = get_new_address(
-        &SecretString(seller_keys.public.rgb_udas_descriptor_xpub.clone()),
-        None,
-    )
-    .await?;
-
-    let uda_address_2 = get_new_address(
         &SecretString(seller_keys.public.rgb_udas_descriptor_xpub.clone()),
         None,
     )
@@ -571,9 +531,7 @@ async fn create_presig_scriptless_swap() -> anyhow::Result<()> {
         &btc_descriptor_xprv,
         &btc_change_descriptor_xprv,
         &assets_address_1,
-        &assets_address_2,
         &uda_address_1,
-        &uda_address_2,
         Some(1.1),
     )
     .await?;

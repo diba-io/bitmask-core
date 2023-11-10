@@ -325,9 +325,7 @@ pub mod bitcoin {
         descriptor: String,
         change_descriptor: String,
         asset_address_1: String,
-        asset_address_2: String,
         uda_address_1: String,
-        uda_address_2: String,
         fee_rate: Option<f32>,
     ) -> Promise {
         set_panic_hook();
@@ -337,9 +335,7 @@ pub mod bitcoin {
                 &SecretString(descriptor),
                 &SecretString(change_descriptor),
                 &asset_address_1,
-                &asset_address_2,
                 &uda_address_1,
-                &uda_address_2,
                 fee_rate,
             )
             .await

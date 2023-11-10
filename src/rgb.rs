@@ -50,7 +50,7 @@ use crate::{
     constants::{get_network, BITCOIN_EXPLORER_API, NETWORK},
     rgb::{
         issue::{issue_contract as create_contract, IssueContractError},
-        psbt::{create_psbt as create_rgb_psbt, extract_commit},
+        psbt::{create_psbt as create_rgb_psbt, extract_output_commit},
         resolvers::ExplorerResolver,
         transfer::{
             accept_transfer as accept_rgb_transfer, create_invoice as create_rgb_invoice,
@@ -770,6 +770,7 @@ pub async fn full_transfer_asset(
         psbt,
         commit,
         outpoint,
+        amount,
         ..
     } = internal_transfer_asset(
         transfer_req,
@@ -785,7 +786,13 @@ pub async fn full_transfer_asset(
         _ => return Err(TransferError::NoWatcher),
     };
 
-    save_tap_commit_str(&outpoint, &commit, &psbt_response.terminal, &mut rgb_wallet);
+    save_tap_commit_str(
+        &outpoint,
+        amount,
+        &commit,
+        &psbt_response.terminal,
+        &mut rgb_wallet,
+    );
     rgb_account
         .wallets
         .insert(RGB_DEFAULT_NAME.to_owned(), rgb_wallet);
@@ -827,6 +834,7 @@ pub async fn transfer_asset(
         psbt,
         commit,
         outpoint,
+        amount,
         ..
     } = internal_transfer_asset(
         request.clone(),
@@ -842,7 +850,13 @@ pub async fn transfer_asset(
         _ => return Err(TransferError::NoWatcher),
     };
 
-    save_tap_commit_str(&outpoint, &commit, &request.terminal, &mut rgb_wallet);
+    save_tap_commit_str(
+        &outpoint,
+        amount,
+        &commit,
+        &request.terminal,
+        &mut rgb_wallet,
+    );
     rgb_account
         .wallets
         .insert(RGB_DEFAULT_NAME.to_owned(), rgb_wallet);
@@ -1332,6 +1346,7 @@ pub async fn create_swap_transfer(
         consig: final_consig,
         outpoint,
         commit,
+        amount,
         ..
     } = internal_transfer_asset(
         transfer_req,
@@ -1352,6 +1367,7 @@ pub async fn create_swap_transfer(
         store_bids(sk, my_bids).await.map_err(RgbSwapError::IO)?;
 
         rgb_swap_bid.tap_outpoint = Some(outpoint);
+        rgb_swap_bid.tap_amount = Some(amount);
         rgb_swap_bid.tap_commit = Some(commit);
     } else {
         let mut my_offers = retrieve_offers(sk).await.map_err(RgbSwapError::IO)?;
@@ -1366,7 +1382,13 @@ pub async fn create_swap_transfer(
         if let Some(list_offers) = my_offers.clone().offers.get(&contract_id) {
             if let Some(my_offer) = list_offers.iter().find(|x| x.offer_id == offer_id) {
                 let mut rgb_wallet = rgb_account.wallets.get(RGB_DEFAULT_NAME).unwrap().clone();
-                save_tap_commit_str(&outpoint, &commit, &my_offer.terminal, &mut rgb_wallet);
+                save_tap_commit_str(
+                    &outpoint,
+                    amount,
+                    &commit,
+                    &my_offer.terminal,
+                    &mut rgb_wallet,
+                );
                 rgb_account
                     .wallets
                     .insert(RGB_DEFAULT_NAME.to_owned(), rgb_wallet);
@@ -1442,7 +1464,8 @@ async fn internal_transfer_asset(
 
     let (psbt, mut transfers) =
         pay_invoice(invoice.clone(), psbt, options.clone(), stock).map_err(TransferError::Pay)?;
-    let (outpoint, commit) = extract_commit(psbt.clone()).map_err(TransferError::Commitment)?;
+    let (outpoint, amount, commit) =
+        extract_output_commit(psbt.clone()).map_err(TransferError::Commitment)?;
 
     let transfer = transfers.remove(0);
     let consig_id = transfer.bindle_id().to_string();
@@ -1486,6 +1509,7 @@ async fn internal_transfer_asset(
     let resp = RgbInternalTransferResponse {
         consig_id,
         consig,
+        amount,
         psbt: psbt_hex,
         commit,
         outpoint: outpoint.to_string(),
@@ -1511,6 +1535,7 @@ pub async fn internal_replace_transfer(
         commit,
         outpoint,
         consigs,
+        amount,
         ..
     } = internal_transfer_asset(
         request.clone(),
@@ -1526,7 +1551,13 @@ pub async fn internal_replace_transfer(
         _ => return Err(TransferError::NoWatcher),
     };
 
-    save_tap_commit_str(&outpoint, &commit, &request.terminal, &mut rgb_wallet);
+    save_tap_commit_str(
+        &outpoint,
+        amount,
+        &commit,
+        &request.terminal,
+        &mut rgb_wallet,
+    );
     rgb_account
         .wallets
         .insert(RGB_DEFAULT_NAME.to_owned(), rgb_wallet);
@@ -1563,10 +1594,10 @@ pub async fn accept_transfer(
         ..default!()
     };
 
-    let AcceptRequest { consignment, force } = request;
+    let AcceptRequest { consignment, .. } = request;
     prefetch_resolver_rgb(&consignment, &mut resolver, None).await;
 
-    let transfer = accept_rgb_transfer(consignment, force, &mut resolver, &mut stock)
+    let transfer = accept_rgb_transfer(consignment, false, &mut resolver, &mut stock)
         .map_err(TransferError::Accept)?;
 
     let resp = AcceptResponse {
@@ -1860,11 +1891,13 @@ pub async fn internal_swap_transfers(
                 let RgbBidSwap {
                     tap_commit,
                     tap_outpoint,
+                    tap_amount,
                     ..
                 } = swap_bid;
                 if tap_commit.is_some() && tap_outpoint.is_some() {
                     save_tap_commit_str(
                         &tap_outpoint.unwrap_or_default(),
+                        tap_amount.unwrap_or_default(),
                         &tap_commit.unwrap_or_default(),
                         &offer.terminal,
                         rgb_wallet,
@@ -2113,7 +2146,7 @@ pub async fn get_contract(sk: &str, contract_id: &str) -> Result<ContractRespons
 
                 if let Ok(contract_iface) = stock.contract_iface(contract_id, iface.iface_id()) {
                     sync_wallet(contract_index, &mut fetch_wallet, &mut resolver);
-                    prefetch_resolver_allocations(contract_iface, &mut resolver).await;
+                    prefetch_resolver_allocations(contract_iface, &mut resolver, true).await;
                     prefetch_resolver_utxos(
                         contract_index,
                         &mut fetch_wallet,
@@ -2239,7 +2272,7 @@ pub async fn list_contracts(sk: &str, hidden_contracts: bool) -> Result<Contract
                 .contract_iface(contract_id, iface.iface_id())
                 .expect("Iface not found");
 
-            prefetch_resolver_allocations(contract_iface, &mut resolver).await;
+            prefetch_resolver_allocations(contract_iface, &mut resolver, true).await;
             let mut resp = export_contract(contract_id, &mut stock, &mut resolver, &mut wallet)?;
             resp.meta = if let Some(meta) = resp.meta {
                 Some(
@@ -2866,4 +2899,92 @@ pub async fn decode_invoice(invoice: String) -> Result<RgbInvoiceResponse> {
         contract_id,
         amount,
     })
+}
+
+pub async fn inspect_contract(
+    stock: &mut Stock,
+    rgb_account: RgbAccountV1,
+    contract_id: &str,
+) -> Result<ContractResponse> {
+    let mut resolver = ExplorerResolver {
+        explorer_url: BITCOIN_EXPLORER_API.read().await.to_string(),
+        ..default!()
+    };
+
+    let contract_id = ContractId::from_str(contract_id)?;
+    let wallet = rgb_account.wallets.get(RGB_DEFAULT_NAME);
+    let mut wallet = match wallet {
+        Some(wallet) => {
+            let mut fetch_wallet = wallet.to_owned();
+            for contract_type in [AssetType::RGB20, AssetType::RGB21] {
+                let contract_index = contract_type.clone() as u32;
+                let iface_name = contract_type.to_string().to_uppercase().clone();
+
+                let iface = stock
+                    .iface_by_name(&tn!(iface_name.clone()))
+                    .map_err(|_| TransferError::NoIface)?;
+
+                if let Ok(contract_iface) = stock.contract_iface(contract_id, iface.iface_id()) {
+                    sync_wallet(contract_index, &mut fetch_wallet, &mut resolver);
+                    prefetch_resolver_allocations(contract_iface, &mut resolver, true).await;
+                    prefetch_resolver_utxos(
+                        contract_index,
+                        &mut fetch_wallet,
+                        &mut resolver,
+                        Some(RGB_DEFAULT_FETCH_LIMIT),
+                    )
+                    .await;
+                }
+            }
+
+            Some(fetch_wallet)
+        }
+        _ => None,
+    };
+
+    let contract = export_contract(contract_id, stock, &mut resolver, &mut wallet)?;
+    Ok(contract)
+}
+
+pub async fn read_contract(sk: &str, contract_id: &str) -> Result<ContractResponse> {
+    let mut resolver = ExplorerResolver {
+        explorer_url: BITCOIN_EXPLORER_API.read().await.to_string(),
+        ..default!()
+    };
+
+    let (mut stock, rgb_account) = retrieve_stock_account(sk).await?;
+
+    let contract_id = ContractId::from_str(contract_id)?;
+    let wallet = rgb_account.wallets.get(RGB_DEFAULT_NAME);
+    let mut wallet = match wallet {
+        Some(wallet) => {
+            let mut fetch_wallet = wallet.to_owned();
+            for contract_type in [AssetType::RGB20, AssetType::RGB21] {
+                let contract_index = contract_type.clone() as u32;
+                let iface_name = contract_type.to_string().to_uppercase().clone();
+
+                let iface = stock
+                    .iface_by_name(&tn!(iface_name.clone()))
+                    .map_err(|_| TransferError::NoIface)?;
+
+                if let Ok(contract_iface) = stock.contract_iface(contract_id, iface.iface_id()) {
+                    sync_wallet(contract_index, &mut fetch_wallet, &mut resolver);
+                    prefetch_resolver_allocations(contract_iface, &mut resolver, true).await;
+                    prefetch_resolver_utxos(
+                        contract_index,
+                        &mut fetch_wallet,
+                        &mut resolver,
+                        Some(RGB_DEFAULT_FETCH_LIMIT),
+                    )
+                    .await;
+                }
+            }
+
+            Some(fetch_wallet)
+        }
+        _ => None,
+    };
+
+    let contract = export_contract(contract_id, &mut stock, &mut resolver, &mut wallet)?;
+    Ok(contract)
 }

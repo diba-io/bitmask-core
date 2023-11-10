@@ -27,6 +27,12 @@ export const psbtSignFile = async (
 ): Promise<SignedPsbtResponse> =>
   JSON.parse(await BMC.psbt_sign_file(nostrHexSk, request));
 
+export const psbtSignAndPublishFile = async (
+  nostrHexSk: string,
+  request: SignPsbtRequest
+): Promise<SignedPsbtResponse> =>
+  JSON.parse(await BMC.psbt_sign_and_publish_file(nostrHexSk, request));
+
 export const transferAsset = async (
   nostrHexSk: string,
   request: RgbTransferRequest
@@ -407,20 +413,20 @@ interface PsbtInputRequest {
 }
 
 interface PsbtSigHashRequest {
-    "All": string;
-    /// 0x2: Sign no outputs --- anyone can choose the destination.
-    "None": string;
-    /// 0x3: Sign the output whose index matches this input's index. If none exists,
-    /// sign the hash `0000000000000000000000000000000000000000000000000000000000000001`.
-    /// (This rule is probably an unintentional C++ism, but it's consensus so we have
-    /// to follow it.)
-    "Single": string;
-    /// 0x81: Sign all outputs but only this input.
-    "AllPlusAnyoneCanPay": string;
-    /// 0x82: Sign no outputs and only this input.
-    "NonePlusAnyoneCanPay": string;
-    /// 0x83: Sign one output and only this input (see `Single` for what "one output" means).
-    "SinglePlusAnyoneCanPay": string;
+  All: string;
+  /// 0x2: Sign no outputs --- anyone can choose the destination.
+  None: string;
+  /// 0x3: Sign the output whose index matches this input's index. If none exists,
+  /// sign the hash `0000000000000000000000000000000000000000000000000000000000000001`.
+  /// (This rule is probably an unintentional C++ism, but it's consensus so we have
+  /// to follow it.)
+  Single: string;
+  /// 0x81: Sign all outputs but only this input.
+  AllPlusAnyoneCanPay: string;
+  /// 0x82: Sign no outputs and only this input.
+  NonePlusAnyoneCanPay: string;
+  /// 0x83: Sign one output and only this input (see `Single` for what "one output" means).
+  SinglePlusAnyoneCanPay: string;
 }
 
 interface PsbtFeeRequest {

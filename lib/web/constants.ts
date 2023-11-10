@@ -28,6 +28,7 @@ export const DISABLE_LN =
   process.env?.DISABLE_LN === "true" ? true : false || "";
 export let LNDHUBX = false;
 export let CARBONADO = false;
+export let BITMASK = false;
 
 export const init = async (networkOverride?: string) => {
   try {
@@ -53,6 +54,9 @@ export const init = async (networkOverride?: string) => {
     if (process.env.CARBONADO_ENDPOINT) {
       await setEnv("CARBONADO_ENDPOINT", process.env.CARBONADO_ENDPOINT);
     }
+    if (process.env.BITMASK_ENDPOINT) {
+      await setEnv("BITMASK_ENDPOINT", process.env.BITMASK_ENDPOINT);
+    }
     if (process.env.BITCOIN_EXPLORER_API_MAINNET) {
       await setEnv(
         "BITCOIN_EXPLORER_API_MAINNET",
@@ -65,6 +69,7 @@ export const init = async (networkOverride?: string) => {
 
   const lndhubx = await getEnv("LNDHUB_ENDPOINT");
   const carbonado = await getEnv("CARBONADO_ENDPOINT");
+  const bitmask = await getEnv("BITMASK_ENDPOINT");
 
   try {
     await fetch(`${lndhubx}/nodeinfo`);
@@ -82,9 +87,18 @@ export const init = async (networkOverride?: string) => {
     CARBONADO = false;
     console.warn("Could not reach carbonado", carbonado, e);
   }
+  try {
+    await fetch(`${bitmask}/status`);
+    BITMASK = true;
+    console.debug(`${bitmask}/status successfully reached`);
+  } catch (e) {
+    BITMASK = false;
+    console.warn("Could not reach bitmask", bitmask, e);
+  }
 
   console.debug("Using LNDHubX endpoint:", lndhubx);
   console.debug("Using Carbonado endpoint:", carbonado);
+  console.debug("Using bitmaskd endpoint:", bitmask);
 };
 
 init();

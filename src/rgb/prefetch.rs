@@ -2,7 +2,7 @@
 #![allow(unused_variables)]
 use crate::rgb::resolvers::ExplorerResolver;
 use crate::structs::{AssetType, MediaInfo, TxStatus};
-use crate::{debug, structs::IssueMetaRequest, structs::UtxoSpentStatus};
+use crate::{structs::IssueMetaRequest, structs::UtxoSpentStatus};
 use amplify::{
     confinement::Confined,
     hex::{FromHex, ToHex},
@@ -66,6 +66,7 @@ pub async fn prefetch_resolver_user_utxo_status(
 pub async fn prefetch_resolver_allocations(
     contract_iface: ContractIface,
     explorer: &mut ExplorerResolver,
+    with_block_height: bool,
 ) {
 }
 
@@ -577,6 +578,7 @@ pub async fn prefetch_resolver_tx_height(txid: rgbstd::Txid, explorer: &mut Expl
 pub async fn prefetch_resolver_allocations(
     contract_iface: ContractIface,
     explorer: &mut ExplorerResolver,
+    with_block_height: bool,
 ) {
     let esplora_client: EsploraBlockchain =
         EsploraBlockchain::new(&explorer.explorer_url, 1).with_concurrency(6);
@@ -601,6 +603,21 @@ pub async fn prefetch_resolver_allocations(
         for utxo in contract_utxos {
             let txid =
                 bitcoin::Txid::from_str(&utxo.txid.to_hex()).expect("invalid outpoint format");
+
+            let block_h = if with_block_height {
+                match ExploreAsyncExt::get_full_tx(&esplora_client, &txid).await {
+                    Ok(full_tx) => {
+                        if full_tx.status.confirmed {
+                            TxStatus::Block(full_tx.status.block_height.unwrap_or_default())
+                        } else {
+                            TxStatus::Mempool
+                        }
+                    }
+                    Err(err) => TxStatus::Error(err.to_string()),
+                }
+            } else {
+                TxStatus::NotFound
+            };
 
             let (is_spent, utxo_status) = match esplora_client
                 .get_output_status(&txid, utxo.vout.to_u32().into())
@@ -640,7 +657,7 @@ pub async fn prefetch_resolver_allocations(
             let utxo_status = UtxoSpentStatus {
                 utxo: format!("{}:{}", utxo.txid, utxo.vout.to_u32()),
                 is_spent,
-                block_height: TxStatus::NotFound,
+                block_height: block_h,
                 spent_height: utxo_status,
             };
 

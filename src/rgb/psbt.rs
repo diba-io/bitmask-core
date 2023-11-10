@@ -231,7 +231,7 @@ pub fn set_tapret_output(psbt: Psbt, pos: u16) -> Result<Psbt, CreatePsbtError> 
     Ok(psbt)
 }
 
-pub fn extract_commit(psbt: Psbt) -> Result<(Outpoint, Vec<u8>), DbcPsbtError> {
+pub fn extract_output_commit(psbt: Psbt) -> Result<(Outpoint, u64, Vec<u8>), DbcPsbtError> {
     let (index, output) = psbt
         .outputs
         .iter()
@@ -256,13 +256,19 @@ pub fn extract_commit(psbt: Psbt) -> Result<(Outpoint, Vec<u8>), DbcPsbtError> {
         Some(commit) => {
             let txid = bp::Txid::from_hex(&psbt.to_txid().to_hex()).expect("invalid outpoint");
             let vout = Vout::from_str(&index.to_string()).expect("invalid vout");
-            Ok((Outpoint::new(txid, vout), commit.to_owned()))
+            Ok((Outpoint::new(txid, vout), output.amount, commit.to_owned()))
         }
         _ => Err(DbcPsbtError::TapretKey(TapretKeyError::InvalidProof)),
     }
 }
 
-pub fn save_tap_commit_str(outpoint: &str, commit: &str, terminal: &str, wallet: &mut RgbWallet) {
+pub fn save_tap_commit_str(
+    outpoint: &str,
+    amount: u64,
+    commit: &str,
+    terminal: &str,
+    wallet: &mut RgbWallet,
+) {
     let outpoint = OutPoint::from_str(outpoint).expect("invalid outpoint parse");
 
     let outpoint = Outpoint::new(
@@ -272,11 +278,12 @@ pub fn save_tap_commit_str(outpoint: &str, commit: &str, terminal: &str, wallet:
 
     let commit = Vec::<u8>::from_hex(commit).expect("invalid tap commit parse");
 
-    save_tap_commit(outpoint, commit, terminal, wallet);
+    save_tap_commit(outpoint, amount, commit, terminal, wallet);
 }
 
 pub fn save_tap_commit(
     outpoint: Outpoint,
+    amount: u64,
     commit: Vec<u8>,
     terminal: &str,
     wallet: &mut RgbWallet,
@@ -304,7 +311,7 @@ pub fn save_tap_commit(
     }
 
     wallet.utxos.insert(Utxo {
-        amount: 0,
+        amount,
         outpoint,
         status: MiningStatus::Mempool,
         derivation: DeriveInfo::with(terminal.app, terminal.index, Some(tap_commit.clone())),

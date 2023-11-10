@@ -150,7 +150,7 @@ pub async fn prebuild_transfer_asset(
         Some(RGB_DEFAULT_FETCH_LIMIT),
     )
     .await;
-    prefetch_resolver_allocations(contract_iface, resolver).await;
+    prefetch_resolver_allocations(contract_iface, resolver, true).await;
 
     let contract = export_contract(contract_id, stock, resolver, &mut Some(rgb_wallet.clone()))
         .map_err(TransferError::Export)?;
@@ -478,7 +478,7 @@ pub async fn prebuild_seller_swap(
         Some(RGB_DEFAULT_FETCH_LIMIT),
     )
     .await;
-    prefetch_resolver_allocations(contract_iface, resolver).await;
+    prefetch_resolver_allocations(contract_iface, resolver, true).await;
 
     let contract = export_contract(contract_id, stock, resolver, &mut Some(rgb_wallet.clone()))
         .map_err(RgbSwapError::Export)?;

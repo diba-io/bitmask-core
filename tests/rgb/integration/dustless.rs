@@ -156,19 +156,7 @@ async fn create_dustless_transfer_with_fee_rate() -> anyhow::Result<()> {
     )
     .await?;
 
-    let assets_address_2 = get_new_address(
-        &SecretString(issuer_keys.public.rgb_assets_descriptor_xpub.clone()),
-        None,
-    )
-    .await?;
-
     let uda_address_1 = get_new_address(
-        &SecretString(issuer_keys.public.rgb_udas_descriptor_xpub.clone()),
-        None,
-    )
-    .await?;
-
-    let uda_address_2 = get_new_address(
         &SecretString(issuer_keys.public.rgb_udas_descriptor_xpub.clone()),
         None,
     )
@@ -181,9 +169,7 @@ async fn create_dustless_transfer_with_fee_rate() -> anyhow::Result<()> {
         &btc_descriptor_xprv,
         &btc_change_descriptor_xprv,
         &assets_address_1,
-        &assets_address_2,
         &uda_address_1,
-        &uda_address_2,
         Some(1.1),
     )
     .await?;

@@ -70,7 +70,7 @@ pub async fn get_wallet(
     change_descriptor: Option<&SecretString>,
 ) -> Result<Arc<Mutex<Wallet<MemoryDatabase>>>, BitcoinWalletError> {
     let descriptor_key = format!("{descriptor:?}{change_descriptor:?}");
-    let key = sha256::Hash::hash(descriptor_key.as_bytes()).to_string();
+    let key: String = sha256::Hash::hash(descriptor_key.as_bytes()).to_string();
 
     let network_lock = NETWORK.read().await;
     let network = network_lock.to_owned();
