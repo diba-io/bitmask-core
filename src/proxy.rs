@@ -13,10 +13,14 @@ pub enum ProxyServerError {
 
 #[cfg(not(target_arch = "wasm32"))]
 pub use server::{
-    handle_file, proxy_consig_retrieve, proxy_consig_store, proxy_media_retrieve, proxy_media_store,
+    handle_file, proxy_consig_retrieve, proxy_consig_store, proxy_media_data_store,
+    proxy_media_retrieve, proxy_metadata_retrieve,
 };
 #[cfg(not(target_arch = "wasm32"))]
 mod server {
+    use amplify::hex::ToHex;
+    use bitcoin_hashes::{sha256, Hash};
+    use postcard::to_allocvec;
     use reqwest::multipart::{self, Part};
     use std::path::PathBuf;
     use tokio::fs;
@@ -25,10 +29,11 @@ mod server {
         constants::{NETWORK, RGB_PROXY_ENDPOINT},
         info,
         rgb::structs::{
-            RgbProxyConsigFileReq, RgbProxyConsigReq, RgbProxyConsigRes, RgbProxyConsigUploadReq,
-            RgbProxyConsigUploadRes, RgbProxyMediaFileReq, RgbProxyMediaReq, RgbProxyMediaRes,
-            RgbProxyMediaUploadReq, RgbProxyMediaUploadRes,
+            MediaMetadata, RgbProxyConsigFileReq, RgbProxyConsigReq, RgbProxyConsigRes,
+            RgbProxyConsigUploadReq, RgbProxyConsigUploadRes, RgbProxyMedia, RgbProxyMediaFileReq,
+            RgbProxyMediaReq, RgbProxyMediaRes, RgbProxyMediaUploadReq, RgbProxyMediaUploadRes,
         },
+        structs::{MediaEncode, MediaItemRequest},
         util::{post_data, upload_data},
     };
 
@@ -64,7 +69,80 @@ mod server {
         Ok(resp)
     }
 
-    pub async fn proxy_media_store(
+    pub async fn proxy_consig_retrieve(
+        request_id: &str,
+    ) -> Result<Option<RgbProxyConsigRes>, ProxyServerError> {
+        fetch_consignment_get(request_id).await
+    }
+
+    pub async fn proxy_media_retrieve(
+        attachment_id: &str,
+    ) -> Result<Option<RgbProxyMediaRes>, ProxyServerError> {
+        fetch_media_get(attachment_id).await
+    }
+
+    pub async fn proxy_metadata_retrieve(
+        attachment_id: &str,
+    ) -> Result<Option<RgbProxyMediaRes>, ProxyServerError> {
+        fetch_media_get(attachment_id).await
+    }
+
+    pub async fn proxy_media_data_store(
+        media: MediaItemRequest,
+        encode: MediaEncode,
+    ) -> Result<MediaMetadata, ProxyServerError> {
+        if let Some(content) = retrieve_data(&media.uri).await {
+            let (id, source) = match encode {
+                MediaEncode::Base64 => {
+                    let source = base64::encode(&content);
+                    let id = blake3::hash(&content).to_hex().to_string();
+                    (id, source)
+                }
+                MediaEncode::Sha2 => {
+                    let source = sha256::Hash::hash(&content);
+                    let id = source.to_hex().to_string();
+                    (id, source.to_hex())
+                }
+                MediaEncode::Blake3 => {
+                    let source = blake3::hash(&content).to_hex().to_string();
+                    let id = source.clone();
+                    (id, source)
+                }
+            };
+
+            let metadata = MediaMetadata::new(&id, &media.ty, &media.uri, &source);
+
+            // Store File
+            let attachment_id = blake3::hash(source.as_bytes()).to_hex().to_lowercase();
+            let file_req = RgbProxyMediaFileReq {
+                params: RgbProxyMedia {
+                    attachment_id: attachment_id.clone(),
+                },
+                file_name: attachment_id.clone(),
+                bytes: content,
+            };
+            proxy_media_store(file_req).await?;
+
+            // Store Metadata
+            let metadata_content =
+                to_allocvec(&metadata).map_err(|op| ProxyServerError::Parse(op.to_string()))?;
+            let metadata_id = format!("{attachment_id}-metadata");
+            let file_req = RgbProxyMediaFileReq {
+                params: RgbProxyMedia {
+                    attachment_id: metadata_id.clone(),
+                },
+                file_name: metadata_id.clone(),
+                bytes: metadata_content,
+            };
+            proxy_media_store(file_req).await?;
+
+            Ok(metadata)
+        } else {
+            Err(ProxyServerError::IO("Media not found".to_string()))
+        }
+    }
+
+    async fn proxy_media_store(
         request: RgbProxyMediaFileReq,
     ) -> Result<RgbProxyMediaUploadRes, ProxyServerError> {
         let RgbProxyMediaFileReq {
@@ -92,18 +170,6 @@ mod server {
             .map_err(|op| ProxyServerError::IO(op.to_string()))?;
 
         Ok(resp)
-    }
-
-    pub async fn proxy_consig_retrieve(
-        request_id: &str,
-    ) -> Result<Option<RgbProxyConsigRes>, ProxyServerError> {
-        fetch_consignment_get(request_id).await
-    }
-
-    pub async fn proxy_media_retrieve(
-        attachment_id: &str,
-    ) -> Result<Option<RgbProxyMediaRes>, ProxyServerError> {
-        fetch_media_get(attachment_id).await
     }
 
     pub async fn handle_file(name: &str, bytes: usize) -> Result<PathBuf, ProxyServerError> {
@@ -245,11 +311,33 @@ mod server {
 
         Ok(resp)
     }
+
+    async fn retrieve_data(url: &str) -> Option<Vec<u8>> {
+        let client = reqwest::Client::new();
+        let response = client
+            .get(url)
+            .header("Accept", "application/octet-stream")
+            .header("Cache-Control", "no-cache")
+            .send()
+            .await;
+
+        if let Ok(response) = response {
+            let status_code = response.status().as_u16();
+            if status_code == 200 {
+                if let Ok(bytes) = response.bytes().await {
+                    return Some(bytes.to_vec());
+                }
+            }
+        }
+
+        None
+    }
 }
 
 #[cfg(target_arch = "wasm32")]
 pub use client::{
-    proxy_consig_retrieve, proxy_consig_store, proxy_media_retrieve, proxy_media_store,
+    proxy_consig_retrieve, proxy_consig_store, proxy_media_data_store, proxy_media_retrieve,
+    proxy_metadata_retrieve,
 };
 
 #[cfg(target_arch = "wasm32")]
@@ -257,10 +345,10 @@ mod client {
     use crate::{
         constants::{BITMASK_ENDPOINT, NETWORK},
         rgb::structs::{
-            RgbProxyConsigCarbonadoReq, RgbProxyConsigFileReq, RgbProxyConsigRes,
-            RgbProxyConsigUploadRes, RgbProxyMediaCarbonadoReq, RgbProxyMediaFileReq,
-            RgbProxyMediaRes, RgbProxyMediaUploadRes,
+            MediaMetadata, RgbProxyConsigCarbonadoReq, RgbProxyConsigFileReq, RgbProxyConsigRes,
+            RgbProxyConsigUploadRes, RgbProxyMediaRes,
         },
+        structs::{MediaEncode, MediaExtractRequest, MediaItemRequest},
         util::{get, post_json},
     };
 
@@ -280,24 +368,6 @@ mod client {
             .map_err(|op| ProxyServerError::Parse(op.to_string()))?;
 
         let result = serde_json::from_str::<RgbProxyConsigUploadRes>(&reponse)
-            .map_err(|op| ProxyServerError::Parse(op.to_string()))?;
-        Ok(result.clone())
-    }
-
-    pub async fn proxy_media_store(
-        request: RgbProxyMediaFileReq,
-    ) -> Result<RgbProxyMediaUploadRes, ProxyServerError> {
-        let network = NETWORK.read().await.to_string();
-        let endpoint = BITMASK_ENDPOINT.read().await.to_string();
-
-        let name = request.clone().file_name;
-        let url = format!("{endpoint}/proxy/media/{network}-{name}");
-        let body = RgbProxyMediaCarbonadoReq::from(request);
-        let (reponse, _) = post_json(&url, &body.clone())
-            .await
-            .map_err(|op| ProxyServerError::Parse(op.to_string()))?;
-
-        let result = serde_json::from_str::<RgbProxyMediaUploadRes>(&reponse)
             .map_err(|op| ProxyServerError::Parse(op.to_string()))?;
         Ok(result.clone())
     }
@@ -336,5 +406,42 @@ mod client {
             Err(_) => None,
         };
         Ok(resp)
+    }
+
+    pub async fn proxy_metadata_retrieve(
+        attachment_id: &str,
+    ) -> Result<Option<RgbProxyMediaRes>, ProxyServerError> {
+        let endpoint = BITMASK_ENDPOINT.read().await.to_string();
+
+        let url = format!("{endpoint}/proxy/media-metadata/{attachment_id}");
+        let reponse = get(&url, None)
+            .await
+            .map_err(|op| ProxyServerError::Parse(op.to_string()))?;
+
+        let resp = match serde_json::from_str::<RgbProxyMediaRes>(&reponse) {
+            Ok(resp) => Some(resp),
+            Err(_) => None,
+        };
+        Ok(resp)
+    }
+
+    pub async fn proxy_media_data_store(
+        media: MediaItemRequest,
+        encode: MediaEncode,
+    ) -> Result<MediaMetadata, ProxyServerError> {
+        let endpoint = BITMASK_ENDPOINT.read().await.to_string();
+
+        let url = format!("{endpoint}/proxy/media-metadata");
+        let body = MediaExtractRequest {
+            encode,
+            item: media,
+        };
+        let (reponse, _) = post_json(&url, &body.clone())
+            .await
+            .map_err(|op| ProxyServerError::Parse(op.to_string()))?;
+
+        let result = serde_json::from_str::<MediaMetadata>(&reponse)
+            .map_err(|op| ProxyServerError::Parse(op.to_string()))?;
+        Ok(result.clone())
     }
 }

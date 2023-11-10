@@ -1,8 +1,8 @@
 #![allow(unused_imports)]
 #![allow(unused_variables)]
 use crate::rgb::resolvers::ExplorerResolver;
+use crate::structs::UtxoSpentStatus;
 use crate::structs::{AssetType, MediaInfo, TxStatus};
-use crate::{structs::IssueMetaRequest, structs::UtxoSpentStatus};
 use amplify::{
     confinement::Confined,
     hex::{FromHex, ToHex},
@@ -664,69 +664,6 @@ pub async fn prefetch_resolver_allocations(
             explorer.utxos_spent.push(utxo_status);
         }
     }
-}
-
-pub async fn prefetch_resolver_images(
-    meta: Option<IssueMetaRequest>,
-) -> BTreeMap<String, MediaMetadata> {
-    let mut data = BTreeMap::new();
-    if let Some(IssueMetaRequest(meta)) = meta {
-        match meta {
-            crate::structs::IssueMetadata::UDA(items) => {
-                let MediaInfo { ty, source } = &items[0];
-                let bytes = if let Some(bytes) = retrieve_data(source).await {
-                    bytes
-                } else {
-                    source.as_bytes().to_vec()
-                };
-
-                let digest: sha256::Hash = sha256::Hash::hash(&bytes);
-                let metadata =
-                    MediaMetadata::new(ty.to_string(), source.to_string(), digest.to_vec());
-
-                data.insert(source.to_string(), metadata);
-            }
-            crate::structs::IssueMetadata::Collectible(items) => {
-                for item in items {
-                    let MediaInfo { ty, source } = &item.media[0];
-                    let bytes = if let Some(bytes) = retrieve_data(source).await {
-                        bytes
-                    } else {
-                        source.as_bytes().to_vec()
-                    };
-
-                    let digest: sha256::Hash = sha256::Hash::hash(&bytes);
-                    let metadata =
-                        MediaMetadata::new(ty.to_string(), source.to_string(), digest.to_vec());
-
-                    data.insert(source.to_string(), metadata);
-                }
-            }
-        }
-    }
-
-    data
-}
-
-async fn retrieve_data(url: &str) -> Option<Vec<u8>> {
-    let client = reqwest::Client::new();
-    let response = client
-        .get(url)
-        .header("Accept", "application/octet-stream")
-        .header("Cache-Control", "no-cache")
-        .send()
-        .await;
-
-    if let Ok(response) = response {
-        let status_code = response.status().as_u16();
-        if status_code == 200 {
-            if let Ok(bytes) = response.bytes().await {
-                return Some(bytes.to_vec());
-            }
-        }
-    }
-
-    None
 }
 
 pub async fn prefetch_resolver_txs_status(txids: Vec<Txid>, explorer: &mut ExplorerResolver) {

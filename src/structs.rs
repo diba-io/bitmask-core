@@ -1,3 +1,4 @@
+#![allow(deprecated)]
 use bp::Outpoint;
 use garde::Validate;
 use psbt::Psbt;
@@ -11,9 +12,12 @@ pub use bitcoin::{util::address::Address, Txid};
 use rgbstd::interface::rgb21::Allocation as AllocationUDA;
 
 use crate::{
-    rgb::swap::{PublicRgbBid, RgbBid, RgbOffer, RgbOfferSwap},
+    rgb::{
+        structs::MediaMetadata,
+        swap::{PublicRgbBid, RgbBid, RgbOffer, RgbOfferSwap},
+    },
     validators::{
-        verify_descriptor, verify_media_types, verify_rgb_invoice, verify_tapret_seal,
+        verify_descriptor, verify_media_request, verify_rgb_invoice, verify_tapret_seal,
         verify_terminal_path, RGBContext,
     },
 };
@@ -138,8 +142,8 @@ pub struct IssueRequest {
     #[garde(alphanumeric)]
     pub iface: String,
     /// contract metadata (only RGB21/UDA)
-    #[garde(custom(verify_media_types))]
-    pub meta: Option<IssueMetaRequest>,
+    #[garde(custom(verify_media_request))]
+    pub meta: Option<IssueMediaRequest>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -160,8 +164,8 @@ pub struct SelfIssueRequest {
     #[garde(length(min = u8::MIN.into(), max = u8::MAX.into()))]
     pub description: String,
     /// contract metadata (only RGB21/UDA)
-    #[garde(custom(verify_media_types))]
-    pub meta: Option<IssueMetaRequest>,
+    #[garde(custom(verify_media_request))]
+    pub meta: Option<IssueMediaRequest>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
@@ -174,6 +178,42 @@ pub struct ReIssueRequest {
     pub contracts: Vec<ContractResponse>,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct IssueMediaRequest {
+    pub preview: Option<MediaInfo>,
+    pub media: Option<MediaInfo>,
+    pub attachments: Vec<MediaInfo>,
+}
+
+impl From<ContractMediaDetail> for IssueMediaRequest {
+    fn from(value: ContractMediaDetail) -> Self {
+        Self {
+            preview: value.preview,
+            media: value.media,
+            attachments: value.attachments,
+        }
+    }
+}
+
+impl From<MediaResponse> for IssueMediaRequest {
+    fn from(value: MediaResponse) -> Self {
+        let preview = value.preview.map(MediaInfo::from);
+        let media = value.media.map(MediaInfo::from);
+        let attachments = value.attachments.into_iter().map(MediaInfo::from).collect();
+
+        Self {
+            preview,
+            media,
+            attachments,
+        }
+    }
+}
+
+#[deprecated(
+    since = "0.7.0-beta.4",
+    note = "please use `IssueMediaRequest` instead"
+)]
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct IssueMetaRequest(pub IssueMetadata);
@@ -227,15 +267,33 @@ pub struct NewCollectible {
 #[derive(Validate)]
 #[garde(context(RGBContext))]
 pub struct MediaInfo {
-    /// Mime Type of the media
+    /// Media Ty
     #[serde(rename = "type")]
     #[garde(ascii)]
     #[garde(length(min = 1, max = 64))]
     pub ty: String,
-    /// Source (aka. hyperlink) of the media
+    /// Media Digest
     #[garde(ascii)]
     #[garde(length(min = u16::MIN.into(), max = u16::MAX.into()))]
     pub source: String,
+}
+
+impl From<MediaView> for MediaInfo {
+    fn from(value: MediaView) -> Self {
+        Self {
+            ty: value.ty,
+            source: value.source,
+        }
+    }
+}
+
+impl From<MediaMetadata> for MediaInfo {
+    fn from(value: MediaMetadata) -> Self {
+        Self {
+            ty: value.mime,
+            source: value.uri,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
@@ -248,7 +306,7 @@ pub struct AttachInfo {
     #[garde(ascii)]
     #[garde(length(min = 1, max = 64))]
     pub ty: String,
-    /// Source (aka. hyperlink) of the media
+    /// URI or Hash of the Attachment
     #[garde(ascii)]
     #[garde(length(min = u16::MIN.into(), max = u16::MAX.into()))]
     pub source: String,
@@ -284,7 +342,7 @@ pub struct IssueResponse {
     /// The gensis state (multiple formats)
     pub genesis: GenesisFormats,
     /// contract metadata (only RGB21/UDA)
-    pub meta: Option<ContractMeta>,
+    pub meta: Option<ContractMediaDetail>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
@@ -391,9 +449,13 @@ pub struct ContractResponse {
     /// The genesis state (multiple formats)
     pub genesis: GenesisFormats,
     /// contract metadata (only RGB21/UDA)
-    pub meta: Option<ContractMeta>,
+    pub meta: Option<ContractMediaDetail>,
 }
 
+#[deprecated(
+    since = "0.7.0-beta.4",
+    note = "please use `ContractMediaDetail` instead"
+)]
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ContractMeta(ContractMetadata);
@@ -422,6 +484,29 @@ impl Default for ContractMetadata {
     fn default() -> Self {
         ContractMetadata::UDA(UDADetail::default())
     }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ContractMediaDetail {
+    /// the token index of the uda
+    pub token_index: u32,
+    /// The ticker of the uda
+    pub ticker: String,
+    /// Name of the uda
+    pub name: String,
+    /// Description of the uda
+    pub description: String,
+    /// The user contract balance
+    pub balance: u64,
+    /// Preview of the uda
+    pub preview: Option<MediaInfo>,
+    /// Media of the uda
+    pub media: Option<MediaInfo>,
+    /// Attachments of the uda
+    pub attachments: Vec<MediaInfo>,
+    /// The contract allocations
+    pub allocations: Vec<AllocationDetail>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
@@ -1516,6 +1601,94 @@ impl From<RgbBid> for RgbBidDetail {
             bid_status: value.bid_status.to_string(),
             asset_amount: value.asset_amount,
             bitcoin_price: value.bitcoin_amount,
+        }
+    }
+}
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+#[derive(Validate)]
+#[garde(context(RGBContext))]
+pub struct MediaRequest {
+    #[garde(skip)]
+    pub preview: Option<MediaItemRequest>,
+    #[garde(skip)]
+    pub media: Option<MediaItemRequest>,
+    #[garde(dive)]
+    pub attachments: Vec<MediaItemRequest>,
+}
+
+#[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+#[derive(Validate)]
+#[garde(context(RGBContext))]
+pub struct MediaItemRequest {
+    /// Media Type
+    #[serde(rename = "type")]
+    #[garde(ascii)]
+    #[garde(length(min = 1, max = 64))]
+    pub ty: String,
+    /// Media URI
+    #[garde(ascii)]
+    #[garde(length(min = u16::MIN.into(), max = u16::MAX.into()))]
+    pub uri: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, Default)]
+pub struct MediaExtractRequest {
+    pub encode: MediaEncode,
+    pub item: MediaItemRequest,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct MediaResponse {
+    pub preview: Option<MediaView>,
+    pub media: Option<MediaView>,
+    pub attachments: Vec<MediaView>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub enum MediaEncode {
+    #[default]
+    #[serde(rename = "base64")]
+    Base64,
+    #[serde(rename = "sha2")]
+    Sha2,
+    #[serde(rename = "blake3")]
+    Blake3,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+#[derive(Validate)]
+#[garde(context(RGBContext))]
+pub struct MediaView {
+    /// Media ID
+    #[garde(ascii)]
+    #[garde(length(min = u16::MIN.into(), max = u16::MAX.into()))]
+    pub id: String,
+    /// Media Type
+    #[serde(rename = "type")]
+    #[garde(ascii)]
+    #[garde(length(min = 1, max = 64))]
+    pub ty: String,
+    /// Media Encoded Representation
+    #[garde(ascii)]
+    #[garde(length(min = u16::MIN.into(), max = u16::MAX.into()))]
+    pub source: String,
+    /// Media Encoded Type
+    #[garde(skip)]
+    pub encode: MediaEncode,
+}
+
+impl MediaView {
+    pub fn new(metadata: MediaMetadata, encode: MediaEncode) -> Self {
+        Self {
+            id: metadata.id,
+            ty: metadata.mime,
+            source: metadata.digest,
+            encode,
         }
     }
 }

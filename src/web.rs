@@ -7,7 +7,7 @@ use wasm_bindgen_futures::{future_to_promise, JsFuture};
 
 use crate::structs::{
     AcceptRequest, FullRgbTransferRequest, ImportRequest, InvoiceRequest, IssueRequest,
-    PsbtRequest, PublishPsbtRequest, ReIssueRequest, RgbBidRequest, RgbOfferRequest,
+    MediaRequest, PsbtRequest, PublishPsbtRequest, ReIssueRequest, RgbBidRequest, RgbOfferRequest,
     RgbRemoveTransferRequest, RgbSaveTransferRequest, RgbSwapRequest, RgbTransferRequest,
     SecretString, SignPsbtRequest, WatcherRequest,
 };
@@ -372,8 +372,6 @@ pub mod bitcoin {
 }
 
 pub mod rgb {
-    use crate::rgb::structs::MediaMetadata;
-
     use super::*;
 
     #[allow(clippy::too_many_arguments)]
@@ -970,13 +968,11 @@ pub mod rgb {
     }
 
     #[wasm_bindgen]
-    pub fn import_media(request: JsValue) -> Promise {
+    pub fn get_media_metadata(media_id: String) -> Promise {
         set_panic_hook();
 
         future_to_promise(async move {
-            let req: BTreeMap<String, MediaMetadata> =
-                serde_wasm_bindgen::from_value(request).unwrap();
-            match crate::rgb::import_media(req).await {
+            match crate::rgb::get_media_metadata(&media_id).await {
                 Ok(result) => Ok(JsValue::from_string(
                     serde_json::to_string(&result).unwrap(),
                 )),
@@ -986,11 +982,12 @@ pub mod rgb {
     }
 
     #[wasm_bindgen]
-    pub fn get_media(media_id: String) -> Promise {
+    pub fn import_uda_data(request: JsValue) -> Promise {
         set_panic_hook();
 
         future_to_promise(async move {
-            match crate::rgb::get_media(&media_id).await {
+            let req: MediaRequest = serde_wasm_bindgen::from_value(request).unwrap();
+            match crate::rgb::import_uda_data(req).await {
                 Ok(result) => Ok(JsValue::from_string(
                     serde_json::to_string(&result).unwrap(),
                 )),

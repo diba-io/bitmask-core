@@ -13,8 +13,8 @@ use bitmask_core::{
     },
     structs::{
         AllocationDetail, AssetType, ContractResponse, DecryptedWalletData, ImportRequest,
-        InvoiceRequest, InvoiceResponse, IssueMetaRequest, IssueMetadata, IssueRequest,
-        IssueResponse, MediaInfo, NewCollectible, PsbtFeeRequest, PsbtInputRequest, PsbtRequest,
+        InvoiceRequest, InvoiceResponse, IssueMediaRequest, IssueRequest, IssueResponse, MediaInfo,
+        MediaItemRequest, MediaRequest, PsbtFeeRequest, PsbtInputRequest, PsbtRequest,
         PsbtResponse, RgbTransferRequest, RgbTransferResponse, SecretString, WatcherRequest,
     },
 };
@@ -191,7 +191,7 @@ pub async fn issuer_issue_contract(
     supply: u64,
     force: bool,
     send_coins: bool,
-    meta: Option<IssueMetaRequest>,
+    meta: Option<IssueMediaRequest>,
 ) -> anyhow::Result<IssueResponse> {
     // Create Watcher
     let issuer_keys = save_mnemonic(
@@ -425,7 +425,7 @@ pub async fn issuer_issue_contract_v2(
     supply: u64,
     force: bool,
     send_coins: bool,
-    meta: Option<IssueMetaRequest>,
+    meta: Option<IssueMediaRequest>,
     initial_sats: Option<String>,
     filter_utxo: Option<UtxoFilter>,
     vault: Option<DecryptedWalletData>,
@@ -635,34 +635,26 @@ pub async fn create_new_transfer(
     Ok(resp)
 }
 
-pub fn get_uda_data() -> IssueMetaRequest {
-    IssueMetaRequest::with(IssueMetadata::UDA(vec![MediaInfo {
-        ty: "image/png".to_string(),
-        source: "https://carbonado.io/diba.png".to_string(),
-    }]))
+pub fn get_uda_data() -> IssueMediaRequest {
+    IssueMediaRequest {
+        media: Some(MediaInfo {
+            ty: "image/png".to_string(),
+            source: "b9bf23a30bedcc4c7e5b7e83412f8962ed33012dbb822a15fb536e5f2fbf9d28".to_string(),
+        }),
+        ..Default::default()
+    }
 }
 
-pub fn _get_collectible_data() -> IssueMetaRequest {
-    IssueMetaRequest::with(IssueMetadata::Collectible(vec![
-        NewCollectible {
-            ticker: "DIBAA".to_string(),
-            name: "DIBAA".to_string(),
-            media: vec![MediaInfo {
-                ty: "image/png".to_string(),
-                source: "https://carbonado.io/diba1.png".to_string(),
-            }],
-            ..Default::default()
-        },
-        NewCollectible {
-            ticker: "DIBAB".to_string(),
-            name: "DIBAB".to_string(),
-            media: vec![MediaInfo {
-                ty: "image/png".to_string(),
-                source: "https://carbonado.io/diba2.png".to_string(),
-            }],
-            ..Default::default()
-        },
-    ]))
+pub fn get_real_uda_data() -> MediaRequest {
+    let media_item = MediaItemRequest {
+        ty: "image/svg+xml".to_string(),
+        uri: "https://bitcoin.org/img/icons/logotop.svg".to_string(),
+    };
+    MediaRequest {
+        preview: Some(media_item.clone()),
+        media: Some(media_item),
+        attachments: vec![],
+    }
 }
 
 pub fn get_raw_wallet() -> RawRgbWallet {

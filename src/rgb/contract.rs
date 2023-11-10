@@ -10,17 +10,16 @@ use rgbstd::{
 use std::str::FromStr;
 use strict_encoding::{FieldName, StrictDeserialize, StrictSerialize};
 
-use crate::structs::{
-    AllocationValue, ContractFormats, ContractMeta, ContractMetadata, ContractResponse,
-    GenesisFormats, MediaInfo, UDADetail,
+use crate::rgb::{
+    resolvers::ResolveSpent, structs::ContractBoilerplate, wallet::contract_allocations,
 };
-use crate::{
-    rgb::{resolvers::ResolveSpent, structs::ContractBoilerplate, wallet::contract_allocations},
-    structs::AttachInfo,
+use crate::structs::{
+    AllocationValue, ContractFormats, ContractMediaDetail, ContractResponse, GenesisFormats,
+    MediaInfo,
 };
 
 use super::{
-    proxy::{pull_media, ProxyError},
+    proxy::{get_media_metadata, ProxyError},
     structs::ContractAmount,
 };
 
@@ -278,23 +277,35 @@ where
 
             if tokens_data.len() <= 1 {
                 let token_data = tokens_data[0].clone();
-                let mut media = MediaInfo::default();
-                if let Some(preview) = token_data.preview {
-                    media = MediaInfo {
-                        ty: preview.ty.to_string(),
-                        source: preview.data.to_hex(),
-                    };
-                }
 
-                let mut attach = None;
-                if let Some(att) = token_data.media {
-                    attach = Some(AttachInfo {
+                let preview = if let Some(preview) = token_data.preview {
+                    Some(MediaInfo {
+                        ty: preview.ty.to_string(),
+                        source: base64::encode(&preview.data),
+                    })
+                } else {
+                    None
+                };
+
+                let media = if let Some(att) = token_data.media {
+                    Some(MediaInfo {
                         ty: att.ty.to_string(),
                         source: att.digest.to_hex(),
-                    });
-                }
+                    })
+                } else {
+                    None
+                };
 
-                let single = ContractMetadata::UDA(UDADetail {
+                let attachments = token_data
+                    .attachments
+                    .iter()
+                    .map(|(_, attachment)| MediaInfo {
+                        ty: attachment.ty.to_string(),
+                        source: attachment.digest.to_hex(),
+                    })
+                    .collect();
+
+                let single = ContractMediaDetail {
                     token_index: token_data
                         .index
                         .to_string()
@@ -304,75 +315,13 @@ where
                     name: specs.name().into(),
                     description: specs.details().unwrap_or_default().into(),
                     balance,
-                    media: vec![media],
-                    attach,
+                    preview,
+                    media,
                     allocations: allocations.clone(),
-                });
+                    attachments,
+                };
 
-                meta = Some(ContractMeta::with(single));
-            } else {
-                let collectibles = tokens_data
-                    .into_iter()
-                    .map(|token_data| {
-                        let mut media = MediaInfo::default();
-                        if let Some(preview) = token_data.preview.to_owned() {
-                            media = MediaInfo {
-                                ty: preview.ty.to_string(),
-                                source: String::from_utf8(preview.data.to_inner())
-                                    .expect("invalid data"),
-                            };
-                        }
-
-                        let mut token_ticker = String::new();
-                        let mut token_name = String::new();
-                        let mut token_description = String::new();
-
-                        if let Some(ticker) = token_data.ticker {
-                            token_ticker = ticker.to_string();
-                        }
-
-                        if let Some(name) = token_data.name {
-                            token_name = name.to_string();
-                        }
-
-                        if let Some(details) = token_data.details {
-                            token_description = details.to_string();
-                        }
-
-                        let mut token_alloc = vec![];
-                        for alloc in allocations.clone().into_iter() {
-                            if let AllocationValue::UDA(position) = &alloc.value {
-                                let token_index: u32 = token_data
-                                    .index
-                                    .to_string()
-                                    .parse()
-                                    .expect("invalid token_index");
-                                if position.token_index == token_index {
-                                    token_alloc.push(alloc);
-                                }
-                            }
-                        }
-
-                        UDADetail {
-                            token_index: token_data
-                                .index
-                                .to_string()
-                                .parse()
-                                .expect("invalid token_index"),
-                            ticker: token_ticker,
-                            name: token_name,
-                            description: token_description,
-                            balance,
-                            media: vec![media],
-                            attach: None,
-                            allocations: token_alloc,
-                        }
-                    })
-                    .collect();
-
-                meta = Some(ContractMeta::with(ContractMetadata::Collectible(
-                    collectibles,
-                )));
+                meta = Some(single);
             }
         }
     }
@@ -406,22 +355,23 @@ where
     Ok(resp)
 }
 
-pub async fn extract_metadata(metadata: ContractMeta) -> Result<ContractMeta, ProxyError> {
-    let metadata = metadata.meta();
-    let metadata = match metadata {
-        ContractMetadata::UDA(mut uda) => {
-            let mut medias = vec![];
-            for mut media in uda.media {
-                if let Some(media_metadata) = pull_media(&media.source).await? {
-                    media.source = media_metadata.hyperlink;
-                    medias.push(media);
-                }
-            }
-            uda.media = medias;
-            ContractMetadata::UDA(uda)
-        }
-        ContractMetadata::Collectible(item) => ContractMetadata::Collectible(item),
-    };
+pub async fn extract_metadata(
+    metadata: ContractMediaDetail,
+) -> Result<ContractMediaDetail, ProxyError> {
+    let mut meta = metadata.clone();
+    meta.attachments = vec![];
 
-    Ok(ContractMeta::with(metadata))
+    if let Some(media) = metadata.media {
+        if let Some(media_metadata) = get_media_metadata(&media.source).await? {
+            meta.media = Some(MediaInfo::from(media_metadata));
+        }
+    }
+
+    for media in metadata.attachments {
+        if let Some(media_metadata) = get_media_metadata(&media.source).await? {
+            meta.attachments.push(MediaInfo::from(media_metadata));
+        }
+    }
+
+    Ok(meta)
 }

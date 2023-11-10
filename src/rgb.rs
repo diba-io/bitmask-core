@@ -60,10 +60,10 @@ use crate::{
     },
     structs::{
         AcceptRequest, AcceptResponse, AssetType, BatchRgbTransferItem, BatchRgbTransferResponse,
-        ContractHiddenResponse, ContractMetadata, ContractResponse, ContractsResponse,
-        FullRgbTransferRequest, ImportRequest, InterfaceDetail, InterfacesResponse, InvoiceRequest,
-        InvoiceResponse, IssueMetaRequest, IssueMetadata, IssueRequest, IssueResponse,
-        NewCollectible, NextAddressResponse, NextUtxoResponse, NextUtxosResponse, PsbtFeeRequest,
+        ContractHiddenResponse, ContractResponse, ContractsResponse, FullRgbTransferRequest,
+        ImportRequest, InterfaceDetail, InterfacesResponse, InvoiceRequest, InvoiceResponse,
+        IssueMediaRequest, IssueRequest, IssueResponse, MediaEncode, MediaRequest, MediaResponse,
+        MediaView, NextAddressResponse, NextUtxoResponse, NextUtxosResponse, PsbtFeeRequest,
         PsbtRequest, PsbtResponse, PublicRgbBidResponse, PublicRgbOfferResponse,
         PublicRgbOffersResponse, ReIssueRequest, ReIssueResponse, RgbBidDetail, RgbBidRequest,
         RgbBidResponse, RgbBidsResponse, RgbInternalSaveTransferRequest,
@@ -72,7 +72,7 @@ use crate::{
         RgbOffersResponse, RgbRemoveTransferRequest, RgbReplaceResponse, RgbSaveTransferRequest,
         RgbSwapRequest, RgbSwapResponse, RgbTransferDetail, RgbTransferRequest,
         RgbTransferResponse, RgbTransferStatusResponse, RgbTransfersResponse, SchemaDetail,
-        SchemasResponse, SimpleContractResponse, TransferType, TxStatus, UDADetail, UtxoResponse,
+        SchemasResponse, SimpleContractResponse, TransferType, TxStatus, UtxoResponse,
         WatcherDetailResponse, WatcherRequest, WatcherResponse, WatcherUtxoResponse,
     },
     validators::RGBContext,
@@ -97,12 +97,14 @@ use self::{
         prebuild_transfer_asset,
     },
     prefetch::{
-        prefetch_resolver_allocations, prefetch_resolver_images, prefetch_resolver_import_rgb,
-        prefetch_resolver_psbt, prefetch_resolver_rgb, prefetch_resolver_txs_status,
-        prefetch_resolver_user_utxo_status, prefetch_resolver_utxos, prefetch_resolver_waddress,
-        prefetch_resolver_wutxo,
+        prefetch_resolver_allocations, prefetch_resolver_import_rgb, prefetch_resolver_psbt,
+        prefetch_resolver_rgb, prefetch_resolver_txs_status, prefetch_resolver_user_utxo_status,
+        prefetch_resolver_utxos, prefetch_resolver_waddress, prefetch_resolver_wutxo,
     },
-    proxy::{pull_consignment, pull_media, push_consignments, push_medias, ProxyError},
+    proxy::{
+        get_consignment as get_rgb_consignment, get_media_metadata as get_rgb_media_metadata,
+        post_consignments, post_media_metadata, post_media_metadata_list, ProxyError,
+    },
     psbt::{
         save_tap_commit_str, set_tapret_output, CreatePsbtError, EstimateFeeError, NewPsbtOptions,
     },
@@ -195,11 +197,6 @@ pub async fn issue_contract(sk: &str, request: IssueRequest) -> Result<IssueResp
         _ => None,
     };
 
-    let udas_data = prefetch_resolver_images(meta.clone()).await;
-    push_medias(udas_data.clone())
-        .await
-        .map_err(IssueError::Proxy)?;
-
     let contract_amount = ContractAmount::with(supply, precision);
     let contract = create_contract(
         &ticker,
@@ -211,7 +208,6 @@ pub async fn issue_contract(sk: &str, request: IssueRequest) -> Result<IssueResp
         &seal,
         &network,
         meta,
-        udas_data,
         &mut resolver,
         &mut stock,
     )
@@ -316,36 +312,7 @@ pub async fn reissue_contract(
         let seal = seals.first().unwrap().to_owned();
 
         // TODO: Move to rgb/issue sub-module
-        let mut meta = None;
-        if let Some(contract_meta) = contract_meta {
-            meta = Some(match contract_meta.meta() {
-                ContractMetadata::UDA(uda) => IssueMetaRequest(IssueMetadata::UDA(uda.media)),
-                ContractMetadata::Collectible(colectibles) => {
-                    let mut items = vec![];
-                    for collectible_item in colectibles {
-                        let UDADetail {
-                            ticker,
-                            name,
-                            description,
-                            media,
-                            ..
-                        } = collectible_item;
-
-                        let new_item = NewCollectible {
-                            ticker,
-                            name,
-                            description,
-                            media,
-                        };
-
-                        items.push(new_item);
-                    }
-
-                    IssueMetaRequest(IssueMetadata::Collectible(items))
-                }
-            })
-        }
-
+        let meta = contract_meta.map(IssueMediaRequest::from);
         let network = get_network().await;
         let wallet = rgb_account.wallets.get(RGB_DEFAULT_NAME);
         let mut wallet = match wallet {
@@ -366,11 +333,6 @@ pub async fn reissue_contract(
             _ => None,
         };
 
-        let udas_data = prefetch_resolver_images(meta.clone()).await;
-        push_medias(udas_data.clone())
-            .await
-            .map_err(IssueError::Proxy)?;
-
         let contract = create_contract(
             &ticker,
             &name,
@@ -381,7 +343,6 @@ pub async fn reissue_contract(
             &seal,
             &network,
             meta,
-            udas_data,
             &mut resolver,
             &mut stock,
         )
@@ -1748,7 +1709,7 @@ pub async fn internal_save_transfer(
             .insert(contract_id.clone(), vec![rgb_transfer]);
     }
 
-    push_consignments(beneficiaries)
+    post_consignments(beneficiaries)
         .await
         .map_err(SaveTransferError::Proxy)?;
 
@@ -1995,7 +1956,7 @@ pub async fn internal_update_transfers(
 
     let mut new_transfers = vec![];
     for (seal, iface) in retrieve_by_seal {
-        if let Some(transfer) = pull_consignment(&seal)
+        if let Some(transfer) = get_rgb_consignment(&seal)
             .await
             .map_err(TransferError::Proxy)?
         {
@@ -2861,23 +2822,40 @@ pub async fn clear_stock(sk: &str) {
         .expect("unable clear stock");
 }
 
-pub async fn import_consignments(req: BTreeMap<String, String>) -> Result<bool> {
-    push_consignments(req).await?;
-    Ok(true)
-}
-
 pub async fn get_consignment(consig_or_receipt_id: &str) -> Result<Option<String>> {
-    let resp = pull_consignment(consig_or_receipt_id).await?;
+    let resp = get_rgb_consignment(consig_or_receipt_id).await?;
     Ok(resp)
 }
 
-pub async fn import_media(req: BTreeMap<String, MediaMetadata>) -> Result<bool> {
-    push_medias(req).await?;
+pub async fn import_consignments(req: BTreeMap<String, String>) -> Result<bool> {
+    post_consignments(req).await?;
     Ok(true)
 }
 
-pub async fn get_media(media_id: &str) -> Result<Option<MediaMetadata>> {
-    let resp = pull_media(media_id).await?;
+pub async fn get_media_metadata(media_id: &str) -> Result<Option<MediaMetadata>> {
+    let resp = get_rgb_media_metadata(media_id).await?;
+    Ok(resp)
+}
+
+pub async fn import_uda_data(request: MediaRequest) -> Result<MediaResponse> {
+    let mut resp = MediaResponse::default();
+
+    if let Some(preview) = request.preview {
+        let metadata = post_media_metadata(preview, MediaEncode::Base64).await?;
+        resp.preview = Some(MediaView::new(metadata, MediaEncode::Base64));
+    }
+
+    if let Some(media) = request.media {
+        let metadata = post_media_metadata(media, MediaEncode::Sha2).await?;
+        resp.media = Some(MediaView::new(metadata, MediaEncode::Sha2));
+    }
+
+    let attachs = post_media_metadata_list(request.attachments, MediaEncode::Blake3).await?;
+    for attach in attachs {
+        resp.attachments
+            .push(MediaView::new(attach, MediaEncode::Blake3))
+    }
+
     Ok(resp)
 }
 

@@ -221,6 +221,9 @@ export interface GenesisFormats {
   armored: string;
 }
 
+/**
+ * @deprecated please use `IssueMediaRequest` instead
+ */
 export interface IssueMetadata {
   uda?: MediaInfo[];
   collectible?: NewCollectible[];
@@ -242,7 +245,7 @@ export interface IssueRequest {
   /// The name of the iface (ex: RGB20)
   iface: string;
   /// contract metadata (only RGB21/UDA)
-  meta?: IssueMetadata;
+  meta?: IssueMediaRequest;
 }
 
 export interface NewCollectible {
@@ -273,6 +276,31 @@ export interface UDADetail {
   allocations: AllocationDetail[];
 }
 
+export interface ContractMediaDetail {
+  /// the token index of the uda
+  tokenIndex: number;
+  /// The ticker of the uda
+  ticker: string;
+  /// Name of the uda
+  name: string;
+  /// Description of the uda
+  description: string;
+  /// The user contract balance
+  balance: bigint;
+  /// The contract allocations
+  allocations: AllocationDetail[];
+  /// Preview of the uda
+  preview?: MediaInfo;
+  /// Media of the uda
+  media?: MediaInfo;
+  /// Attachments of the uda
+  attachments: MediaInfo[];
+
+}
+
+/**
+ * @deprecated please use `ContractMediaDetail` instead
+ */
 export interface ContractMetadata {
   uda?: UDADetail;
   collectible?: UDADetail[];
@@ -302,7 +330,7 @@ export interface IssueResponse {
   /// Genesis
   genesis: GenesisFormats;
   /// attachments and media (only RGB21/UDA)
-  meta?: ContractMetadata;
+  meta?: ContractMediaDetail;
 }
 
 export interface ImportRequest {
@@ -344,7 +372,7 @@ export interface ImportResponse {
   /// Genesis
   genesis: GenesisFormats;
   /// attachments and media (only RGB21/UDA)
-  meta?: ContractMetadata;
+  meta?: ContractMediaDetail;
 }
 
 export interface MediaInfo {
@@ -874,14 +902,59 @@ export interface RgbBidDetail {
   bitcoinPrice: bigint;
 }
 
+export interface IssueMediaRequest {
+  preview?: MediaInfo,
+  media?: MediaInfo,
+  attachments: MediaInfo[],
+}
+
+export interface MediaRequest {
+  preview?: MediaItemRequest,
+  media?:MediaItemRequest,
+  attachments: MediaItemRequest[],
+}
+
+export interface MediaExtractRequest {
+  encode: MediaEncode,
+  item: MediaItemRequest,
+}
+export interface MediaItemRequest {
+  /// Media Type
+  type: string,
+  /// Media URI
+  uri: String,
+}
+
+export interface  MediaResponse {
+  preview?: MediaView,
+  media?: MediaView,
+  attachments: MediaView[],
+}
+
+export interface MediaView {
+  /// Media ID
+  id: string,
+  /// Media Type
+  type: string,
+  /// Media Encoded Representation
+  source: string,
+  /// Media Encoded Type
+  encode: MediaEncode,
+}
+
+export interface MediaEncode {
+  base64?: string;
+  sha2?: string;
+  blake3?: string;
+}
 export interface ImportConsignmentsRequest {
   [consignmentId: string]: string;
 }
-
 export interface MediaMetadata {
-  mime: string;
-  hyperlink: string;
-  hash: string;
+  id: string,
+  mime: string,
+  uri: string,
+  digest: string,
 }
 
 export interface ImportMediaRequest {
