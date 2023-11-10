@@ -649,7 +649,7 @@ checksum = "327762f6e5a765692301e5bb513e0d9fef63be86bbc14528052b1cd3e6f03e07"
 
 [[package]]
 name = "bitmask-core"
-version = "0.7.0-beta.3"
+version = "0.7.0-beta.5"
 dependencies = [
  "amplify",
  "anyhow",
