@@ -1,4 +1,7 @@
-use amplify::{confinement::SmallBlob, Wrapper};
+use amplify::{
+    confinement::{Confined, SmallBlob},
+    Wrapper,
+};
 use bp::{seals::txout::ExplicitSeal, Chain, Txid};
 use rgb_schemata::{nia_rgb20, nia_schema, uda_rgb21, uda_schema};
 use rgbstd::{
@@ -12,17 +15,15 @@ use rgbstd::{
     persistence::{Inventory, Stash, Stock},
     resolvers::ResolveHeight,
     stl::{
-        Amount, Attachment, ContractData, DivisibleAssetSpec, MediaType, Name, Precision,
-        RicardianContract, Ticker, Timestamp,
+        Amount, Attachment, ContractData, DivisibleAssetSpec, MediaType, Precision,
+        RicardianContract, Timestamp,
     },
     validation::{Failure, ResolveTx},
 };
-use std::{collections::BTreeMap, str::FromStr};
+use std::str::FromStr;
 use strict_types::encoding::TypeName;
 
-use crate::structs::{IssueMetaRequest, IssueMetadata};
-
-use super::structs::MediaMetadata;
+use crate::structs::IssueMediaRequest;
 
 #[derive(Clone, PartialEq, Debug, Display, Error, From)]
 #[display(doc_comments)]
@@ -47,8 +48,7 @@ pub fn issue_contract<T>(
     iface: &str,
     seal: &str,
     network: &str,
-    meta: Option<IssueMetaRequest>,
-    udas_data: BTreeMap<String, MediaMetadata>,
+    meta: Option<IssueMediaRequest>,
     resolver: &mut T,
     stock: &mut Stock,
 ) -> Result<Contract, IssueContractError>
@@ -76,7 +76,6 @@ where
             seal,
             network,
             meta,
-            udas_data,
         ),
         _ => {
             return Err(IssueContractError::NoContractSupport(
@@ -165,8 +164,7 @@ fn issue_uda_asset(
     supply: u64,
     seal: &str,
     network: &str,
-    meta: Option<IssueMetaRequest>,
-    udas_data: BTreeMap<String, MediaMetadata>,
+    meta: Option<IssueMediaRequest>,
 ) -> Result<Contract, IssueError> {
     let iface = rgb21();
     let schema = uda_schema();
@@ -185,65 +183,66 @@ fn issue_uda_asset(
     let mut allocations = vec![];
 
     // Toke Data
-    let mut token_index = 1;
-    if let Some(IssueMetaRequest(issue_meta)) = meta {
-        match issue_meta {
-            IssueMetadata::UDA(uda) => {
-                let index = TokenIndex::from_inner(1);
-                let media_ty: &'static str = Box::leak(uda[0].ty.to_string().into_boxed_str());
-                let mut hash: [u8; 32] = [0; 32];
-                if let Some(data) = udas_data.get(&uda[0].source) {
-                    hash.copy_from_slice(&hex::decode(&data.hash)?);
-                }
+    let token_index = TokenIndex::from_inner(0);
+    if let Some(media_data) = meta {
+        // Preview
+        let preview = if let Some(media_preview) = media_data.preview {
+            let ty_preview: &'static str = Box::leak(media_preview.ty.to_string().into_boxed_str());
+            let preview = base64::decode(&media_preview.source).expect("invalid preview data");
 
-                let preview = Some(EmbeddedMedia {
-                    ty: MediaType::with(media_ty),
-                    data: SmallBlob::try_from_iter(hash).expect("invalid data"),
-                });
-                let media = Some(Attachment {
-                    ty: MediaType::with(media_ty),
-                    digest: hash,
-                });
-                let token_data = TokenData {
-                    index,
-                    name: Some(spec.clone().naming.name),
-                    ticker: Some(spec.clone().naming.ticker),
-                    preview,
-                    media,
-                    ..Default::default()
-                };
+            Some(EmbeddedMedia {
+                ty: MediaType::with(ty_preview),
+                data: SmallBlob::try_from_iter::<Vec<u8>>(preview).expect("invalid preview data"),
+            })
+        } else {
+            None
+        };
 
-                let allocation = Allocation::with(index, fraction);
-                tokens_data.push(token_data);
-                allocations.push(allocation);
-            }
-            IssueMetadata::Collectible(items) => {
-                for item in items {
-                    let index = TokenIndex::from_inner(token_index);
+        // Media
+        let media = if let Some(media) = media_data.media {
+            let mut digest: [u8; 32] = [0; 32];
+            digest.copy_from_slice(&hex::decode(&media.source)?);
+            let ty: &'static str = Box::leak(media.ty.to_string().into_boxed_str());
 
-                    let media_ty: &'static str =
-                        Box::leak(item.media[0].ty.to_string().into_boxed_str());
-                    let preview = Some(EmbeddedMedia {
-                        ty: MediaType::with(media_ty),
-                        data: SmallBlob::try_from_iter(item.media[0].source.as_bytes().to_vec())
-                            .expect("invalid data"),
-                    });
+            Some(Attachment {
+                ty: MediaType::with(ty),
+                digest,
+            })
+        } else {
+            None
+        };
 
-                    let token_data = TokenData {
-                        index,
-                        name: Some(Name::from_str(&item.name).expect("invalid name")),
-                        ticker: Some(Ticker::from_str(&item.name).expect("invalid ticker")),
-                        preview,
-                        ..Default::default()
-                    };
+        // Attachments
+        let mut attachments = bmap![];
+        for (index, attach) in media_data.attachments.iter().enumerate() {
+            let mut digest: [u8; 32] = [0; 32];
+            digest.copy_from_slice(&hex::decode(&attach.source)?);
+            let ty: &'static str = Box::leak(attach.ty.to_string().into_boxed_str());
 
-                    let allocation = Allocation::with(index, fraction);
-                    tokens_data.push(token_data);
-                    allocations.push(allocation);
-                    token_index += 1;
-                }
-            }
+            attachments.insert(
+                index as u8,
+                Attachment {
+                    ty: MediaType::with(ty),
+                    digest,
+                },
+            );
         }
+
+        let attachments = Confined::from_collection_unsafe(attachments);
+        let naming = spec.naming.clone();
+        let token_data = TokenData {
+            index: token_index,
+            name: Some(naming.name),
+            ticker: Some(naming.ticker),
+            preview,
+            media,
+            attachments,
+            ..Default::default()
+        };
+
+        let allocation = Allocation::with(token_index, fraction);
+        tokens_data.push(token_data);
+        allocations.push(allocation);
     }
 
     let seal = ExplicitSeal::<Txid>::from_str(seal).expect("invalid seal definition");

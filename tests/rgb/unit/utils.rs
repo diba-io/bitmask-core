@@ -1,15 +1,11 @@
-use std::{
-    collections::{BTreeMap, HashMap},
-    convert::Infallible,
-    str::FromStr,
-};
+use std::{collections::HashMap, convert::Infallible, str::FromStr};
 
 use amplify::hex::{FromHex, ToHex};
 use bitcoin::Transaction;
 use bitmask_core::{
     rgb::issue::issue_contract,
     rgb::transfer::create_invoice,
-    structs::{IssueMetaRequest, IssueMetadata, MediaInfo},
+    structs::{IssueMediaRequest, MediaInfo},
 };
 use bp::{
     LockTime, Outpoint, Sats, ScriptPubkey, SeqNo, Tx, TxIn, TxOut, TxVer, Txid, VarIntArray,
@@ -112,7 +108,6 @@ pub fn create_fake_contract(stock: &mut Stock) -> ContractId {
         seal,
         network,
         None,
-        BTreeMap::new(),
         &mut resolver,
         stock,
     )
@@ -148,9 +143,12 @@ pub fn create_fake_invoice(contract_id: ContractId, seal: &str, stock: &mut Stoc
 }
 
 #[allow(dead_code)]
-pub fn get_uda_data() -> IssueMetaRequest {
-    IssueMetaRequest::with(IssueMetadata::UDA(vec![MediaInfo {
-        ty: "image/png".to_string(),
-        source: "https://carbonado.io/diba.png".to_string(),
-    }]))
+pub fn get_uda_data() -> IssueMediaRequest {
+    IssueMediaRequest {
+        media: Some(MediaInfo {
+            ty: "image/png".to_string(),
+            source: "b9bf23a30bedcc4c7e5b7e83412f8962ed33012dbb822a15fb536e5f2fbf9d28".to_string(),
+        }),
+        ..Default::default()
+    }
 }

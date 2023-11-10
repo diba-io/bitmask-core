@@ -13,10 +13,11 @@ use bitmask_core::{
     structs::{
         AssetType, BatchRgbTransferResponse, ContractResponse, ContractsResponse,
         DecryptedWalletData, FullRgbTransferRequest, FundVaultDetails, ImportRequest,
-        InvoiceRequest, InvoiceResponse, IssueRequest, IssueResponse, NextAddressResponse,
-        NextUtxoResponse, PsbtFeeRequest, PublishedPsbtResponse, RgbSaveTransferRequest,
-        RgbTransferRequest, RgbTransferResponse, RgbTransferStatusResponse, SecretString,
-        SignPsbtRequest, WalletData, WatcherRequest, WatcherResponse,
+        InvoiceRequest, InvoiceResponse, IssueMediaRequest, IssueRequest, IssueResponse,
+        MediaItemRequest, MediaRequest, MediaResponse, NextAddressResponse, NextUtxoResponse,
+        PsbtFeeRequest, PublishedPsbtResponse, RgbSaveTransferRequest, RgbTransferRequest,
+        RgbTransferResponse, RgbTransferStatusResponse, SecretString, SignPsbtRequest, WalletData,
+        WatcherRequest, WatcherResponse,
     },
     web::{
         bitcoin::{
@@ -26,7 +27,7 @@ use bitmask_core::{
         json_parse, resolve,
         rgb::{
             create_watcher, full_transfer_asset, get_consignment, get_contract,
-            import_consignments, import_contract, issue_contract, list_contracts,
+            import_consignments, import_contract, import_uda_data, issue_contract, list_contracts,
             psbt_sign_and_publish_file, rgb_create_invoice, save_transfer, verify_transfers,
             watcher_next_address, watcher_next_utxo,
         },
@@ -299,4 +300,92 @@ async fn import_and_get_consig_from_proxy() {
 
         assert_eq!(expected.to_string(), get_resp.to_string());
     }
+}
+
+#[wasm_bindgen_test]
+#[allow(unused_assignments)]
+async fn create_uda_with_medias() {
+    set_panic_hook();
+    let issuer_vault = resolve(new_mnemonic("".to_string())).await;
+    let issuer_vault: DecryptedWalletData = json_parse(&issuer_vault);
+
+    info!("Create Issuer Watcher");
+    let iface = "RGB21";
+    let watcher_name = "default";
+    let issuer_watcher_req = WatcherRequest {
+        name: watcher_name.to_string(),
+        xpub: issuer_vault.public.watcher_xpub.clone(),
+        force: false,
+    };
+
+    let issuer_sk = &issuer_vault.private.nostr_prv;
+    let issuer_watcher_req = serde_wasm_bindgen::to_value(&issuer_watcher_req).expect("");
+    let watcher_resp: JsValue = resolve(create_watcher(
+        issuer_sk.clone(),
+        issuer_watcher_req.clone(),
+    ))
+    .await;
+    let watcher_resp: WatcherResponse = json_parse(&watcher_resp);
+
+    info!("Get Address");
+    let next_address: JsValue = resolve(watcher_next_address(
+        issuer_sk.clone(),
+        watcher_name.to_string(),
+        iface.to_string(),
+    ))
+    .await;
+    let issuer_next_address: NextAddressResponse = json_parse(&next_address);
+    debug!(format!(
+        "Issuer Show Address {}",
+        issuer_next_address.address
+    ));
+    let resp = send_coins(&issuer_next_address.address, "1").await;
+    debug!(format!("Issuer Receive Bitcoin {:?}", resp));
+
+    info!("Get UTXO (Issuer)");
+    let next_utxo: JsValue = resolve(watcher_next_utxo(
+        issuer_sk.clone(),
+        watcher_name.to_string(),
+        iface.to_string(),
+    ))
+    .await;
+    let issuer_next_utxo: NextUtxoResponse = json_parse(&next_utxo);
+
+    assert!(issuer_next_utxo.utxo.is_some());
+
+    info!("Create Contract (Issuer)");
+    let media_item = MediaItemRequest {
+        ty: "image/svg+xml".to_string(),
+        uri: "https://bitcoin.org/img/icons/logotop.svg".to_string(),
+    };
+    let import_media_req = MediaRequest {
+        preview: Some(media_item.clone()),
+        media: Some(media_item),
+        attachments: vec![],
+    };
+
+    let import_media_req = serde_wasm_bindgen::to_value(&import_media_req).expect("");
+    let import_media_resp = resolve(import_uda_data(import_media_req)).await;
+    let issuer_resp: MediaResponse = json_parse(&import_media_resp);
+
+    let media_req = IssueMediaRequest::from(issuer_resp);
+
+    let supply = 1;
+    let precision = 0;
+    let issue_utxo = issuer_next_utxo.utxo.unwrap().outpoint.to_string();
+    let issue_seal = format!("tapret1st:{issue_utxo}");
+    let issue_req = IssueRequest {
+        ticker: "DIBA".to_string(),
+        name: "DIBA".to_string(),
+        description: "DIBA".to_string(),
+        precision,
+        supply,
+        seal: issue_seal.to_owned(),
+        iface: iface.to_string(),
+        meta: Some(media_req),
+    };
+
+    let issue_req = serde_wasm_bindgen::to_value(&issue_req).expect("");
+    let issue_resp: JsValue = resolve(issue_contract(issuer_sk.to_string(), issue_req)).await;
+    let issuer_resp: IssueResponse = json_parse(&issue_resp);
 }

@@ -6,7 +6,7 @@ use rgbwallet::RgbInvoice;
 use seals::txout::ExplicitSeal;
 use wallet::hd::{DerivationAccount, DerivationSubpath, UnhardenedIndex};
 
-use crate::structs::{IssueMetaRequest, IssueMetadata, SecretString};
+use crate::structs::{IssueMediaRequest, SecretString};
 
 /// Errors happening during checking of requests to RGB operations
 #[derive(Clone, PartialEq, Eq, Debug, Display, Error, From)]
@@ -98,31 +98,21 @@ pub fn verify_descriptor(value: &SecretString, _context: &RGBContext) -> garde::
     Ok(())
 }
 
-pub fn verify_media_types(value: &Option<IssueMetaRequest>, context: &RGBContext) -> garde::Result {
-    if let Some(metadata) = value {
-        match &metadata.0 {
-            IssueMetadata::UDA(media_type) => {
-                if media_type.len() < context.min_media_types.into() {
-                    return Err(garde::Error::new(
-                        RGBParamsError::NoMediaType("UDA".to_string(), context.min_media_types)
-                            .to_string(),
-                    ));
-                };
-            }
-            IssueMetadata::Collectible(items) => {
-                for (i, item) in items.iter().enumerate() {
-                    if item.media.len() < context.min_media_types.into() {
-                        return Err(garde::Error::new(
-                            RGBParamsError::NoMediaType(
-                                format!("collectible item #{}", i),
-                                context.min_media_types,
-                            )
-                            .to_string(),
-                        ));
-                    }
-                }
-            }
-        }
+pub fn verify_media_request(
+    value: &Option<IssueMediaRequest>,
+    context: &RGBContext,
+) -> garde::Result {
+    if let Some(request) = value {
+        let mut media_type = 0;
+        media_type += request.preview.is_some() as u8;
+        media_type += request.media.is_some() as u8;
+        media_type += request.attachments.len() as u8;
+
+        if media_type < context.min_media_types {
+            return Err(garde::Error::new(
+                RGBParamsError::NoMediaType("UDA".to_string(), context.min_media_types).to_string(),
+            ));
+        };
     }
     Ok(())
 }

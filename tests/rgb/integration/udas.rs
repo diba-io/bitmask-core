@@ -1,12 +1,12 @@
 #![cfg(not(target_arch = "wasm32"))]
 use crate::rgb::integration::utils::{
-    create_new_invoice, create_new_psbt, create_new_transfer, get_uda_data,
+    create_new_invoice, create_new_psbt, create_new_transfer, get_real_uda_data, get_uda_data,
     issuer_issue_contract_v2, UtxoFilter, ISSUER_MNEMONIC, OWNER_MNEMONIC,
 };
 use bitmask_core::{
     bitcoin::{save_mnemonic, sign_and_publish_psbt_file},
-    rgb::{accept_transfer, structs::ContractAmount},
-    structs::{AcceptRequest, SecretString, SignPsbtRequest},
+    rgb::{accept_transfer, import_uda_data, structs::ContractAmount},
+    structs::{AcceptRequest, IssueMediaRequest, SecretString, SignPsbtRequest},
 };
 
 #[tokio::test]
@@ -30,7 +30,7 @@ async fn accept_uda_transfer() -> anyhow::Result<()> {
         true,
         meta,
         Some("0.1".to_string()),
-        Some(UtxoFilter::with_amount_equal_than(10000000)),
+        Some(UtxoFilter::with_amount_equal_than(10_000_000)),
         None,
     )
     .await?;
@@ -73,5 +73,32 @@ async fn accept_uda_transfer() -> anyhow::Result<()> {
     assert!(resp.is_ok());
     assert!(resp?.valid);
 
+    Ok(())
+}
+
+#[tokio::test]
+async fn create_uda_save_medias() -> anyhow::Result<()> {
+    let issuer_keys = &save_mnemonic(
+        &SecretString(ISSUER_MNEMONIC.to_string()),
+        &SecretString("".to_string()),
+    )
+    .await?;
+
+    let metadata = get_real_uda_data();
+    let resp = import_uda_data(metadata).await?;
+    let meta = Some(IssueMediaRequest::from(resp));
+
+    let _issuer_resp = issuer_issue_contract_v2(
+        1,
+        "RGB21",
+        ContractAmount::new(1, 0).to_value(),
+        false,
+        true,
+        meta,
+        Some("0.1".to_string()),
+        Some(UtxoFilter::with_amount_equal_than(10_000_000)),
+        Some(issuer_keys.clone()),
+    )
+    .await?;
     Ok(())
 }

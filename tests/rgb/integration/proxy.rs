@@ -7,9 +7,8 @@ use bitmask_core::{
     bitcoin::new_mnemonic,
     rgb::{
         create_watcher, get_contract,
-        prefetch::prefetch_resolver_images,
-        proxy::{pull_consignment, pull_media, push_consignments, push_medias},
-        structs::{ContractAmount, MediaMetadata},
+        proxy::{get_consignment, post_consignments},
+        structs::ContractAmount,
         watcher_next_address,
     },
     structs::{RgbTransferResponse, SecretString, WatcherRequest},
@@ -17,8 +16,8 @@ use bitmask_core::{
 use rgbwallet::RgbInvoice;
 
 use crate::rgb::integration::utils::{
-    create_new_invoice, create_new_psbt_v2, create_new_transfer, get_uda_data,
-    issuer_issue_contract_v2, send_some_coins, UtxoFilter,
+    create_new_invoice, create_new_psbt_v2, create_new_transfer, issuer_issue_contract_v2,
+    send_some_coins, UtxoFilter,
 };
 
 #[tokio::test]
@@ -99,26 +98,13 @@ pub async fn store_and_retrieve_transfer_by_proxy() -> Result<()> {
     let mut consigs = BTreeMap::new();
     consigs.insert(consig_or_receipt_id.clone(), expected.clone());
 
-    push_consignments(consigs).await?;
+    post_consignments(consigs).await?;
 
     // 6. Retrieve in RGB Proxy
-    let consig = pull_consignment(&consig_or_receipt_id)
+    let consig = get_consignment(&consig_or_receipt_id)
         .await?
         .unwrap_or_default();
     assert_eq!(expected.to_string(), consig.to_string());
 
-    Ok(())
-}
-
-#[tokio::test]
-pub async fn store_and_retrieve_media_by_proxy() -> Result<()> {
-    // 1. Initial Setup
-    let uda_data = get_uda_data();
-    let uda_data = prefetch_resolver_images(Some(uda_data)).await;
-    push_medias(uda_data.clone()).await?;
-    let uda: MediaMetadata = uda_data.values().collect::<Vec<_>>()[0].clone();
-    let result = pull_media(&uda.hash).await?.unwrap();
-
-    assert_eq!(uda.hash, result.hash);
     Ok(())
 }

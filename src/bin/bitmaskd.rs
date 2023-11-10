@@ -23,7 +23,7 @@ use bitmask_core::{
     },
     proxy::{
         handle_file as proxy_handle_file, proxy_consig_retrieve, proxy_consig_store,
-        proxy_media_retrieve, proxy_media_store,
+        proxy_media_data_store, proxy_media_retrieve, proxy_metadata_retrieve,
     },
     rgb::{
         accept_transfer, clear_watcher as rgb_clear_watcher, create_invoice, create_psbt,
@@ -40,9 +40,10 @@ use bitmask_core::{
     },
     structs::{
         AcceptRequest, FileMetadata, FullRgbTransferRequest, ImportRequest, InvoiceRequest,
-        IssueRequest, PsbtFeeRequest, PsbtRequest, ReIssueRequest, RgbRemoveTransferRequest,
-        RgbSaveTransferRequest, RgbTransferRequest, SecretString, SelfFullRgbTransferRequest,
-        SelfInvoiceRequest, SelfIssueRequest, SignPsbtRequest, WatcherRequest,
+        IssueRequest, MediaEncode, MediaExtractRequest, MediaItemRequest, PsbtFeeRequest,
+        PsbtRequest, ReIssueRequest, RgbRemoveTransferRequest, RgbSaveTransferRequest,
+        RgbTransferRequest, SecretString, SelfFullRgbTransferRequest, SelfInvoiceRequest,
+        SelfIssueRequest, SignPsbtRequest, WatcherRequest,
     },
 };
 use log::{debug, error, info};
@@ -645,19 +646,30 @@ async fn rgb_proxy_consig_retrieve(Path(id): Path<String>) -> Result<impl IntoRe
     Ok((StatusCode::OK, Json(resp)))
 }
 
-async fn rgb_proxy_media_save(
-    Path(id): Path<String>,
-    Json(request): Json<RgbProxyMediaCarbonadoReq>,
-) -> Result<impl IntoResponse, AppError> {
-    info!("POST /proxy/media/{id}");
-    let request = RgbProxyMediaFileReq::from(request);
-    let resp = proxy_media_store(request).await?;
-    Ok((StatusCode::OK, Json(resp)))
-}
-
 async fn rgb_proxy_media_retrieve(Path(id): Path<String>) -> Result<impl IntoResponse, AppError> {
     info!("GET /proxy/media/{id}");
     let resp = proxy_media_retrieve(&id).await?;
+    Ok((StatusCode::OK, Json(resp)))
+}
+
+async fn rgb_proxy_metadata_retrieve(
+    Path(id): Path<String>,
+) -> Result<impl IntoResponse, AppError> {
+    info!("GET /proxy/media-metadata/{id}");
+    let resp = proxy_metadata_retrieve(&id).await?;
+    Ok((StatusCode::OK, Json(resp)))
+}
+
+async fn rgb_proxy_media_data_save(
+    Json(request): Json<MediaExtractRequest>,
+) -> Result<impl IntoResponse, AppError> {
+    info!("POST /proxy/media-metadata");
+
+    let MediaExtractRequest {
+        encode,
+        item: media,
+    } = request;
+    let resp = proxy_media_data_store(media, encode).await?;
     Ok((StatusCode::OK, Json(resp)))
 }
 
@@ -745,8 +757,9 @@ async fn main() -> Result<()> {
         .route("/carbonado/:pk/:name/metadata", get(co_metadata))
         .route("/proxy/consignment/:id", post(rgb_proxy_consig_save))
         .route("/proxy/consignment/:id", get(rgb_proxy_consig_retrieve))
-        .route("/proxy/media/:id", post(rgb_proxy_media_save))
-        .route("/proxy/media/:id", get(rgb_proxy_media_retrieve));
+        .route("/proxy/media-metadata", post(rgb_proxy_media_data_save))
+        .route("/proxy/media-metadata/:id", get(rgb_proxy_media_retrieve))
+        .route("/proxy/media/:id", get(rgb_proxy_metadata_retrieve));
 
     let network = get_network().await;
     switch_network(&network).await?;

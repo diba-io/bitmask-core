@@ -231,17 +231,19 @@ pub struct ContractBoilerplate {
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, Default)]
 pub struct MediaMetadata {
+    pub id: String,
     pub mime: String,
-    pub hyperlink: String,
-    pub hash: String,
+    pub uri: String,
+    pub digest: String,
 }
 
 impl MediaMetadata {
-    pub fn new(mime: String, hyperlink: String, hash: Vec<u8>) -> Self {
+    pub fn new(id: &str, mime: &str, uri: &str, digest: &str) -> Self {
         Self {
-            mime,
-            hyperlink,
-            hash: hex::encode(hash),
+            id: id.to_string(),
+            mime: mime.to_string(),
+            uri: uri.to_string(),
+            digest: digest.to_string(),
         }
     }
 }
