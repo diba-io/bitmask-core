@@ -3,6 +3,7 @@
 use crate::rgb::resolvers::ExplorerResolver;
 use crate::structs::UtxoSpentStatus;
 use crate::structs::{AssetType, MediaInfo, TxStatus};
+use crate::{structs::IssueMetaRequest, structs::UtxoSpentStatus};
 use amplify::{
     confinement::Confined,
     hex::{FromHex, ToHex},
