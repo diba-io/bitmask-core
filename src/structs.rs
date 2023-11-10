@@ -821,6 +821,8 @@ pub struct RgbInternalTransferResponse {
     pub psbt: String,
     /// Outpoint (used to spend output)
     pub outpoint: String,
+    /// Outpoint Amount (used to spend output)
+    pub amount: u64,
     /// Tapret Commitment (used to spend output)
     pub commit: String,
     /// Strict Consignments (in hexadecimal)

@@ -50,7 +50,7 @@ use crate::{
     constants::{get_network, BITCOIN_EXPLORER_API, NETWORK},
     rgb::{
         issue::{issue_contract as create_contract, IssueContractError},
-        psbt::{create_psbt as create_rgb_psbt, extract_commit},
+        psbt::{create_psbt as create_rgb_psbt, extract_output_commit},
         resolvers::ExplorerResolver,
         transfer::{
             accept_transfer as accept_rgb_transfer, create_invoice as create_rgb_invoice,
@@ -770,6 +770,7 @@ pub async fn full_transfer_asset(
         psbt,
         commit,
         outpoint,
+        amount,
         ..
     } = internal_transfer_asset(
         transfer_req,
@@ -785,7 +786,13 @@ pub async fn full_transfer_asset(
         _ => return Err(TransferError::NoWatcher),
     };
 
-    save_tap_commit_str(&outpoint, &commit, &psbt_response.terminal, &mut rgb_wallet);
+    save_tap_commit_str(
+        &outpoint,
+        amount,
+        &commit,
+        &psbt_response.terminal,
+        &mut rgb_wallet,
+    );
     rgb_account
         .wallets
         .insert(RGB_DEFAULT_NAME.to_owned(), rgb_wallet);
@@ -827,6 +834,7 @@ pub async fn transfer_asset(
         psbt,
         commit,
         outpoint,
+        amount,
         ..
     } = internal_transfer_asset(
         request.clone(),
@@ -842,7 +850,13 @@ pub async fn transfer_asset(
         _ => return Err(TransferError::NoWatcher),
     };
 
-    save_tap_commit_str(&outpoint, &commit, &request.terminal, &mut rgb_wallet);
+    save_tap_commit_str(
+        &outpoint,
+        amount,
+        &commit,
+        &request.terminal,
+        &mut rgb_wallet,
+    );
     rgb_account
         .wallets
         .insert(RGB_DEFAULT_NAME.to_owned(), rgb_wallet);
@@ -1332,6 +1346,7 @@ pub async fn create_swap_transfer(
         consig: final_consig,
         outpoint,
         commit,
+        amount,
         ..
     } = internal_transfer_asset(
         transfer_req,
@@ -1352,6 +1367,7 @@ pub async fn create_swap_transfer(
         store_bids(sk, my_bids).await.map_err(RgbSwapError::IO)?;
 
         rgb_swap_bid.tap_outpoint = Some(outpoint);
+        rgb_swap_bid.tap_amount = Some(amount);
         rgb_swap_bid.tap_commit = Some(commit);
     } else {
         let mut my_offers = retrieve_offers(sk).await.map_err(RgbSwapError::IO)?;
@@ -1366,7 +1382,13 @@ pub async fn create_swap_transfer(
         if let Some(list_offers) = my_offers.clone().offers.get(&contract_id) {
             if let Some(my_offer) = list_offers.iter().find(|x| x.offer_id == offer_id) {
                 let mut rgb_wallet = rgb_account.wallets.get(RGB_DEFAULT_NAME).unwrap().clone();
-                save_tap_commit_str(&outpoint, &commit, &my_offer.terminal, &mut rgb_wallet);
+                save_tap_commit_str(
+                    &outpoint,
+                    amount,
+                    &commit,
+                    &my_offer.terminal,
+                    &mut rgb_wallet,
+                );
                 rgb_account
                     .wallets
                     .insert(RGB_DEFAULT_NAME.to_owned(), rgb_wallet);
@@ -1442,7 +1464,8 @@ async fn internal_transfer_asset(
 
     let (psbt, mut transfers) =
         pay_invoice(invoice.clone(), psbt, options.clone(), stock).map_err(TransferError::Pay)?;
-    let (outpoint, commit) = extract_commit(psbt.clone()).map_err(TransferError::Commitment)?;
+    let (outpoint, amount, commit) =
+        extract_output_commit(psbt.clone()).map_err(TransferError::Commitment)?;
 
     let transfer = transfers.remove(0);
     let consig_id = transfer.bindle_id().to_string();
@@ -1486,6 +1509,7 @@ async fn internal_transfer_asset(
     let resp = RgbInternalTransferResponse {
         consig_id,
         consig,
+        amount,
         psbt: psbt_hex,
         commit,
         outpoint: outpoint.to_string(),
@@ -1511,6 +1535,7 @@ pub async fn internal_replace_transfer(
         commit,
         outpoint,
         consigs,
+        amount,
         ..
     } = internal_transfer_asset(
         request.clone(),
@@ -1526,7 +1551,13 @@ pub async fn internal_replace_transfer(
         _ => return Err(TransferError::NoWatcher),
     };
 
-    save_tap_commit_str(&outpoint, &commit, &request.terminal, &mut rgb_wallet);
+    save_tap_commit_str(
+        &outpoint,
+        amount,
+        &commit,
+        &request.terminal,
+        &mut rgb_wallet,
+    );
     rgb_account
         .wallets
         .insert(RGB_DEFAULT_NAME.to_owned(), rgb_wallet);
@@ -1860,11 +1891,13 @@ pub async fn internal_swap_transfers(
                 let RgbBidSwap {
                     tap_commit,
                     tap_outpoint,
+                    tap_amount,
                     ..
                 } = swap_bid;
                 if tap_commit.is_some() && tap_outpoint.is_some() {
                     save_tap_commit_str(
                         &tap_outpoint.unwrap_or_default(),
+                        tap_amount.unwrap_or_default(),
                         &tap_commit.unwrap_or_default(),
                         &offer.terminal,
                         rgb_wallet,

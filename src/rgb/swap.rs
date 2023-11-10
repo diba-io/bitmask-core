@@ -335,6 +335,8 @@ pub struct RgbBidSwap {
     #[garde(skip)]
     pub tap_outpoint: Option<String>,
     #[garde(skip)]
+    pub tap_amount: Option<u64>,
+    #[garde(skip)]
     pub tap_commit: Option<String>,
 }
 
