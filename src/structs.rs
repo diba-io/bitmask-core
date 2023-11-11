@@ -102,6 +102,7 @@ pub struct FundVaultDetails {
     pub assets_output: Option<String>,
     pub udas_output: Option<String>,
     pub is_funded: bool,
+    pub fund_txid: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

@@ -204,4 +204,6 @@ export interface WalletData {
 export interface FundVaultDetails {
   assetsOutput?: string;
   udasOutput?: string;
+  isFunded: boolean;
+  fundTxid: string;
 }

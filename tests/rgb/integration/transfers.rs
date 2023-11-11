@@ -1906,6 +1906,7 @@ async fn allow_consecutive_full_transfer_bidirectional() -> anyhow::Result<()> {
             consig,
             psbt,
             commit: _,
+            ..
         } = full_transfer_resp;
 
         let request = SignPsbtRequest {
@@ -1969,6 +1970,7 @@ async fn allow_consecutive_full_transfer_bidirectional() -> anyhow::Result<()> {
                 consig,
                 psbt,
                 commit: _,
+                ..
             } = full_transfer_resp;
 
             let request = SignPsbtRequest {
@@ -2082,6 +2084,7 @@ async fn allow_save_transfer_and_verify() -> anyhow::Result<()> {
         consig,
         psbt,
         commit: _,
+        ..
     } = resp;
 
     let request = SignPsbtRequest {
