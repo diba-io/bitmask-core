@@ -88,7 +88,7 @@ export const init = async (networkOverride?: string) => {
     console.warn("Could not reach carbonado", carbonado, e);
   }
   try {
-    await fetch(`${bitmask}/status`);
+    await fetch(`${bitmask}/carbonado/status`);
     BITMASK = true;
     console.debug(`${bitmask}/status successfully reached`);
   } catch (e) {
