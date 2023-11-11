@@ -898,8 +898,8 @@ pub fn prebuild_extract_transfer(
 
     let confined = Confined::try_from_iter(serialized.iter().copied())
         .expect("invalid confined serialization");
-    let (tx_id, transfer) = match extract_transfer(consignment.to_owned()) {
-        Ok((txid, tranfer)) => (txid, tranfer),
+    let (txid, transfer) = match extract_transfer(consignment.to_owned()) {
+        Ok((tx_id, transfer)) => (tx_id, transfer),
         Err(err) => return Err(SaveTransferError::WrongConsigSwap(err)),
     };
 
@@ -909,7 +909,7 @@ pub fn prebuild_extract_transfer(
         consig_id,
         strict: confined,
         contract_id,
-        tx_id,
+        txid,
         transfer,
     })
 }

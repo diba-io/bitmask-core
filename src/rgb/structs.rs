@@ -354,7 +354,7 @@ impl Default for RgbTransferV1 {
 pub struct RgbExtractTransfer {
     pub consig_id: String,
     pub contract_id: String,
-    pub tx_id: Txid,
+    pub txid: Txid,
     pub transfer: Bindle<Transfer>,
     pub strict: Confined<Vec<u8>, 0, U32>,
 }

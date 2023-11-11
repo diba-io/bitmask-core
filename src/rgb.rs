@@ -732,6 +732,7 @@ pub async fn full_transfer_asset(
         commit,
         outpoint,
         amount,
+        txid,
         ..
     } = internal_transfer_asset(
         transfer_req,
@@ -763,6 +764,7 @@ pub async fn full_transfer_asset(
         consig,
         psbt,
         commit,
+        txid,
     };
 
     rgb_account.clone().update(&mut rgb_account_changes);
@@ -796,6 +798,7 @@ pub async fn transfer_asset(
         commit,
         outpoint,
         amount,
+        txid,
         ..
     } = internal_transfer_asset(
         request.clone(),
@@ -827,6 +830,7 @@ pub async fn transfer_asset(
         consig,
         psbt,
         commit,
+        txid,
     };
 
     store_stock_account_transfers(sk, stock, rgb_account, rgb_transfers)
@@ -1463,7 +1467,7 @@ async fn internal_transfer_asset(
         Some(psbt),
     );
 
-    internal_save_transfer(internal_request, rgb_transfers)
+    let txid = internal_save_transfer(internal_request, rgb_transfers)
         .await
         .map_err(TransferError::WrongSave)?;
 
@@ -1475,6 +1479,7 @@ async fn internal_transfer_asset(
         commit,
         outpoint: outpoint.to_string(),
         consigs,
+        txid: txid.to_hex(),
     };
 
     Ok(resp)
@@ -1497,6 +1502,7 @@ pub async fn internal_replace_transfer(
         outpoint,
         consigs,
         amount,
+        txid,
         ..
     } = internal_transfer_asset(
         request.clone(),
@@ -1529,6 +1535,7 @@ pub async fn internal_replace_transfer(
         psbt,
         commit,
         consigs,
+        txid,
     };
 
     store_stock_account_transfers(sk, stock, rgb_account, rgb_transfers)
@@ -1649,7 +1656,7 @@ pub async fn save_transfer(
 pub async fn internal_save_transfer(
     request: RgbInternalSaveTransferRequest,
     rgb_transfers: &mut RgbTransfersV1,
-) -> Result<(), SaveTransferError> {
+) -> Result<rgb::Txid, SaveTransferError> {
     let RgbInternalSaveTransferRequest {
         iface,
         consig: consignment,
@@ -1662,7 +1669,7 @@ pub async fn internal_save_transfer(
     let RgbExtractTransfer {
         consig_id,
         contract_id,
-        tx_id,
+        txid: tx_id,
         strict,
         ..
     } = prebuild_extract_transfer(&consignment)?;
@@ -1713,7 +1720,7 @@ pub async fn internal_save_transfer(
         .await
         .map_err(SaveTransferError::Proxy)?;
 
-    Ok(())
+    Ok(tx_id)
 }
 
 pub async fn remove_transfer(
@@ -2046,6 +2053,7 @@ pub async fn internal_verify_transfers(
                         contract_id: contract_id.clone(),
                         consig_id: activity.consig_id.to_string(),
                         is_mine: activity.sender,
+                        txid: txid.to_hex(),
                     });
                     continue;
                 }
@@ -2061,6 +2069,7 @@ pub async fn internal_verify_transfers(
                         contract_id: contract_id.clone(),
                         consig_id: transfer_id.to_string(),
                         is_mine: activity.sender,
+                        txid: txid.to_hex(),
                     });
                 } else {
                     transfers.push(BatchRgbTransferItem {
@@ -2070,6 +2079,7 @@ pub async fn internal_verify_transfers(
                         contract_id: contract_id.clone(),
                         consig_id: transfer_id.to_string(),
                         is_mine: activity.sender,
+                        txid: txid.to_hex(),
                     });
                     pending_transfers.push(activity.to_owned());
                 }
