@@ -113,6 +113,57 @@ pub fn metrics(dir: &Path) -> Result<MetricsResponse> {
         .get_mut("total")
         .unwrap_or(&mut 0) = total_wallets;
 
+    let start_day = DateTime::<Utc>::from_naive_utc_and_offset(
+        NaiveDate::from_ymd_opt(2023, 7, 1)
+            .expect("correct date")
+            .and_hms_opt(0, 0, 0)
+            .expect("correct time"),
+        Utc,
+    );
+    let end_day: DateTime<Utc> = SystemTime::now().into();
+    let end_day = round_datetime_to_day(end_day);
+    let mut d = 0;
+
+    loop {
+        let day_prior = start_day + Duration::days(d - 1);
+        let day_prior = round_datetime_to_day(day_prior);
+        let day = round_datetime_to_day(start_day + Duration::days(d));
+
+        let bytes_day_prior = {
+            response
+                .bytes_by_day
+                .get(&day_prior)
+                .unwrap_or(&0)
+                .to_owned()
+        };
+
+        response
+            .bytes_by_day
+            .entry(day.clone())
+            .and_modify(|b| *b += bytes_day_prior)
+            .or_insert(bytes_day_prior);
+
+        let bitcoin_wallets_day_prior = {
+            response
+                .bitcoin_wallets_by_day
+                .get(&day_prior)
+                .unwrap_or(&0)
+                .to_owned()
+        };
+
+        response
+            .bitcoin_wallets_by_day
+            .entry(day.clone())
+            .and_modify(|w| *w += bitcoin_wallets_day_prior)
+            .or_insert(bitcoin_wallets_day_prior);
+
+        if day == end_day {
+            break;
+        } else {
+            d += 1;
+        }
+    }
+
     Ok(response)
 }
 
