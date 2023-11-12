@@ -17,7 +17,7 @@ use axum::{
 use bitcoin_30::secp256k1::{ecdh::SharedSecret, PublicKey, SecretKey};
 use bitmask_core::{
     bitcoin::{save_mnemonic, sign_and_publish_psbt_file},
-    carbonado::{handle_file, server_retrieve, server_store, store},
+    carbonado::{handle_file, metrics::metrics_csv, server_retrieve, server_store, store},
     constants::{
         get_marketplace_nostr_key, get_marketplace_seed, get_network, get_udas_utxo, switch_network,
     },
@@ -704,9 +704,25 @@ async fn send_coins(
     Path((address, amount)): Path<(String, String)>,
 ) -> Result<impl IntoResponse, AppError> {
     use bitmask_core::regtest::send_coins;
-
     send_coins(&address, &amount);
+
     Ok("Ok")
+}
+
+async fn json_metrics() -> Result<impl IntoResponse, AppError> {
+    use bitmask_core::carbonado::metrics::metrics;
+    let path = std::env::var("CARBONADO_DIR").unwrap_or("/tmp/bitmaskd/carbonado".to_owned());
+    let dir = std::path::Path::new(&path);
+
+    Ok(Json(metrics(dir)?))
+}
+
+async fn csv_metrics() -> Result<impl IntoResponse, AppError> {
+    use bitmask_core::carbonado::metrics::metrics;
+    let path = std::env::var("CARBONADO_DIR").unwrap_or("/tmp/bitmaskd/carbonado".to_owned());
+    let dir = std::path::Path::new(&path);
+
+    Ok(metrics_csv(metrics(dir)?))
 }
 
 #[tokio::main]
@@ -759,7 +775,9 @@ async fn main() -> Result<()> {
         .route("/proxy/consignment/:id", get(rgb_proxy_consig_retrieve))
         .route("/proxy/media-metadata", post(rgb_proxy_media_data_save))
         .route("/proxy/media-metadata/:id", get(rgb_proxy_media_retrieve))
-        .route("/proxy/media/:id", get(rgb_proxy_metadata_retrieve));
+        .route("/proxy/media/:id", get(rgb_proxy_metadata_retrieve))
+        .route("/metrics.json", get(json_metrics))
+        .route("/metrics.csv", get(csv_metrics));
 
     let network = get_network().await;
     switch_network(&network).await?;
