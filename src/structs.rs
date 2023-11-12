@@ -102,6 +102,7 @@ pub struct FundVaultDetails {
     pub assets_output: Option<String>,
     pub udas_output: Option<String>,
     pub is_funded: bool,
+    pub fund_txid: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -878,6 +879,8 @@ pub struct RgbTransferResponse {
     pub psbt: String,
     /// Tapret Commitment (used to spend output)
     pub commit: String,
+    /// Transfer Bitcoin L1 transaction id
+    pub txid: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -893,6 +896,8 @@ pub struct RgbReplaceResponse {
     pub commit: String,
     /// Strict Consignments (in hexadecimal)
     pub consigs: BTreeMap<String, String>,
+    /// Transfer Bitcoin L1 transaction id
+    pub txid: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
@@ -912,6 +917,8 @@ pub struct RgbInternalTransferResponse {
     pub commit: String,
     /// Strict Consignments (in hexadecimal)
     pub consigs: BTreeMap<String, String>,
+    /// Transfer Bitcoin L1 transaction id
+    pub txid: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -1281,6 +1288,7 @@ pub struct BatchRgbTransferItem {
     pub status: TxStatus,
     pub is_accept: bool,
     pub is_mine: bool,
+    pub txid: String,
 }
 
 #[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize, Debug, Display)]

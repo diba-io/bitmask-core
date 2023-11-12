@@ -534,6 +534,8 @@ export interface RgbTransferResponse {
   psbt: string;
   /// Tapret Commitment (used to spend output)
   commit: string;
+  /// Transfer Bitcoin L1 transaction id
+  txid: string;
 }
 
 export interface AcceptRequest {
@@ -757,6 +759,7 @@ export interface BatchRgbTransferItem {
   status: TxStatus;
   isAccept: boolean;
   iface: string;
+  txid: string;
 }
 
 export interface RgbOfferRequest {

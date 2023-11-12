@@ -425,6 +425,7 @@ pub async fn fund_vault(
         assets_output,
         udas_output,
         is_funded: true,
+        fund_txid: Some(asset_txid.to_hex()),
     })
 }
 
@@ -459,6 +460,7 @@ pub async fn get_assets_vault(
         assets_output,
         udas_output,
         is_funded,
+        fund_txid: None,
     })
 }
 

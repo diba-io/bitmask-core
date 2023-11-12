@@ -231,6 +231,7 @@ pub fn extract_transfer(transfer: String) -> Result<(Txid, Bindle<Transfer>), Ac
         if transfer.known_transitions_by_bundle_id(bundle_id).is_none() {
             return Err(AcceptTransferError::Inconclusive);
         };
+        // This only returns the first anchor txid
         if let Some(AnchoredBundle { anchor, bundle: _ }) = transfer.anchored_bundle(bundle_id) {
             return Ok((anchor.txid, Bindle::new(transfer)));
         }
