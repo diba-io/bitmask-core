@@ -31,7 +31,7 @@ pub fn metrics(dir: &Path) -> Result<MetricsResponse> {
         let entry = entry?;
         let filename = entry.file_name().to_string_lossy().to_string();
         let metadata = entry.metadata()?;
-        let day_created = metadata.modified()?; // TODO: .created();
+        let day_created = metadata.created()?;
         let day = round_datetime_to_day(day_created.into());
 
         if metadata.is_file() {
