@@ -37,11 +37,21 @@ type HashNameMap = BTreeMap<String, String>;
 struct FileHashes {
     ASSETS_STOCK: HashNameMap,
     ASSETS_WALLETS: HashNameMap,
+    ASSETS_TRANSFERS: HashNameMap,
+    ASSETS_OFFERS: HashNameMap,
+    ASSETS_BIDS: HashNameMap,
+    MARKETPLACE_OFFERS: HashNameMap,
+    MARKETPLACE_BIDS: HashNameMap,
 }
 
 const FILE_HASHES_FILE: &str = "file_hashes.toml";
 const ASSETS_STOCK: &str = "bitmask-fungible_assets_stock.c15";
 const ASSETS_WALLETS: &str = "bitmask-fungible_assets_wallets.c15";
+const ASSETS_TRANSFERS: &str = "bitmask_assets_transfers.c15";
+const ASSETS_OFFERS: &str = "bitmask-asset_offers.c15";
+const ASSETS_BIDS: &str = "bitmask-asset_bids.c15";
+const MARKETPLACE_OFFERS: &str = "bitmask-marketplace_public_offers.c15";
+const MARKETPLACE_BIDS: &str = "bitmask-marketplace_public_bids.c15";
 const NETWORK: &str = "bitcoin"; // Only mainnet is tracked, no monetary incentive to upgrade testnet assets
 
 fn main() -> Result<()> {
@@ -88,11 +98,31 @@ fn main() -> Result<()> {
 
     let assets_stock_name = format!("{LIB_ID_RGB}-{ASSETS_STOCK}");
     let assets_wallets_name = format!("{LIB_ID_RGB}-{ASSETS_WALLETS}");
+    let assets_transfers_name = format!("{LIB_ID_RGB}-{ASSETS_TRANSFERS}");
+    let assets_offers_name = format!("{LIB_ID_RGB}-{ASSETS_OFFERS}");
+    let assets_bids_name = format!("{LIB_ID_RGB}-{ASSETS_BIDS}");
+    let marketplace_offers_name = format!("{LIB_ID_RGB}-{MARKETPLACE_OFFERS}");
+    let marketplace_bids_name = format!("{LIB_ID_RGB}-{MARKETPLACE_BIDS}");
 
     let assets_stock_hash = blake3::hash(assets_stock_name.as_bytes())
         .to_hex()
         .to_ascii_lowercase();
     let assets_wallets_hash = blake3::hash(assets_wallets_name.as_bytes())
+        .to_hex()
+        .to_ascii_lowercase();
+    let assets_transfers_hash = blake3::hash(assets_transfers_name.as_bytes())
+        .to_hex()
+        .to_ascii_lowercase();
+    let assets_offers_hash = blake3::hash(assets_offers_name.as_bytes())
+        .to_hex()
+        .to_ascii_lowercase();
+    let assets_bids_hash = blake3::hash(assets_bids_name.as_bytes())
+        .to_hex()
+        .to_ascii_lowercase();
+    let marketplace_offers_hash = blake3::hash(marketplace_offers_name.as_bytes())
+        .to_hex()
+        .to_ascii_lowercase();
+    let marketplace_bids_hash = blake3::hash(marketplace_bids_name.as_bytes())
         .to_hex()
         .to_ascii_lowercase();
 
@@ -103,6 +133,26 @@ fn main() -> Result<()> {
     doc.ASSETS_WALLETS
         .entry(format!("{NETWORK}-{assets_wallets_hash}.c15"))
         .or_insert(assets_wallets_name);
+
+    doc.ASSETS_TRANSFERS
+        .entry(format!("{NETWORK}-{assets_transfers_hash}.c15"))
+        .or_insert(assets_transfers_name);
+
+    doc.ASSETS_OFFERS
+        .entry(format!("{NETWORK}-{assets_offers_hash}.c15"))
+        .or_insert(assets_offers_name);
+
+    doc.ASSETS_BIDS
+        .entry(format!("{NETWORK}-{assets_bids_hash}.c15"))
+        .or_insert(assets_bids_name);
+
+    doc.MARKETPLACE_OFFERS
+        .entry(format!("{NETWORK}-{marketplace_offers_hash}.c15"))
+        .or_insert(marketplace_offers_name);
+
+    doc.MARKETPLACE_BIDS
+        .entry(format!("{NETWORK}-{marketplace_bids_hash}.c15"))
+        .or_insert(marketplace_bids_name);
 
     let toml = toml::to_string(&doc)?;
 
