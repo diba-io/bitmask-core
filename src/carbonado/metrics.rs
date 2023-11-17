@@ -107,7 +107,7 @@ pub fn metrics(dir: &Path) -> Result<MetricsResponse> {
         .unwrap_or(&mut 0) = total_wallets;
 
     let start_day = DateTime::<Utc>::from_naive_utc_and_offset(
-        NaiveDate::from_ymd_opt(2023, 7, 1)
+        NaiveDate::from_ymd_opt(2023, 7, 25)
             .expect("correct date")
             .and_hms_opt(0, 0, 0)
             .expect("correct time"),
@@ -267,7 +267,19 @@ pub fn metrics_csv(metrics: MetricsResponse) -> String {
             line.push("".to_owned());
         }
 
-        if lines.len() > 4 {
+        if lines.len() == 4 {
+            line.push("total".to_string());
+            line.push(
+                metrics
+                    .wallets_by_network
+                    .get("total")
+                    .expect("total is defined")
+                    .to_string(),
+            );
+            line.push("".to_owned());
+        }
+
+        if lines.len() > 5 {
             line.push("".to_owned());
             line.push("".to_owned());
             line.push("".to_owned());
