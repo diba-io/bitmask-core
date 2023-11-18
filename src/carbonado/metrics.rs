@@ -16,16 +16,53 @@ pub struct MetricsResponse {
     wallets_by_network: BTreeMap<String, usize>,
 }
 
+const MAINNET_WALLET: &str =
+    "bitcoin-6075e9716c984b37840f76ad2b50b3d1b98ed286884e5ceba5bcc8e6b74988d3.c15";
+const TESTNET_WALLET: &str =
+    "testnet-6075e9716c984b37840f76ad2b50b3d1b98ed286884e5ceba5bcc8e6b74988d3.c15";
+const SIGNET_WALLET: &str =
+    "signet-6075e9716c984b37840f76ad2b50b3d1b98ed286884e5ceba5bcc8e6b74988d3.c15";
+const REGTEST_WALLET: &str =
+    "regtest-6075e9716c984b37840f76ad2b50b3d1b98ed286884e5ceba5bcc8e6b74988d3.c15";
+const RGB_STOCK: &str =
+    "bitcoin-4b1bc93ea7f03c49c4424b56561c9c7437e5f16e5714cece615a48e249264a84.c15";
+const RGB_TRANSFER_FILE: &str =
+    "bitcoin-28cc77c6e8e65def696101d839d0f335effa5da22d4a9c6d843bc6caa87e957e.c15";
+
+const NETWORK_BITCOIN: &str = "bitcoin";
+const NETWORK_TESTNET: &str = "testnet";
+const NETWORK_SIGNET: &str = "signet";
+const NETWORK_REGTEST: &str = "regtest";
+const NETWORK_TOTAL: &str = "total";
+const NETWORK_RGB_STOCKS: &str = "rgb_stocks";
+const NETWORK_RGB_TRANSFER_FILES: &str = "rgb_transfer_files";
+
 pub fn metrics(dir: &Path) -> Result<MetricsResponse> {
     let mut response = MetricsResponse::default();
 
-    response.wallets_by_network.insert("bitcoin".to_string(), 0);
-    response.wallets_by_network.insert("testnet".to_string(), 0);
-    response.wallets_by_network.insert("signet".to_string(), 0);
-    response.wallets_by_network.insert("regtest".to_string(), 0);
+    response
+        .wallets_by_network
+        .insert(NETWORK_BITCOIN.to_string(), 0);
+    response
+        .wallets_by_network
+        .insert(NETWORK_TESTNET.to_string(), 0);
+    response
+        .wallets_by_network
+        .insert(NETWORK_SIGNET.to_string(), 0);
+    response
+        .wallets_by_network
+        .insert(NETWORK_REGTEST.to_string(), 0);
     response.wallets_by_network.insert("total".to_string(), 0);
+    response
+        .wallets_by_network
+        .insert(NETWORK_RGB_STOCKS.to_string(), 0);
+    response
+        .wallets_by_network
+        .insert(NETWORK_RGB_TRANSFER_FILES.to_string(), 0);
 
     let mut total_wallets = 0;
+    let mut rgb_stocks = 0;
+    let mut rgb_transfer_files = 0;
 
     for entry in WalkDir::new(dir) {
         let entry = entry?;
@@ -39,12 +76,10 @@ pub fn metrics(dir: &Path) -> Result<MetricsResponse> {
 
             *response.bytes_by_day.entry(day.clone()).or_insert(0) += metadata.len();
 
-            if filename
-                == "bitcoin-6075e9716c984b37840f76ad2b50b3d1b98ed286884e5ceba5bcc8e6b74988d3.c15"
-            {
+            if filename == MAINNET_WALLET {
                 *response
                     .wallets_by_network
-                    .get_mut("bitcoin")
+                    .get_mut(NETWORK_BITCOIN)
                     .unwrap_or(&mut 0) += 1;
                 *response
                     .bitcoin_wallets_by_day
@@ -52,12 +87,10 @@ pub fn metrics(dir: &Path) -> Result<MetricsResponse> {
                     .or_insert(0) += 1;
             }
 
-            if filename
-                == "testnet-6075e9716c984b37840f76ad2b50b3d1b98ed286884e5ceba5bcc8e6b74988d3.c15"
-            {
+            if filename == TESTNET_WALLET {
                 *response
                     .wallets_by_network
-                    .get_mut("testnet")
+                    .get_mut(NETWORK_TESTNET)
                     .unwrap_or(&mut 0) += 1;
                 *response
                     .testnet_wallets_by_day
@@ -65,12 +98,10 @@ pub fn metrics(dir: &Path) -> Result<MetricsResponse> {
                     .or_insert(0) += 1;
             }
 
-            if filename
-                == "signet-6075e9716c984b37840f76ad2b50b3d1b98ed286884e5ceba5bcc8e6b74988d3.c15"
-            {
+            if filename == SIGNET_WALLET {
                 *response
                     .wallets_by_network
-                    .get_mut("signet")
+                    .get_mut(NETWORK_SIGNET)
                     .unwrap_or(&mut 0) += 1;
                 *response
                     .signet_wallets_by_day
@@ -78,12 +109,10 @@ pub fn metrics(dir: &Path) -> Result<MetricsResponse> {
                     .or_insert(0) += 1;
             }
 
-            if filename
-                == "regtest-6075e9716c984b37840f76ad2b50b3d1b98ed286884e5ceba5bcc8e6b74988d3.c15"
-            {
+            if filename == REGTEST_WALLET {
                 *response
                     .wallets_by_network
-                    .get_mut("regtest")
+                    .get_mut(NETWORK_REGTEST)
                     .unwrap_or(&mut 0) += 1;
                 *response
                     .regtest_wallets_by_day
@@ -91,23 +120,41 @@ pub fn metrics(dir: &Path) -> Result<MetricsResponse> {
                     .or_insert(0) += 1;
             }
 
-            if filename == "bitcoin-6075e9716c984b37840f76ad2b50b3d1b98ed286884e5ceba5bcc8e6b74988d3.c15"
-                || filename == "testnet-6075e9716c984b37840f76ad2b50b3d1b98ed286884e5ceba5bcc8e6b74988d3.c15"
-                || filename == "signet-6075e9716c984b37840f76ad2b50b3d1b98ed286884e5ceba5bcc8e6b74988d3.c15"
-                || filename == "regtest-6075e9716c984b37840f76ad2b50b3d1b98ed286884e5ceba5bcc8e6b74988d3.c15"
+            if filename == MAINNET_WALLET
+                || filename == TESTNET_WALLET
+                || filename == SIGNET_WALLET
+                || filename == REGTEST_WALLET
             {
                 total_wallets += 1;
+            }
+
+            if filename == RGB_STOCK {
+                rgb_stocks += 1;
+            }
+
+            if filename == RGB_TRANSFER_FILE {
+                rgb_transfer_files += 1;
             }
         }
     }
 
     *response
         .wallets_by_network
-        .get_mut("total")
+        .get_mut(NETWORK_TOTAL)
         .unwrap_or(&mut 0) = total_wallets;
 
+    *response
+        .wallets_by_network
+        .get_mut(NETWORK_RGB_STOCKS)
+        .unwrap_or(&mut 0) = rgb_stocks;
+
+    *response
+        .wallets_by_network
+        .get_mut(NETWORK_RGB_TRANSFER_FILES)
+        .unwrap_or(&mut 0) = rgb_transfer_files;
+
     let start_day = DateTime::<Utc>::from_naive_utc_and_offset(
-        NaiveDate::from_ymd_opt(2023, 7, 1)
+        NaiveDate::from_ymd_opt(2023, 7, 25)
             .expect("correct date")
             .and_hms_opt(0, 0, 0)
             .expect("correct time"),
@@ -124,7 +171,7 @@ pub fn metrics(dir: &Path) -> Result<MetricsResponse> {
         let day_prior = round_datetime_to_day(day_prior);
         let day = round_datetime_to_day(start_day);
 
-        let mut bytes_day_prior = {
+        let bytes_day_prior = {
             response
                 .bytes_by_day
                 .get(&day_prior)
@@ -132,10 +179,11 @@ pub fn metrics(dir: &Path) -> Result<MetricsResponse> {
                 .to_owned()
         };
 
-        *response
+        response
             .bytes_by_day
-            .get_mut(&day)
-            .unwrap_or(&mut bytes_day_prior) = bytes_day_prior;
+            .entry(day.clone())
+            .and_modify(|b| *b += bytes_day_prior)
+            .or_insert(bytes_day_prior);
 
         let bitcoin_wallets_day_prior = {
             response
@@ -220,11 +268,11 @@ pub fn metrics_csv(metrics: MetricsResponse) -> String {
         let mut line = vec![];
 
         if lines.len() == 1 {
-            line.push("Bitcoin".to_string());
+            line.push(NETWORK_BITCOIN.to_string());
             line.push(
                 metrics
                     .wallets_by_network
-                    .get("bitcoin")
+                    .get(NETWORK_BITCOIN)
                     .expect("network is defined")
                     .to_string(),
             );
@@ -232,11 +280,11 @@ pub fn metrics_csv(metrics: MetricsResponse) -> String {
         }
 
         if lines.len() == 2 {
-            line.push("Tesnet".to_string());
+            line.push(NETWORK_TESTNET.to_string());
             line.push(
                 metrics
                     .wallets_by_network
-                    .get("testnet")
+                    .get(NETWORK_TESTNET)
                     .expect("network is defined")
                     .to_string(),
             );
@@ -244,11 +292,11 @@ pub fn metrics_csv(metrics: MetricsResponse) -> String {
         }
 
         if lines.len() == 3 {
-            line.push("signet".to_string());
+            line.push(NETWORK_SIGNET.to_string());
             line.push(
                 metrics
                     .wallets_by_network
-                    .get("signet")
+                    .get(NETWORK_SIGNET)
                     .expect("network is defined")
                     .to_string(),
             );
@@ -256,18 +304,54 @@ pub fn metrics_csv(metrics: MetricsResponse) -> String {
         }
 
         if lines.len() == 4 {
-            line.push("regtest".to_string());
+            line.push(NETWORK_REGTEST.to_string());
             line.push(
                 metrics
                     .wallets_by_network
-                    .get("regtest")
+                    .get(NETWORK_REGTEST)
                     .expect("network is defined")
                     .to_string(),
             );
             line.push("".to_owned());
         }
 
-        if lines.len() > 4 {
+        if lines.len() == 5 {
+            line.push(NETWORK_TOTAL.to_string());
+            line.push(
+                metrics
+                    .wallets_by_network
+                    .get(NETWORK_TOTAL)
+                    .expect("total is defined")
+                    .to_string(),
+            );
+            line.push("".to_owned());
+        }
+
+        if lines.len() == 6 {
+            line.push(NETWORK_RGB_STOCKS.to_string());
+            line.push(
+                metrics
+                    .wallets_by_network
+                    .get(NETWORK_RGB_STOCKS)
+                    .expect("rgb_stocks is defined")
+                    .to_string(),
+            );
+            line.push("".to_owned());
+        }
+
+        if lines.len() == 7 {
+            line.push(NETWORK_RGB_TRANSFER_FILES.to_string());
+            line.push(
+                metrics
+                    .wallets_by_network
+                    .get(NETWORK_RGB_TRANSFER_FILES)
+                    .expect("rgb_transfer_files is defined")
+                    .to_string(),
+            );
+            line.push("".to_owned());
+        }
+
+        if lines.len() > 7 {
             line.push("".to_owned());
             line.push("".to_owned());
             line.push("".to_owned());

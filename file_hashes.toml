@@ -3,3 +3,18 @@
 
 [ASSETS_WALLETS]
 "bitcoin-6075e9716c984b37840f76ad2b50b3d1b98ed286884e5ceba5bcc8e6b74988d3.c15" = "urn:ubideco:stl:4fGZWR5mH5zZzRZ1r7CSRe776zm3hLBUngfXc4s3vm3V#saturn-flash-emerald-bitmask-fungible_assets_wallets.c15"
+
+[ASSETS_TRANSFERS]
+"bitcoin-28cc77c6e8e65def696101d839d0f335effa5da22d4a9c6d843bc6caa87e957e.c15" = "urn:ubideco:stl:4fGZWR5mH5zZzRZ1r7CSRe776zm3hLBUngfXc4s3vm3V#saturn-flash-emerald-bitmask_assets_transfers.c15"
+
+[ASSETS_OFFERS]
+"bitcoin-dd9131edcd48ad270192f29706ca614078731640d126dd5ae0210006f41e1b05.c15" = "urn:ubideco:stl:4fGZWR5mH5zZzRZ1r7CSRe776zm3hLBUngfXc4s3vm3V#saturn-flash-emerald-bitmask-asset_offers.c15"
+
+[ASSETS_BIDS]
+"bitcoin-722c348c9b4764133e06fd7f0ae1f63e55237b2998a22b6a80825a7c916116c6.c15" = "urn:ubideco:stl:4fGZWR5mH5zZzRZ1r7CSRe776zm3hLBUngfXc4s3vm3V#saturn-flash-emerald-bitmask-asset_bids.c15"
+
+[MARKETPLACE_OFFERS]
+"bitcoin-1c4976934148eef543fc1926420101a6c50d865088e25e68484e5ad4fab9a9b0.c15" = "urn:ubideco:stl:4fGZWR5mH5zZzRZ1r7CSRe776zm3hLBUngfXc4s3vm3V#saturn-flash-emerald-bitmask-marketplace_public_offers.c15"
+
+[MARKETPLACE_BIDS]
+"bitcoin-b4a36514625daafd29414b889185aff46cb9e60b94176baff6fb2fcb974ed79e.c15" = "urn:ubideco:stl:4fGZWR5mH5zZzRZ1r7CSRe776zm3hLBUngfXc4s3vm3V#saturn-flash-emerald-bitmask-marketplace_public_bids.c15"
