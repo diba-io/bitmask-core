@@ -1,7 +1,7 @@
 #![allow(unused_imports)]
 #![cfg(feature = "server")]
 #![cfg(not(target_arch = "wasm32"))]
-use std::{env, fs::OpenOptions, io::ErrorKind, net::SocketAddr, str::FromStr};
+use std::{env, fs::OpenOptions, io::ErrorKind, net::SocketAddr, str::FromStr, time::Duration};
 
 use amplify::hex::FromHex;
 use anyhow::Result;
@@ -17,7 +17,11 @@ use axum::{
 use bitcoin_30::secp256k1::{ecdh::SharedSecret, PublicKey, SecretKey};
 use bitmask_core::{
     bitcoin::{save_mnemonic, sign_and_publish_psbt_file},
-    carbonado::{handle_file, metrics::metrics_csv, server_retrieve, server_store, store},
+    carbonado::{
+        handle_file,
+        metrics::{metrics, metrics_csv},
+        server_retrieve, server_store, store,
+    },
     constants::{
         get_marketplace_nostr_key, get_marketplace_seed, get_network, get_udas_utxo, switch_network,
     },
@@ -47,7 +51,7 @@ use bitmask_core::{
     },
 };
 use log::{debug, error, info};
-use tokio::fs;
+use tokio::{fs, time::sleep};
 use tower_http::cors::CorsLayer;
 
 async fn issue(
@@ -712,17 +716,41 @@ async fn send_coins(
 async fn json_metrics() -> Result<impl IntoResponse, AppError> {
     use bitmask_core::carbonado::metrics::metrics;
     let path = std::env::var("CARBONADO_DIR").unwrap_or("/tmp/bitmaskd/carbonado".to_owned());
-    let dir = std::path::Path::new(&path);
+    let contents = fs::read_to_string(&format!("{path}/metrics.json")).await?;
 
-    Ok(Json(metrics(dir)?))
+    Ok((
+        StatusCode::OK,
+        [("content-type", "application/json")],
+        contents,
+    ))
 }
 
 async fn csv_metrics() -> Result<impl IntoResponse, AppError> {
-    use bitmask_core::carbonado::metrics::metrics;
+    let path = std::env::var("CARBONADO_DIR").unwrap_or("/tmp/bitmaskd/carbonado".to_owned());
+    let contents = fs::read_to_string(&format!("{path}/metrics.csv")).await?;
+
+    Ok((
+        StatusCode::OK,
+        [("content-type", "application/json")],
+        contents,
+    ))
+}
+
+async fn periodic_metrics() -> Result<()> {
     let path = std::env::var("CARBONADO_DIR").unwrap_or("/tmp/bitmaskd/carbonado".to_owned());
     let dir = std::path::Path::new(&path);
+    fs::create_dir_all(dir).await?;
 
-    Ok(metrics_csv(metrics(dir)?))
+    let metrics = metrics(dir)?;
+    let metrics_json = serde_json::to_string_pretty(&metrics)?;
+    let metrics_csv = metrics_csv(metrics);
+
+    fs::write(&format!("{path}/metrics.json"), &metrics_json).await?;
+    fs::write(&format!("{path}/metrics.csv"), &metrics_csv).await?;
+
+    sleep(Duration::from_secs(4 * 60 * 60)).await;
+
+    Ok(())
 }
 
 #[tokio::main]
@@ -786,6 +814,14 @@ async fn main() -> Result<()> {
         app = app
             .route("/regtest/block", get(new_block))
             .route("/regtest/send/:address/:amount", get(send_coins));
+    } else {
+        tokio::spawn(async {
+            loop {
+                if let Err(e) = periodic_metrics().await {
+                    error!("Error in periodic metrics: {e}");
+                }
+            }
+        });
     }
 
     let app = app.layer(CorsLayer::permissive());
