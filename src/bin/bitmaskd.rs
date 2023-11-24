@@ -1,7 +1,14 @@
 #![allow(unused_imports)]
 #![cfg(feature = "server")]
 #![cfg(not(target_arch = "wasm32"))]
-use std::{env, fs::OpenOptions, io::ErrorKind, net::SocketAddr, str::FromStr, time::Duration};
+use std::{
+    env,
+    fs::OpenOptions,
+    io::ErrorKind,
+    net::SocketAddr,
+    str::FromStr,
+    time::{Duration, Instant},
+};
 
 use amplify::hex::FromHex;
 use anyhow::Result;
@@ -741,9 +748,20 @@ async fn periodic_metrics() -> Result<()> {
     let dir = std::path::Path::new(&path);
     fs::create_dir_all(dir).await?;
 
+    info!("Starting metrics collection...");
+
+    let duration = Instant::now();
+
     let metrics = metrics(dir).await?;
     let metrics_json = serde_json::to_string_pretty(&metrics)?;
     let metrics_csv = metrics_csv(metrics);
+
+    let duration = Instant::now() - duration;
+
+    info!(
+        "Finished metrics collection. Took: {} seconds",
+        duration.as_secs_f32()
+    );
 
     fs::write(&format!("{path}/metrics.json"), &metrics_json).await?;
     fs::write(&format!("{path}/metrics.csv"), &metrics_csv).await?;
