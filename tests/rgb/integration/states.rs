@@ -33,7 +33,7 @@ async fn allow_import_uda_contract() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn check_fungible_allocations() -> anyhow::Result<()> {
-    // 1. Issue and Generate Trasnfer (Issuer side)
+    // 1. Issue and Generate Transfer (Issuer side)
     let whatever_address = "bcrt1p76gtucrxhmn8s5622r859dpnmkj0kgfcel9xy0sz6yj84x6ppz2qk5hpsw";
     let issuer_keys = new_mnemonic(&SecretString("".to_string())).await?;
     let owner_keys = new_mnemonic(&SecretString("".to_string())).await?;
@@ -130,7 +130,7 @@ async fn check_fungible_allocations() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn check_uda_allocations() -> anyhow::Result<()> {
-    // 1. Issue and Generate Trasnfer (Issuer side)
+    // 1. Issue and Generate Transfer (Issuer side)
     let whatever_address = "bcrt1p76gtucrxhmn8s5622r859dpnmkj0kgfcel9xy0sz6yj84x6ppz2qk5hpsw";
     let issuer_keys = new_mnemonic(&SecretString("".to_string())).await?;
     let owner_keys = new_mnemonic(&SecretString("".to_string())).await?;

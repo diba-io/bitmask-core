@@ -16,7 +16,7 @@ use rgbstd::persistence::Stock;
 use rgbstd::stl::LIB_ID_RGB;
 use strict_encoding::StrictDeserialize;
 
-#[ignore = "Only for troubleshotting"]
+#[ignore = "Only for troubleshooting"]
 #[tokio::test]
 pub async fn inspect_contract_states() -> Result<()> {
     // 0. Switc network

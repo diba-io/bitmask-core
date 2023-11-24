@@ -583,20 +583,20 @@ pub async fn publish_public_offer(new_offer: RgbOfferSwap) -> Result<(), RgbOffe
     let mut local_copy = automerge::AutoCommit::load(&doc)
         .map_err(|op| RgbOfferErrors::AutoMerge(op.to_string()))?;
     if let Some(offers) = rgb_offers.offers.get(&new_offer.contract_id) {
-        let mut avaliable_offers = offers.to_owned();
-        if let Some(position) = avaliable_offers
+        let mut available_offers = offers.to_owned();
+        if let Some(position) = available_offers
             .iter()
             .position(|x| x.offer_id == new_offer.offer_id)
         {
-            avaliable_offers.remove(position);
-            avaliable_offers.insert(position, new_offer.clone());
+            available_offers.remove(position);
+            available_offers.insert(position, new_offer.clone());
         } else {
-            avaliable_offers.push(new_offer.clone());
+            available_offers.push(new_offer.clone());
         }
 
         rgb_offers
             .offers
-            .insert(new_offer.clone().contract_id, avaliable_offers);
+            .insert(new_offer.clone().contract_id, available_offers);
     } else {
         rgb_offers
             .offers
@@ -630,9 +630,9 @@ pub async fn publish_public_bid(new_bid: RgbBidSwap) -> Result<(), RgbOfferError
 
     let new_public_bid = PublicRgbBid::from(new_bid);
     if let Some(bids) = rgb_offers.bids.get(&offer_id) {
-        let mut avaliable_bids = bids.to_owned();
-        avaliable_bids.insert(bid_id, new_public_bid);
-        rgb_offers.bids.insert(offer_id.clone(), avaliable_bids);
+        let mut available_bids = bids.to_owned();
+        available_bids.insert(bid_id, new_public_bid);
+        rgb_offers.bids.insert(offer_id.clone(), available_bids);
     } else {
         rgb_offers
             .bids

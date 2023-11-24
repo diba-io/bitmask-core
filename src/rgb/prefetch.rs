@@ -127,7 +127,7 @@ pub async fn prefetch_resolver_rgb(
         let tx_raw = esplora_client
             .get_tx(transaction_id)
             .await
-            .expect("service unavaliable");
+            .expect("service unavailable");
 
         if let Some(tx) = tx_raw {
             let txid =
@@ -191,7 +191,7 @@ pub async fn prefetch_resolver_import_rgb(
         let tx_raw = esplora_client
             .get_tx(transaction_id)
             .await
-            .expect("service unavaliable");
+            .expect("service unavailable");
 
         if let Some(tx) = tx_raw {
             let new_tx = Tx {
@@ -235,7 +235,7 @@ pub async fn prefetch_resolver_psbt(input_utxo: &str, explorer: &mut ExplorerRes
     if let Some(tx) = esplora_client
         .get_tx(&txid)
         .await
-        .expect("service unavaliable")
+        .expect("service unavailable")
     {
         explorer.txs.insert(txid, tx);
     }
@@ -351,7 +351,7 @@ pub async fn prefetch_resolver_utxos(
         let mut related_txs = esplora_client
             .scripthash_txs(&script_compatible, None)
             .await
-            .expect("Service unavaliable");
+            .expect("Service unavailable");
         let n_confirmed = related_txs.iter().filter(|tx| tx.status.confirmed).count();
         // esplora pages on 25 confirmed transactions. If there are 25 or more we
         // keep requesting to see if there's more.
@@ -360,7 +360,7 @@ pub async fn prefetch_resolver_utxos(
                 let new_related_txs = esplora_client
                     .scripthash_txs(&script_compatible, Some(related_txs.last().unwrap().txid))
                     .await
-                    .expect("Service unavaliable");
+                    .expect("Service unavailable");
                 let n = new_related_txs.len();
                 related_txs.extend(new_related_txs);
                 // we've reached the end
@@ -424,7 +424,7 @@ pub async fn prefetch_resolver_txs(txids: Vec<Txid>, explorer: &mut ExplorerReso
         if let Some(tx) = esplora_client
             .get_tx(&txid)
             .await
-            .expect("service unavaliable")
+            .expect("service unavailable")
         {
             explorer.txs.insert(txid, tx);
         }
@@ -536,7 +536,7 @@ pub async fn prefetch_resolver_wutxo(
     if let Some(tx) = esplora_client
         .get_tx(&outpoint.txid)
         .await
-        .expect("service unavaliable")
+        .expect("service unavailable")
     {
         if let Some(vout) = tx.output.to_vec().get(outpoint.vout as usize) {
             let sc = Script::from_str(&vout.script_pubkey.to_hex()).expect("invalid script");
@@ -561,7 +561,7 @@ pub async fn prefetch_resolver_tx_height(txid: rgbstd::Txid, explorer: &mut Expl
     let tx = esplora_client
         .get_tx_status(transaction_id)
         .await
-        .expect("service unavaliable");
+        .expect("service unavailable");
 
     if let Some(tx) = tx {
         let status = match tx.block_height {
@@ -707,7 +707,7 @@ impl ExploreAsyncExt {
             .get(&format!("{}/tx/{}", client.url(), txid))
             .send()
             .await
-            .expect("unavaliable esplora server");
+            .expect("unavailable esplora server");
 
         if let StatusCode::NOT_FOUND = resp.status() {
             return Err(ExploreClientExtError::NotFound);
