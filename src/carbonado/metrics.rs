@@ -1,8 +1,13 @@
-use std::{collections::BTreeMap, path::Path, time::SystemTime};
+use std::{
+    collections::BTreeMap,
+    path::Path,
+    time::{Duration as StdDuration, SystemTime},
+};
 
 use anyhow::Result;
 use chrono::{DateTime, Duration, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
+use tokio::time::sleep;
 use walkdir::WalkDir;
 
 #[derive(Serialize, Deserialize, Default)]
@@ -37,7 +42,7 @@ const NETWORK_TOTAL: &str = "total";
 const NETWORK_RGB_STOCKS: &str = "rgb_stocks";
 const NETWORK_RGB_TRANSFER_FILES: &str = "rgb_transfer_files";
 
-pub fn metrics(dir: &Path) -> Result<MetricsResponse> {
+pub async fn metrics(dir: &Path) -> Result<MetricsResponse> {
     let mut response = MetricsResponse::default();
 
     response
@@ -136,6 +141,8 @@ pub fn metrics(dir: &Path) -> Result<MetricsResponse> {
                 rgb_transfer_files += 1;
             }
         }
+
+        sleep(StdDuration::from_millis(1)).await;
     }
 
     *response

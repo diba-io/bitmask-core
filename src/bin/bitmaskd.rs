@@ -741,7 +741,7 @@ async fn periodic_metrics() -> Result<()> {
     let dir = std::path::Path::new(&path);
     fs::create_dir_all(dir).await?;
 
-    let metrics = metrics(dir)?;
+    let metrics = metrics(dir).await?;
     let metrics_json = serde_json::to_string_pretty(&metrics)?;
     let metrics_csv = metrics_csv(metrics);
 
