@@ -363,11 +363,11 @@ mod client {
         let name = request.clone().file_name;
         let url = format!("{endpoint}/proxy/consignment/{network}-{name}");
         let body = RgbProxyConsigCarbonadoReq::from(request);
-        let (reponse, _) = post_json(&url, &body.clone())
+        let (response, _) = post_json(&url, &body.clone())
             .await
             .map_err(|op| ProxyServerError::Parse(op.to_string()))?;
 
-        let result = serde_json::from_str::<RgbProxyConsigUploadRes>(&reponse)
+        let result = serde_json::from_str::<RgbProxyConsigUploadRes>(&response)
             .map_err(|op| ProxyServerError::Parse(op.to_string()))?;
         Ok(result.clone())
     }
@@ -379,11 +379,11 @@ mod client {
 
         let request_id = request_id.replace("utxob:", "");
         let url = format!("{endpoint}/proxy/consignment/{request_id}");
-        let reponse = get(&url, None)
+        let response = get(&url, None)
             .await
             .map_err(|op| ProxyServerError::Parse(op.to_string()))?;
 
-        let resp = match serde_json::from_str::<RgbProxyConsigRes>(&reponse) {
+        let resp = match serde_json::from_str::<RgbProxyConsigRes>(&response) {
             Ok(resp) => Some(resp),
             Err(_) => None,
         };
@@ -397,11 +397,11 @@ mod client {
         let endpoint = BITMASK_ENDPOINT.read().await.to_string();
 
         let url = format!("{endpoint}/proxy/media/{attachment_id}");
-        let reponse = get(&url, None)
+        let response = get(&url, None)
             .await
             .map_err(|op| ProxyServerError::Parse(op.to_string()))?;
 
-        let resp = match serde_json::from_str::<RgbProxyMediaRes>(&reponse) {
+        let resp = match serde_json::from_str::<RgbProxyMediaRes>(&response) {
             Ok(resp) => Some(resp),
             Err(_) => None,
         };
@@ -414,11 +414,11 @@ mod client {
         let endpoint = BITMASK_ENDPOINT.read().await.to_string();
 
         let url = format!("{endpoint}/proxy/media-metadata/{attachment_id}");
-        let reponse = get(&url, None)
+        let response = get(&url, None)
             .await
             .map_err(|op| ProxyServerError::Parse(op.to_string()))?;
 
-        let resp = match serde_json::from_str::<RgbProxyMediaRes>(&reponse) {
+        let resp = match serde_json::from_str::<RgbProxyMediaRes>(&response) {
             Ok(resp) => Some(resp),
             Err(_) => None,
         };
@@ -436,11 +436,11 @@ mod client {
             encode,
             item: media,
         };
-        let (reponse, _) = post_json(&url, &body.clone())
+        let (response, _) = post_json(&url, &body.clone())
             .await
             .map_err(|op| ProxyServerError::Parse(op.to_string()))?;
 
-        let result = serde_json::from_str::<MediaMetadata>(&reponse)
+        let result = serde_json::from_str::<MediaMetadata>(&response)
             .map_err(|op| ProxyServerError::Parse(op.to_string()))?;
         Ok(result.clone())
     }

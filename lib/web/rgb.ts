@@ -555,7 +555,7 @@ export interface AcceptResponse {
 }
 
 export interface ContractsResponse {
-  /// List of avaliable contracts
+  /// List of available contracts
   contracts: ImportResponse[];
 }
 
@@ -567,7 +567,7 @@ export interface ContractHiddenResponse {
 }
 
 export interface InterfacesResponse {
-  /// List of avaliable interfaces and implementations
+  /// List of available interfaces and implementations
   interfaces: InterfaceDetail[];
 }
 
@@ -581,14 +581,14 @@ export interface InterfaceDetail {
 }
 
 export interface SchemasResponse {
-  /// List of avaliable schemas
+  /// List of available schemas
   schemas: SchemaDetail[];
 }
 
 export interface SchemaDetail {
   /// Schema ID
   schema: string;
-  /// Avaliable Interfaces
+  /// Available Interfaces
   ifaces: string[];
 }
 
@@ -721,7 +721,7 @@ export interface RgbTransferStatusResponse {
 }
 
 export interface RgbTransfersResponse {
-  /// List of avaliable transfers
+  /// List of available transfers
   transfers: RgbTransferDetail[];
 }
 

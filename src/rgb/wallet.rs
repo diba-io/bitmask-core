@@ -166,7 +166,7 @@ pub fn next_utxo(
         let index = utxo.outpoint.vout.into_u32();
         let utxo_status = resolver
             .resolve_spent_status(txid, index.into(), true)
-            .expect("unavaliable service");
+            .expect("unavailable service");
         if !utxo_status.is_spent && !utxo_status.clone().is_invalid_state() {
             match utxo_status.block_height {
                 TxStatus::Mempool => {
@@ -210,7 +210,7 @@ pub fn next_utxos(
         let index = utxo.outpoint.vout.into_u32();
         let utxo_status = resolver
             .resolve_spent_status(txid, index.into(), true)
-            .expect("unavaliable service");
+            .expect("unavailable service");
         if !utxo_status.is_spent && !utxo_status.is_invalid_state() && !next_utxo.contains(&utxo) {
             next_utxo.push(utxo);
         }

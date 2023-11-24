@@ -851,7 +851,7 @@ pub enum RgbSwapError {
     NoWatcher,
     /// Contract is required in this operation. Please, import or issue a Contract.
     NoContract,
-    /// Avaliable Utxo is required in this operation. {0}
+    /// Available Utxo is required in this operation. {0}
     NoUtxo(String),
     /// The Offer has expired.
     OfferExpired,

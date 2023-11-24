@@ -49,7 +49,7 @@ impl rgb::Resolver for ExplorerResolver {
         let mut utxos = bset![];
         let explorer_client = esplora_block::Builder::new(&self.explorer_url)
             .build_blocking()
-            .expect("service unavaliable");
+            .expect("service unavailable");
 
         for (derive, script) in scripts {
             // TODO: Remove that after bitcoin v.30 full compatibility
@@ -58,7 +58,7 @@ impl rgb::Resolver for ExplorerResolver {
 
             let mut related_txs = explorer_client
                 .scripthash_txs(&script_compatible, None)
-                .expect("Service unavaliable");
+                .expect("Service unavailable");
             let n_confirmed = related_txs.iter().filter(|tx| tx.status.confirmed).count();
             // esplora pages on 25 confirmed transactions. If there are 25 or more we
             // keep requesting to see if there's more.
@@ -66,7 +66,7 @@ impl rgb::Resolver for ExplorerResolver {
                 loop {
                     let new_related_txs = explorer_client
                         .scripthash_txs(&script_compatible, Some(related_txs.last().unwrap().txid))
-                        .expect("Service unavaliable");
+                        .expect("Service unavailable");
                     let n = new_related_txs.len();
                     related_txs.extend(new_related_txs);
                     // we've reached the end
@@ -120,9 +120,9 @@ impl ResolveTx for ExplorerResolver {
     ) -> Result<bitcoin::Transaction, wallet::onchain::TxResolverError> {
         let explorer_client = esplora_block::Builder::new(&self.explorer_url)
             .build_blocking()
-            .expect("service unavaliable");
+            .expect("service unavailable");
 
-        match explorer_client.get_tx(&txid).expect("service unavaliable") {
+        match explorer_client.get_tx(&txid).expect("service unavailable") {
             Some(tx) => Ok(tx),
             _ => Err(TxResolverError { txid, err: none!() }),
         }
@@ -146,12 +146,12 @@ impl ResolveHeight for ExplorerResolver {
     fn resolve_height(&mut self, txid: Txid) -> Result<WitnessOrd, Self::Error> {
         let esplora_client = esplora_block::Builder::new(&self.explorer_url)
             .build_blocking()
-            .expect("service unavaliable");
+            .expect("service unavailable");
         let transaction_id =
             &bitcoin::Txid::from_str(&txid.to_hex()).expect("invalid transaction id parse");
         let tx = esplora_client
             .get_tx_status(transaction_id)
-            .expect("service unavaliable");
+            .expect("service unavailable");
 
         let status = match tx.block_height {
             Some(height) => WitnessOrd::OnChain(WitnessHeight::new(height).unwrap()),
@@ -173,13 +173,13 @@ impl ResolveCommiment for ExplorerResolver {
     fn resolve_tx(&self, txid: Txid) -> Result<Tx, rgbstd::validation::TxResolverError> {
         let explorer_client = esplora_block::Builder::new(&self.explorer_url)
             .build_blocking()
-            .expect("service unavaliable");
+            .expect("service unavailable");
 
         let transaction_id =
             &bitcoin::Txid::from_str(&txid.to_hex()).expect("invalid transaction id parse");
         let tx = explorer_client
             .get_tx(transaction_id)
-            .expect("service unavaliable");
+            .expect("service unavailable");
 
         match tx {
             Some(tx) => Ok(Tx {
@@ -246,7 +246,7 @@ impl ResolveSpent for ExplorerResolver {
     ) -> Result<UtxoSpentStatus, Self::Error> {
         let explorer_client = esplora_block::Builder::new(&self.explorer_url)
             .build_blocking()
-            .expect("service unavaliable");
+            .expect("service unavailable");
 
         let block_h = if block_height {
             match explorer_client.get_full_tx(&txid) {

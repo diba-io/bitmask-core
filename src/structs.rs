@@ -987,14 +987,14 @@ pub struct RgbTransferStatusResponse {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ContractsResponse {
-    /// List of avaliable contracts
+    /// List of available contracts
     pub contracts: Vec<ContractResponse>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct InterfacesResponse {
-    /// List of avaliable interfaces and implementations
+    /// List of available interfaces and implementations
     pub interfaces: Vec<InterfaceDetail>,
 }
 
@@ -1012,7 +1012,7 @@ pub struct InterfaceDetail {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct SchemasResponse {
-    /// List of avaliable schemas
+    /// List of available schemas
     pub schemas: Vec<SchemaDetail>,
 }
 
@@ -1021,7 +1021,7 @@ pub struct SchemasResponse {
 pub struct SchemaDetail {
     /// Schema ID
     pub schema: String,
-    /// Avaliable Interfaces
+    /// Available Interfaces
     pub ifaces: Vec<String>,
 }
 
@@ -1224,7 +1224,7 @@ pub struct FileMetadata {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct RgbTransfersResponse {
-    /// List of avaliable transfers
+    /// List of available transfers
     pub transfers: Vec<RgbTransferDetail>,
 }
 

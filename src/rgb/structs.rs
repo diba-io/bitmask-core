@@ -57,7 +57,7 @@ impl ContractAmount {
     /// A value ([`u64`]) combine with precision ([`u8`]), generate
     /// a new contract value, compabitle with rgb contract value.
     ///
-    /// Remeber: All contract amounts are represents in [`u64`].
+    /// Remember: All contract amounts are represents in [`u64`].
     /// The [`ContractAmount`] abstract the calculation.
     ///
     /// # Examples
@@ -90,7 +90,7 @@ impl ContractAmount {
     /// A value ([`u64`]) combine with precision ([`u8`]), load
     /// a contract value, compabitle with rgb contract value.
     ///
-    /// Remeber: All contract amounts are represents in [`u64`].
+    /// Remember: All contract amounts are represents in [`u64`].
     /// The [`ContractAmount`] abstract the calculation.
     ///
     /// # Examples

@@ -66,7 +66,7 @@ pub enum CreatePsbtError {
     WrongAddress(AddressFormatParseError),
     /// PSBT file cannot be created. '{0}'
     Incomplete(String),
-    /// Invalid PSBT proprietry key. '{0}'
+    /// Invalid PSBT proprietary key. '{0}'
     WrongMetadata(ProprietaryKeyError),
     /// The PSBT is invalid (Unexpected behavior).
     Inconclusive,
