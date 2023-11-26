@@ -15,8 +15,8 @@ use bitmask_core::{
         constants::switch_network,
         json_parse, resolve,
         rgb::{
-            create_watcher, get_contract_state, import_contract, issue_contract,
-            watcher_next_address, watcher_next_utxo,
+            create_watcher, get_contract, import_contract, issue_contract, watcher_next_address,
+            watcher_next_utxo,
         },
         set_panic_hook,
     },
@@ -58,7 +58,7 @@ async fn inspect_contract_states() {
     info!("Get Contract");
     let contract_id = "";
     let get_contract_resp: JsValue =
-        resolve(get_contract_state(sk.to_string(), contract_id.to_string())).await;
+        resolve(get_contract(sk.to_string(), contract_id.to_string())).await;
     let get_contract_resp: ContractResponse = json_parse(&get_contract_resp);
     info!(format!(
         "Contract {} ({}): \n {:#?}",

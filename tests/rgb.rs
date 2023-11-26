@@ -1,6 +1,7 @@
 mod rgb {
 
     mod unit {
+        mod amount;
         mod invoice;
         mod issue;
         mod psbt;
@@ -36,7 +37,7 @@ mod rgb {
     mod web {
         mod contracts;
         mod imports;
-        // mod inspect;
+        mod inspect;
         mod proxy;
         mod stl_ids;
         mod stl_load;

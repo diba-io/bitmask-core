@@ -35,7 +35,7 @@ pub async fn measure_batch_operation() -> Result<()> {
     let fungibles_resp = issuer_issue_contract_v2(
         1,
         "RGB20",
-        ContractAmount::new(5, 2).to_value(),
+        ContractAmount::with(5, 0, 2).to_value(),
         false,
         true,
         None,
@@ -100,7 +100,7 @@ pub async fn measure_batch_operation() -> Result<()> {
     let owner_resp = &create_new_invoice(
         &issuer_resp.contract_id,
         &issuer_resp.iface,
-        1.0,
+        ContractAmount::with(1, 0, issuer_resp.precision),
         owner_keys.clone(),
         None,
         Some(issuer_resp.clone().contract.strict),
@@ -153,7 +153,7 @@ pub async fn create_transfer_rbf() -> Result<()> {
     let fungibles_resp = issuer_issue_contract_v2(
         1,
         "RGB20",
-        ContractAmount::new(5, 2).to_value(),
+        ContractAmount::with(5, 0, 2).to_value(),
         false,
         true,
         None,
@@ -218,7 +218,7 @@ pub async fn create_transfer_rbf() -> Result<()> {
     let owner_resp = &create_new_invoice(
         &issuer_resp.contract_id,
         &issuer_resp.iface,
-        1.0,
+        ContractAmount::with(1, 0, issuer_resp.precision),
         owner_keys.clone(),
         None,
         Some(issuer_resp.clone().contract.strict),
@@ -306,7 +306,7 @@ pub async fn create_batch_transfer() -> Result<()> {
     let fungibles_resp = issuer_issue_contract_v2(
         1,
         "RGB20",
-        ContractAmount::new(5, 2).to_value(),
+        ContractAmount::with(5, 0, 2).to_value(),
         false,
         true,
         None,
@@ -370,7 +370,7 @@ pub async fn create_batch_transfer() -> Result<()> {
     let owner_resp = &create_new_invoice(
         &issuer_resp.contract_id,
         &issuer_resp.iface,
-        1.0,
+        ContractAmount::with(1, 0, issuer_resp.precision),
         owner_keys.clone(),
         None,
         Some(issuer_resp.clone().contract.strict),
@@ -392,7 +392,7 @@ pub async fn create_batch_transfer() -> Result<()> {
     let other_resp = &create_new_invoice(
         &issuer_resp.contract_id,
         &issuer_resp.iface,
-        2.0,
+        ContractAmount::with(2, 0, issuer_resp.precision),
         other_keys.clone(),
         None,
         Some(issuer_resp.clone().contract.strict),

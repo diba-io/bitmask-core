@@ -205,6 +205,22 @@ export const importUdaData = async (request: MediaRequest): Promise<boolean> =>
 export const getMedia = async (mediaId: string): Promise<MediaMetadata> =>
   JSON.parse(await BMC.get_media_metadata(mediaId));
 
+export const contractAmount = (amount: bigint, precision: number): bigint =>
+  JSON.parse(BMC.contract_amount(amount, precision).toString());
+
+export const contractAmountStr = (amount: bigint, precision: number): String =>
+  JSON.parse(BMC.contract_amount_str(amount, precision));
+
+export const contractAmountParseStr = (amount: string, precision: number): String =>
+  JSON.parse(BMC.contract_amount_parse_str(amount, precision).toString());
+
+export const contractAmountParseValue = (amount: string, precision: number): bigint =>
+  JSON.parse(BMC.contract_amount_parse_value(amount, precision).toString());
+
+export const contractDecimalParseValue = (amount: string): bigint =>
+  JSON.parse(BMC.contract_amount_parse_decimal_value(amount).toString());
+
+
 // Core type interfaces based on structs defined within the bitmask-core Rust crate:
 // https://github.com/diba-io/bitmask-core/blob/development/src/structs.rs
 
@@ -368,7 +384,7 @@ export interface ImportResponse {
   /// The user contract balance
   balance: bigint;
   /// The user contract balance
-  balance_normalized: number;
+  balanceNormalized: number;
   /// The contract allocations
   allocations: AllocationDetail[];
   /// The contract state (multiple formats)

@@ -181,7 +181,7 @@ async fn create_transfer_with_fee_value() {
     let resp: ContractResponse = json_parse(&resp);
 
     let mut total_issuer =
-        f64::from_str(&ContractAmount::with(supply, precision).to_string()).unwrap();
+        f64::from_str(&ContractAmount::new(supply, precision).to_string()).unwrap();
     let mut total_owner = 0.0;
     let rounds = vec![
         TransferRounds::with(20.00, true),
@@ -240,7 +240,7 @@ async fn create_transfer_with_fee_value() {
         let params = HashMap::new();
         let receiver_utxo = receiver_next_utxo.utxo.unwrap().outpoint.to_string();
         let receiver_seal = format!("tapret1st:{receiver_utxo}");
-        let invoice_amount = ContractAmount::from(round.send_amount.to_string(), precision);
+        let invoice_amount = ContractAmount::with(round.send_amount as u64, 0, precision);
         let invoice_req = InvoiceRequest {
             contract_id: issuer_resp.contract_id.to_string(),
             iface: issuer_resp.iface.to_string(),
@@ -344,7 +344,7 @@ async fn create_transfer_with_fee_value() {
             "Contract ({sender}): {} ({})\n {:#?}",
             contract_resp.contract_id, contract_resp.balance, contract_resp.allocations
         ));
-        let sender_current_balance = contract_resp.balance_normalised;
+        let sender_current_balance = contract_resp.balance_normalized;
 
         info!(format!("Get Contract Balancer ({receiver})"));
         let contract_resp = resolve(get_contract(
@@ -357,7 +357,7 @@ async fn create_transfer_with_fee_value() {
             "Contract ({receiver}): {} ({})\n {:#?}",
             contract_resp.contract_id, contract_resp.balance, contract_resp.allocations
         ));
-        let receiver_current_balance = contract_resp.balance_normalised;
+        let receiver_current_balance = contract_resp.balance_normalized;
 
         info!(format!("<<<< ROUND #{index} Finish >>>>"));
         assert_eq!(sender_current_balance, sender_balance);
@@ -486,7 +486,7 @@ async fn create_transfer_with_fee_rate() {
     let resp: ContractResponse = json_parse(&resp);
 
     let mut total_issuer =
-        f64::from_str(&ContractAmount::with(supply, precision).to_string()).unwrap();
+        f64::from_str(&ContractAmount::new(supply, precision).to_string()).unwrap();
     let mut total_owner = 0.00;
     let rounds = vec![TransferRounds::with(20.00, true)];
 
@@ -540,7 +540,7 @@ async fn create_transfer_with_fee_rate() {
 
         info!(format!("Create Invoice ({receiver})"));
         let params = HashMap::new();
-        let invoice_amount = ContractAmount::from(round.send_amount.to_string(), precision);
+        let invoice_amount = ContractAmount::with(round.send_amount as u64, 0, precision);
         let receiver_utxo = receiver_next_utxo.utxo.unwrap().outpoint.to_string();
         let receiver_seal = format!("tapret1st:{receiver_utxo}");
         let invoice_req = InvoiceRequest {
@@ -646,7 +646,7 @@ async fn create_transfer_with_fee_rate() {
             "Contract ({sender}): {} ({})\n {:#?}",
             contract_resp.contract_id, contract_resp.balance, contract_resp.allocations
         ));
-        let sender_current_balance = contract_resp.balance_normalised;
+        let sender_current_balance = contract_resp.balance_normalized;
 
         info!(format!("Get Contract Balancer ({receiver})"));
         let contract_resp = resolve(get_contract(
@@ -659,7 +659,7 @@ async fn create_transfer_with_fee_rate() {
             "Contract ({receiver}): {} ({})\n {:#?}",
             contract_resp.contract_id, contract_resp.balance, contract_resp.allocations
         ));
-        let receiver_current_balance = contract_resp.balance_normalised;
+        let receiver_current_balance = contract_resp.balance_normalized;
 
         info!(format!("<<<< ROUND #{index} Finish >>>>"));
         assert_eq!(sender_current_balance, sender_balance);

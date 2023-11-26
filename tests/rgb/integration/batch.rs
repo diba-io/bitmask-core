@@ -35,7 +35,7 @@ pub async fn create_strict_transfer() -> Result<()> {
     let fungibles_resp = issuer_issue_contract_v2(
         1,
         "RGB20",
-        ContractAmount::new(5, 2).to_value(),
+        ContractAmount::with(5, 0, 2).to_value(),
         false,
         true,
         None,
@@ -100,7 +100,7 @@ pub async fn create_strict_transfer() -> Result<()> {
     let owner_resp = &create_new_invoice(
         &issuer_resp.contract_id,
         &issuer_resp.iface,
-        1.0,
+        ContractAmount::with(1, 0, issuer_resp.precision),
         owner_keys.clone(),
         None,
         Some(issuer_resp.clone().contract.strict),
@@ -152,7 +152,7 @@ pub async fn create_transfer_rbf() -> Result<()> {
     let fungibles_resp = issuer_issue_contract_v2(
         1,
         "RGB20",
-        ContractAmount::new(5, 2).to_value(),
+        ContractAmount::with(5, 0, 2).to_value(),
         false,
         true,
         None,
@@ -217,7 +217,7 @@ pub async fn create_transfer_rbf() -> Result<()> {
     let owner_resp = &create_new_invoice(
         &issuer_resp.contract_id,
         &issuer_resp.iface,
-        1.0,
+        ContractAmount::with(1, 0, issuer_resp.precision),
         owner_keys.clone(),
         None,
         Some(issuer_resp.clone().contract.strict),
@@ -305,7 +305,7 @@ pub async fn create_batch_transfer() -> Result<()> {
     let fungibles_resp = issuer_issue_contract_v2(
         1,
         "RGB20",
-        ContractAmount::new(5, 2).to_value(),
+        ContractAmount::with(5, 0, 2).to_value(),
         false,
         true,
         None,
@@ -369,7 +369,7 @@ pub async fn create_batch_transfer() -> Result<()> {
     let owner_resp = &create_new_invoice(
         &issuer_resp.contract_id,
         &issuer_resp.iface,
-        1.0,
+        ContractAmount::with(1, 0, issuer_resp.precision),
         owner_keys.clone(),
         None,
         Some(issuer_resp.clone().contract.strict),
@@ -391,7 +391,7 @@ pub async fn create_batch_transfer() -> Result<()> {
     let other_resp = &create_new_invoice(
         &issuer_resp.contract_id,
         &issuer_resp.iface,
-        2.0,
+        ContractAmount::with(2, 0, issuer_resp.precision),
         other_keys.clone(),
         None,
         Some(issuer_resp.clone().contract.strict),
@@ -515,9 +515,9 @@ pub async fn create_batch_transfer() -> Result<()> {
     // println!("Owner Contract: \n {:#?}", owner_contracts.allocations);
     // println!("other Contract: \n {:#?}", other_contracts.allocations);
 
-    assert_eq!(2.0, issuer_contracts.balance_normalised);
-    assert_eq!(1.0, owner_contracts.balance_normalised);
-    assert_eq!(2.0, other_contracts.balance_normalised);
+    assert_eq!(2., issuer_contracts.balance_normalized);
+    assert_eq!(1., owner_contracts.balance_normalized);
+    assert_eq!(2., other_contracts.balance_normalized);
 
     Ok(())
 }
@@ -532,7 +532,7 @@ pub async fn create_transfer_skipping_invalid_states() -> Result<()> {
     let fungibles_resp = issuer_issue_contract_v2(
         1,
         "RGB20",
-        ContractAmount::new(5, 2).to_value(),
+        ContractAmount::with(5, 0, 2).to_value(),
         false,
         true,
         None,
@@ -597,7 +597,7 @@ pub async fn create_transfer_skipping_invalid_states() -> Result<()> {
     let owner_resp = &create_new_invoice(
         &issuer_resp.contract_id,
         &issuer_resp.iface,
-        1.0,
+        ContractAmount::with(1, 0, issuer_resp.precision),
         owner_keys.clone(),
         None,
         Some(issuer_resp.clone().contract.strict),
@@ -627,7 +627,7 @@ pub async fn create_transfer_skipping_invalid_states() -> Result<()> {
 
     // 7. Check Contract State
     let contract = get_contract(issuer_sk, &issuer_resp.contract_id).await?;
-    assert_eq!(4., contract.balance_normalised);
+    assert_eq!(4., contract.balance_normalized);
 
     // 8. Create PSBT (Second Transaction)
     let psbt_resp = create_new_psbt_v2(
@@ -672,7 +672,7 @@ pub async fn create_transfer_skipping_invalid_states() -> Result<()> {
     let owner_resp = &create_new_invoice(
         &issuer_resp.contract_id,
         &issuer_resp.iface,
-        2.0,
+        ContractAmount::with(2, 0, issuer_resp.precision),
         owner_keys.clone(),
         None,
         Some(issuer_resp.clone().contract.strict),
@@ -724,10 +724,10 @@ pub async fn create_transfer_skipping_invalid_states() -> Result<()> {
 
     // 15. Check Contract State
     let contract = get_contract(&owner_sk, &issuer_resp.contract_id).await?;
-    assert_eq!(3., contract.balance_normalised);
+    assert_eq!(3., contract.balance_normalized);
 
     let contract = get_contract(issuer_sk, &issuer_resp.contract_id).await?;
-    assert_eq!(2., contract.balance_normalised);
+    assert_eq!(2., contract.balance_normalized);
 
     Ok(())
 }

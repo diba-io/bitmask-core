@@ -53,7 +53,7 @@ pub async fn allow_save_read_remove_transfers() -> Result<()> {
     let issuer_resp = issuer_issue_contract_v2(
         1,
         "RGB20",
-        ContractAmount::new(5, 2).to_value(),
+        ContractAmount::with(5, 0, 2).to_value(),
         false,
         true,
         None,
@@ -68,7 +68,7 @@ pub async fn allow_save_read_remove_transfers() -> Result<()> {
     let owner_invoice = &create_new_invoice(
         &issuer_resp.contract_id,
         &issuer_resp.iface,
-        2.00,
+        ContractAmount::with(2, 0, issuer_resp.precision),
         owner_keys.clone(),
         None,
         Some(issuer_resp.clone().contract.strict),
@@ -214,7 +214,7 @@ pub async fn accept_all_transfers() -> Result<()> {
     let issuer_resp = issuer_issue_contract_v2(
         1,
         "RGB20",
-        ContractAmount::new(5, 2).to_value(),
+        ContractAmount::with(5, 0, 2).to_value(),
         false,
         true,
         None,
@@ -229,7 +229,7 @@ pub async fn accept_all_transfers() -> Result<()> {
     let owner_invoice = &create_new_invoice(
         &issuer_resp.contract_id,
         &issuer_resp.iface,
-        2.00,
+        ContractAmount::with(2, 0, issuer_resp.precision),
         owner_keys.clone(),
         None,
         Some(issuer_resp.clone().contract.strict),

@@ -197,7 +197,7 @@ pub async fn issue_contract(sk: &str, request: IssueRequest) -> Result<IssueResp
         _ => None,
     };
 
-    let contract_amount = ContractAmount::with(supply, precision);
+    let contract_amount = ContractAmount::new(supply, precision);
     let contract = create_contract(
         &ticker,
         &name,
@@ -470,7 +470,7 @@ async fn internal_create_invoice(
 
     let contr_id = ContractId::from_str(&contract_id).map_err(|_| InvoiceError::NoContract)?;
     let boilerplate = export_boilerplate(contr_id, stock).map_err(|_| InvoiceError::NoContract)?;
-    let invoice_amount = ContractAmount::from_raw(amount.to_string());
+    let invoice_amount = ContractAmount::from_decimal_str(amount.to_string());
     if invoice_amount.precision != boilerplate.precision {
         return Err(InvoiceError::WrongPrecision(
             boilerplate.precision,
@@ -986,7 +986,7 @@ pub async fn create_seller_offer(
         expire_at,
     );
 
-    let contract_amount = ContractAmount::from_raw(contract_amount).to_string();
+    let contract_amount = ContractAmount::from_decimal_str(contract_amount).to_string();
     let contract_amount =
         f64::from_str(&contract_amount).map_err(|_| RgbSwapError::WrongValue(contract_amount))?;
 
@@ -1197,7 +1197,7 @@ pub async fn create_buyer_bid(
         }
     }
 
-    let invoice_amount = ContractAmount::with(asset_amount, asset_precision);
+    let invoice_amount = ContractAmount::new(asset_amount, asset_precision);
     let invoice_req = InvoiceRequest {
         iface,
         contract_id: contract_id.to_string(),

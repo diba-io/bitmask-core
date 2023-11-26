@@ -51,7 +51,7 @@ async fn create_conseq_transfers_from_issuer() -> anyhow::Result<()> {
     let issuer_resp = issuer_issue_contract_v2(
         1,
         "RGB20",
-        ContractAmount::new(5, 2).to_value(),
+        ContractAmount::with(5, 0, 2).to_value(),
         false,
         true,
         None,
@@ -66,7 +66,7 @@ async fn create_conseq_transfers_from_issuer() -> anyhow::Result<()> {
     let owner_invoice = &create_new_invoice(
         &issuer_resp.contract_id,
         &issuer_resp.iface,
-        2.5,
+        ContractAmount::with(2, 50, issuer_resp.precision),
         owner_keys.clone(),
         None,
         Some(issuer_resp.clone().contract.strict),
@@ -117,13 +117,13 @@ async fn create_conseq_transfers_from_issuer() -> anyhow::Result<()> {
     assert!(resp.is_ok());
 
     let issuer_contract = resp?;
-    assert_eq!(2.5, issuer_contract.balance_normalised);
+    assert_eq!(2.5, issuer_contract.balance_normalized);
 
     let resp = get_contract(&owner_sk, contract_id).await;
     assert!(resp.is_ok());
 
     let owner_contract = resp?;
-    assert_eq!(2.5, owner_contract.balance_normalised);
+    assert_eq!(2.5, owner_contract.balance_normalized);
 
     // 7. reate new Invoices (Issuer Side)
     let address = watcher_next_address(&owner_sk, watcher_name, "RGB20").await?;
@@ -134,7 +134,7 @@ async fn create_conseq_transfers_from_issuer() -> anyhow::Result<()> {
     let invoice_2 = &create_new_invoice_v2(
         &issuer_resp.contract_id,
         &issuer_resp.iface,
-        1.0,
+        ContractAmount::with(1, 0, issuer_resp.precision),
         &utxos.utxos[0].outpoint,
         owner_keys.clone(),
         None,
@@ -205,7 +205,7 @@ async fn create_conseq_transfers_from_owner() -> anyhow::Result<()> {
     let issuer_resp = issuer_issue_contract_v2(
         1,
         "RGB20",
-        ContractAmount::new(5, 2).to_value(),
+        ContractAmount::with(5, 0, 2).to_value(),
         false,
         true,
         None,
@@ -218,7 +218,7 @@ async fn create_conseq_transfers_from_owner() -> anyhow::Result<()> {
     let owner_resp = &create_new_invoice(
         &issuer_resp.contract_id,
         &issuer_resp.iface,
-        2.0,
+        ContractAmount::with(2, 0, issuer_resp.precision),
         owner_keys.clone(),
         None,
         Some(issuer_resp.clone().contract.strict),
@@ -280,13 +280,13 @@ async fn create_conseq_transfers_from_owner() -> anyhow::Result<()> {
     assert!(resp.is_ok());
 
     let owner_contract = resp?;
-    assert_eq!(2., owner_contract.balance_normalised);
+    assert_eq!(2., owner_contract.balance_normalized);
 
     // 7. Create Invoice (Issuer Side)
     let issuer_invoice_resp = &create_new_invoice(
         &issuer_resp.contract_id,
         &issuer_resp.iface,
-        1.0,
+        ContractAmount::with(1, 0, issuer_resp.precision),
         issuer_keys.clone(),
         None,
         None,
@@ -338,13 +338,13 @@ async fn create_conseq_transfers_from_owner() -> anyhow::Result<()> {
     assert!(resp.is_ok());
 
     let owner_contract = resp?;
-    assert_eq!(1., owner_contract.balance_normalised);
+    assert_eq!(1., owner_contract.balance_normalized);
 
     // 11. Create Invoice (Issuer Side)
     let issuer_invoice_resp = &create_new_invoice(
         &issuer_resp.contract_id,
         &issuer_resp.iface,
-        1.0,
+        ContractAmount::with(1, 0, issuer_resp.precision),
         issuer_keys.clone(),
         None,
         None,
@@ -357,7 +357,7 @@ async fn create_conseq_transfers_from_owner() -> anyhow::Result<()> {
     assert!(resp.is_ok());
 
     let owner_contract = resp?;
-    assert_eq!(1., owner_contract.balance_normalised);
+    assert_eq!(1., owner_contract.balance_normalized);
 
     let contract_utxo = owner_contract
         .allocations
@@ -403,7 +403,7 @@ async fn create_conseq_transfers_from_owner() -> anyhow::Result<()> {
     assert!(resp.is_ok());
 
     let owner_contract = resp?;
-    assert_eq!(0., owner_contract.balance_normalised);
+    assert_eq!(0., owner_contract.balance_normalized);
     Ok(())
 }
 
@@ -445,7 +445,7 @@ async fn create_transfers_from_3_owners() -> anyhow::Result<()> {
     let issuer_resp = issuer_issue_contract_v2(
         1,
         "RGB20",
-        ContractAmount::new(5, 2).to_value(),
+        ContractAmount::with(5, 0, 2).to_value(),
         false,
         true,
         None,
@@ -460,7 +460,7 @@ async fn create_transfers_from_3_owners() -> anyhow::Result<()> {
     let owner_invoice = &create_new_invoice(
         &issuer_resp.contract_id,
         &issuer_resp.iface,
-        2.0,
+        ContractAmount::with(2, 0, issuer_resp.precision),
         owner_keys.clone(),
         None,
         Some(issuer_resp.clone().contract.strict),
@@ -511,19 +511,19 @@ async fn create_transfers_from_3_owners() -> anyhow::Result<()> {
     assert!(resp.is_ok());
 
     let issuer_contract = resp?;
-    assert_eq!(3., issuer_contract.balance_normalised);
+    assert_eq!(3., issuer_contract.balance_normalized);
 
     let resp = get_contract(&owner_sk, contract_id).await;
     assert!(resp.is_ok());
 
     let owner_contract = resp?;
-    assert_eq!(2., owner_contract.balance_normalised);
+    assert_eq!(2., owner_contract.balance_normalized);
 
     // 7. Create 2 Invoices (Another Owner Side)
     let another_invoice_1 = &create_new_invoice(
         &issuer_resp.contract_id,
         &issuer_resp.iface,
-        1.0,
+        ContractAmount::with(1, 0, issuer_resp.precision),
         another_owner_keys.clone(),
         None,
         Some(issuer_resp.clone().contract.strict),
@@ -533,7 +533,7 @@ async fn create_transfers_from_3_owners() -> anyhow::Result<()> {
     let another_invoice_2 = &create_new_invoice(
         &issuer_resp.contract_id,
         &issuer_resp.iface,
-        1.0,
+        ContractAmount::with(1, 0, issuer_resp.precision),
         another_owner_keys.clone(),
         None,
         None,
@@ -627,19 +627,19 @@ async fn create_transfers_from_3_owners() -> anyhow::Result<()> {
     assert!(resp.is_ok());
 
     let issuer_contract = resp?;
-    assert_eq!(2., issuer_contract.balance_normalised);
+    assert_eq!(2., issuer_contract.balance_normalized);
 
     let resp = get_contract(&owner_sk, contract_id).await;
     assert!(resp.is_ok());
 
     let owner_contract = resp?;
-    assert_eq!(1., owner_contract.balance_normalised);
+    assert_eq!(1., owner_contract.balance_normalized);
 
     let resp = get_contract(&another_owner_sk, contract_id).await;
     assert!(resp.is_ok());
 
     let another_owner_contract = resp?;
-    assert_eq!(2., another_owner_contract.balance_normalised);
+    assert_eq!(2., another_owner_contract.balance_normalized);
 
     Ok(())
 }
@@ -682,7 +682,7 @@ async fn create_transfers_between_2_owners() -> anyhow::Result<()> {
     let issuer_resp = issuer_issue_contract_v2(
         1,
         "RGB20",
-        ContractAmount::new(5, 2).to_value(),
+        ContractAmount::with(5, 0, 2).to_value(),
         false,
         true,
         None,
@@ -697,7 +697,7 @@ async fn create_transfers_between_2_owners() -> anyhow::Result<()> {
     let owner_invoice = &create_new_invoice(
         &issuer_resp.contract_id,
         &issuer_resp.iface,
-        2.0,
+        ContractAmount::with(2, 0, issuer_resp.precision),
         owner_keys.clone(),
         None,
         Some(issuer_resp.clone().contract.strict),
@@ -750,7 +750,7 @@ async fn create_transfers_between_2_owners() -> anyhow::Result<()> {
     assert!(resp.is_ok());
 
     let issuer_contract = resp?;
-    assert_eq!(3., issuer_contract.balance_normalised);
+    assert_eq!(3., issuer_contract.balance_normalized);
 
     let resp = get_contract(&owner_sk, contract_id).await;
     assert!(resp.is_ok());
@@ -869,25 +869,25 @@ async fn create_transfers_between_2_owners() -> anyhow::Result<()> {
     assert!(resp.is_ok());
 
     let issuer_contract = resp?;
-    assert_eq!(2., issuer_contract.balance_normalised);
+    assert_eq!(2., issuer_contract.balance_normalized);
 
     let resp = get_contract(&owner_sk, contract_id).await;
     assert!(resp.is_ok());
 
     let owner_contract = resp?;
-    assert_eq!(1., owner_contract.balance_normalised);
+    assert_eq!(1., owner_contract.balance_normalized);
 
     let resp = get_contract(&another_owner_sk, contract_id).await;
     assert!(resp.is_ok());
 
     let another_owner_contract = resp?;
-    assert_eq!(2., another_owner_contract.balance_normalised);
+    assert_eq!(2., another_owner_contract.balance_normalized);
 
     // 12. Generate Invoice (Issuer Side)
     let issuer_invoice = &create_new_invoice(
         &issuer_resp.contract_id,
         &issuer_resp.iface,
-        2.0,
+        ContractAmount::with(2, 0, issuer_resp.precision),
         issuer_keys.clone(),
         None,
         Some(issuer_resp.clone().contract.strict),
@@ -934,7 +934,7 @@ async fn create_transfers_between_2_owners() -> anyhow::Result<()> {
     assert!(resp.is_ok());
 
     let another_owner_contract = resp?;
-    assert_eq!(0., another_owner_contract.balance_normalised);
+    assert_eq!(0., another_owner_contract.balance_normalized);
 
     Ok(())
 }
@@ -977,7 +977,7 @@ async fn create_transfers_with_2_transitions() -> anyhow::Result<()> {
     let issuer_resp = issuer_issue_contract_v2(
         1,
         "RGB20",
-        ContractAmount::new(5, 2).to_value(),
+        ContractAmount::with(5, 0, 2).to_value(),
         false,
         true,
         None,
@@ -992,7 +992,7 @@ async fn create_transfers_with_2_transitions() -> anyhow::Result<()> {
     let owner_invoice = &create_new_invoice(
         &issuer_resp.contract_id,
         &issuer_resp.iface,
-        2.0,
+        ContractAmount::with(2, 0, issuer_resp.precision),
         owner_keys.clone(),
         None,
         Some(issuer_resp.clone().contract.strict),
@@ -1041,13 +1041,13 @@ async fn create_transfers_with_2_transitions() -> anyhow::Result<()> {
     assert!(resp.is_ok());
 
     let issuer_contract = resp?;
-    assert_eq!(3., issuer_contract.balance_normalised);
+    assert_eq!(3., issuer_contract.balance_normalized);
 
     let resp = get_contract(&owner_sk, contract_id).await;
     assert!(resp.is_ok());
 
     let owner_contract = resp?;
-    assert_eq!(2., owner_contract.balance_normalised);
+    assert_eq!(2., owner_contract.balance_normalized);
 
     // 7. reate new Invoices (Issuer Side)
     let address = watcher_next_address(&another_owner_sk, watcher_name, "RGB20").await?;
@@ -1058,7 +1058,7 @@ async fn create_transfers_with_2_transitions() -> anyhow::Result<()> {
     let another_invoice_1 = &create_new_invoice_v2(
         &issuer_resp.contract_id,
         &issuer_resp.iface,
-        1.0,
+        ContractAmount::with(1, 0, issuer_resp.precision),
         &utxos.utxos[0].outpoint,
         another_owner_keys.clone(),
         None,
@@ -1069,7 +1069,7 @@ async fn create_transfers_with_2_transitions() -> anyhow::Result<()> {
     let another_invoice_2 = &create_new_invoice_v2(
         &issuer_resp.contract_id,
         &issuer_resp.iface,
-        1.0,
+        ContractAmount::with(1, 0, issuer_resp.precision),
         &utxos.utxos[1].outpoint,
         another_owner_keys.clone(),
         None,
@@ -1164,25 +1164,25 @@ async fn create_transfers_with_2_transitions() -> anyhow::Result<()> {
     assert!(resp.is_ok());
 
     let issuer_contract = resp?;
-    assert_eq!(2., issuer_contract.balance_normalised);
+    assert_eq!(2., issuer_contract.balance_normalized);
 
     let resp = get_contract(&owner_sk, contract_id).await;
     assert!(resp.is_ok());
 
     let owner_contract = resp?;
-    assert_eq!(1., owner_contract.balance_normalised);
+    assert_eq!(1., owner_contract.balance_normalized);
 
     let resp = get_contract(&another_owner_sk, contract_id).await;
     assert!(resp.is_ok());
 
     let another_owner_contract = resp?;
-    assert_eq!(2., another_owner_contract.balance_normalised);
+    assert_eq!(2., another_owner_contract.balance_normalized);
 
     // 12. Generate Invoice (Issuer Side)
     let issuer_invoice = &create_new_invoice(
         &issuer_resp.contract_id,
         &issuer_resp.iface,
-        2.0,
+        ContractAmount::with(2, 0, issuer_resp.precision),
         issuer_keys.clone(),
         None,
         Some(issuer_resp.clone().contract.strict),
@@ -1239,7 +1239,7 @@ async fn create_transfers_with_2_transitions() -> anyhow::Result<()> {
     assert!(resp.is_ok());
 
     let another_owner_contract = resp?;
-    assert_eq!(0., another_owner_contract.balance_normalised);
+    assert_eq!(0., another_owner_contract.balance_normalized);
 
     Ok(())
 }
@@ -1261,7 +1261,7 @@ async fn create_transfers_with_2_contracts_in_same_utxo() -> anyhow::Result<()> 
     let issue_contracts_resp = &issuer_issue_contract_v2(
         2,
         "RGB20",
-        ContractAmount::new(5, 2).to_value(),
+        ContractAmount::with(5, 0, 2).to_value(),
         false,
         true,
         None,
@@ -1289,7 +1289,7 @@ async fn create_transfers_with_2_contracts_in_same_utxo() -> anyhow::Result<()> 
     let owner_resp = &create_new_invoice_v2(
         &issue_contract_a_resp.contract_id,
         &issue_contract_a_resp.iface,
-        1.0,
+        ContractAmount::with(1, 0, issue_contract_a_resp.precision),
         &owner_utxos.utxos[0].outpoint,
         owner_keys.clone(),
         None,
@@ -1339,19 +1339,19 @@ async fn create_transfers_with_2_contracts_in_same_utxo() -> anyhow::Result<()> 
     assert!(resp.is_ok());
 
     let issuer_contract = resp?;
-    assert_eq!(4., issuer_contract.balance_normalised);
+    assert_eq!(4., issuer_contract.balance_normalized);
 
     let resp = get_contract(&owner_sk, contract_id).await;
     assert!(resp.is_ok());
 
     let owner_contract = resp?;
-    assert_eq!(1., owner_contract.balance_normalised);
+    assert_eq!(1., owner_contract.balance_normalized);
 
     // 5. Create Second Invoice (Owner Side)
     let owner_resp = &create_new_invoice_v2(
         &issue_contract_b_resp.contract_id,
         &issue_contract_b_resp.iface,
-        2.0,
+        ContractAmount::with(1, 0, issue_contract_b_resp.precision),
         &owner_utxos.utxos[0].outpoint,
         owner_keys.clone(),
         None,
@@ -1389,7 +1389,7 @@ async fn create_transfers_with_2_contracts_in_same_utxo() -> anyhow::Result<()> 
     // 7. Accept Consig (Both Side)
     let request = AcceptRequest {
         consignment: transfer_resp.clone().consig,
-        force: true,
+        force: false,
     };
     let resp = accept_transfer(&issuer_sk, request.clone()).await;
     assert!(resp.is_ok());
@@ -1406,13 +1406,13 @@ async fn create_transfers_with_2_contracts_in_same_utxo() -> anyhow::Result<()> 
     assert!(resp.is_ok());
 
     let issuer_contract = resp?;
-    assert_eq!(3., issuer_contract.balance_normalised);
+    assert_eq!(4., issuer_contract.balance_normalized);
 
     let resp = get_contract(&owner_sk, contract_id).await;
     assert!(resp.is_ok());
 
     let owner_contract = resp?;
-    assert_eq!(2., owner_contract.balance_normalised);
+    assert_eq!(1., owner_contract.balance_normalized);
 
     Ok(())
 }
@@ -1433,7 +1433,7 @@ async fn create_transfers_with_2_ifaces_in_same_utxo() -> anyhow::Result<()> {
     let issue_contracts_resp = &issuer_issue_contract_v2(
         1,
         "RGB20",
-        ContractAmount::new(5, 2).to_value(),
+        ContractAmount::with(5, 0, 2).to_value(),
         false,
         true,
         None,
@@ -1448,7 +1448,7 @@ async fn create_transfers_with_2_ifaces_in_same_utxo() -> anyhow::Result<()> {
     let issue_contracts_resp = &issuer_issue_contract_v2(
         1,
         "RGB21",
-        ContractAmount::new(1, 0).to_value(),
+        ContractAmount::with(1, 0, 0).to_value(),
         false,
         true,
         meta,
@@ -1478,7 +1478,7 @@ async fn create_transfers_with_2_ifaces_in_same_utxo() -> anyhow::Result<()> {
     let owner_resp = &create_new_invoice_v2(
         &issue_contract_a_resp.contract_id,
         &issue_contract_a_resp.iface,
-        1.0,
+        ContractAmount::with(1, 0, issue_contract_a_resp.precision),
         &owner_utxos.utxos[0].outpoint,
         owner_keys.clone(),
         None,
@@ -1528,20 +1528,20 @@ async fn create_transfers_with_2_ifaces_in_same_utxo() -> anyhow::Result<()> {
     assert!(resp.is_ok());
 
     let issuer_contract = resp?;
-    assert_eq!(4., issuer_contract.balance_normalised);
+    assert_eq!(4., issuer_contract.balance_normalized);
 
     let resp = get_contract(&owner_sk, contract_id).await;
     assert!(resp.is_ok());
 
     let owner_contract = resp?;
-    assert_eq!(1., owner_contract.balance_normalised);
+    assert_eq!(1., owner_contract.balance_normalized);
 
     // 5. Create Second Invoice (Owner Side)
     let owner_utxos = watcher_unspent_utxos(&owner_sk, watcher_name, "RGB21").await?;
     let owner_resp = &create_new_invoice_v2(
         &issue_contract_b_resp.contract_id,
         &issue_contract_b_resp.iface,
-        1.0,
+        ContractAmount::with(1, 0, issue_contract_b_resp.precision),
         &owner_utxos.utxos[0].outpoint,
         owner_keys.clone(),
         None,
@@ -1597,13 +1597,13 @@ async fn create_transfers_with_2_ifaces_in_same_utxo() -> anyhow::Result<()> {
     assert!(resp.is_ok());
 
     let issuer_contract = resp?;
-    assert_eq!(0., issuer_contract.balance_normalised);
+    assert_eq!(0., issuer_contract.balance_normalized);
 
     let resp = get_contract(&owner_sk, contract_id).await;
     assert!(resp.is_ok());
 
     let owner_contract = resp?;
-    assert_eq!(1., owner_contract.balance_normalised);
+    assert_eq!(1., owner_contract.balance_normalized);
 
     Ok(())
 }
@@ -1640,7 +1640,7 @@ async fn allow_fungible_full_transfer_op() -> anyhow::Result<()> {
     let owner_resp = &create_new_invoice(
         &issuer_resp.contract_id,
         &issuer_resp.iface,
-        1.0,
+        ContractAmount::with(1, 0, issuer_resp.precision),
         owner_keys.clone(),
         None,
         Some(issuer_resp.clone().contract.strict),
@@ -1696,7 +1696,7 @@ async fn allow_uda_full_transfer_op() -> anyhow::Result<()> {
     let issuer_resp = issuer_issue_contract_v2(
         1,
         "RGB21",
-        ContractAmount::new(1, 0).to_value(),
+        ContractAmount::with(1, 0, 0).to_value(),
         false,
         true,
         meta,
@@ -1711,7 +1711,7 @@ async fn allow_uda_full_transfer_op() -> anyhow::Result<()> {
     let owner_resp = &create_new_invoice(
         &issuer_resp.contract_id,
         &issuer_resp.iface,
-        1.0,
+        ContractAmount::with(1, 0, issuer_resp.precision),
         owner_keys.clone(),
         None,
         None,
@@ -1879,7 +1879,7 @@ async fn allow_consecutive_full_transfer_bidirectional() -> anyhow::Result<()> {
         let wallet_b_invoice = create_new_invoice_v2(
             &contract_id.to_string(),
             &iface.to_string(),
-            1_000.00,
+            ContractAmount::new(1_000, 2),
             &utxo_unspent.outpoint.to_string(),
             wallet_b.clone(),
             None,
@@ -1943,7 +1943,7 @@ async fn allow_consecutive_full_transfer_bidirectional() -> anyhow::Result<()> {
             let wallet_a_invoice = create_new_invoice_v2(
                 &contract_id.to_string(),
                 &iface.to_string(),
-                50.00,
+                ContractAmount::new(50, 2),
                 &utxo_unspent.outpoint.to_string(),
                 wallet_a.clone(),
                 None,
@@ -2043,7 +2043,7 @@ async fn allow_save_transfer_and_verify() -> anyhow::Result<()> {
     let issuer_resp = issuer_issue_contract_v2(
         1,
         "RGB20",
-        ContractAmount::new(1, 2).to_value(),
+        ContractAmount::with(1, 0, 2).to_value(),
         false,
         true,
         None,
@@ -2059,7 +2059,7 @@ async fn allow_save_transfer_and_verify() -> anyhow::Result<()> {
     let owner_resp = &create_new_invoice(
         &issuer_resp.contract_id,
         &issuer_resp.iface,
-        1.0,
+        ContractAmount::with(1, 0, issuer_resp.precision),
         owner_keys.clone(),
         None,
         Some(issuer_resp.clone().contract.strict),
@@ -2110,7 +2110,7 @@ async fn allow_save_transfer_and_verify() -> anyhow::Result<()> {
     assert!(resp.is_ok());
 
     let contract = get_contract(&owner_sk, &issuer_resp.contract_id).await?;
-    assert_eq!(1., contract.balance_normalised);
+    assert_eq!(1., contract.balance_normalized);
 
     Ok(())
 }

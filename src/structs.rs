@@ -442,7 +442,7 @@ pub struct ContractResponse {
     /// Current balance
     pub balance: u64,
     /// Current balance (Humanized)
-    pub balance_normalised: f64,
+    pub balance_normalized: f64,
     /// The contract allocations
     pub allocations: Vec<AllocationDetail>,
     /// The contract state (multiple formats)

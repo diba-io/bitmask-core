@@ -5,6 +5,7 @@ use bp::Txid;
 use core::fmt::Display;
 use rgb::{RgbWallet, TerminalPath};
 use std::{
+    cmp::Ordering,
     collections::{BTreeMap, HashMap},
     str::FromStr,
 };
@@ -45,6 +46,7 @@ impl FromStr for AddressAmount {
     }
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub struct ContractAmount {
     pub int: u64,
     pub fract: u64,
@@ -66,18 +68,57 @@ impl ContractAmount {
     ///
     /// ```
     /// // Define the initial value
-    /// let amount = CoinAmount::with(5, 2);
+    /// use bitmask_core::rgb::structs::ContractAmount;
+    /// let amount = ContractAmount::new(100, 2);
     ///
-    /// assert_eq!(amount.int, 5);
+    /// assert_eq!(amount.int, 100);
     /// assert_eq!(amount.fract, 0);
-    /// assert_eq!(amount.to_value(), 500);
-    /// assert_eq!(amount.to_string(), "5");
+    /// assert_eq!(amount.clone().to_value(), 10000);
+    /// assert_eq!(amount.to_string(), "100.00");
     /// ```
     pub fn new(value: u64, precision: u8) -> Self {
         let pow = 10_u64.pow(precision as u32);
+        let int = match precision.cmp(&0) {
+            Ordering::Less | Ordering::Equal => value,
+            Ordering::Greater => value / pow,
+        };
 
-        let int = if value < pow { value } else { value / pow };
-        let fract = if value < pow { 0 } else { value - int * pow };
+        let fract = match value.cmp(&pow) {
+            Ordering::Less | Ordering::Equal => 0,
+            Ordering::Greater => value - int * pow,
+        };
+
+        ContractAmount {
+            int,
+            fract,
+            precision,
+        }
+    }
+
+    /// Define a contract value.
+    ///
+    /// A value ([`u64`]) combine with precision ([`u8`]), load
+    /// a contract value, compabitle with rgb contract value.
+    ///
+    /// Remeber: All contract amounts are represents in [`u64`].
+    /// The [`ContractAmount`] abstract the calculation.
+    ///
+    /// # Examples
+    ///
+    /// Basic usage:
+    ///
+    /// ```
+    /// // Define the initial value
+    /// use bitmask_core::rgb::structs::ContractAmount;
+    /// let amount = ContractAmount::with(2, 50, 2);
+    ///
+    /// assert_eq!(amount.int, 2);
+    /// assert_eq!(amount.fract, 50);
+    /// assert_eq!(amount.clone().to_value(), 250);
+    /// assert_eq!(amount.to_string(), "2.50");
+    /// ```
+    pub fn with(value: u64, fract: u64, precision: u8) -> Self {
+        let int = value;
         ContractAmount {
             int,
             fract,
@@ -99,14 +140,15 @@ impl ContractAmount {
     ///
     /// ```
     /// // Define the initial value
-    /// let amount = ContractAmount::with(1100, 3);
+    /// use bitmask_core::rgb::structs::ContractAmount;
+    /// let amount = ContractAmount::new(1100, 3);
     ///
     /// assert_eq!(amount.int, 1);
     /// assert_eq!(amount.fract, 100);
-    /// assert_eq!(amount.to_value(), 1100);
+    /// assert_eq!(amount.clone().to_value(), 1100);
     /// assert_eq!(amount.to_string(), "1.100");
     /// ```
-    pub fn with(value: u64, precision: u8) -> Self {
+    pub fn load(value: u64, precision: u8) -> Self {
         let pow = 10_u64.pow(precision as u32);
         let int = value / pow;
         let fract = value - int * pow;
@@ -117,7 +159,7 @@ impl ContractAmount {
         }
     }
 
-    /// Convert a raw string representation of the
+    /// Convert a raw u64 representation of the
     /// number in Contract Amount.
     ///
     /// A value ([`String`]) return a contract value,
@@ -129,17 +171,19 @@ impl ContractAmount {
     ///
     /// ```
     /// // Define the initial value
-    /// let amount = ContractAmount::from("1.100");
+    /// use bitmask_core::rgb::structs::ContractAmount;
+    /// let amount = ContractAmount::from("1".to_string(), 3);
     ///
-    /// assert_eq!(amount.int, 1);
-    /// assert_eq!(amount.fract, 100);
-    /// assert_eq!(amount.to_value(), 1100);
-    /// assert_eq!(amount.to_string(), "1.100");
+    /// assert_eq!(amount.int.clone(), 1);
+    /// assert_eq!(amount.fract, 0);
+    /// assert_eq!(amount.clone().to_value(), 1000);
+    /// assert_eq!(amount.to_string().clone(), "1.000");
     /// ```
     pub fn from(value: String, precision: u8) -> Self {
-        let mut fract = 0;
+        let int;
+        let mut fract;
 
-        let int = if value.contains('.') {
+        if value.contains('.') {
             let parts = value.split('.');
             let collection: Vec<&str> = parts.collect();
 
@@ -150,9 +194,11 @@ impl ContractAmount {
                 fract *= pow;
             }
 
-            collection[0].parse().unwrap()
+            int = collection[0].parse().unwrap();
         } else {
-            value.parse().unwrap()
+            let unsafe_contract_amount = Self::load(value.parse().unwrap(), precision);
+            fract = unsafe_contract_amount.fract;
+            int = unsafe_contract_amount.int
         };
 
         ContractAmount {
@@ -162,7 +208,7 @@ impl ContractAmount {
         }
     }
 
-    /// Convert a raw string representation of the
+    /// Convert a decimal string representation of the
     /// number in Contract Amount.
     ///
     /// A value ([`String`]) return a contract value,
@@ -174,14 +220,15 @@ impl ContractAmount {
     ///
     /// ```
     /// // Define the initial value
-    /// let amount = ContractAmount::from_raw("1.100");
+    /// use bitmask_core::rgb::structs::ContractAmount;
+    /// let amount = ContractAmount::from_decimal_str("1.100".to_string());
     ///
     /// assert_eq!(amount.int, 1);
     /// assert_eq!(amount.fract, 100);
-    /// assert_eq!(amount.to_value(), 1100);
+    /// assert_eq!(amount.clone().to_value(), 1100);
     /// assert_eq!(amount.to_string(), "1.100");
     /// ```
-    pub fn from_raw(value: String) -> Self {
+    pub fn from_decimal_str(value: String) -> Self {
         let mut fract = 0;
         let mut precision = 0;
 

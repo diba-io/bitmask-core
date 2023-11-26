@@ -44,7 +44,7 @@ async fn check_fungible_allocations() -> anyhow::Result<()> {
     let issuer_resp = issuer_issue_contract_v2(
         1,
         "RGB20",
-        ContractAmount::new(5, 2).to_value(),
+        ContractAmount::with(5, 0, 2).to_value(),
         false,
         true,
         None,
@@ -58,7 +58,7 @@ async fn check_fungible_allocations() -> anyhow::Result<()> {
     let owner_resp = &create_new_invoice(
         &issuer_resp.contract_id,
         &issuer_resp.iface,
-        1.0,
+        ContractAmount::with(1, 0, issuer_resp.precision),
         owner_keys.clone(),
         None,
         Some(issuer_resp.clone().contract.legacy),
@@ -108,7 +108,7 @@ async fn check_fungible_allocations() -> anyhow::Result<()> {
     let contract_id = &issuer_resp.contract_id;
     let resp = get_contract(&issuer_sk, contract_id).await;
     assert!(resp.is_ok());
-    assert_eq!(4.0, resp?.balance_normalised);
+    assert_eq!(4.0, resp?.balance_normalized);
 
     // 6. Create Watcher (Owner Side)
     let watcher_name = "default";
@@ -123,7 +123,7 @@ async fn check_fungible_allocations() -> anyhow::Result<()> {
     let contract_id = &issuer_resp.contract_id;
     let resp = get_contract(&owner_sk, contract_id).await;
     assert!(resp.is_ok());
-    assert_eq!(1.0, resp?.balance_normalised);
+    assert_eq!(1., resp?.balance_normalized);
 
     Ok(())
 }
@@ -139,7 +139,7 @@ async fn check_uda_allocations() -> anyhow::Result<()> {
     let issuer_resp = issuer_issue_contract_v2(
         1,
         "RGB21",
-        ContractAmount::new(1, 0).to_value(),
+        ContractAmount::with(1, 0, 0).to_value(),
         false,
         true,
         meta,
@@ -152,7 +152,7 @@ async fn check_uda_allocations() -> anyhow::Result<()> {
     let owner_resp = &create_new_invoice(
         &issuer_resp.contract_id,
         &issuer_resp.iface,
-        1.0,
+        ContractAmount::with(1, 0, issuer_resp.precision),
         owner_keys.clone(),
         None,
         Some(issuer_resp.clone().contract.legacy),
@@ -204,7 +204,7 @@ async fn check_uda_allocations() -> anyhow::Result<()> {
     let contract_id = &issuer_resp.contract_id;
     let resp = get_contract(&issuer_sk, contract_id).await;
     assert!(resp.is_ok());
-    assert_eq!(0.0, resp?.balance_normalised);
+    assert_eq!(0.0, resp?.balance_normalized);
 
     // 6. Create Watcher (Owner Side)
     let watcher_name = "default";
@@ -219,7 +219,7 @@ async fn check_uda_allocations() -> anyhow::Result<()> {
     let contract_id = &issuer_resp.contract_id;
     let resp = get_contract(&owner_sk, contract_id).await;
     assert!(resp.is_ok());
-    assert_eq!(1.0, resp?.balance_normalised);
+    assert_eq!(1., resp?.balance_normalized);
 
     Ok(())
 }

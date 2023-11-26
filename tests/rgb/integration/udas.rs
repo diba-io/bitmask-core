@@ -25,7 +25,7 @@ async fn accept_uda_transfer() -> anyhow::Result<()> {
     let issuer_resp = issuer_issue_contract_v2(
         1,
         "RGB21",
-        ContractAmount::new(1, 0).to_value(),
+        ContractAmount::with(1, 0, 0).to_value(),
         false,
         true,
         meta,
@@ -38,7 +38,7 @@ async fn accept_uda_transfer() -> anyhow::Result<()> {
     let owner_resp = create_new_invoice(
         &issuer_resp.contract_id,
         &issuer_resp.iface,
-        1.0,
+        ContractAmount::with(1, 0, issuer_resp.precision),
         owner_keys,
         None,
         Some(issuer_resp.clone().contract.legacy),
@@ -91,7 +91,7 @@ async fn create_uda_save_medias() -> anyhow::Result<()> {
     let _issuer_resp = issuer_issue_contract_v2(
         1,
         "RGB21",
-        ContractAmount::new(1, 0).to_value(),
+        ContractAmount::with(1, 0, 0).to_value(),
         false,
         true,
         meta,

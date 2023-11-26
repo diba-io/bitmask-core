@@ -28,7 +28,7 @@ pub async fn create_simple_rbf_bitcoin_transfer() -> Result<()> {
     let issuer_resp = issuer_issue_contract_v2(
         1,
         "RGB20",
-        ContractAmount::new(5, 2).to_value(),
+        ContractAmount::with(5, 0, 2).to_value(),
         false,
         true,
         None,

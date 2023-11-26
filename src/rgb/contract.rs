@@ -225,9 +225,9 @@ where
             .sum();
     }
 
-    let balance_normalised = ContractAmount::with(balance, specs.precision.into()).to_string();
-    let balance_normalised = f64::from_str(&balance_normalised)
-        .map_err(|_| ExportContractError::WrongValue(contr_id.clone(), balance_normalised))?;
+    let balance_normalized = ContractAmount::new(balance, specs.precision.into()).to_string();
+    let balance_normalized = f64::from_str(&balance_normalized)
+        .map_err(|_| ExportContractError::WrongValue(contr_id.clone(), balance_normalized))?;
 
     let mut supply = 0;
     for (index, (_, global_assign)) in contract_bindle.genesis.assignments.iter().enumerate() {
@@ -336,7 +336,7 @@ where
         precision: specs.precision.into(),
         supply,
         balance,
-        balance_normalised,
+        balance_normalized,
         allocations,
         created: created.into(),
         contract: ContractFormats {
