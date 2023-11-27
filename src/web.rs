@@ -5,6 +5,7 @@ use serde::de::DeserializeOwned;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::{future_to_promise, JsFuture};
 
+use crate::rgb::structs::ContractAmount;
 use crate::structs::{
     AcceptRequest, FullRgbTransferRequest, ImportRequest, InvoiceRequest, IssueRequest,
     MediaRequest, PsbtRequest, PublishPsbtRequest, ReIssueRequest, RgbBidRequest, RgbOfferRequest,
@@ -994,6 +995,36 @@ pub mod rgb {
                 Err(err) => Err(JsValue::from_string(err.to_string())),
             }
         })
+    }
+
+    #[wasm_bindgen]
+    pub fn contract_amount(amount: u64, precision: u8) -> u64 {
+        set_panic_hook();
+        ContractAmount::new(amount, precision).to_value()
+    }
+
+    #[wasm_bindgen]
+    pub fn contract_amount_str(amount: u64, precision: u8) -> String {
+        set_panic_hook();
+        ContractAmount::new(amount, precision).to_string()
+    }
+
+    #[wasm_bindgen]
+    pub fn contract_amount_parse_str(amount: String, precision: u8) -> String {
+        set_panic_hook();
+        ContractAmount::from(amount, precision).to_string()
+    }
+
+    #[wasm_bindgen]
+    pub fn contract_amount_parse_value(amount: String, precision: u8) -> u64 {
+        set_panic_hook();
+        ContractAmount::from(amount, precision).to_value()
+    }
+
+    #[wasm_bindgen]
+    pub fn contract_amount_parse_decimal_value(amount: String) -> u64 {
+        set_panic_hook();
+        ContractAmount::from_decimal_str(amount).to_value()
     }
 }
 

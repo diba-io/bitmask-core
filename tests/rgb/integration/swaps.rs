@@ -101,7 +101,7 @@ async fn create_scriptless_swap() -> anyhow::Result<()> {
     let issuer_resp = issuer_issue_contract_v2(
         1,
         "RGB20",
-        ContractAmount::new(5, 2).to_value(),
+        ContractAmount::with(5, 0, 2).to_value(),
         false,
         false,
         None,
@@ -137,7 +137,7 @@ async fn create_scriptless_swap() -> anyhow::Result<()> {
         .naive_utc()
         .timestamp();
 
-    let asset_amount = ContractAmount::with(contract_amount, precision).to_string();
+    let asset_amount = ContractAmount::new(contract_amount, precision).to_string();
     let seller_swap_req = RgbOfferRequest {
         contract_id: contract_id.clone(),
         iface: iface.clone(),
@@ -238,12 +238,12 @@ async fn create_scriptless_swap() -> anyhow::Result<()> {
     // 15. Retrieve Contract (Buyer Side)
     let resp = get_contract(&buyer_sk, &contract_id).await;
     assert!(resp.is_ok());
-    assert_eq!(4.0, resp?.balance_normalised);
+    assert_eq!(4.0, resp?.balance_normalized);
 
     // 14. Retrieve Contract (Seller Side)
     let resp = get_contract(&seller_sk, &contract_id).await;
     assert!(resp.is_ok());
-    assert_eq!(1., resp?.balance_normalised);
+    assert_eq!(1., resp?.balance_normalized);
 
     Ok(())
 }
@@ -330,7 +330,7 @@ async fn create_scriptless_swap_for_uda() -> anyhow::Result<()> {
     let issuer_resp = issuer_issue_contract_v2(
         1,
         "RGB21",
-        ContractAmount::new(1, 0).to_value(),
+        ContractAmount::with(1, 0, 0).to_value(),
         false,
         false,
         Some(metadata),
@@ -460,12 +460,12 @@ async fn create_scriptless_swap_for_uda() -> anyhow::Result<()> {
     // 11. Retrieve Contract (Seller Side)
     let resp = get_contract(&seller_sk, &contract_id).await;
     assert!(resp.is_ok());
-    assert_eq!(0., resp?.balance_normalised);
+    assert_eq!(0., resp?.balance_normalized);
 
     // 12. Retrieve Contract (Buyer Side)
     let resp = get_contract(&buyer_sk, &contract_id).await;
     assert!(resp.is_ok());
-    assert_eq!(1., resp?.balance_normalised);
+    assert_eq!(1., resp?.balance_normalized);
 
     // 13. Verify transfers (Seller Side)
     let resp = verify_transfers(&seller_sk).await;
@@ -556,7 +556,7 @@ async fn create_presig_scriptless_swap() -> anyhow::Result<()> {
     let issuer_resp = issuer_issue_contract_v2(
         1,
         "RGB20",
-        ContractAmount::new(5, 2).to_value(),
+        ContractAmount::with(5, 0, 2).to_value(),
         false,
         false,
         None,
@@ -592,7 +592,7 @@ async fn create_presig_scriptless_swap() -> anyhow::Result<()> {
         .naive_utc()
         .timestamp();
 
-    let asset_amount = ContractAmount::with(contract_amount, precision).to_string();
+    let asset_amount = ContractAmount::new(contract_amount, precision).to_string();
     let seller_swap_req = RgbOfferRequest {
         contract_id: contract_id.clone(),
         iface: iface.clone(),
@@ -708,12 +708,12 @@ async fn create_presig_scriptless_swap() -> anyhow::Result<()> {
     // 14. Retrieve Contract (Buyer Side)
     let resp = get_contract(&buyer_sk, &contract_id).await;
     assert!(resp.is_ok());
-    assert_eq!(4., resp?.balance_normalised);
+    assert_eq!(4., resp?.balance_normalized);
 
     // 13. Retrieve Contract (Seller Side)
     let resp = get_contract(&seller_sk, &contract_id).await;
     assert!(resp.is_ok());
-    assert_eq!(1., resp?.balance_normalised);
+    assert_eq!(1., resp?.balance_normalized);
 
     Ok(())
 }

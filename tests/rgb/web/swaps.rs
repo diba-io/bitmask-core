@@ -206,7 +206,7 @@ async fn create_transfer_swap_flow() {
     let resp: ContractResponse = json_parse(&resp);
 
     let mut total_issuer =
-        f64::from_str(&ContractAmount::with(supply, precision).to_string()).unwrap();
+        f64::from_str(&ContractAmount::new(supply, precision).to_string()).unwrap();
     let mut total_owner = 0.0;
     let rounds = vec![TransferRounds::with(4_000.00, 1_000, true)];
 
@@ -269,10 +269,11 @@ async fn create_transfer_swap_flow() {
             .naive_utc()
             .timestamp();
         let sender_asset_desc = sender_desc.clone();
+        let asset_amount = ContractAmount::with(round.send_amount as u64, 0, 2);
         let sender_swap_req = RgbOfferRequest {
             contract_id: issuer_resp.contract_id.clone(),
             iface: issuer_resp.iface.clone(),
-            contract_amount: round.send_amount.to_string(),
+            contract_amount: asset_amount.to_value().to_string(),
             bitcoin_price: round.satoshi_price,
             descriptor: SecretString(sender_asset_desc),
             change_terminal: "/20/1".to_string(),
@@ -288,9 +289,10 @@ async fn create_transfer_swap_flow() {
 
         info!(format!("Receiver ({receiver}) Create Bid"));
         let receiver_btc_desc = receiver_desc.clone();
+        let asset_amount = ContractAmount::with(round.send_amount as u64, 0, 2);
         let receiver_swap_req = RgbBidRequest {
             offer_id: sender_swap_resp.offer_id.clone(),
-            asset_amount: round.send_amount.to_string(),
+            asset_amount: asset_amount.to_value().to_string(),
             descriptor: SecretString(receiver_btc_desc),
             change_terminal: "/1/0".to_string(),
             fee: PsbtFeeRequest::Value(1000),
@@ -387,7 +389,7 @@ async fn create_transfer_swap_flow() {
             "Contract ({sender}): {} ({})\n {:#?}",
             contract_resp.contract_id, contract_resp.balance, contract_resp.allocations
         ));
-        let sender_current_balance = contract_resp.balance_normalised;
+        let sender_current_balance = contract_resp.balance_normalized;
 
         info!(format!("Get Contract Balancer ({receiver})"));
         let contract_resp =
@@ -397,7 +399,7 @@ async fn create_transfer_swap_flow() {
             "Contract ({receiver}): {} ({})\n {:#?}",
             contract_resp.contract_id, contract_resp.balance, contract_resp.allocations
         ));
-        let receiver_current_balance = contract_resp.balance_normalised;
+        let receiver_current_balance = contract_resp.balance_normalized;
 
         info!(format!("<<<< ROUND #{index} Finish >>>>"));
         assert_eq!(sender_current_balance, sender_balance);

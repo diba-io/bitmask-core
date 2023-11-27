@@ -290,7 +290,7 @@ pub async fn import_new_contract(
 pub async fn create_new_invoice(
     contract_id: &str,
     iface: &str,
-    amount: f64,
+    amount: ContractAmount,
     owner_keys: DecryptedWalletData,
     params: Option<HashMap<String, String>>,
     contract: Option<String>,
@@ -307,12 +307,6 @@ pub async fn create_new_invoice(
         "RGB20" => AssetType::RGB20,
         "RGB21" => AssetType::RGB21,
         _ => AssetType::Contract,
-    };
-
-    let precision = match iface {
-        "RGB20" => 2,
-        "RGB21" => 0,
-        _ => DEFAULT_PRECISION,
     };
 
     if let Some(contract) = contract {
@@ -342,7 +336,6 @@ pub async fn create_new_invoice(
 
     let params = params.unwrap_or_default();
 
-    let amount = ContractAmount::from(amount.to_string(), precision);
     let invoice_req = InvoiceRequest {
         contract_id: contract_id.to_owned(),
         iface: iface.to_owned(),
@@ -520,7 +513,7 @@ pub async fn issuer_issue_contract_v2(
 pub async fn create_new_invoice_v2(
     contract_id: &str,
     iface: &str,
-    amount: f64,
+    amount: ContractAmount,
     utxo: &str,
     owner_keys: DecryptedWalletData,
     params: Option<HashMap<String, String>>,
@@ -528,13 +521,16 @@ pub async fn create_new_invoice_v2(
 ) -> Result<InvoiceResponse, anyhow::Error> {
     // Create Watcher
     let sk = owner_keys.private.nostr_prv.clone();
+
+    let seal = format!("tapret1st:{utxo}");
+    let params = params.unwrap_or_default();
+
     let contract_type = match iface {
         "RGB20" => AssetType::RGB20,
         "RGB21" => AssetType::RGB21,
         _ => AssetType::Contract,
     };
 
-    let mut precision = DEFAULT_PRECISION;
     if let Some(contract) = contract {
         // Import Contract
         let import_req = ImportRequest {
@@ -544,15 +540,7 @@ pub async fn create_new_invoice_v2(
 
         let resp = import(&sk, import_req).await;
         assert!(resp.is_ok());
-
-        precision = resp?.precision;
     }
-
-    let seal = format!("tapret1st:{utxo}");
-    let params = params.unwrap_or_default();
-
-    let mut amount = ContractAmount::from(amount.to_string(), precision);
-    amount.precision = precision;
 
     let invoice_req = InvoiceRequest {
         contract_id: contract_id.to_owned(),
