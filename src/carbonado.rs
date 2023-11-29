@@ -4,6 +4,8 @@ use bitcoin_30::secp256k1::{PublicKey, SecretKey};
 use crate::{carbonado::error::CarbonadoError, constants::NETWORK, info, structs::FileMetadata};
 
 pub mod error;
+
+#[cfg(not(target_arch = "wasm32"))]
 pub mod metrics;
 
 #[cfg(not(target_arch = "wasm32"))]
