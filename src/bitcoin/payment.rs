@@ -175,8 +175,8 @@ fn add_back_original_input(original_psbt: &Psbt, payjoin_psbt: Psbt) -> Psbt {
             if proposed_txin.previous_output == original_txin.previous_output {
                 proposed_psbtin.witness_utxo = original_psbtin.witness_utxo.clone();
                 proposed_psbtin.non_witness_utxo = original_psbtin.non_witness_utxo.clone();
+                original_inputs.next();
             }
-            original_inputs.next();
         }
     }
     payjoin_psbt
