@@ -116,6 +116,41 @@ pub struct IssueAssetRequest {
 #[serde(rename_all = "camelCase")]
 #[derive(Validate)]
 #[garde(context(RGBContext))]
+pub struct IssuePreRequest {
+    /// The ticker of the asset
+    #[garde(ascii)]
+    #[garde(length(min = 1, max = 8))]
+    pub ticker: String,
+    /// Name of the asset
+    #[garde(ascii)]
+    #[garde(length(min = 1, max = 40))]
+    pub name: String,
+    /// Description of the asset
+    #[garde(ascii)]
+    #[garde(length(min = u8::MIN.into(), max = u8::MAX.into()))]
+    pub description: String,
+    /// Amount of the asset
+    #[garde(range(min = u64::MIN, max = u64::MAX))]
+    pub supply: u64,
+    /// Precision of the asset
+    #[garde(range(min = u8::MIN, max = u8::MAX))]
+    pub precision: u8,
+    /// Seal of the initial owner
+    #[garde(ascii)]
+    #[garde(custom(verify_tapret_seal))]
+    pub seal: String,
+    /// The name of the iface (ex: RGB20)
+    #[garde(alphanumeric)]
+    pub iface: String,
+    /// contract metadata (only RGB21/UDA)
+    #[garde(skip)]
+    pub meta: Option<MediaRequest>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+#[derive(Validate)]
+#[garde(context(RGBContext))]
 pub struct IssueRequest {
     /// The ticker of the asset
     #[garde(ascii)]

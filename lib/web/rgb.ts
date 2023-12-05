@@ -5,7 +5,7 @@ import * as BMC from "./bitmask_core";
 
 export const issueContract = async (
   nostrHexSk: string,
-  request: IssueRequest
+  request: IssuePreRequest
 ): Promise<IssueResponse> =>
   JSON.parse(await BMC.issue_contract(nostrHexSk, request));
 
@@ -250,7 +250,7 @@ export interface IssueMetadata {
   collectible?: NewCollectible[];
 }
 
-export interface IssueRequest {
+export interface IssuePreRequest {
   /// The ticker of the asset
   ticker: string;
   /// Name of the asset
@@ -266,7 +266,7 @@ export interface IssueRequest {
   /// The name of the iface (ex: RGB20)
   iface: string;
   /// contract metadata (only RGB21/UDA)
-  meta?: IssueMediaRequest;
+  meta?: MediaRequest;
 }
 
 export interface NewCollectible {

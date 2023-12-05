@@ -7,10 +7,10 @@ use wasm_bindgen_futures::{future_to_promise, JsFuture};
 
 use crate::rgb::structs::ContractAmount;
 use crate::structs::{
-    AcceptRequest, FullRgbTransferRequest, ImportRequest, InvoiceRequest, IssueRequest,
-    MediaRequest, PsbtRequest, PublishPsbtRequest, ReIssueRequest, RgbBidRequest, RgbOfferRequest,
-    RgbRemoveTransferRequest, RgbSaveTransferRequest, RgbSwapRequest, RgbTransferRequest,
-    SecretString, SignPsbtRequest, WatcherRequest,
+    AcceptRequest, FullRgbTransferRequest, ImportRequest, InvoiceRequest, IssueMediaRequest,
+    IssuePreRequest, IssueRequest, MediaRequest, PsbtRequest, PublishPsbtRequest, ReIssueRequest,
+    RgbBidRequest, RgbOfferRequest, RgbRemoveTransferRequest, RgbSaveTransferRequest,
+    RgbSwapRequest, RgbTransferRequest, SecretString, SignPsbtRequest, WatcherRequest,
 };
 
 pub fn set_panic_hook() {
@@ -381,7 +381,25 @@ pub mod rgb {
         set_panic_hook();
 
         future_to_promise(async move {
-            let req: IssueRequest = serde_wasm_bindgen::from_value(request).unwrap();
+            let pre_req: IssuePreRequest = serde_wasm_bindgen::from_value(request).unwrap();
+            let media = match pre_req.meta {
+                Some(media) => {
+                    let media = serde_wasm_bindgen::to_value(&media).expect("");
+                    let media = resolve(import_uda_data(media)).await;
+                    Some(IssueMediaRequest::from(media))
+                }
+                None => None,
+            };
+            let req = IssueRequest {
+                ticker: pre_req.ticker,
+                name: pre_req.name,
+                description: pre_req.description,
+                supply: pre_req.supply,
+                precision: pre_req.precision,
+                seal: pre_req.seal,
+                iface: pre_req.iface,
+                meta: Some(media),
+            };
             match crate::rgb::issue_contract(&nostr_hex_sk, req).await {
                 Ok(result) => Ok(JsValue::from_string(
                     serde_json::to_string(&result).unwrap(),
