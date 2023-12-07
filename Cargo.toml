@@ -45,7 +45,7 @@ bitcoin_blockchain = { version = "0.10.0", default-features = false }
 blake3 = "1.5.0"
 bp-core = { version = "0.10.11", features = ["stl"] }
 bp-seals = "0.10.11"
-carbonado = { path = "../carbonado" }
+carbonado = "0.3.6"
 chrono = "0.4"
 commit_verify = { version = "0.10.6", features = ["stl"] }
 console_error_panic_hook = "0.1.7"
