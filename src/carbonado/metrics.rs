@@ -143,7 +143,7 @@ pub async fn metrics(dir: &Path) -> Result<MetricsResponse> {
             }
         }
 
-        sleep(StdDuration::from_millis(10)).await;
+        sleep(StdDuration::from_millis(1)).await;
     }
 
     *response
