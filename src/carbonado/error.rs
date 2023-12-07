@@ -27,6 +27,8 @@ pub enum CarbonadoError {
     AllEndpointsFailed,
     /// Wrong Nostr private key
     WrongNostrPrivateKey,
+    /// Wrong Nostr public key
+    WrongNostrPublicKey,
     /// Debug: {0}
     Debug(String),
 }

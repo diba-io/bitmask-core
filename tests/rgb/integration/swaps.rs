@@ -10,7 +10,7 @@ use bitmask_core::{
     rgb::{
         accept_transfer, create_buyer_bid, create_seller_offer, create_swap_transfer,
         create_watcher, get_contract, import as import_contract, structs::ContractAmount,
-        update_seller_offer, verify_transfers,
+        swap::RgbSwapStrategy, update_seller_offer, verify_transfers,
     },
     structs::{
         AcceptRequest, AssetType, ImportRequest, IssueResponse, PsbtFeeRequest, PublishPsbtRequest,
@@ -21,7 +21,7 @@ use bitmask_core::{
 };
 
 #[tokio::test]
-async fn create_scriptless_swap() -> anyhow::Result<()> {
+async fn create_hotswap_swap() -> anyhow::Result<()> {
     // 1. Initial Setup
     let seller_keys = new_mnemonic(&SecretString("".to_string())).await?;
     let buyer_keys = new_mnemonic(&SecretString("".to_string())).await?;
@@ -131,7 +131,7 @@ async fn create_scriptless_swap() -> anyhow::Result<()> {
 
     // 5. Create Seller Swap Side
     let contract_amount = supply - 1;
-    let bitcoin_price: u64 = 100000;
+    let bitcoin_price: u64 = 100_000;
     let seller_asset_desc = seller_keys.public.rgb_assets_descriptor_xpub.clone();
     let expire_at = (chrono::Local::now() + chrono::Duration::minutes(5))
         .naive_utc()
@@ -146,8 +146,8 @@ async fn create_scriptless_swap() -> anyhow::Result<()> {
         descriptor: SecretString(seller_asset_desc),
         change_terminal: "/20/1".to_string(),
         bitcoin_changes: vec![],
+        strategy: RgbSwapStrategy::HotSwap,
         expire_at: Some(expire_at),
-        presig: false,
     };
 
     let seller_swap_resp = create_seller_offer(&seller_sk, seller_swap_req).await;
@@ -249,7 +249,7 @@ async fn create_scriptless_swap() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
-async fn create_scriptless_swap_for_uda() -> anyhow::Result<()> {
+async fn create_hotswap_swap_for_uda() -> anyhow::Result<()> {
     // 1. Initial Setup
     let seller_keys = new_mnemonic(&SecretString("".to_string())).await?;
     let buyer_keys = new_mnemonic(&SecretString("".to_string())).await?;
@@ -374,8 +374,8 @@ async fn create_scriptless_swap_for_uda() -> anyhow::Result<()> {
         descriptor: SecretString(seller_asset_desc),
         change_terminal: "/21/1".to_string(),
         bitcoin_changes: vec![],
+        strategy: RgbSwapStrategy::HotSwap,
         expire_at: Some(expire_at),
-        presig: false,
     };
 
     let seller_swap_resp = create_seller_offer(&seller_sk, seller_swap_req).await;
@@ -476,7 +476,7 @@ async fn create_scriptless_swap_for_uda() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
-async fn create_presig_scriptless_swap() -> anyhow::Result<()> {
+async fn create_p2p_swap() -> anyhow::Result<()> {
     // 1. Initial Setup
     let seller_keys = new_mnemonic(&SecretString("".to_string())).await?;
     let buyer_keys = new_mnemonic(&SecretString("".to_string())).await?;
@@ -602,7 +602,7 @@ async fn create_presig_scriptless_swap() -> anyhow::Result<()> {
         change_terminal: "/20/1".to_string(),
         bitcoin_changes: vec![],
         expire_at: Some(expire_at),
-        presig: true,
+        strategy: RgbSwapStrategy::P2P,
     };
 
     let seller_swap_resp = create_seller_offer(&seller_sk, seller_swap_req).await;

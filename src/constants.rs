@@ -76,6 +76,10 @@ pub async fn get_marketplace_fee_xpub() -> String {
     MARKETPLACE_FEE_XPUB.read().await.to_string()
 }
 
+pub async fn get_coordinator_nostr_key() -> String {
+    MARKETPLACE_NOSTR.read().await.to_string()
+}
+
 pub static UDAS_UTXO: Lazy<RwLock<String>> = Lazy::new(|| RwLock::new(dot_env("UDAS_UTXO")));
 
 pub async fn get_udas_utxo() -> String {
@@ -220,5 +224,4 @@ pub mod storage_keys {
     pub const ASSETS_OFFERS: &str = "bitmask-asset_offers.c15";
     pub const ASSETS_BIDS: &str = "bitmask-asset_bids.c15";
     pub const MARKETPLACE_OFFERS: &str = "bitmask-marketplace_public_offers.c15";
-    pub const MARKETPLACE_BIDS: &str = "bitmask-marketplace_public_bids.c15";
 }

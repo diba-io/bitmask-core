@@ -5,20 +5,24 @@ use crate::constants::storage_keys::{
 };
 use crate::rgb::{
     carbonado::{
-        cdrt_retrieve_wallets, cdrt_store_wallets, retrieve_bids as retrieve_rgb_bids,
-        retrieve_offers as retrieve_rgb_offers,
+        cdrt_retrieve_wallets, cdrt_store_wallets,
+        retrieve_auctions_offers as retrieve_rgb_auctions_offers,
+        retrieve_bids as retrieve_rgb_bids, retrieve_offers as retrieve_rgb_offers,
         retrieve_public_offers as retrieve_rgb_public_offers, retrieve_stock as retrieve_rgb_stock,
         retrieve_swap_offer_bid as retrieve_rgb_swap_offer_bid,
         retrieve_transfers as retrieve_rgb_transfers, retrieve_wallets,
-        store_bids as store_rgb_bids, store_offers as store_rgb_offers,
-        store_public_offers as store_rgb_public_offers, store_stock as store_rgb_stock,
-        store_swap_offer_bid, store_transfers as store_rgb_transfer, store_wallets,
+        store_auction_offers as store_rgb_auction_offers, store_bids as store_rgb_bids,
+        store_offers as store_rgb_offers, store_public_offers as store_rgb_public_offers,
+        store_stock as store_rgb_stock, store_swap_offer_bid,
+        store_transfers as store_rgb_transfer, store_wallets,
     },
     crdt::LocalRgbAccount,
     crdt::{LocalRgbOfferBid, LocalRgbOffers},
     structs::{RgbAccountV1, RgbTransfersV1},
     swap::{RgbBids, RgbOffers},
 };
+
+use super::crdt::LocalRgbAuctions;
 
 #[derive(Debug, Clone, Eq, PartialEq, Display, From, Error)]
 #[display(doc_comments)]
@@ -91,6 +95,17 @@ pub async fn retrieve_local_account(sk: &str) -> Result<LocalRgbAccount, RgbPers
 
 pub async fn retrieve_public_offers() -> Result<LocalRgbOffers, RgbPersistenceError> {
     let stock = retrieve_rgb_public_offers(MARKETPLACE_OFFERS)
+        .await
+        .map_err(|op| RgbPersistenceError::RetrievePublicOffers(op.to_string()))?;
+
+    Ok(stock)
+}
+
+pub async fn retrieve_auctions_offers(
+    bundle_id: &str,
+    name: &str,
+) -> Result<LocalRgbAuctions, RgbPersistenceError> {
+    let stock = retrieve_rgb_auctions_offers(bundle_id, name)
         .await
         .map_err(|op| RgbPersistenceError::RetrievePublicOffers(op.to_string()))?;
 
@@ -199,6 +214,16 @@ pub async fn store_swap_bids(
 
 pub async fn store_public_offers(changes: Vec<u8>) -> Result<(), RgbPersistenceError> {
     store_rgb_public_offers(MARKETPLACE_OFFERS, &changes)
+        .await
+        .map_err(|op| RgbPersistenceError::WriteRgbPublicOffers(op.to_string()))
+}
+
+pub async fn store_auction_offers(
+    bundle_id: &str,
+    name: &str,
+    changes: Vec<u8>,
+) -> Result<(), RgbPersistenceError> {
+    store_rgb_auction_offers(bundle_id, name, &changes)
         .await
         .map_err(|op| RgbPersistenceError::WriteRgbPublicOffers(op.to_string()))
 }

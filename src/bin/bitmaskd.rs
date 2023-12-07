@@ -25,9 +25,9 @@ use bitcoin_30::secp256k1::{ecdh::SharedSecret, PublicKey, SecretKey};
 use bitmask_core::{
     bitcoin::{save_mnemonic, sign_and_publish_psbt_file},
     carbonado::{
-        handle_file,
+        handle_file, marketplace_retrieve, marketplace_store,
         metrics::{metrics, metrics_csv},
-        server_retrieve, server_store, store,
+        store,
     },
     constants::{
         get_marketplace_nostr_key, get_marketplace_seed, get_network, get_udas_utxo, switch_network,
@@ -524,7 +524,7 @@ async fn co_server_store(
     body: Bytes,
 ) -> Result<impl IntoResponse, AppError> {
     info!("POST /carbonado/server/{name}, {} bytes", body.len());
-    let (filepath, encoded) = server_store(&name, &body, None).await?;
+    let (filepath, encoded) = marketplace_store(&name, &body, None).await?;
 
     match OpenOptions::new()
         .read(true)
@@ -624,7 +624,7 @@ async fn co_metadata(
 async fn co_server_retrieve(Path(name): Path<String>) -> Result<impl IntoResponse, AppError> {
     info!("GET /server/{name}");
 
-    let result = server_retrieve(&name).await;
+    let result = marketplace_retrieve(&name).await;
     let cc = CacheControl::new().with_no_cache();
 
     match result {
@@ -682,6 +682,56 @@ async fn rgb_proxy_media_data_save(
     } = request;
     let resp = proxy_media_data_store(media, encode).await?;
     Ok((StatusCode::OK, Json(resp)))
+}
+
+async fn rgb_auction_get_offer(
+    Path(offer_id): Path<String>,
+    Json(_request): Json<String>,
+) -> Result<impl IntoResponse, AppError> {
+    info!("GET /auction/{offer_id}");
+    Ok((StatusCode::OK, Json("")))
+}
+
+async fn rgb_auction_create_offer(
+    TypedHeader(_auth): TypedHeader<Authorization<Bearer>>,
+    Path(offer_id): Path<String>,
+    Json(_request): Json<String>,
+) -> Result<impl IntoResponse, AppError> {
+    info!("POST /auction/{offer_id}");
+    Ok((StatusCode::OK, Json("")))
+}
+
+async fn rgb_auction_destroy_offer(
+    TypedHeader(_auth): TypedHeader<Authorization<Bearer>>,
+    Path(offer_id): Path<String>,
+) -> Result<impl IntoResponse, AppError> {
+    info!("DELETE /auction/{offer_id}");
+    Ok((StatusCode::OK, Json("")))
+}
+
+async fn rgb_auction_get_bid(
+    Path((offer_id, bid_id)): Path<(String, String)>,
+    Json(_request): Json<String>,
+) -> Result<impl IntoResponse, AppError> {
+    info!("GET /auction/{offer_id}/{bid_id}");
+    Ok((StatusCode::OK, Json("")))
+}
+
+async fn rgb_auction_create_bid(
+    TypedHeader(_auth): TypedHeader<Authorization<Bearer>>,
+    Path((offer_id, bid_id)): Path<(String, String)>,
+    Json(_request): Json<String>,
+) -> Result<impl IntoResponse, AppError> {
+    info!("POST /auction/{offer_id}/{bid_id}");
+    Ok((StatusCode::OK, Json("")))
+}
+
+async fn rgb_auction_destroy_bid(
+    TypedHeader(_auth): TypedHeader<Authorization<Bearer>>,
+    Path((offer_id, bid_id)): Path<(String, String)>,
+) -> Result<impl IntoResponse, AppError> {
+    info!("DELETE /auction/{offer_id}/{bid_id}");
+    Ok((StatusCode::OK, Json("")))
 }
 
 const BMC_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -822,6 +872,18 @@ async fn main() -> Result<()> {
         .route("/proxy/media-metadata", post(rgb_proxy_media_data_save))
         .route("/proxy/media-metadata/:id", get(rgb_proxy_media_retrieve))
         .route("/proxy/media/:id", get(rgb_proxy_metadata_retrieve))
+        .route("/auctions/:offer_id", get(rgb_auction_get_offer))
+        .route("/auctions/:offer_id", post(rgb_auction_create_offer))
+        .route("/auctions/:offer_id", delete(rgb_auction_destroy_offer))
+        .route("/auctions/:offer_id/bid/:bid_id", get(rgb_auction_get_bid))
+        .route(
+            "/auctions/:offer_id/bid/:bid_id",
+            post(rgb_auction_create_bid),
+        )
+        .route(
+            "/auction/:offer_id/bid/:bid_id",
+            delete(rgb_auction_destroy_bid),
+        )
         .route("/metrics.json", get(json_metrics))
         .route("/metrics.csv", get(csv_metrics));
 

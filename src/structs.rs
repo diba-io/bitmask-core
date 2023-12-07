@@ -14,7 +14,7 @@ use rgbstd::interface::rgb21::Allocation as AllocationUDA;
 use crate::{
     rgb::{
         structs::MediaMetadata,
-        swap::{PublicRgbBid, RgbBid, RgbOffer, RgbOfferSwap},
+        swap::{PublicRgbBid, RgbBid, RgbOffer, RgbOfferSwap, RgbSwapStrategy},
     },
     validators::{
         verify_descriptor, verify_media_request, verify_rgb_invoice, verify_tapret_seal,
@@ -1338,7 +1338,7 @@ pub struct RgbOfferRequest {
     #[garde(length(min = 0, max = 999))]
     pub bitcoin_changes: Vec<String>,
     #[garde(skip)]
-    pub presig: bool,
+    pub strategy: RgbSwapStrategy,
     #[garde(skip)]
     pub expire_at: Option<i64>,
 }
@@ -1414,6 +1414,26 @@ pub struct RgbBidRequest {
     pub fee: PsbtFeeRequest,
 }
 
+impl From<RgbAuctionBidRequest> for RgbBidRequest {
+    fn from(value: RgbAuctionBidRequest) -> Self {
+        let RgbAuctionBidRequest {
+            offer_id,
+            asset_amount,
+            descriptor,
+            change_terminal,
+            fee,
+            ..
+        } = value;
+        Self {
+            offer_id,
+            asset_amount,
+            descriptor,
+            change_terminal,
+            fee,
+        }
+    }
+}
+
 #[derive(Clone, Serialize, Deserialize, Debug, Display, Default)]
 #[serde(rename_all = "camelCase")]
 #[display("{bid_id} ~ {offer_id}")]
@@ -1426,6 +1446,44 @@ pub struct RgbBidResponse {
     pub invoice: String,
     /// Final PSBT (encoded in base64)
     pub swap_psbt: String,
+    /// Fee Value
+    pub fee_value: u64,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug, Display, Default, Validate)]
+#[garde(context(RGBContext))]
+#[serde(rename_all = "camelCase")]
+#[display("{offer_id}:{asset_amount} ** {change_terminal}")]
+pub struct RgbAuctionBidRequest {
+    /// The Offer ID
+    #[garde(ascii)]
+    #[garde(length(min = 0, max = 100))]
+    pub offer_id: String,
+    /// Asset Amount
+    #[garde(skip)]
+    pub asset_amount: String,
+    /// Universal Descriptor
+    #[garde(custom(verify_descriptor))]
+    pub descriptor: SecretString,
+    /// Bitcoin Terminal Change
+    #[garde(ascii)]
+    pub change_terminal: String,
+    /// Descriptors to Sign
+    #[garde(skip)]
+    pub sign_keys: Vec<SecretString>,
+    /// Bitcoin Fee
+    #[garde(dive)]
+    pub fee: PsbtFeeRequest,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug, Display, Default)]
+#[serde(rename_all = "camelCase")]
+#[display("{bid_id} ~ {offer_id}")]
+pub struct RgbAuctionBidResponse {
+    /// The Bid ID
+    pub bid_id: String,
+    /// The Offer ID
+    pub offer_id: String,
     /// Fee Value
     pub fee_value: u64,
 }
@@ -1458,6 +1516,18 @@ pub struct RgbSwapResponse {
     pub final_consig: String,
     /// Final PSBT
     pub final_psbt: String,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug, Display, Default)]
+#[serde(rename_all = "camelCase")]
+#[display("{consig_id}")]
+pub struct RgbSwapStatusResponse {
+    /// Transfer ID
+    pub consig_id: String,
+    /// Offer ID
+    pub offer_id: String,
+    /// Bid ID
+    pub bid_id: String,
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug, Display, Default)]

@@ -12,8 +12,10 @@ use std::{
 
 use crate::rgb::{
     structs::{RgbAccountV0, RgbAccountV1},
-    swap::{PublicRgbOffers, RgbBidSwap},
+    swap::{RgbBidSwap, RgbPublicSwaps},
 };
+
+use super::swap::RgbAuctionSwaps;
 
 #[derive(Debug, Clone, Eq, PartialEq, Display, From, Error)]
 #[display(doc_comments)]
@@ -297,7 +299,7 @@ impl RgbMerge<RawUtxo> for Utxo {
 #[derive(Serialize, Deserialize, Debug, Clone, Default, Display)]
 #[display(doc_comments)]
 pub struct LocalRgbAccount {
-    pub doc: Vec<u8>,
+    pub version: Vec<u8>,
     pub rgb_account: RgbAccountV1,
 }
 
@@ -310,13 +312,20 @@ pub struct LocalCopyData {
 #[derive(Serialize, Deserialize, Debug, Clone, Default, Display)]
 #[display(doc_comments)]
 pub struct LocalRgbOffers {
-    pub doc: Vec<u8>,
-    pub rgb_offers: PublicRgbOffers,
+    pub version: Vec<u8>,
+    pub rgb_offers: RgbPublicSwaps,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default, Display)]
+#[display(doc_comments)]
+pub struct LocalRgbAuctions {
+    pub version: Vec<u8>,
+    pub rgb_offers: RgbAuctionSwaps,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default, Display)]
 #[display(doc_comments)]
 pub struct LocalRgbOfferBid {
-    pub doc: Vec<u8>,
+    pub version: Vec<u8>,
     pub rgb_bid: RgbBidSwap,
 }
