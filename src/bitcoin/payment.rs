@@ -93,9 +93,9 @@ pub async fn create_payjoin(
         .into_iter()
         .enumerate()
         .find(|(_, txo)| {
-            invoices.iter().all(|invoice| {
-                txo.script_pubkey != invoice.address.script_pubkey()
-            })
+            invoices
+                .iter()
+                .all(|invoice| txo.script_pubkey != invoice.address.script_pubkey())
         })
         .map(|(i, _)| i);
 

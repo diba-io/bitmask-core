@@ -384,9 +384,8 @@ pub mod rgb {
             let pre_req: IssuePreRequest = serde_wasm_bindgen::from_value(request).unwrap();
             let media = match pre_req.meta {
                 Some(media) => {
-                    let media = serde_wasm_bindgen::to_value(&media).expect("");
-                    let media = resolve(import_uda_data(media)).await;
-                    Some(IssueMediaRequest::from(media))
+                    let media = crate::rgb::import_uda_data(media).await;
+                    Some(IssueMediaRequest::from(media.unwrap()))
                 }
                 None => None,
             };
@@ -398,7 +397,7 @@ pub mod rgb {
                 precision: pre_req.precision,
                 seal: pre_req.seal,
                 iface: pre_req.iface,
-                meta: Some(media),
+                meta: media,
             };
             match crate::rgb::issue_contract(&nostr_hex_sk, req).await {
                 Ok(result) => Ok(JsValue::from_string(
