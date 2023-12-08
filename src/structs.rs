@@ -1312,6 +1312,19 @@ impl UtxoSpentStatus {
 #[derive(Clone, Serialize, Deserialize, Debug, Display, Default, Validate)]
 #[garde(context(RGBContext))]
 #[serde(rename_all = "camelCase")]
+#[display(doc_comments)]
+pub struct RgbAuctionOfferRequest {
+    #[garde(skip)]
+    pub sign_keys: Vec<SecretString>,
+
+    /// List of Offers
+    #[garde(dive)]
+    pub offers: Vec<RgbOfferRequest>,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug, Display, Default, Validate)]
+#[garde(context(RGBContext))]
+#[serde(rename_all = "camelCase")]
 #[display("{contract_id}:{contract_amount} ** {change_terminal}")]
 pub struct RgbOfferRequest {
     /// The Contract ID

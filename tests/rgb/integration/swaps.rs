@@ -8,15 +8,16 @@ use bitmask_core::{
         sign_and_publish_psbt_file, sign_psbt_file, sync_wallet,
     },
     rgb::{
-        accept_transfer, create_buyer_bid, create_seller_offer, create_swap_transfer,
-        create_watcher, get_contract, import as import_contract, structs::ContractAmount,
-        swap::RgbSwapStrategy, update_seller_offer, verify_transfers,
+        accept_transfer, create_auction_bid, create_auction_offers, create_buyer_bid,
+        create_seller_offer, create_swap_transfer, create_watcher, get_contract,
+        import as import_contract, structs::ContractAmount, swap::RgbSwapStrategy,
+        update_seller_offer, verify_transfers,
     },
     structs::{
         AcceptRequest, AssetType, ImportRequest, IssueResponse, PsbtFeeRequest, PublishPsbtRequest,
-        RgbBidRequest, RgbBidResponse, RgbOfferRequest, RgbOfferResponse, RgbOfferUpdateRequest,
-        RgbSwapRequest, RgbSwapResponse, SecretString, SignPsbtRequest, SignedPsbtResponse,
-        WatcherRequest,
+        RgbAuctionBidRequest, RgbAuctionOfferRequest, RgbBidRequest, RgbBidResponse,
+        RgbOfferRequest, RgbOfferResponse, RgbOfferUpdateRequest, RgbSwapRequest, RgbSwapResponse,
+        SecretString, SignPsbtRequest, SignedPsbtResponse, WatcherRequest,
     },
 };
 
@@ -714,6 +715,180 @@ async fn create_p2p_swap() -> anyhow::Result<()> {
     let resp = get_contract(&seller_sk, &contract_id).await;
     assert!(resp.is_ok());
     assert_eq!(1., resp?.balance_normalized);
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn create_auction_swap() -> anyhow::Result<()> {
+    // 1. Initial Setup
+    let seller_keys = new_mnemonic(&SecretString("".to_string())).await?;
+    let buyer_keys = new_mnemonic(&SecretString("".to_string())).await?;
+
+    let watcher_name = "default";
+    let seller_sk = seller_keys.private.nostr_prv.clone();
+    let create_watch_req = WatcherRequest {
+        name: watcher_name.to_string(),
+        xpub: seller_keys.public.watcher_xpub.clone(),
+        force: true,
+    };
+    create_watcher(&seller_sk, create_watch_req.clone()).await?;
+
+    let buyer_sk = buyer_keys.private.nostr_prv.clone();
+    let create_watch_req = WatcherRequest {
+        name: watcher_name.to_string(),
+        xpub: buyer_keys.public.watcher_xpub.clone(),
+        force: true,
+    };
+    create_watcher(&buyer_sk, create_watch_req.clone()).await?;
+
+    // 2. Setup Wallets (Seller)
+    let btc_address_1 = get_new_address(
+        &SecretString(seller_keys.public.btc_descriptor_xpub.clone()),
+        None,
+    )
+    .await?;
+
+    let default_coins = "0.001";
+    send_some_coins(&btc_address_1, default_coins).await;
+
+    let btc_descriptor_xprv = SecretString(seller_keys.private.btc_descriptor_xprv.clone());
+    let btc_change_descriptor_xprv =
+        SecretString(seller_keys.private.btc_change_descriptor_xprv.clone());
+
+    let assets_address_1 = get_new_address(
+        &SecretString(seller_keys.public.rgb_assets_descriptor_xpub.clone()),
+        None,
+    )
+    .await?;
+
+    let uda_address_1 = get_new_address(
+        &SecretString(seller_keys.public.rgb_udas_descriptor_xpub.clone()),
+        None,
+    )
+    .await?;
+
+    let btc_wallet = get_wallet(&btc_descriptor_xprv, Some(&btc_change_descriptor_xprv)).await?;
+    sync_wallet(&btc_wallet).await?;
+
+    let fund_vault = fund_vault(
+        &btc_descriptor_xprv,
+        &btc_change_descriptor_xprv,
+        &assets_address_1,
+        &uda_address_1,
+        Some(1.1),
+    )
+    .await?;
+
+    // 3. Send some coins (Buyer)
+    let btc_address_1 = get_new_address(
+        &SecretString(buyer_keys.public.btc_descriptor_xpub.clone()),
+        None,
+    )
+    .await?;
+    let asset_address_1 = get_new_address(
+        &SecretString(buyer_keys.public.rgb_assets_descriptor_xpub.clone()),
+        None,
+    )
+    .await?;
+
+    let default_coins = "0.1";
+    send_some_coins(&btc_address_1, default_coins).await;
+    send_some_coins(&asset_address_1, default_coins).await;
+
+    // 4. Issue Contract (Seller)
+    let issuer_resp = issuer_issue_contract_v2(
+        5,
+        "RGB20",
+        ContractAmount::with(1, 0, 2).to_value(),
+        false,
+        false,
+        None,
+        None,
+        Some(UtxoFilter::with_outpoint(
+            fund_vault.assets_output.unwrap_or_default(),
+        )),
+        Some(seller_keys.clone()),
+    )
+    .await?;
+
+    for contract in issuer_resp.clone() {
+        let buyer_import_req = ImportRequest {
+            import: AssetType::RGB20,
+            data: contract.contract.strict,
+        };
+        let buyer_import_resp = import_contract(&buyer_sk, buyer_import_req).await;
+        assert!(buyer_import_resp.is_ok());
+    }
+
+    // 5. Create Collection (Seller)
+    let contract_amount = "1.00".to_string();
+    let mut offers_collection = vec![];
+    for contract in issuer_resp.clone() {
+        let IssueResponse {
+            contract_id, iface, ..
+        } = contract.clone();
+
+        let expire_at = (chrono::Local::now() + chrono::Duration::seconds(10))
+            .naive_utc()
+            .timestamp();
+
+        let desc = SecretString(seller_keys.public.rgb_assets_descriptor_xpub.clone());
+        let req = RgbOfferRequest {
+            contract_id,
+            iface,
+            contract_amount: contract_amount.clone(),
+            bitcoin_price: 1_000,
+            descriptor: desc,
+            change_terminal: "/20/1".to_string(),
+            bitcoin_changes: vec![],
+            strategy: RgbSwapStrategy::Auction,
+            expire_at: Some(expire_at),
+        };
+
+        offers_collection.push(req);
+    }
+
+    let offer_auction_req = RgbAuctionOfferRequest {
+        offers: offers_collection,
+        sign_keys: vec![
+            SecretString(seller_keys.private.btc_descriptor_xprv.clone()),
+            SecretString(seller_keys.private.btc_change_descriptor_xprv.clone()),
+            SecretString(seller_keys.private.rgb_assets_descriptor_xprv.clone()),
+        ],
+    };
+
+    let resp = create_auction_offers(&seller_sk, offer_auction_req).await;
+    assert!(resp.is_ok());
+
+    let RgbOfferResponse { offer_id, .. } = resp?[0].clone();
+
+    // 6. Create Bid
+    let buyer_btc_desc = buyer_keys.public.btc_descriptor_xpub.clone();
+    let bid_auction_req = RgbAuctionBidRequest {
+        offer_id: offer_id.clone(),
+        asset_amount: contract_amount,
+        descriptor: SecretString(buyer_btc_desc),
+        change_terminal: "/1/0".to_string(),
+        fee: PsbtFeeRequest::Value(1000),
+        sign_keys: vec![
+            SecretString(buyer_keys.private.btc_descriptor_xprv.clone()),
+            SecretString(buyer_keys.private.btc_change_descriptor_xprv.clone()),
+        ],
+    };
+
+    let resp = create_auction_bid(&buyer_sk, bid_auction_req).await;
+    assert!(resp.is_ok());
+
+    // 7. Finish Offer
+
+    // 8. Mine Some Blocks
+
+    // 9. Verify Auctions
+
+    // 10. Verify Transfers
+
+    // 11. Check Balances
 
     Ok(())
 }

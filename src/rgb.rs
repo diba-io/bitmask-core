@@ -68,16 +68,16 @@ use crate::{
         MediaView, NextAddressResponse, NextUtxoResponse, NextUtxosResponse, PsbtFeeRequest,
         PsbtRequest, PsbtResponse, PublicRgbBidResponse, PublicRgbOfferResponse,
         PublicRgbOffersResponse, PublishPsbtRequest, ReIssueRequest, ReIssueResponse,
-        RgbAuctionBidRequest, RgbAuctionBidResponse, RgbBidDetail, RgbBidRequest, RgbBidResponse,
-        RgbBidsResponse, RgbInternalSaveTransferRequest, RgbInternalTransferResponse,
-        RgbInvoiceResponse, RgbOfferBidsResponse, RgbOfferDetail, RgbOfferRequest,
-        RgbOfferResponse, RgbOfferUpdateRequest, RgbOfferUpdateResponse, RgbOffersResponse,
-        RgbRemoveTransferRequest, RgbReplaceResponse, RgbSaveTransferRequest, RgbSwapRequest,
-        RgbSwapResponse, RgbSwapStatusResponse, RgbTransferDetail, RgbTransferRequest,
-        RgbTransferResponse, RgbTransferStatusResponse, RgbTransfersResponse, SchemaDetail,
-        SchemasResponse, SignPsbtRequest, SignedPsbtResponse, SimpleContractResponse, TransferType,
-        TxStatus, UtxoResponse, WatcherDetailResponse, WatcherRequest, WatcherResponse,
-        WatcherUtxoResponse,
+        RgbAuctionBidRequest, RgbAuctionBidResponse, RgbAuctionOfferRequest, RgbBidDetail,
+        RgbBidRequest, RgbBidResponse, RgbBidsResponse, RgbInternalSaveTransferRequest,
+        RgbInternalTransferResponse, RgbInvoiceResponse, RgbOfferBidsResponse, RgbOfferDetail,
+        RgbOfferRequest, RgbOfferResponse, RgbOfferUpdateRequest, RgbOfferUpdateResponse,
+        RgbOffersResponse, RgbRemoveTransferRequest, RgbReplaceResponse, RgbSaveTransferRequest,
+        RgbSwapRequest, RgbSwapResponse, RgbSwapStatusResponse, RgbTransferDetail,
+        RgbTransferRequest, RgbTransferResponse, RgbTransferStatusResponse, RgbTransfersResponse,
+        SchemaDetail, SchemasResponse, SignPsbtRequest, SignedPsbtResponse, SimpleContractResponse,
+        TransferType, TxStatus, UtxoResponse, WatcherDetailResponse, WatcherRequest,
+        WatcherResponse, WatcherUtxoResponse,
     },
     validators::RGBContext,
 };
@@ -989,7 +989,7 @@ pub async fn create_seller_offer(
 
 pub async fn create_auction_offers(
     sk: &str,
-    request: Vec<RgbOfferRequest>,
+    request: RgbAuctionOfferRequest,
 ) -> Result<Vec<RgbOfferResponse>, RgbSwapError> {
     if let Err(err) = request.validate(&RGBContext::default()) {
         let errors = err
@@ -1012,8 +1012,8 @@ pub async fn create_auction_offers(
     let mut resp = vec![];
     let mut collection = vec![];
     let options = RgbOfferOptions::with_bundle_id(sk.to_owned());
-    for item in request {
-        let new_offer = internal_create_seller_offer(
+    for item in request.offers.clone() {
+        let mut new_offer = internal_create_seller_offer(
             sk,
             item,
             options.clone(),
@@ -1042,6 +1042,18 @@ pub async fn create_auction_offers(
         let contract_amount =
             f64::from_str(&contract_amount).expect("Invalid Contract Amount Value");
 
+        let request = SignPsbtRequest {
+            psbt: seller_psbt,
+            descriptors: request.sign_keys.clone(),
+        };
+
+        let SignedPsbtResponse {
+            psbt: final_psbt, ..
+        } = sign_psbt_file(request)
+            .await
+            .map_err(|op| RgbSwapError::WrongPsbtFinal(op.to_string()))?;
+        new_offer.seller_psbt = final_psbt.clone();
+
         my_offers = my_offers.save_offer(contract_id.clone(), new_offer.clone());
         collection.push(RgbOfferSwap::from(new_offer.clone()));
 
@@ -1051,7 +1063,7 @@ pub async fn create_auction_offers(
             contract_amount,
             bitcoin_price,
             seller_address: seller_address.to_string(),
-            seller_psbt: seller_psbt.clone(),
+            seller_psbt: final_psbt,
         });
     }
 
