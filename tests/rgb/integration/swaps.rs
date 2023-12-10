@@ -1,6 +1,6 @@
 #![cfg(not(target_arch = "wasm32"))]
 use crate::rgb::integration::utils::{
-    get_uda_data, issuer_issue_contract_v2, send_some_coins, UtxoFilter,
+    generate_new_block, get_uda_data, issuer_issue_contract_v2, send_some_coins, UtxoFilter,
 };
 use bitmask_core::{
     bitcoin::{
@@ -9,8 +9,8 @@ use bitmask_core::{
     },
     rgb::{
         accept_transfer, create_auction_bid, create_auction_offers, create_buyer_bid,
-        create_seller_offer, create_swap_transfer, create_watcher, get_contract,
-        import as import_contract, structs::ContractAmount, swap::RgbSwapStrategy,
+        create_seller_offer, create_swap_transfer, create_watcher, finish_auction_offer,
+        get_contract, import as import_contract, structs::ContractAmount, swap::RgbSwapStrategy,
         update_seller_offer, verify_transfers,
     },
     structs::{
@@ -19,6 +19,7 @@ use bitmask_core::{
         RgbOfferRequest, RgbOfferResponse, RgbOfferUpdateRequest, RgbSwapRequest, RgbSwapResponse,
         SecretString, SignPsbtRequest, SignedPsbtResponse, WatcherRequest,
     },
+    util::init_logging,
 };
 
 #[tokio::test]
@@ -721,6 +722,8 @@ async fn create_p2p_swap() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn create_auction_swap() -> anyhow::Result<()> {
+    init_logging("bitmask_core::bitcoin=debug");
+
     // 1. Initial Setup
     let seller_keys = new_mnemonic(&SecretString("".to_string())).await?;
     let buyer_keys = new_mnemonic(&SecretString("".to_string())).await?;
@@ -800,7 +803,7 @@ async fn create_auction_swap() -> anyhow::Result<()> {
     let issuer_resp = issuer_issue_contract_v2(
         5,
         "RGB20",
-        ContractAmount::with(1, 0, 2).to_value(),
+        ContractAmount::with(2, 0, 2).to_value(),
         false,
         false,
         None,
@@ -829,7 +832,7 @@ async fn create_auction_swap() -> anyhow::Result<()> {
             contract_id, iface, ..
         } = contract.clone();
 
-        let expire_at = (chrono::Local::now() + chrono::Duration::seconds(10))
+        let _expire_at = (chrono::Local::now() + chrono::Duration::seconds(10))
             .naive_utc()
             .timestamp();
 
@@ -843,7 +846,7 @@ async fn create_auction_swap() -> anyhow::Result<()> {
             change_terminal: "/20/1".to_string(),
             bitcoin_changes: vec![],
             strategy: RgbSwapStrategy::Auction,
-            expire_at: Some(expire_at),
+            expire_at: None,
         };
 
         offers_collection.push(req);
@@ -861,7 +864,11 @@ async fn create_auction_swap() -> anyhow::Result<()> {
     let resp = create_auction_offers(&seller_sk, offer_auction_req).await;
     assert!(resp.is_ok());
 
-    let RgbOfferResponse { offer_id, .. } = resp?[0].clone();
+    let RgbOfferResponse {
+        offer_id,
+        contract_id,
+        ..
+    } = resp?[0].clone();
 
     // 6. Create Bid
     let buyer_btc_desc = buyer_keys.public.btc_descriptor_xpub.clone();
@@ -881,14 +888,32 @@ async fn create_auction_swap() -> anyhow::Result<()> {
     assert!(resp.is_ok());
 
     // 7. Finish Offer
+    let resp = finish_auction_offer(&seller_sk, offer_id).await;
+    assert!(resp.is_ok());
 
     // 8. Mine Some Blocks
-
-    // 9. Verify Auctions
+    generate_new_block().await;
 
     // 10. Verify Transfers
+    let all_sks = [buyer_sk.clone(), seller_sk.clone()];
+    for sk in all_sks {
+        let resp = verify_transfers(&sk).await;
+        assert!(resp.is_ok());
+
+        let list_resp = resp?;
+        if let Some(consig_status) = list_resp.transfers.first() {
+            assert!(consig_status.is_accept);
+        }
+    }
 
     // 11. Check Balances
+    // let resp = get_contract(&seller_sk, &contract_id).await;
+    // assert!(resp.is_ok());
+    // assert_eq!(1., resp?.balance_normalized);
+
+    // let resp = get_contract(&buyer_sk, &contract_id).await;
+    // assert!(resp.is_ok());
+    // assert_eq!(1., resp?.balance_normalized);
 
     Ok(())
 }

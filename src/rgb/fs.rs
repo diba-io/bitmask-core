@@ -43,6 +43,8 @@ pub enum RgbPersistenceError {
     RetrieveSwapBids(String),
     // Retrieve Public Offers Error. {0}
     RetrievePublicOffers(String),
+    // Retrieve Auction Offers Error. {0}
+    RetrieveAuctionOffers(String),
     // Store Stock Error. {0}
     WriteStock(String),
     // Store RgbAccountV1 Error. {0}
@@ -57,6 +59,8 @@ pub enum RgbPersistenceError {
     WriteRgbBids(String),
     // Store Public Offers Error. {0}
     WriteRgbPublicOffers(String),
+    // Store Auction Offers Error. {0}
+    WriteRgbAuctionOffers(String),
     // Store Swap Bid Error. {0}
     WriteSwapBids(String),
 }
@@ -107,7 +111,7 @@ pub async fn retrieve_auctions_offers(
 ) -> Result<LocalRgbAuctions, RgbPersistenceError> {
     let stock = retrieve_rgb_auctions_offers(bundle_id, name)
         .await
-        .map_err(|op| RgbPersistenceError::RetrievePublicOffers(op.to_string()))?;
+        .map_err(|op| RgbPersistenceError::RetrieveAuctionOffers(op.to_string()))?;
 
     Ok(stock)
 }
@@ -225,7 +229,7 @@ pub async fn store_auction_offers(
 ) -> Result<(), RgbPersistenceError> {
     store_rgb_auction_offers(bundle_id, name, &changes)
         .await
-        .map_err(|op| RgbPersistenceError::WriteRgbPublicOffers(op.to_string()))
+        .map_err(|op| RgbPersistenceError::WriteRgbAuctionOffers(op.to_string()))
 }
 
 pub async fn store_stock_account(

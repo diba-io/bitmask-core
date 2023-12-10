@@ -501,7 +501,7 @@ pub async fn store_auction_offers(
     let main_name = &format!("{hashed_name}.c15");
     let original_name = &format!("{hashed_name}-diff.c15");
 
-    let (original_bytes, _) = marketplace_retrieve(original_name)
+    let (original_bytes, _) = auctions_retrieve(bundle_id, original_name)
         .await
         .map_err(|op| StorageError::CarbonadoRetrieve(name.to_string(), op.to_string()))?;
 

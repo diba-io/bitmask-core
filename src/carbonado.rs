@@ -92,14 +92,20 @@ mod server {
         let coordinator_key: String = get_coordinator_nostr_key().await;
 
         let level = 15;
-        let sk = hex::decode(coordinator_key)?;
-        let secret_key = SecretKey::from_slice(&sk)?;
-        let public_key =
+        let coordinator_sk = hex::decode(coordinator_key)?;
+        let coordinator_secret_key = SecretKey::from_slice(&coordinator_sk)?;
+        let bundle_public_key =
             PublicKey::from_str(bundle_id).map_err(|_| CarbonadoError::WrongNostrPublicKey)?;
 
-        let share_sk = SharedSecret::new(&public_key, &secret_key);
-        let pk = share_sk.secret_bytes();
-        let pk_hex = hex::encode(pk);
+        let share_sk = SharedSecret::new(&bundle_public_key, &coordinator_secret_key);
+        let share_sk = share_sk.display_secret().to_string();
+
+        let sk = hex::decode(share_sk)?;
+        let secret_key = SecretKey::from_slice(&sk)?;
+        let public_key = PublicKey::from_secret_key_global(&secret_key);
+
+        let pk = public_key.serialize();
+        let pk_hex = public_key.to_hex();
 
         let mut meta: Option<[u8; 8]> = default!();
         if let Some(metadata) = metadata {
@@ -188,14 +194,19 @@ mod server {
     ) -> Result<(Vec<u8>, Option<Vec<u8>>), CarbonadoError> {
         let coordinator_key: String = get_coordinator_nostr_key().await;
 
-        let sk = hex::decode(coordinator_key)?;
-        let secret_key = SecretKey::from_slice(&sk)?;
-        let public_key =
+        let coordinator_sk = hex::decode(coordinator_key)?;
+        let coordinator_secret_key = SecretKey::from_slice(&coordinator_sk)?;
+        let bundle_public_key =
             PublicKey::from_str(bundle_id).map_err(|_| CarbonadoError::WrongNostrPublicKey)?;
 
-        let share_sk = SharedSecret::new(&public_key, &secret_key);
-        let pk = share_sk.secret_bytes();
-        let pk = hex::encode(pk);
+        let share_sk = SharedSecret::new(&bundle_public_key, &coordinator_secret_key);
+        let share_sk = share_sk.display_secret().to_string();
+
+        let sk = hex::decode(share_sk)?;
+        let secret_key = SecretKey::from_slice(&sk)?;
+        let public_key = PublicKey::from_secret_key_global(&secret_key);
+
+        let pk = public_key.to_hex();
 
         let mut final_name = name.to_string();
         let network = NETWORK.read().await.to_string();
