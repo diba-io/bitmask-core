@@ -161,6 +161,7 @@ impl RgbOffer {
         asset_utxos.sort();
 
         let mut hasher = blake3::Hasher::new();
+        hasher.update(format!("{contract_id}").as_bytes());
         for asset_utxo in asset_utxos {
             hasher.update(asset_utxo.as_bytes());
         }
@@ -310,6 +311,7 @@ impl RgbBid {
         allocations.sort();
 
         let mut hasher = blake3::Hasher::new();
+        hasher.update(format!("{contract_id}").as_bytes());
         for allocation in allocations {
             hasher.update(allocation.as_bytes());
         }
@@ -589,6 +591,7 @@ impl RgbAuctionSwaps {
         let mut offer_collection = self.items.clone();
 
         if let Some(position) = offer_collection.iter().position(|x| x.offer_id == offer_id) {
+            self.bids.remove(&offer_id);
             offer_collection.remove(position);
         }
 

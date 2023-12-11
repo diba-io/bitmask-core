@@ -1,6 +1,6 @@
 #![cfg(not(target_arch = "wasm32"))]
 use crate::rgb::integration::utils::{
-    generate_new_block, get_uda_data, issuer_issue_contract_v2, send_some_coins, UtxoFilter,
+    get_uda_data, issuer_issue_contract_v2, send_some_coins, UtxoFilter,
 };
 use bitmask_core::{
     bitcoin::{
@@ -853,7 +853,7 @@ async fn create_auction_swap() -> anyhow::Result<()> {
     }
 
     let offer_auction_req = RgbAuctionOfferRequest {
-        offers: offers_collection,
+        offers: offers_collection.clone(),
         sign_keys: vec![
             SecretString(seller_keys.private.btc_descriptor_xprv.clone()),
             SecretString(seller_keys.private.btc_change_descriptor_xprv.clone()),
@@ -892,7 +892,8 @@ async fn create_auction_swap() -> anyhow::Result<()> {
     assert!(resp.is_ok());
 
     // 8. Mine Some Blocks
-    generate_new_block().await;
+    let whatever_address = "bcrt1p76gtucrxhmn8s5622r859dpnmkj0kgfcel9xy0sz6yj84x6ppz2qk5hpsw";
+    send_some_coins(whatever_address, "0.001").await;
 
     // 10. Verify Transfers
     let all_sks = [buyer_sk.clone(), seller_sk.clone()];
@@ -907,13 +908,13 @@ async fn create_auction_swap() -> anyhow::Result<()> {
     }
 
     // 11. Check Balances
-    // let resp = get_contract(&seller_sk, &contract_id).await;
-    // assert!(resp.is_ok());
-    // assert_eq!(1., resp?.balance_normalized);
+    let resp = get_contract(&buyer_sk, &contract_id).await;
+    assert!(resp.is_ok());
+    assert_eq!(1., resp?.balance_normalized);
 
-    // let resp = get_contract(&buyer_sk, &contract_id).await;
-    // assert!(resp.is_ok());
-    // assert_eq!(1., resp?.balance_normalized);
+    let resp = get_contract(&seller_sk, &contract_id).await;
+    assert!(resp.is_ok());
+    assert_eq!(1., resp?.balance_normalized);
 
     Ok(())
 }

@@ -1312,7 +1312,12 @@ pub async fn create_auction_bid(
         fee_value,
     } = resp.clone();
 
-    let RgbOfferSwap { strategy, .. } = get_public_offer(offer_id.clone())
+    let RgbOfferSwap {
+        strategy,
+        public: offer_pub,
+        expire_at,
+        ..
+    } = get_public_offer(offer_id.clone())
         .await
         .map_err(RgbSwapError::Buyer)?;
 
@@ -1370,8 +1375,6 @@ pub async fn create_auction_bid(
             new_bid.transfer = Some(final_consig.clone());
             my_bids = my_bids.save_bid(contract_id, new_bid.clone());
 
-            store_bids(sk, my_bids).await.map_err(RgbSwapError::IO)?;
-
             let mut bid_swap = RgbBidSwap::from(new_bid);
             publish_public_bid(bid_swap.clone())
                 .await
@@ -1380,11 +1383,18 @@ pub async fn create_auction_bid(
             bid_swap.tap_outpoint = Some(outpoint);
             bid_swap.tap_amount = Some(amount);
             bid_swap.tap_commit = Some(commit);
-            bid_swap.swap_psbt = Some(final_psbt.clone());
+            bid_swap.swap_psbt = None;
 
+            publish_swap_bid(sk, &offer_pub, bid_swap.clone(), expire_at)
+                .await
+                .map_err(RgbSwapError::Auction)?;
+
+            bid_swap.swap_psbt = Some(final_psbt.clone());
             publish_auction_bid(bid_swap)
                 .await
                 .map_err(RgbSwapError::Auction)?;
+
+            store_bids(sk, my_bids).await.map_err(RgbSwapError::IO)?;
         }
         invalid => return Err(RgbSwapError::WrongStrategy(invalid.to_string())),
     };
