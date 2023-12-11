@@ -93,7 +93,7 @@ async fn allow_issue_and_list_contracts() {
     let supply = 5;
     let issue_utxo = next_utxo;
     let issue_seal = format!("tapret1st:{issue_utxo}");
-    let issue_req = IssueRequest {
+    let issue_req = IssuePreRequest {
         ticker: "DIBA".to_string(),
         name: "DIBA".to_string(),
         description: "DIBA".to_string(),

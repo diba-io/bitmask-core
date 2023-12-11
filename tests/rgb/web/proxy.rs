@@ -158,7 +158,7 @@ async fn import_and_get_consig_from_proxy() {
     let precision = 2;
     let issue_utxo = issuer_next_utxo.utxo.unwrap().outpoint.to_string();
     let issue_seal = format!("tapret1st:{issue_utxo}");
-    let issue_req = IssueRequest {
+    let issue_req = IssuePreRequest {
         ticker: "DIBA".to_string(),
         name: "DIBA".to_string(),
         description: "DIBA".to_string(),
@@ -364,17 +364,11 @@ async fn create_uda_with_medias() {
         attachments: vec![],
     };
 
-    let import_media_req = serde_wasm_bindgen::to_value(&import_media_req).expect("");
-    let import_media_resp = resolve(import_uda_data(import_media_req)).await;
-    let issuer_resp: MediaResponse = json_parse(&import_media_resp);
-
-    let media_req = IssueMediaRequest::from(issuer_resp);
-
     let supply = 1;
     let precision = 0;
     let issue_utxo = issuer_next_utxo.utxo.unwrap().outpoint.to_string();
     let issue_seal = format!("tapret1st:{issue_utxo}");
-    let issue_req = IssueRequest {
+    let issue_req = IssuePreRequest {
         ticker: "DIBA".to_string(),
         name: "DIBA".to_string(),
         description: "DIBA".to_string(),
@@ -382,7 +376,7 @@ async fn create_uda_with_medias() {
         supply,
         seal: issue_seal.to_owned(),
         iface: iface.to_string(),
-        meta: Some(media_req),
+        meta: Some(import_media_req),
     };
 
     let issue_req = serde_wasm_bindgen::to_value(&issue_req).expect("");
