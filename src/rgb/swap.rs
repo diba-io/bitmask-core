@@ -161,7 +161,7 @@ impl RgbOffer {
         asset_utxos.sort();
 
         let mut hasher = blake3::Hasher::new();
-        hasher.update(format!("{contract_id}").as_bytes());
+        hasher.update(contract_id.as_bytes());
         for asset_utxo in asset_utxos {
             hasher.update(asset_utxo.as_bytes());
         }
@@ -311,7 +311,7 @@ impl RgbBid {
         allocations.sort();
 
         let mut hasher = blake3::Hasher::new();
-        hasher.update(format!("{contract_id}").as_bytes());
+        hasher.update(contract_id.as_bytes());
         for allocation in allocations {
             hasher.update(allocation.as_bytes());
         }
