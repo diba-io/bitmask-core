@@ -598,7 +598,7 @@ impl RgbAuctionSwaps {
         let mut collection_updated = vec![];
         for mut offer in offer_collection {
             let RgbOfferSwap { seller_psbt, .. } = offer.clone();
-            let mut psbt = Psbt::from_str(&seller_psbt).expect("");
+            let mut psbt = Psbt::from_str(&seller_psbt).expect("invalid psbt hex format");
 
             for (index, input) in psbt.clone().inputs.into_iter().enumerate() {
                 if input

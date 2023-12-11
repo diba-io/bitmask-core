@@ -1958,9 +1958,11 @@ async fn internal_next_auction(
             .await
             .map_err(|op| RgbSwapError::WrongPsbtFinal(op.to_string()))?;
 
-        let psbt = Psbt::from_str(&psbt).expect("");
+        let psbt =
+            Psbt::from_str(&psbt).map_err(|op| RgbSwapError::WrongPsbtFinal(op.to_string()))?;
         let txid = psbt.to_txid();
-        let txid = bp::Txid::from_str(&txid.to_hex()).expect("");
+        let txid = bp::Txid::from_str(&txid.to_hex())
+            .map_err(|op| RgbSwapError::WrongPsbtFinal(op.to_string()))?;
 
         let outpoint = Outpoint::new(txid, 0);
         next_auction_offer(offer, outpoint)
