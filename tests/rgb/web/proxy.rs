@@ -26,8 +26,8 @@ use bitmask_core::{
         },
         json_parse, resolve,
         rgb::{
-            create_watcher, full_transfer_asset, get_consignment, get_contract,
-            import_consignments, import_contract, import_uda_data, issue_contract, list_contracts,
+            create_watcher, full_issue_contract, full_transfer_asset, get_consignment,
+            get_contract, import_consignments, import_contract, import_uda_data, list_contracts,
             psbt_sign_and_publish_file, rgb_create_invoice, save_transfer, verify_transfers,
             watcher_next_address, watcher_next_utxo,
         },

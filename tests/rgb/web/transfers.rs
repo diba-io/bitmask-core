@@ -28,9 +28,9 @@ use bitmask_core::{
         },
         json_parse, resolve,
         rgb::{
-            create_watcher, full_transfer_asset, get_contract, import_contract, issue_contract,
-            list_contracts, psbt_sign_and_publish_file, rgb_create_invoice, save_transfer,
-            verify_transfers, watcher_next_address, watcher_next_utxo,
+            create_watcher, full_issue_contract, full_transfer_asset, get_contract,
+            import_contract, list_contracts, psbt_sign_and_publish_file, rgb_create_invoice,
+            save_transfer, verify_transfers, watcher_next_address, watcher_next_utxo,
         },
         set_panic_hook,
     },

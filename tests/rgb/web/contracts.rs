@@ -14,8 +14,8 @@ use bitmask_core::{
         },
         json_parse, resolve,
         rgb::{
-            create_watcher, import_contract, issue_contract, list_contracts, watcher_next_address,
-            watcher_next_utxo,
+            create_watcher, full_issue_contract, import_contract, list_contracts,
+            watcher_next_address, watcher_next_utxo,
         },
         set_panic_hook,
     },
