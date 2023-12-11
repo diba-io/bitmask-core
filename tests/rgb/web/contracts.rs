@@ -5,7 +5,7 @@
 use bitmask_core::{
     info,
     structs::{
-        ContractsResponse, DecryptedWalletData, IssueRequest, NextAddressResponse,
+        ContractsResponse, DecryptedWalletData, IssuePreRequest, NextAddressResponse,
         NextUtxoResponse, SecretString, WatcherRequest, WatcherResponse,
     },
     web::{
