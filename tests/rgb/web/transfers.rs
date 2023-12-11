@@ -16,7 +16,7 @@ use bitmask_core::{
     structs::{
         AssetType, BatchRgbTransferResponse, ContractResponse, ContractsResponse,
         DecryptedWalletData, FullRgbTransferRequest, FundVaultDetails, ImportRequest,
-        InvoiceRequest, InvoiceResponse, IssueRequest, IssueResponse, NextAddressResponse,
+        InvoiceRequest, InvoiceResponse, IssuePreRequest, IssueResponse, NextAddressResponse,
         NextUtxoResponse, PsbtFeeRequest, PublishedPsbtResponse, RgbSaveTransferRequest,
         RgbTransferRequest, RgbTransferResponse, RgbTransferStatusResponse, SecretString,
         SignPsbtRequest, WalletData, WatcherRequest, WatcherResponse,
