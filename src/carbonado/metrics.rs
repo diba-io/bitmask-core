@@ -1,18 +1,15 @@
 #![cfg(not(target_arch = "wasm32"))]
-use std::{
-    collections::BTreeMap,
-    path::Path,
-    time::{Duration as StdDuration, SystemTime},
-};
+use std::{collections::BTreeMap, path::Path, sync::Arc, time::SystemTime};
 
 use anyhow::Result;
 use chrono::{DateTime, Duration, NaiveDate, Utc};
+use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
-use tokio::time::sleep;
+use tokio::sync::RwLock;
 use walkdir::WalkDir;
 
 #[derive(Serialize, Deserialize, Default)]
-pub struct MetricsResponse {
+pub struct MetricsData {
     bytes: u64,
     bytes_by_day: BTreeMap<String, u64>,
     bitcoin_wallets_by_day: BTreeMap<String, usize>,
@@ -43,26 +40,28 @@ const NETWORK_TOTAL: &str = "total";
 const NETWORK_RGB_STOCKS: &str = "rgb_stocks";
 const NETWORK_RGB_TRANSFER_FILES: &str = "rgb_transfer_files";
 
-pub async fn metrics(dir: &Path) -> Result<MetricsResponse> {
-    let mut response = MetricsResponse::default();
+static METRICS_DATA: Lazy<Arc<RwLock<MetricsData>>> = Lazy::new(Default::default);
 
-    response
+pub async fn init(dir: &Path) -> Result<()> {
+    let mut metrics = METRICS_DATA.write().await;
+
+    metrics
         .wallets_by_network
         .insert(NETWORK_BITCOIN.to_string(), 0);
-    response
+    metrics
         .wallets_by_network
         .insert(NETWORK_TESTNET.to_string(), 0);
-    response
+    metrics
         .wallets_by_network
         .insert(NETWORK_SIGNET.to_string(), 0);
-    response
+    metrics
         .wallets_by_network
         .insert(NETWORK_REGTEST.to_string(), 0);
-    response.wallets_by_network.insert("total".to_string(), 0);
-    response
+    metrics.wallets_by_network.insert("total".to_string(), 0);
+    metrics
         .wallets_by_network
         .insert(NETWORK_RGB_STOCKS.to_string(), 0);
-    response
+    metrics
         .wallets_by_network
         .insert(NETWORK_RGB_TRANSFER_FILES.to_string(), 0);
 
@@ -78,49 +77,49 @@ pub async fn metrics(dir: &Path) -> Result<MetricsResponse> {
         let day = round_datetime_to_day(day_created.into());
 
         if metadata.is_file() {
-            response.bytes += metadata.len();
+            metrics.bytes += metadata.len();
 
-            *response.bytes_by_day.entry(day.clone()).or_insert(0) += metadata.len();
+            *metrics.bytes_by_day.entry(day.clone()).or_insert(0) += metadata.len();
 
             if filename == MAINNET_WALLET {
-                *response
+                *metrics
                     .wallets_by_network
                     .get_mut(NETWORK_BITCOIN)
                     .unwrap_or(&mut 0) += 1;
-                *response
+                *metrics
                     .bitcoin_wallets_by_day
                     .entry(day.clone())
                     .or_insert(0) += 1;
             }
 
             if filename == TESTNET_WALLET {
-                *response
+                *metrics
                     .wallets_by_network
                     .get_mut(NETWORK_TESTNET)
                     .unwrap_or(&mut 0) += 1;
-                *response
+                *metrics
                     .testnet_wallets_by_day
                     .entry(day.clone())
                     .or_insert(0) += 1;
             }
 
             if filename == SIGNET_WALLET {
-                *response
+                *metrics
                     .wallets_by_network
                     .get_mut(NETWORK_SIGNET)
                     .unwrap_or(&mut 0) += 1;
-                *response
+                *metrics
                     .signet_wallets_by_day
                     .entry(day.clone())
                     .or_insert(0) += 1;
             }
 
             if filename == REGTEST_WALLET {
-                *response
+                *metrics
                     .wallets_by_network
                     .get_mut(NETWORK_REGTEST)
                     .unwrap_or(&mut 0) += 1;
-                *response
+                *metrics
                     .regtest_wallets_by_day
                     .entry(day.clone())
                     .or_insert(0) += 1;
@@ -142,21 +141,19 @@ pub async fn metrics(dir: &Path) -> Result<MetricsResponse> {
                 rgb_transfer_files += 1;
             }
         }
-
-        sleep(StdDuration::from_millis(10)).await;
     }
 
-    *response
+    *metrics
         .wallets_by_network
         .get_mut(NETWORK_TOTAL)
         .unwrap_or(&mut 0) = total_wallets;
 
-    *response
+    *metrics
         .wallets_by_network
         .get_mut(NETWORK_RGB_STOCKS)
         .unwrap_or(&mut 0) = rgb_stocks;
 
-    *response
+    *metrics
         .wallets_by_network
         .get_mut(NETWORK_RGB_TRANSFER_FILES)
         .unwrap_or(&mut 0) = rgb_transfer_files;
@@ -180,70 +177,70 @@ pub async fn metrics(dir: &Path) -> Result<MetricsResponse> {
         let day = round_datetime_to_day(start_day);
 
         let bytes_day_prior = {
-            response
+            metrics
                 .bytes_by_day
                 .get(&day_prior)
                 .unwrap_or(&0)
                 .to_owned()
         };
 
-        response
+        metrics
             .bytes_by_day
             .entry(day.clone())
             .and_modify(|b| *b += bytes_day_prior)
             .or_insert(bytes_day_prior);
 
         let bitcoin_wallets_day_prior = {
-            response
+            metrics
                 .bitcoin_wallets_by_day
                 .get(&day_prior)
                 .unwrap_or(&0)
                 .to_owned()
         };
 
-        response
+        metrics
             .bitcoin_wallets_by_day
             .entry(day.clone())
             .and_modify(|w| *w += bitcoin_wallets_day_prior)
             .or_insert(bitcoin_wallets_day_prior);
 
         let testnet_wallets_day_prior = {
-            response
+            metrics
                 .testnet_wallets_by_day
                 .get(&day_prior)
                 .unwrap_or(&0)
                 .to_owned()
         };
 
-        response
+        metrics
             .testnet_wallets_by_day
             .entry(day.clone())
             .and_modify(|w| *w += testnet_wallets_day_prior)
             .or_insert(testnet_wallets_day_prior);
 
         let signet_wallets_day_prior = {
-            response
+            metrics
                 .signet_wallets_by_day
                 .get(&day_prior)
                 .unwrap_or(&0)
                 .to_owned()
         };
 
-        response
+        metrics
             .signet_wallets_by_day
             .entry(day.clone())
             .and_modify(|w| *w += signet_wallets_day_prior)
             .or_insert(signet_wallets_day_prior);
 
         let regtest_wallets_day_prior = {
-            response
+            metrics
                 .regtest_wallets_by_day
                 .get(&day_prior)
                 .unwrap_or(&0)
                 .to_owned()
         };
 
-        response
+        metrics
             .regtest_wallets_by_day
             .entry(day.clone())
             .and_modify(|w| *w += regtest_wallets_day_prior)
@@ -256,10 +253,10 @@ pub async fn metrics(dir: &Path) -> Result<MetricsResponse> {
         }
     }
 
-    Ok(response)
+    Ok(())
 }
 
-pub fn metrics_csv(metrics: MetricsResponse) -> String {
+pub async fn metrics_csv() -> String {
     let mut lines = vec![vec![
         "Wallet".to_owned(),
         "Wallet Count".to_owned(),
@@ -272,7 +269,9 @@ pub fn metrics_csv(metrics: MetricsResponse) -> String {
         "Bytes by Day".to_owned(),
     ]];
 
-    for (day, bitcoin_wallets) in metrics.bitcoin_wallets_by_day {
+    let metrics = METRICS_DATA.read().await;
+
+    for (day, bitcoin_wallets) in metrics.bitcoin_wallets_by_day.iter() {
         let mut line = vec![];
 
         if lines.len() == 1 {
@@ -370,31 +369,37 @@ pub fn metrics_csv(metrics: MetricsResponse) -> String {
         line.push(
             metrics
                 .testnet_wallets_by_day
-                .get(&day)
+                .get(day)
                 .unwrap_or(&0)
                 .to_string(),
         );
         line.push(
             metrics
                 .signet_wallets_by_day
-                .get(&day)
+                .get(day)
                 .unwrap_or(&0)
                 .to_string(),
         );
         line.push(
             metrics
                 .regtest_wallets_by_day
-                .get(&day)
+                .get(day)
                 .unwrap_or(&0)
                 .to_string(),
         );
-        line.push(metrics.bytes_by_day.get(&day).unwrap_or(&0).to_string());
+        line.push(metrics.bytes_by_day.get(day).unwrap_or(&0).to_string());
 
         lines.push(line);
     }
 
     let lines: Vec<String> = lines.iter().map(|line| line.join(",")).collect();
     lines.join("\n")
+}
+
+pub async fn metrics_json() -> Result<String> {
+    let metrics = METRICS_DATA.read().await;
+
+    Ok(serde_json::to_string_pretty(&*metrics)?)
 }
 
 fn round_datetime_to_day(datetime: DateTime<Utc>) -> String {

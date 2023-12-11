@@ -6,6 +6,7 @@ use std::{
     fs::OpenOptions,
     io::ErrorKind,
     net::SocketAddr,
+    path,
     str::FromStr,
     time::{Duration, Instant},
 };
@@ -26,7 +27,7 @@ use bitmask_core::{
     bitcoin::{save_mnemonic, sign_and_publish_psbt_file},
     carbonado::{
         handle_file,
-        metrics::{metrics, metrics_csv},
+        metrics::{self, metrics_csv, metrics_json},
         server_retrieve, server_store, store,
     },
     constants::{
@@ -721,40 +722,29 @@ async fn send_coins(
 }
 
 async fn json_metrics() -> Result<impl IntoResponse, AppError> {
-    use bitmask_core::carbonado::metrics::metrics;
-    let path = std::env::var("CARBONADO_DIR").unwrap_or("/tmp/bitmaskd/carbonado".to_owned());
-    let contents = fs::read_to_string(&format!("{path}/metrics.json")).await?;
+    let metrics_json = metrics_json().await?;
 
     Ok((
         StatusCode::OK,
         [("content-type", "application/json")],
-        contents,
+        metrics_json,
     ))
 }
 
 async fn csv_metrics() -> Result<impl IntoResponse, AppError> {
-    let path = std::env::var("CARBONADO_DIR").unwrap_or("/tmp/bitmaskd/carbonado".to_owned());
-    let contents = fs::read_to_string(&format!("{path}/metrics.csv")).await?;
+    let metrics_csv = metrics_csv().await;
 
-    Ok((
-        StatusCode::OK,
-        [("content-type", "application/json")],
-        contents,
-    ))
+    Ok((StatusCode::OK, [("content-type", "text/csv")], metrics_csv))
 }
 
-async fn periodic_metrics() -> Result<()> {
-    let path = std::env::var("CARBONADO_DIR").unwrap_or("/tmp/bitmaskd/carbonado".to_owned());
-    let dir = std::path::Path::new(&path);
-    fs::create_dir_all(dir).await?;
+async fn init_metrics() -> Result<()> {
+    let path = env::var("CARBONADO_DIR").unwrap_or("/tmp/bitmaskd/carbonado".to_owned());
+    let dir = path::Path::new(&path);
 
     info!("Starting metrics collection...");
-
     let duration = Instant::now();
 
-    let metrics = metrics(dir).await?;
-    let metrics_json = serde_json::to_string_pretty(&metrics)?;
-    let metrics_csv = metrics_csv(metrics);
+    metrics::init(dir).await?;
 
     let duration = Instant::now() - duration;
 
@@ -762,11 +752,6 @@ async fn periodic_metrics() -> Result<()> {
         "Finished metrics collection. Took: {} seconds",
         duration.as_secs_f32()
     );
-
-    fs::write(&format!("{path}/metrics.json"), &metrics_json).await?;
-    fs::write(&format!("{path}/metrics.csv"), &metrics_csv).await?;
-
-    sleep(Duration::from_secs(4 * 60 * 60)).await;
 
     Ok(())
 }
@@ -834,10 +819,8 @@ async fn main() -> Result<()> {
             .route("/regtest/send/:address/:amount", get(send_coins));
     } else {
         tokio::spawn(async {
-            loop {
-                if let Err(e) = periodic_metrics().await {
-                    error!("Error in periodic metrics: {e}");
-                }
+            if let Err(e) = init_metrics().await {
+                error!("Error in periodic metrics: {e}");
             }
         });
     }
