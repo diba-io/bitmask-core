@@ -1,8 +1,14 @@
 #![cfg(not(target_arch = "wasm32"))]
-use std::{collections::BTreeMap, path::Path, sync::Arc, time::SystemTime};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    path::{Path, PathBuf},
+    sync::Arc,
+    time::SystemTime,
+};
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use chrono::{DateTime, Duration, NaiveDate, Utc};
+use log::debug;
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
@@ -41,9 +47,11 @@ const NETWORK_RGB_STOCKS: &str = "rgb_stocks";
 const NETWORK_RGB_TRANSFER_FILES: &str = "rgb_transfer_files";
 
 static METRICS_DATA: Lazy<Arc<RwLock<MetricsData>>> = Lazy::new(Default::default);
+static METRICS_SET: Lazy<Arc<RwLock<BTreeSet<PathBuf>>>> = Lazy::new(Default::default);
 
 pub async fn init(dir: &Path) -> Result<()> {
     let mut metrics = METRICS_DATA.write().await;
+    let mut dataset = METRICS_SET.write().await;
 
     metrics
         .wallets_by_network
@@ -76,69 +84,71 @@ pub async fn init(dir: &Path) -> Result<()> {
         let day_created = metadata.created()?;
         let day = round_datetime_to_day(day_created.into());
 
+        dataset.insert(entry.path().to_path_buf());
+
         if metadata.is_file() {
             metrics.bytes += metadata.len();
 
             *metrics.bytes_by_day.entry(day.clone()).or_insert(0) += metadata.len();
 
-            if filename == MAINNET_WALLET {
-                *metrics
-                    .wallets_by_network
-                    .get_mut(NETWORK_BITCOIN)
-                    .unwrap_or(&mut 0) += 1;
-                *metrics
-                    .bitcoin_wallets_by_day
-                    .entry(day.clone())
-                    .or_insert(0) += 1;
-            }
+            match filename.as_str() {
+                MAINNET_WALLET => {
+                    *metrics
+                        .wallets_by_network
+                        .get_mut(NETWORK_BITCOIN)
+                        .unwrap_or(&mut 0) += 1;
+                    *metrics
+                        .bitcoin_wallets_by_day
+                        .entry(day.clone())
+                        .or_insert(0) += 1;
+                    total_wallets += 1;
+                }
 
-            if filename == TESTNET_WALLET {
-                *metrics
-                    .wallets_by_network
-                    .get_mut(NETWORK_TESTNET)
-                    .unwrap_or(&mut 0) += 1;
-                *metrics
-                    .testnet_wallets_by_day
-                    .entry(day.clone())
-                    .or_insert(0) += 1;
-            }
+                TESTNET_WALLET => {
+                    *metrics
+                        .wallets_by_network
+                        .get_mut(NETWORK_TESTNET)
+                        .unwrap_or(&mut 0) += 1;
+                    *metrics
+                        .testnet_wallets_by_day
+                        .entry(day.clone())
+                        .or_insert(0) += 1;
+                    total_wallets += 1;
+                }
 
-            if filename == SIGNET_WALLET {
-                *metrics
-                    .wallets_by_network
-                    .get_mut(NETWORK_SIGNET)
-                    .unwrap_or(&mut 0) += 1;
-                *metrics
-                    .signet_wallets_by_day
-                    .entry(day.clone())
-                    .or_insert(0) += 1;
-            }
+                SIGNET_WALLET => {
+                    *metrics
+                        .wallets_by_network
+                        .get_mut(NETWORK_SIGNET)
+                        .unwrap_or(&mut 0) += 1;
+                    *metrics
+                        .signet_wallets_by_day
+                        .entry(day.clone())
+                        .or_insert(0) += 1;
+                    total_wallets += 1;
+                }
 
-            if filename == REGTEST_WALLET {
-                *metrics
-                    .wallets_by_network
-                    .get_mut(NETWORK_REGTEST)
-                    .unwrap_or(&mut 0) += 1;
-                *metrics
-                    .regtest_wallets_by_day
-                    .entry(day.clone())
-                    .or_insert(0) += 1;
-            }
+                REGTEST_WALLET => {
+                    *metrics
+                        .wallets_by_network
+                        .get_mut(NETWORK_REGTEST)
+                        .unwrap_or(&mut 0) += 1;
+                    *metrics
+                        .regtest_wallets_by_day
+                        .entry(day.clone())
+                        .or_insert(0) += 1;
+                    total_wallets += 1;
+                }
 
-            if filename == MAINNET_WALLET
-                || filename == TESTNET_WALLET
-                || filename == SIGNET_WALLET
-                || filename == REGTEST_WALLET
-            {
-                total_wallets += 1;
-            }
+                RGB_STOCK => {
+                    rgb_stocks += 1;
+                }
 
-            if filename == RGB_STOCK {
-                rgb_stocks += 1;
-            }
+                RGB_TRANSFER_FILE => {
+                    rgb_transfer_files += 1;
+                }
 
-            if filename == RGB_TRANSFER_FILE {
-                rgb_transfer_files += 1;
+                _ => {}
             }
         }
     }
@@ -256,7 +266,113 @@ pub async fn init(dir: &Path) -> Result<()> {
     Ok(())
 }
 
-pub async fn metrics_csv() -> String {
+pub async fn update(path: &Path) -> Result<()> {
+    debug!("Updating metrics with {path:?}");
+
+    let mut metrics = METRICS_DATA.write().await;
+    let mut dataset = METRICS_SET.write().await;
+
+    if dataset.get(path).is_some() {
+        debug!("Path already present");
+        return Ok(());
+    } else {
+        dataset.insert(path.to_path_buf());
+    }
+
+    let filename = path
+        .file_name()
+        .ok_or(anyhow!("no filename for path"))?
+        .to_string_lossy()
+        .to_string();
+    let metadata = path.metadata()?;
+    let day_created = metadata.created()?;
+    let day = round_datetime_to_day(day_created.into());
+
+    if metadata.is_file() {
+        metrics.bytes += metadata.len();
+
+        *metrics.bytes_by_day.entry(day.clone()).or_insert(0) += metadata.len();
+
+        match filename.as_str() {
+            MAINNET_WALLET => {
+                *metrics
+                    .wallets_by_network
+                    .get_mut(NETWORK_BITCOIN)
+                    .unwrap_or(&mut 0) += 1;
+                *metrics
+                    .bitcoin_wallets_by_day
+                    .entry(day.clone())
+                    .or_insert(0) += 1;
+                *metrics
+                    .wallets_by_network
+                    .get_mut(NETWORK_TOTAL)
+                    .unwrap_or(&mut 0) += 1;
+            }
+            TESTNET_WALLET => {
+                *metrics
+                    .wallets_by_network
+                    .get_mut(NETWORK_TESTNET)
+                    .unwrap_or(&mut 0) += 1;
+                *metrics
+                    .testnet_wallets_by_day
+                    .entry(day.clone())
+                    .or_insert(0) += 1;
+                *metrics
+                    .wallets_by_network
+                    .get_mut(NETWORK_TOTAL)
+                    .unwrap_or(&mut 0) += 1;
+            }
+            SIGNET_WALLET => {
+                *metrics
+                    .wallets_by_network
+                    .get_mut(NETWORK_SIGNET)
+                    .unwrap_or(&mut 0) += 1;
+                *metrics
+                    .signet_wallets_by_day
+                    .entry(day.clone())
+                    .or_insert(0) += 1;
+                *metrics
+                    .wallets_by_network
+                    .get_mut(NETWORK_TOTAL)
+                    .unwrap_or(&mut 0) += 1;
+            }
+            REGTEST_WALLET => {
+                *metrics
+                    .wallets_by_network
+                    .get_mut(NETWORK_REGTEST)
+                    .unwrap_or(&mut 0) += 1;
+                *metrics
+                    .regtest_wallets_by_day
+                    .entry(day.clone())
+                    .or_insert(0) += 1;
+                *metrics
+                    .wallets_by_network
+                    .get_mut(NETWORK_TOTAL)
+                    .unwrap_or(&mut 0) += 1;
+            }
+
+            RGB_STOCK => {
+                *metrics
+                    .wallets_by_network
+                    .get_mut(NETWORK_RGB_STOCKS)
+                    .unwrap_or(&mut 0) += 1;
+            }
+
+            RGB_TRANSFER_FILE => {
+                *metrics
+                    .wallets_by_network
+                    .get_mut(NETWORK_RGB_TRANSFER_FILES)
+                    .unwrap_or(&mut 0) += 1;
+            }
+
+            _ => {}
+        }
+    }
+
+    Ok(())
+}
+
+pub async fn csv() -> String {
     let mut lines = vec![vec![
         "Wallet".to_owned(),
         "Wallet Count".to_owned(),
@@ -396,7 +512,7 @@ pub async fn metrics_csv() -> String {
     lines.join("\n")
 }
 
-pub async fn metrics_json() -> Result<String> {
+pub async fn json() -> Result<String> {
     let metrics = METRICS_DATA.read().await;
 
     Ok(serde_json::to_string_pretty(&*metrics)?)
