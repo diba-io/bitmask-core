@@ -5,7 +5,7 @@
 use bitmask_core::{
     info,
     structs::{
-        ContractsResponse, DecryptedWalletData, IssueRequest, NextAddressResponse,
+        ContractsResponse, DecryptedWalletData, FullIssueRequest, NextAddressResponse,
         NextUtxoResponse, SecretString, WatcherRequest, WatcherResponse,
     },
     web::{
@@ -14,8 +14,8 @@ use bitmask_core::{
         },
         json_parse, resolve,
         rgb::{
-            create_watcher, import_contract, issue_contract, list_contracts, watcher_next_address,
-            watcher_next_utxo,
+            create_watcher, full_issue_contract, import_contract, list_contracts,
+            watcher_next_address, watcher_next_utxo,
         },
         set_panic_hook,
     },
@@ -93,7 +93,7 @@ async fn allow_issue_and_list_contracts() {
     let supply = 5;
     let issue_utxo = next_utxo;
     let issue_seal = format!("tapret1st:{issue_utxo}");
-    let issue_req = IssueRequest {
+    let issue_req = FullIssueRequest {
         ticker: "DIBA".to_string(),
         name: "DIBA".to_string(),
         description: "DIBA".to_string(),
@@ -105,7 +105,7 @@ async fn allow_issue_and_list_contracts() {
     };
 
     let issue_req = serde_wasm_bindgen::to_value(&issue_req).expect("");
-    let issue_resp: JsValue = resolve(issue_contract(sk.to_string(), issue_req)).await;
+    let issue_resp: JsValue = resolve(full_issue_contract(sk.to_string(), issue_req)).await;
 
     info!("List Contracts");
     let list_contracts_resp: JsValue = resolve(list_contracts(sk.to_string())).await;

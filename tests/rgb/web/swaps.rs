@@ -12,8 +12,8 @@ use bitmask_core::{
     rgb::{prefetch::prefetch_resolver_txs, resolvers::ExplorerResolver, swap::RgbSwapStrategy},
     structs::{
         AssetType, BatchRgbTransferResponse, ContractResponse, ContractsResponse,
-        DecryptedWalletData, FullRgbTransferRequest, FundVaultDetails, ImportRequest,
-        InvoiceRequest, InvoiceResponse, IssueRequest, IssueResponse, NextAddressResponse,
+        DecryptedWalletData, FullIssueRequest, FullRgbTransferRequest, FundVaultDetails,
+        ImportRequest, InvoiceRequest, InvoiceResponse, IssueResponse, NextAddressResponse,
         NextUtxoResponse, PsbtFeeRequest, PublishedPsbtResponse, RgbBidRequest, RgbBidResponse,
         RgbOfferRequest, RgbOfferResponse, RgbSaveTransferRequest, RgbSwapRequest, RgbSwapResponse,
         RgbTransferRequest, RgbTransferResponse, RgbTransferStatusResponse, SecretString,
@@ -26,8 +26,8 @@ use bitmask_core::{
         },
         json_parse, resolve,
         rgb::{
-            create_bid, create_offer, create_swap, create_watcher, full_transfer_asset,
-            get_contract, import_contract, issue_contract, list_contracts, my_bids, my_offers,
+            create_bid, create_offer, create_swap, create_watcher, full_issue_contract,
+            full_transfer_asset, get_contract, import_contract, list_contracts, my_bids, my_offers,
             my_orders, psbt_sign_and_publish_file, psbt_sign_file, public_offers,
             rgb_create_invoice, save_transfer, verify_transfers, watcher_next_address,
             watcher_next_utxo,
@@ -180,7 +180,7 @@ async fn create_transfer_swap_flow() {
     let precision = 2;
     let issue_utxo = issuer_next_utxo.utxo.unwrap().outpoint.to_string();
     let issue_seal = format!("tapret1st:{issue_utxo}");
-    let issue_req = IssueRequest {
+    let issue_req = FullIssueRequest {
         ticker: "DIBA".to_string(),
         name: "DIBA".to_string(),
         description: "DIBA".to_string(),
@@ -192,7 +192,7 @@ async fn create_transfer_swap_flow() {
     };
 
     let issue_req = serde_wasm_bindgen::to_value(&issue_req).expect("");
-    let issue_resp: JsValue = resolve(issue_contract(issuer_sk.to_string(), issue_req)).await;
+    let issue_resp: JsValue = resolve(full_issue_contract(issuer_sk.to_string(), issue_req)).await;
     let issuer_resp: IssueResponse = json_parse(&issue_resp);
 
     info!("Import Contract (Owner)");

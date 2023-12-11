@@ -15,8 +15,8 @@ use bitmask_core::{
     rgb::{prefetch::prefetch_resolver_txs, resolvers::ExplorerResolver},
     structs::{
         AssetType, BatchRgbTransferResponse, ContractResponse, ContractsResponse,
-        DecryptedWalletData, FullRgbTransferRequest, FundVaultDetails, ImportRequest,
-        InvoiceRequest, InvoiceResponse, IssueRequest, IssueResponse, NextAddressResponse,
+        DecryptedWalletData, FullIssueRequest, FullRgbTransferRequest, FundVaultDetails,
+        ImportRequest, InvoiceRequest, InvoiceResponse, IssueResponse, NextAddressResponse,
         NextUtxoResponse, PsbtFeeRequest, PublishedPsbtResponse, RgbSaveTransferRequest,
         RgbTransferRequest, RgbTransferResponse, RgbTransferStatusResponse, SecretString,
         SignPsbtRequest, WalletData, WatcherRequest, WatcherResponse,
@@ -28,9 +28,9 @@ use bitmask_core::{
         },
         json_parse, resolve,
         rgb::{
-            create_watcher, full_transfer_asset, get_contract, import_contract, issue_contract,
-            list_contracts, psbt_sign_and_publish_file, rgb_create_invoice, save_transfer,
-            verify_transfers, watcher_next_address, watcher_next_utxo,
+            create_watcher, full_issue_contract, full_transfer_asset, get_contract,
+            import_contract, list_contracts, psbt_sign_and_publish_file, rgb_create_invoice,
+            save_transfer, verify_transfers, watcher_next_address, watcher_next_utxo,
         },
         set_panic_hook,
     },
@@ -155,7 +155,7 @@ async fn create_transfer_with_fee_value() {
     let precision = 2;
     let issue_utxo = issuer_next_utxo.utxo.unwrap().outpoint.to_string();
     let issue_seal = format!("tapret1st:{issue_utxo}");
-    let issue_req = IssueRequest {
+    let issue_req = FullIssueRequest {
         ticker: "DIBA".to_string(),
         name: "DIBA".to_string(),
         description: "DIBA".to_string(),
@@ -167,7 +167,7 @@ async fn create_transfer_with_fee_value() {
     };
 
     let issue_req = serde_wasm_bindgen::to_value(&issue_req).expect("");
-    let issue_resp: JsValue = resolve(issue_contract(issuer_sk.to_string(), issue_req)).await;
+    let issue_resp: JsValue = resolve(full_issue_contract(issuer_sk.to_string(), issue_req)).await;
     let issuer_resp: IssueResponse = json_parse(&issue_resp);
 
     info!("Import Contract (Owner)");
@@ -460,7 +460,7 @@ async fn create_transfer_with_fee_rate() {
     let precision = 2;
     let issue_utxo = issuer_next_utxo.utxo.unwrap().outpoint.to_string();
     let issue_seal = format!("tapret1st:{issue_utxo}");
-    let issue_req = IssueRequest {
+    let issue_req = FullIssueRequest {
         ticker: "DIBA".to_string(),
         name: "DIBA".to_string(),
         description: "DIBA".to_string(),
@@ -472,7 +472,7 @@ async fn create_transfer_with_fee_rate() {
     };
 
     let issue_req = serde_wasm_bindgen::to_value(&issue_req).expect("");
-    let issue_resp: JsValue = resolve(issue_contract(issuer_sk.to_string(), issue_req)).await;
+    let issue_resp: JsValue = resolve(full_issue_contract(issuer_sk.to_string(), issue_req)).await;
     let issuer_resp: IssueResponse = json_parse(&issue_resp);
 
     info!("Import Contract (Owner)");

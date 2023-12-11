@@ -7,10 +7,10 @@ use wasm_bindgen_futures::{future_to_promise, JsFuture};
 
 use crate::rgb::structs::ContractAmount;
 use crate::structs::{
-    AcceptRequest, FullRgbTransferRequest, ImportRequest, InvoiceRequest, IssueRequest,
-    MediaRequest, PsbtRequest, PublishPsbtRequest, ReIssueRequest, RgbBidRequest, RgbOfferRequest,
-    RgbRemoveTransferRequest, RgbSaveTransferRequest, RgbSwapRequest, RgbTransferRequest,
-    SecretString, SignPsbtRequest, WatcherRequest,
+    AcceptRequest, FullIssueRequest, FullRgbTransferRequest, ImportRequest, InvoiceRequest,
+    IssueMediaRequest, IssueRequest, MediaRequest, PsbtRequest, PublishPsbtRequest, ReIssueRequest,
+    RgbBidRequest, RgbOfferRequest, RgbRemoveTransferRequest, RgbSaveTransferRequest,
+    RgbSwapRequest, RgbTransferRequest, SecretString, SignPsbtRequest, WatcherRequest,
 };
 
 pub fn set_panic_hook() {
@@ -382,6 +382,42 @@ pub mod rgb {
 
         future_to_promise(async move {
             let req: IssueRequest = serde_wasm_bindgen::from_value(request).unwrap();
+            match crate::rgb::issue_contract(&nostr_hex_sk, req).await {
+                Ok(result) => Ok(JsValue::from_string(
+                    serde_json::to_string(&result).unwrap(),
+                )),
+                Err(err) => Err(JsValue::from_string(err.to_string())),
+            }
+        })
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    #[wasm_bindgen]
+    pub fn full_issue_contract(nostr_hex_sk: String, request: JsValue) -> Promise {
+        set_panic_hook();
+
+        future_to_promise(async move {
+            let pre_req: FullIssueRequest = serde_wasm_bindgen::from_value(request).unwrap();
+            let media = match pre_req.meta {
+                Some(media) => {
+                    let media = crate::rgb::import_uda_data(media).await;
+                    match media {
+                        Ok(media) => Some(IssueMediaRequest::from(media)),
+                        Err(err) => return Err(JsValue::from_string(err.to_string())),
+                    }
+                }
+                None => None,
+            };
+            let req = IssueRequest {
+                ticker: pre_req.ticker,
+                name: pre_req.name,
+                description: pre_req.description,
+                supply: pre_req.supply,
+                precision: pre_req.precision,
+                seal: pre_req.seal,
+                iface: pre_req.iface,
+                meta: media,
+            };
             match crate::rgb::issue_contract(&nostr_hex_sk, req).await {
                 Ok(result) => Ok(JsValue::from_string(
                     serde_json::to_string(&result).unwrap(),
