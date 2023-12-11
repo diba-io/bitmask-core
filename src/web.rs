@@ -401,7 +401,10 @@ pub mod rgb {
             let media = match pre_req.meta {
                 Some(media) => {
                     let media = crate::rgb::import_uda_data(media).await;
-                    Some(IssueMediaRequest::from(media.unwrap()))
+                    match media {
+                        Ok(media) => Some(IssueMediaRequest::from(media)),
+                        Err(err) => return Err(JsValue::from_string(err.to_string())),
+                    }
                 }
                 None => None,
             };
