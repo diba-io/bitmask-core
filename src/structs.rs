@@ -116,7 +116,7 @@ pub struct IssueAssetRequest {
 #[serde(rename_all = "camelCase")]
 #[derive(Validate)]
 #[garde(context(RGBContext))]
-pub struct IssuePreRequest {
+pub struct FullIssueRequest {
     /// The ticker of the asset
     #[garde(ascii)]
     #[garde(length(min = 1, max = 8))]
