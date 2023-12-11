@@ -15,8 +15,8 @@ use bitmask_core::{
     rgb::{prefetch::prefetch_resolver_txs, resolvers::ExplorerResolver},
     structs::{
         AssetType, BatchRgbTransferResponse, ContractResponse, ContractsResponse,
-        DecryptedWalletData, FullRgbTransferRequest, FundVaultDetails, ImportRequest,
-        InvoiceRequest, InvoiceResponse, IssuePreRequest, IssueResponse, NextAddressResponse,
+        DecryptedWalletData, FullIssueRequest, FullRgbTransferRequest, FundVaultDetails,
+        ImportRequest, InvoiceRequest, InvoiceResponse, IssueResponse, NextAddressResponse,
         NextUtxoResponse, PsbtFeeRequest, PublishedPsbtResponse, RgbSaveTransferRequest,
         RgbTransferRequest, RgbTransferResponse, RgbTransferStatusResponse, SecretString,
         SignPsbtRequest, WalletData, WatcherRequest, WatcherResponse,
@@ -155,7 +155,7 @@ async fn create_transfer_with_fee_value() {
     let precision = 2;
     let issue_utxo = issuer_next_utxo.utxo.unwrap().outpoint.to_string();
     let issue_seal = format!("tapret1st:{issue_utxo}");
-    let issue_req = IssuePreRequest {
+    let issue_req = FullIssueRequest {
         ticker: "DIBA".to_string(),
         name: "DIBA".to_string(),
         description: "DIBA".to_string(),
@@ -167,7 +167,7 @@ async fn create_transfer_with_fee_value() {
     };
 
     let issue_req = serde_wasm_bindgen::to_value(&issue_req).expect("");
-    let issue_resp: JsValue = resolve(issue_contract(issuer_sk.to_string(), issue_req)).await;
+    let issue_resp: JsValue = resolve(full_issue_contract(issuer_sk.to_string(), issue_req)).await;
     let issuer_resp: IssueResponse = json_parse(&issue_resp);
 
     info!("Import Contract (Owner)");
@@ -460,7 +460,7 @@ async fn create_transfer_with_fee_rate() {
     let precision = 2;
     let issue_utxo = issuer_next_utxo.utxo.unwrap().outpoint.to_string();
     let issue_seal = format!("tapret1st:{issue_utxo}");
-    let issue_req = IssuePreRequest {
+    let issue_req = FullIssueRequest {
         ticker: "DIBA".to_string(),
         name: "DIBA".to_string(),
         description: "DIBA".to_string(),
@@ -472,7 +472,7 @@ async fn create_transfer_with_fee_rate() {
     };
 
     let issue_req = serde_wasm_bindgen::to_value(&issue_req).expect("");
-    let issue_resp: JsValue = resolve(issue_contract(issuer_sk.to_string(), issue_req)).await;
+    let issue_resp: JsValue = resolve(full_issue_contract(issuer_sk.to_string(), issue_req)).await;
     let issuer_resp: IssueResponse = json_parse(&issue_resp);
 
     info!("Import Contract (Owner)");

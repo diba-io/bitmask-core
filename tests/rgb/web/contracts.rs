@@ -5,7 +5,7 @@
 use bitmask_core::{
     info,
     structs::{
-        ContractsResponse, DecryptedWalletData, IssuePreRequest, NextAddressResponse,
+        ContractsResponse, DecryptedWalletData, FullIssueRequest, NextAddressResponse,
         NextUtxoResponse, SecretString, WatcherRequest, WatcherResponse,
     },
     web::{
@@ -93,7 +93,7 @@ async fn allow_issue_and_list_contracts() {
     let supply = 5;
     let issue_utxo = next_utxo;
     let issue_seal = format!("tapret1st:{issue_utxo}");
-    let issue_req = IssuePreRequest {
+    let issue_req = FullIssueRequest {
         ticker: "DIBA".to_string(),
         name: "DIBA".to_string(),
         description: "DIBA".to_string(),
@@ -105,7 +105,7 @@ async fn allow_issue_and_list_contracts() {
     };
 
     let issue_req = serde_wasm_bindgen::to_value(&issue_req).expect("");
-    let issue_resp: JsValue = resolve(issue_contract(sk.to_string(), issue_req)).await;
+    let issue_resp: JsValue = resolve(full_issue_contract(sk.to_string(), issue_req)).await;
 
     info!("List Contracts");
     let list_contracts_resp: JsValue = resolve(list_contracts(sk.to_string())).await;

@@ -7,8 +7,8 @@ use wasm_bindgen_futures::{future_to_promise, JsFuture};
 
 use crate::rgb::structs::ContractAmount;
 use crate::structs::{
-    AcceptRequest, FullRgbTransferRequest, ImportRequest, InvoiceRequest, IssueMediaRequest,
-    IssuePreRequest, IssueRequest, MediaRequest, PsbtRequest, PublishPsbtRequest, ReIssueRequest,
+    AcceptRequest, FullIssueRequest, FullRgbTransferRequest, ImportRequest, InvoiceRequest,
+    IssueMediaRequest, IssueRequest, MediaRequest, PsbtRequest, PublishPsbtRequest, ReIssueRequest,
     RgbBidRequest, RgbOfferRequest, RgbRemoveTransferRequest, RgbSaveTransferRequest,
     RgbSwapRequest, RgbTransferRequest, SecretString, SignPsbtRequest, WatcherRequest,
 };
@@ -381,7 +381,23 @@ pub mod rgb {
         set_panic_hook();
 
         future_to_promise(async move {
-            let pre_req: IssuePreRequest = serde_wasm_bindgen::from_value(request).unwrap();
+            let req: IssueRequest = serde_wasm_bindgen::from_value(request).unwrap();
+            match crate::rgb::issue_contract(&nostr_hex_sk, req).await {
+                Ok(result) => Ok(JsValue::from_string(
+                    serde_json::to_string(&result).unwrap(),
+                )),
+                Err(err) => Err(JsValue::from_string(err.to_string())),
+            }
+        })
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    #[wasm_bindgen]
+    pub fn full_issue_contract(nostr_hex_sk: String, request: JsValue) -> Promise {
+        set_panic_hook();
+
+        future_to_promise(async move {
+            let pre_req: FullIssueRequest = serde_wasm_bindgen::from_value(request).unwrap();
             let media = match pre_req.meta {
                 Some(media) => {
                     let media = crate::rgb::import_uda_data(media).await;

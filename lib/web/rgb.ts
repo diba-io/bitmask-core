@@ -3,11 +3,11 @@
 
 import * as BMC from "./bitmask_core";
 
-export const issueContract = async (
+export const fullIssueContract = async (
   nostrHexSk: string,
-  request: IssuePreRequest
+  request: FullIssueRequest
 ): Promise<IssueResponse> =>
-  JSON.parse(await BMC.issue_contract(nostrHexSk, request));
+  JSON.parse(await BMC.full_issue_contract(nostrHexSk, request));
 
 export const createInvoice = async (
   nostrHexSk: string,
@@ -250,7 +250,7 @@ export interface IssueMetadata {
   collectible?: NewCollectible[];
 }
 
-export interface IssuePreRequest {
+export interface FullIssueRequest {
   /// The ticker of the asset
   ticker: string;
   /// Name of the asset
