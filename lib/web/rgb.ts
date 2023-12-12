@@ -793,8 +793,53 @@ export interface RgbOfferRequest {
   changeTerminal: string;
   /// Bitcoin Change Addresses (format: {address}:{amount})
   bitcoinChanges: string[];
-  presig: boolean;
+  strategy: RgbSwapStrategy;
   expire_at?: number;
+}
+
+export interface RgbSwapStrategy {
+  auction?: string,
+  p2p?: string,
+  hotswap?: string,
+}
+export interface RgbAuctionOfferRequest {
+  sign_keys: string[],
+
+  /// List of Offers
+  offers: RgbOfferRequest[],
+}
+
+export interface RgbAuctionBidRequest {
+  /// The Offer ID
+  offer_id: string,
+  /// Asset Amount
+  asset_amount: string,
+  /// Universal Descriptor
+  descriptor: string,
+  /// Bitcoin Terminal Change
+  change_terminal: string,
+  /// Descriptors to Sign
+  sign_keys: string[],
+  /// Bitcoin Fee
+  fee: PsbtFeeRequest,
+}
+
+export interface RgbAuctionBidResponse {
+  /// The Bid ID
+  bid_id: string,
+  /// The Offer ID
+  offer_id: string,
+  /// Fee Value
+  fee_value: number,
+}
+
+export interface RgbSwapStatusResponse {
+    /// Transfer ID
+    consig_id: string,
+    /// Offer ID
+    offer_id: string,
+    /// Bid ID
+    bid_id: string,
 }
 
 export interface RgbOfferResponse {
