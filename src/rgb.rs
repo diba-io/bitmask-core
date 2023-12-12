@@ -69,16 +69,16 @@ use crate::{
         MediaView, NextAddressResponse, NextUtxoResponse, NextUtxosResponse, PsbtFeeRequest,
         PsbtRequest, PsbtResponse, PublicRgbBidResponse, PublicRgbOfferResponse,
         PublicRgbOffersResponse, PublishPsbtRequest, ReIssueRequest, ReIssueResponse,
-        RgbAuctionBidRequest, RgbAuctionBidResponse, RgbAuctionOfferRequest, RgbBidDetail,
-        RgbBidRequest, RgbBidResponse, RgbBidsResponse, RgbInternalSaveTransferRequest,
-        RgbInternalTransferResponse, RgbInvoiceResponse, RgbOfferBidsResponse, RgbOfferDetail,
-        RgbOfferRequest, RgbOfferResponse, RgbOfferUpdateRequest, RgbOfferUpdateResponse,
-        RgbOffersResponse, RgbRemoveTransferRequest, RgbReplaceResponse, RgbSaveTransferRequest,
-        RgbSwapRequest, RgbSwapResponse, RgbSwapStatusResponse, RgbTransferDetail,
-        RgbTransferRequest, RgbTransferResponse, RgbTransferStatusResponse, RgbTransfersResponse,
-        SchemaDetail, SchemasResponse, SignPsbtRequest, SignedPsbtResponse, SimpleContractResponse,
-        TransferType, TxStatus, UtxoResponse, WatcherDetailResponse, WatcherRequest,
-        WatcherResponse, WatcherUtxoResponse,
+        RgbAuctionBidRequest, RgbAuctionBidResponse, RgbAuctionOfferRequest,
+        RgbAuctionOfferResponse, RgbBidDetail, RgbBidRequest, RgbBidResponse, RgbBidsResponse,
+        RgbInternalSaveTransferRequest, RgbInternalTransferResponse, RgbInvoiceResponse,
+        RgbMatchResponse, RgbOfferBidsResponse, RgbOfferDetail, RgbOfferRequest, RgbOfferResponse,
+        RgbOfferUpdateRequest, RgbOfferUpdateResponse, RgbOffersResponse, RgbRemoveTransferRequest,
+        RgbReplaceResponse, RgbSaveTransferRequest, RgbSwapRequest, RgbSwapResponse,
+        RgbTransferDetail, RgbTransferRequest, RgbTransferResponse, RgbTransferStatusResponse,
+        RgbTransfersResponse, SchemaDetail, SchemasResponse, SignPsbtRequest, SignedPsbtResponse,
+        SimpleContractResponse, TransferType, TxStatus, UtxoResponse, WatcherDetailResponse,
+        WatcherRequest, WatcherResponse, WatcherUtxoResponse,
     },
     validators::RGBContext,
 };
@@ -1868,7 +1868,7 @@ pub async fn internal_replace_transfer(
 pub async fn finish_auction_offer(
     sk: &str,
     offer_id: String,
-) -> Result<Option<RgbSwapStatusResponse>, RgbSwapError> {
+) -> Result<Option<RgbMatchResponse>, RgbSwapError> {
     let my_offers = retrieve_offers(sk).await.map_err(RgbSwapError::IO)?;
 
     let offer = if let Some(my_offer) = my_offers.get_offer(offer_id.clone()) {
@@ -1906,11 +1906,11 @@ pub async fn finish_auction_offer(
         return Err(RgbSwapError::NoOffer(offer_id));
     };
 
-    let result = internal_next_auction(offer.into()).await?;
+    let result = internal_finish_auction(offer.into()).await?;
     Ok(result)
 }
 
-pub async fn verify_auctions() -> Result<Vec<RgbSwapStatusResponse>, RgbSwapError> {
+pub async fn verify_auctions() -> Result<Vec<RgbMatchResponse>, RgbSwapError> {
     let utc = chrono::Local::now().naive_utc().timestamp();
     let auction_offers: Vec<_> = get_public_offers()
         .await
@@ -1923,7 +1923,7 @@ pub async fn verify_auctions() -> Result<Vec<RgbSwapStatusResponse>, RgbSwapErro
 
     let mut process = vec![];
     for offer in auction_offers {
-        if let Some(resp) = internal_next_auction(offer).await? {
+        if let Some(resp) = internal_finish_auction(offer).await? {
             process.push(resp)
         }
     }
@@ -1931,9 +1931,9 @@ pub async fn verify_auctions() -> Result<Vec<RgbSwapStatusResponse>, RgbSwapErro
     Ok(process)
 }
 
-async fn internal_next_auction(
+async fn internal_finish_auction(
     offer: RgbOfferSwap,
-) -> Result<Option<RgbSwapStatusResponse>, RgbSwapError> {
+) -> Result<Option<RgbMatchResponse>, RgbSwapError> {
     let RgbOfferSwap {
         offer_id,
         bundle_id,
@@ -1969,7 +1969,7 @@ async fn internal_next_auction(
             .await
             .map_err(|op| RgbSwapError::WrongPsbtFinal(op.to_string()))?;
 
-        Some(RgbSwapStatusResponse {
+        Some(RgbMatchResponse {
             consig_id: transfer_id.unwrap_or_default(),
             offer_id,
             bid_id,
@@ -1979,6 +1979,21 @@ async fn internal_next_auction(
     };
 
     Ok(resp)
+}
+
+pub async fn list_auctions() -> Result<Vec<RgbAuctionOfferResponse>, RgbSwapError> {
+    let utc = chrono::Local::now().naive_utc().timestamp();
+    let auction_offers: Vec<_> = get_public_offers()
+        .await
+        .map_err(RgbSwapError::Auction)?
+        .into_iter()
+        .filter(|x| {
+            x.strategy == RgbSwapStrategy::Auction && x.expire_at.unwrap_or_default().sub(utc) <= 0
+        })
+        .map(RgbAuctionOfferResponse::from)
+        .collect();
+
+    Ok(auction_offers)
 }
 
 pub async fn accept_transfer(

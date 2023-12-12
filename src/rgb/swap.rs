@@ -1033,12 +1033,16 @@ pub async fn next_auction_offer(
         .map_err(|op| RgbOfferErrors::AutoMerge(op.to_string()))?;
 
     let rgb_offers = rgb_offers.next_offer(offer_id.clone(), outpoint);
-    reconcile(&mut local_copy, rgb_offers)
+    reconcile(&mut local_copy, rgb_offers.clone())
         .map_err(|op| RgbOfferErrors::AutoMerge(op.to_string()))?;
 
     store_auction_offers(&bundle_id, &file_name, local_copy.save())
         .await
         .map_err(RgbOfferErrors::IO)?;
+
+    if let Some(new_offer) = rgb_offers.current_offer() {
+        publish_public_offer(new_offer).await?;
+    }
 
     Ok(())
 }

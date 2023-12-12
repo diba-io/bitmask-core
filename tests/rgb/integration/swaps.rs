@@ -1,6 +1,6 @@
 #![cfg(not(target_arch = "wasm32"))]
 use crate::rgb::integration::utils::{
-    get_uda_data, issuer_issue_contract_v2, send_some_coins, UtxoFilter,
+    generate_new_block, get_uda_data, issuer_issue_contract_v2, send_some_coins, UtxoFilter,
 };
 use bitmask_core::{
     bitcoin::{
@@ -10,14 +10,14 @@ use bitmask_core::{
     rgb::{
         accept_transfer, create_auction_bid, create_auction_offers, create_buyer_bid,
         create_seller_offer, create_swap_transfer, create_watcher, finish_auction_offer,
-        get_contract, import as import_contract, structs::ContractAmount, swap::RgbSwapStrategy,
-        update_seller_offer, verify_transfers,
+        get_contract, import as import_contract, list_auctions, structs::ContractAmount,
+        swap::RgbSwapStrategy, update_seller_offer, verify_transfers,
     },
     structs::{
         AcceptRequest, AssetType, ImportRequest, IssueResponse, PsbtFeeRequest, PublishPsbtRequest,
-        RgbAuctionBidRequest, RgbAuctionOfferRequest, RgbBidRequest, RgbBidResponse,
-        RgbOfferRequest, RgbOfferResponse, RgbOfferUpdateRequest, RgbSwapRequest, RgbSwapResponse,
-        SecretString, SignPsbtRequest, SignedPsbtResponse, WatcherRequest,
+        RgbAuctionBidRequest, RgbAuctionOfferRequest, RgbAuctionOfferResponse, RgbBidRequest,
+        RgbBidResponse, RgbOfferRequest, RgbOfferResponse, RgbOfferUpdateRequest, RgbSwapRequest,
+        RgbSwapResponse, SecretString, SignPsbtRequest, SignedPsbtResponse, WatcherRequest,
     },
     util::init_logging,
 };
@@ -874,7 +874,7 @@ async fn create_auction_swap() -> anyhow::Result<()> {
     let buyer_btc_desc = buyer_keys.public.btc_descriptor_xpub.clone();
     let bid_auction_req = RgbAuctionBidRequest {
         offer_id: offer_id.clone(),
-        asset_amount: contract_amount,
+        asset_amount: contract_amount.clone(),
         descriptor: SecretString(buyer_btc_desc),
         change_terminal: "/1/0".to_string(),
         fee: PsbtFeeRequest::Value(1000),
@@ -888,12 +888,11 @@ async fn create_auction_swap() -> anyhow::Result<()> {
     assert!(resp.is_ok());
 
     // 7. Finish Offer
-    let resp = finish_auction_offer(&seller_sk, offer_id).await;
+    let resp = finish_auction_offer(&seller_sk, offer_id.clone()).await;
     assert!(resp.is_ok());
 
     // 8. Mine Some Blocks
-    let whatever_address = "bcrt1p76gtucrxhmn8s5622r859dpnmkj0kgfcel9xy0sz6yj84x6ppz2qk5hpsw";
-    send_some_coins(whatever_address, "0.001").await;
+    generate_new_block().await;
 
     // 10. Verify Transfers
     let all_sks = [buyer_sk.clone(), seller_sk.clone()];
@@ -908,6 +907,63 @@ async fn create_auction_swap() -> anyhow::Result<()> {
     }
 
     // 11. Check Balances
+    let resp = get_contract(&buyer_sk, &contract_id).await;
+    assert!(resp.is_ok());
+    assert_eq!(1., resp?.balance_normalized);
+
+    let resp = get_contract(&seller_sk, &contract_id).await;
+    assert!(resp.is_ok());
+    assert_eq!(1., resp?.balance_normalized);
+
+    // 13. Get Next Offer
+    let auctions = list_auctions().await;
+    assert!(auctions.is_ok());
+
+    let auctions = auctions?;
+    let RgbAuctionOfferResponse {
+        offer_id,
+        contract_id,
+        ..
+    } = auctions[0].clone();
+
+    // 12. Create Another Bid
+    let buyer_btc_desc = buyer_keys.public.btc_descriptor_xpub.clone();
+    let bid_auction_req = RgbAuctionBidRequest {
+        offer_id: offer_id.clone(),
+        asset_amount: contract_amount,
+        descriptor: SecretString(buyer_btc_desc),
+        change_terminal: "/1/0".to_string(),
+        fee: PsbtFeeRequest::Value(1000),
+        sign_keys: vec![
+            SecretString(buyer_keys.private.btc_descriptor_xprv.clone()),
+            SecretString(buyer_keys.private.btc_change_descriptor_xprv.clone()),
+        ],
+    };
+
+    let resp = create_auction_bid(&buyer_sk, bid_auction_req).await;
+    assert!(resp.is_ok());
+
+    // 13. Finish Offer
+    let resp = finish_auction_offer(&seller_sk, offer_id.clone()).await;
+    println!("{:#?}", resp);
+    assert!(resp.is_ok());
+
+    // 14. Mine Some Blocks
+    generate_new_block().await;
+
+    // 15. Verify Transfers
+    let all_sks = [buyer_sk.clone(), seller_sk.clone()];
+    for sk in all_sks {
+        let resp = verify_transfers(&sk).await;
+        assert!(resp.is_ok());
+
+        let list_resp = resp?;
+        if let Some(consig_status) = list_resp.transfers.first() {
+            assert!(consig_status.is_accept);
+        }
+    }
+
+    // 16. Check Balances
     let resp = get_contract(&buyer_sk, &contract_id).await;
     assert!(resp.is_ok());
     assert_eq!(1., resp?.balance_normalized);

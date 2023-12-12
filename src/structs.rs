@@ -1569,13 +1569,50 @@ pub struct RgbSwapResponse {
 #[derive(Clone, Serialize, Deserialize, Debug, Display, Default)]
 #[serde(rename_all = "camelCase")]
 #[display("{consig_id}")]
-pub struct RgbSwapStatusResponse {
+pub struct RgbMatchResponse {
     /// Transfer ID
     pub consig_id: String,
     /// Offer ID
     pub offer_id: String,
     /// Bid ID
     pub bid_id: String,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug, Display, Default)]
+#[serde(rename_all = "camelCase")]
+#[display("{offer_id} ~ {contract_id}:{asset_amount} = {bitcoin_price}")]
+pub struct RgbAuctionOfferResponse {
+    /// Offer ID
+    pub offer_id: String,
+    /// Contract ID
+    pub contract_id: String,
+    /// Asset/Contract Amount
+    pub asset_amount: u64,
+    /// Bitcoin Price
+    pub bitcoin_price: u64,
+    /// Bundle ID
+    pub bundle_id: String,
+}
+
+impl From<RgbOfferSwap> for RgbAuctionOfferResponse {
+    fn from(value: RgbOfferSwap) -> Self {
+        let RgbOfferSwap {
+            offer_id,
+            contract_id,
+            asset_amount,
+            bitcoin_price,
+            bundle_id,
+            ..
+        } = value;
+
+        Self {
+            offer_id,
+            contract_id,
+            asset_amount,
+            bitcoin_price,
+            bundle_id: bundle_id.unwrap_or_default(),
+        }
+    }
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug, Display, Default)]
