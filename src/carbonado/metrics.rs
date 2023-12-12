@@ -1,6 +1,7 @@
 #![cfg(not(target_arch = "wasm32"))]
 use std::{
     collections::{BTreeMap, BTreeSet},
+    env,
     path::{Path, PathBuf},
     sync::Arc,
     time::SystemTime,
@@ -11,7 +12,7 @@ use chrono::{DateTime, Duration, NaiveDate, Utc};
 use log::debug;
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
-use tokio::sync::RwLock;
+use tokio::{fs, sync::RwLock};
 use walkdir::WalkDir;
 
 #[derive(Serialize, Deserialize, Default)]
@@ -368,6 +369,12 @@ pub async fn update(path: &Path) -> Result<()> {
             _ => {}
         }
     }
+
+    let dir = env::var("CARBONADO_DIR").unwrap_or("/tmp/bitmaskd/carbonado".to_owned());
+
+    // Write metrics to disk as a backup
+    fs::write(&format!("{dir}/metrics.csv"), &csv().await).await?;
+    fs::write(&format!("{dir}/metrics.json"), &json().await?).await?;
 
     Ok(())
 }
