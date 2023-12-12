@@ -432,15 +432,15 @@ export interface InvoiceResponse {
 
 export interface PsbtRequest {
   /// Asset UTXOs
-  asset_inputs: PsbtInputRequest[];
+  assetInputs: PsbtInputRequest[];
   /// Asset Descriptor Change
-  asset_descriptor_change: string;
+  assetDescriptorChange: string;
   /// Asset Terminal Change (default: /10/0)
-  asset_terminal_change: string;
+  assetTerminalChange: string;
   /// Bitcoin UTXOs
-  bitcoin_inputs: PsbtInputRequest[];
+  bitcoinInputs: PsbtInputRequest[];
   /// Bitcoin Change Addresses (format: {address}:{amount})
-  bitcoin_changes: string[];
+  bitcoinChanges: string[];
   /// Bitcoin Fee
   fee: PsbtFeeRequest;
   /// Allow RBF
@@ -453,11 +453,11 @@ interface PsbtInputRequest {
   /// Asset or Bitcoin UTXO
   utxo: string;
   /// Asset or Bitcoin UTXO Terminal (ex. /0/0)
-  utxo_terminal: string;
+  utxoTerminal: string;
   /// Asset or Bitcoin Tweak
   tapret?: string;
   /// Asset or Bitcoin Tweak
-  sigh_hash?: PsbtSigHashRequest;
+  sighHash?: PsbtSigHashRequest;
 }
 
 interface PsbtSigHashRequest {
@@ -748,7 +748,7 @@ export interface RgbTransferDetail {
 }
 
 export interface TxStatus {
-  not_found?: any;
+  notFound?: any;
   error?: string;
   mempool?: any;
   block?: number;
@@ -794,7 +794,7 @@ export interface RgbOfferRequest {
   /// Bitcoin Change Addresses (format: {address}:{amount})
   bitcoinChanges: string[];
   strategy: RgbSwapStrategy;
-  expire_at?: number;
+  expireAt?: number;
 }
 
 export interface RgbSwapStrategy {
@@ -803,7 +803,7 @@ export interface RgbSwapStrategy {
   hotswap?: string,
 }
 export interface RgbAuctionOfferRequest {
-  sign_keys: string[],
+  signKeys: string[],
 
   /// List of Offers
   offers: RgbOfferRequest[],
@@ -811,35 +811,35 @@ export interface RgbAuctionOfferRequest {
 
 export interface RgbAuctionBidRequest {
   /// The Offer ID
-  offer_id: string,
+  offerId: string,
   /// Asset Amount
-  asset_amount: string,
+  assetAmount: string,
   /// Universal Descriptor
   descriptor: string,
   /// Bitcoin Terminal Change
-  change_terminal: string,
+  changeTerminal: string,
   /// Descriptors to Sign
-  sign_keys: string[],
+  signKeys: string[],
   /// Bitcoin Fee
   fee: PsbtFeeRequest,
 }
 
 export interface RgbAuctionBidResponse {
   /// The Bid ID
-  bid_id: string,
+  bidId: string,
   /// The Offer ID
-  offer_id: string,
+  offerId: string,
   /// Fee Value
-  fee_value: number,
+  feeValue: number,
 }
 
 export interface RgbSwapStatusResponse {
     /// Transfer ID
-    consig_id: string,
+    consigId: string,
     /// Offer ID
-    offer_id: string,
+    offerId: string,
     /// Bid ID
-    bid_id: string,
+    bidId: string,
 }
 
 export interface RgbOfferResponse {
