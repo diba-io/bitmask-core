@@ -833,13 +833,26 @@ export interface RgbAuctionBidResponse {
   feeValue: number,
 }
 
-export interface RgbSwapStatusResponse {
+export interface RgbMatchResponse {
     /// Transfer ID
     consigId: string,
     /// Offer ID
     offerId: string,
     /// Bid ID
     bidId: string,
+}
+
+export interface RgbAuctionOfferResponse {
+  /// Offer ID
+  offerId: string,
+  /// Contract ID
+  contractId: string,
+  /// Asset/Contract Amount
+  assetAmount: number,
+  /// Bitcoin Price
+  bitcoinPrice: number,
+  /// Bundle ID
+  bundleId: string,
 }
 
 export interface RgbOfferResponse {
