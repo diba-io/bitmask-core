@@ -5,7 +5,7 @@ use ::psbt::Psbt;
 use amplify::hex::ToHex;
 use argon2::Argon2;
 use bdk::{wallet::AddressIndex, FeeRate, LocalUtxo, SignOptions, TransactionDetails};
-use bitcoin::{consensus::encode, psbt::PartiallySignedTransaction};
+use bitcoin::{consensus::encode, psbt::PartiallySignedTransaction, Txid};
 use rand::{rngs::StdRng, Rng, SeedableRng};
 use serde_encrypt::{
     serialize::impls::BincodeSerializer, shared_key::SharedKey, traits::SerdeEncryptSharedKey,
@@ -113,6 +113,9 @@ pub enum BitcoinError {
     /// PSBT decode error
     #[error(transparent)]
     BitcoinPsbtDecodeError(#[from] bitcoin::consensus::encode::Error),
+    /// Txid parse error
+    #[error(transparent)]
+    TxidParseError(#[from] bitcoin::hashes::hex::Error),
 }
 
 /// Bitcoin Wallet Operations
@@ -596,5 +599,50 @@ pub async fn drain_wallet(
         Ok(details)
     } else {
         Err(BitcoinError::DrainWalletNoTxDetails)
+    }
+}
+
+pub async fn bump_fee(
+    txid: String,
+    fee_rate: f32,
+    descriptor: &SecretString,
+    change_descriptor: &SecretString,
+    broadcast: bool,
+) -> Result<TransactionDetails, BitcoinError> {
+    let txid = Txid::from_str(&txid)?;
+
+    let wallet = get_wallet(descriptor, Some(change_descriptor)).await?;
+    sync_wallet(&wallet).await?;
+
+    let (mut psbt, details) = {
+        let wallet_lock = wallet.lock().await;
+        let mut builder = wallet_lock.build_fee_bump(txid)?;
+        builder.fee_rate(FeeRate::from_sat_per_vb(fee_rate));
+        builder.finish()?
+    };
+
+    if broadcast {
+        let _finalized = wallet
+            .lock()
+            .await
+            .sign(&mut psbt, SignOptions::default())?;
+        let tx = psbt.extract_tx();
+        let blockchain = get_blockchain().await;
+        blockchain.broadcast(&tx).await?;
+
+        let sent = tx.output.iter().fold(0, |sum, output| output.value + sum);
+
+        let details = TransactionDetails {
+            txid: tx.txid(),
+            transaction: Some(tx),
+            received: 0,
+            sent,
+            fee: details.fee,
+            confirmation_time: None,
+        };
+
+        Ok(details)
+    } else {
+        Ok(details)
     }
 }

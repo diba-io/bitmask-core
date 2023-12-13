@@ -57,16 +57,6 @@ export const sendSats = async (
     await BMC.send_sats(descriptor, changeDescriptor, address, amount, feeRate)
   );
 
-export const drainWallet = async (
-  destination: string,
-  descriptor: string,
-  changeDescriptor?: string,
-  feeRate?: number
-): Promise<TransactionData> =>
-  JSON.parse(
-    await BMC.drain_wallet(destination, descriptor, changeDescriptor, feeRate)
-  );
-
 export const fundVault = async (
   descriptor: string,
   changeDescriptor: string,
@@ -90,6 +80,27 @@ export const getAssetsVault = async (
 ): Promise<FundVaultDetails> =>
   JSON.parse(
     await BMC.get_assets_vault(rgbAssetsDescriptorXpub, rgbUdasDescriptorXpub)
+  );
+
+export const drainWallet = async (
+  destination: string,
+  descriptor: string,
+  changeDescriptor?: string,
+  feeRate?: number
+): Promise<TransactionData> =>
+  JSON.parse(
+    await BMC.drain_wallet(destination, descriptor, changeDescriptor, feeRate)
+  );
+
+export const bumpFee = async (
+  txid: string,
+  feeRate: number,
+  descriptor: string,
+  changeDescriptor: string,
+  broadcast: boolean
+): Promise<TransactionData> =>
+  JSON.parse(
+    await BMC.bump_fee(txid, feeRate, descriptor, changeDescriptor, broadcast)
   );
 
 // Core type interfaces based on structs defined within the bitmask-core Rust crate:
