@@ -868,6 +868,8 @@ export interface RgbOfferResponse {
   sellerAddress: string;
   /// Seller PSBT (encoded in base64)
   sellerPsbt: string;
+  /// Bundle ID (collection)
+  bundleId: string[],
 }
 
 export interface RgbBidRequest {
