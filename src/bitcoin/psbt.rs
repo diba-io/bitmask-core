@@ -49,7 +49,7 @@ pub async fn multi_sign_psbt(
 
     let mut sign_count = 0;
     for wallet in wallets {
-        wallet.lock().await.sign(
+        let sign = wallet.lock().await.sign(
             &mut psbt,
             SignOptions {
                 allow_all_sighashes: true,
@@ -58,7 +58,10 @@ pub async fn multi_sign_psbt(
             },
         )?;
 
-        sign_count += 1;
+        if sign {
+            sign_count += 1;
+        }
+
         debug!(format!("PSBT Sign: ({sign_count}/{total_wallets})"));
     }
 
@@ -72,6 +75,7 @@ pub async fn publish_psbt(
     let fee_amount = psbt.fee_amount().expect("fee amount on PSBT is known");
     let tx = psbt.extract_tx();
     debug!("tx:", &serialize(&tx.clone()).to_hex());
+    println!("tx: {}", &serialize(&tx.clone()).to_hex());
     let blockchain = get_blockchain().await;
     blockchain
         .broadcast(&tx)

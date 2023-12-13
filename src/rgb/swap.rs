@@ -455,6 +455,20 @@ pub struct RgbOffers {
 }
 
 impl RgbOffers {
+    pub fn get_offers(self, bundle_id: String) -> Vec<RgbOffer> {
+        let mut item = vec![];
+        for offers in self.offers.values() {
+            let offers = offers.to_vec();
+
+            item.extend(
+                offers
+                    .into_iter()
+                    .filter(|x| x.bundle_id.clone().unwrap_or_default() == bundle_id),
+            );
+        }
+        item
+    }
+
     pub fn get_offer(self, offer_id: OfferId) -> Option<RgbOffer> {
         let mut item = None;
         for offers in self.offers.values() {
@@ -859,6 +873,12 @@ pub async fn get_swap_bid_by_buyer(
     Ok(rgb_bid)
 }
 
+pub async fn get_auction_highest_bids(
+    _bundle_id: String,
+) -> Result<Vec<RgbBidSwap>, RgbOfferErrors> {
+    Ok(vec![])
+}
+
 pub async fn get_auction_highest_bid(
     bundle_id: String,
     offer_id: OfferId,
@@ -893,6 +913,30 @@ pub async fn publish_public_offer(new_offer: RgbOfferSwap) -> Result<(), RgbOffe
 
     let contract_id = new_offer.contract_id.clone();
     rgb_offers = rgb_offers.save_offer(contract_id, new_offer);
+
+    reconcile(&mut current_version, rgb_offers)
+        .map_err(|op| RgbOfferErrors::AutoMerge(op.to_string()))?;
+
+    store_public_offers(current_version.save())
+        .await
+        .map_err(RgbOfferErrors::IO)?;
+
+    Ok(())
+}
+
+pub async fn publish_public_offers(new_offers: Vec<RgbOfferSwap>) -> Result<(), RgbOfferErrors> {
+    let LocalRgbOffers {
+        mut rgb_offers,
+        version,
+    } = retrieve_public_offers().await.map_err(RgbOfferErrors::IO)?;
+
+    let mut current_version = automerge::AutoCommit::load(&version)
+        .map_err(|op| RgbOfferErrors::AutoMerge(op.to_string()))?;
+
+    for new_offer in new_offers {
+        let contract_id = new_offer.contract_id.clone();
+        rgb_offers = rgb_offers.save_offer(contract_id, new_offer);
+    }
 
     reconcile(&mut current_version, rgb_offers)
         .map_err(|op| RgbOfferErrors::AutoMerge(op.to_string()))?;
@@ -978,20 +1022,11 @@ pub async fn publish_auction_offers(new_offers: Vec<RgbOfferSwap>) -> Result<(),
     let mut current_version = automerge::AutoCommit::load(&version)
         .map_err(|op| RgbOfferErrors::AutoMerge(op.to_string()))?;
 
-    rgb_offers = rgb_offers.save_offers(new_offers);
+    rgb_offers = rgb_offers.save_offers(new_offers.clone());
     reconcile(&mut current_version, rgb_offers.clone())
         .map_err(|op| RgbOfferErrors::AutoMerge(op.to_string()))?;
 
-    if let Some(new_offer) = rgb_offers.clone().current_offer() {
-        store_auction_offers(&bundle_id, &file_name, current_version.save())
-            .await
-            .map_err(RgbOfferErrors::IO)?;
-
-        publish_public_offer(new_offer).await?;
-    } else {
-        return Err(RgbOfferErrors::NoBundle);
-    }
-
+    publish_public_offers(new_offers).await?;
     Ok(())
 }
 
@@ -1250,7 +1285,17 @@ impl PsbtSwapEx<PsbtV0> for PsbtV0 {
         new_psbt.proprietary.extend(other.proprietary);
         new_psbt.unknown.extend(other.unknown);
 
-        new_psbt.inputs.extend(other.inputs);
+        // new_psbt.inputs.extend(other.inputs);
+        let current_inputs = new_psbt.inputs.clone();
+        let new_inputs = other.inputs.clone();
+        new_inputs.into_iter().for_each(|vin| {
+            if !current_inputs.clone().into_iter().any(|x| {
+                x.bip32_derivation == vin.bip32_derivation
+                    && x.non_witness_utxo.eq(&vin.non_witness_utxo)
+            }) {
+                new_psbt.inputs.push(vin);
+            }
+        });
 
         let current_outputs = new_psbt.outputs.clone();
         let new_outputs = other.outputs.clone();
@@ -1271,7 +1316,18 @@ impl PsbtSwapEx<PsbtV0> for PsbtV0 {
         new_psbt.unsigned_tx.lock_time =
             cmp::max(new_psbt.unsigned_tx.lock_time, other.unsigned_tx.lock_time);
 
-        new_psbt.unsigned_tx.input.extend(other.unsigned_tx.input);
+        // new_psbt.unsigned_tx.input.extend(other.unsigned_tx.input);
+        let current_inputs = new_psbt.unsigned_tx.input.clone();
+        let new_inputs = other.unsigned_tx.input.clone();
+        new_inputs.into_iter().for_each(|vin| {
+            if !current_inputs
+                .clone()
+                .into_iter()
+                .any(|x| x.previous_output.eq(&vin.previous_output))
+            {
+                new_psbt.unsigned_tx.input.push(vin);
+            }
+        });
 
         let current_outputs = new_psbt.unsigned_tx.output.clone();
         let new_outputs = other.unsigned_tx.output.clone();

@@ -1000,7 +1000,7 @@ impl PsbtEx<Psbt> for Psbt {
 
         if change > 0 {
             let change_derivation: [UnhardenedIndex; 2] =
-                change_index.try_into().expect("invalid hardened index");
+                change_index.try_into().expect( "invalid hardened index");
             let mut bip32_derivation = bmap! {};
             let bip32_derivation_fn = |account: &DerivationAccount| {
                 let (pubkey, key_source) = account

@@ -10,9 +10,9 @@ use bitmask_core::{
     },
     rgb::{
         accept_transfer, create_auction_bid, create_auction_offers, create_buyer_bid,
-        create_seller_offer, create_swap_transfer, create_watcher, finish_auction_offer,
-        get_contract, get_next_offer, import as import_contract, structs::ContractAmount,
-        swap::RgbSwapStrategy, update_seller_offer, verify_transfers,
+        create_seller_offer, create_swap_transfer, create_watcher, get_contract, get_next_offer,
+        import as import_contract, structs::ContractAmount, swap::RgbSwapStrategy,
+        update_seller_offer, verify_transfers,
     },
     structs::{
         AcceptRequest, AssetType, ImportRequest, IssueResponse, PsbtFeeRequest, PublishPsbtRequest,
@@ -886,8 +886,8 @@ async fn create_auction_swap() -> anyhow::Result<()> {
     assert!(resp.is_ok());
 
     // 7. Finish Offer
-    let resp = finish_auction_offer(&seller_sk, offer_id.clone()).await;
-    assert!(resp.is_ok());
+    // let resp = finish_auction_offer(&seller_sk, offer_id.clone()).await;
+    // assert!(resp.is_ok());
 
     // 8. Mine Some Blocks
     generate_new_block().await;

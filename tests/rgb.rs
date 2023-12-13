@@ -26,6 +26,7 @@ mod rgb {
         mod issue;
         mod proxy;
         mod rbf;
+        mod sign_hash;
         mod states;
         mod swaps;
         mod transfers;
