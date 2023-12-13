@@ -1407,6 +1407,8 @@ pub struct RgbOfferResponse {
     pub seller_address: String,
     /// Seller PSBT (encoded in base64)
     pub seller_psbt: String,
+    /// Bundle ID (collection)
+    pub bundle_id: Option<String>,
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug, Display, Default, Validate)]

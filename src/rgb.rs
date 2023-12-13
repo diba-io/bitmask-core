@@ -118,12 +118,12 @@ use self::{
         RgbTransferV1, RgbTransfersV1,
     },
     swap::{
-        complete_bid, complete_offer, get_auction_highest_bid, get_public_offer, get_public_offers,
-        get_swap_bid_by_buyer, get_swap_bid_by_seller, get_swap_bids_by_offer, next_auction_offer,
-        publish_auction_bid, publish_auction_offers, publish_public_bid, publish_public_offer,
-        publish_swap_bid, remove_public_offers, update_transfer_bid, update_transfer_offer,
-        PsbtSwapEx, RgbBid, RgbBidSwap, RgbOffer, RgbOfferErrors, RgbOfferOptions, RgbOfferSwap,
-        RgbOrderStatus, RgbSwapStrategy,
+        complete_bid, complete_offer, get_auction_highest_bid, get_next_auction_offer,
+        get_public_offer, get_public_offers, get_swap_bid_by_buyer, get_swap_bid_by_seller,
+        get_swap_bids_by_offer, next_auction_offer, publish_auction_bid, publish_auction_offers,
+        publish_public_bid, publish_public_offer, publish_swap_bid, remove_public_offers,
+        update_transfer_bid, update_transfer_offer, PsbtSwapEx, RgbBid, RgbBidSwap, RgbOffer,
+        RgbOfferErrors, RgbOfferOptions, RgbOfferSwap, RgbOrderStatus, RgbSwapStrategy,
     },
     transfer::{extract_transfer, AcceptTransferError, NewInvoiceError, NewPaymentError},
     wallet::{
@@ -967,6 +967,7 @@ pub async fn create_seller_offer(
         bitcoin_price,
         seller_address: seller_address.to_string(),
         seller_psbt: seller_psbt.clone(),
+        bundle_id: None,
     };
 
     let mut my_offers = retrieve_offers(sk).await.map_err(RgbSwapError::IO)?;
@@ -1029,6 +1030,7 @@ pub async fn create_auction_offers(
         .await?;
 
         let RgbOffer {
+            offer_id,
             contract_id,
             asset_amount,
             asset_precision,
@@ -1036,6 +1038,7 @@ pub async fn create_auction_offers(
             bitcoin_price,
             seller_psbt,
             strategy,
+            bundle_id,
             ..
         } = new_offer.clone();
 
@@ -1063,12 +1066,13 @@ pub async fn create_auction_offers(
         collection.push(RgbOfferSwap::from(new_offer.clone()));
 
         resp.push(RgbOfferResponse {
-            offer_id: new_offer.clone().offer_id,
+            offer_id,
             contract_id: contract_id.clone(),
             contract_amount,
             bitcoin_price,
             seller_address: seller_address.to_string(),
             seller_psbt: final_psbt,
+            bundle_id,
         });
     }
 
@@ -1965,7 +1969,7 @@ async fn internal_finish_auction(
             .map_err(|op| RgbSwapError::WrongPsbtFinal(op.to_string()))?;
 
         let outpoint = Outpoint::new(txid, 0);
-        next_auction_offer(offer, outpoint)
+        next_auction_offer(offer.clone(), outpoint)
             .await
             .map_err(|op| RgbSwapError::WrongPsbtFinal(op.to_string()))?;
 
@@ -1988,10 +1992,23 @@ pub async fn list_auctions() -> Result<Vec<RgbAuctionOfferResponse>, RgbSwapErro
         .map_err(RgbSwapError::Auction)?
         .into_iter()
         .filter(|x| {
-            x.strategy == RgbSwapStrategy::Auction && x.expire_at.unwrap_or_default().sub(utc) <= 0
+            x.strategy == RgbSwapStrategy::Auction
+                && x.bundle_id.is_some()
+                && x.expire_at.unwrap_or_default().sub(utc) <= 0
         })
         .map(RgbAuctionOfferResponse::from)
         .collect();
+
+    Ok(auction_offers)
+}
+
+pub async fn get_next_offer(
+    bundle_id: &str,
+) -> Result<Option<RgbAuctionOfferResponse>, RgbSwapError> {
+    let auction_offers = get_next_auction_offer(bundle_id)
+        .await
+        .map_err(RgbSwapError::Auction)?
+        .map(RgbAuctionOfferResponse::from);
 
     Ok(auction_offers)
 }

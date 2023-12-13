@@ -1,13 +1,4 @@
 #![allow(deprecated)]
-use super::{
-    constants::{LIB_NAME_BITMASK, RGB20_DERIVATION_INDEX, RGB21_DERIVATION_INDEX},
-    crdt::{LocalRgbAuctions, LocalRgbOfferBid, LocalRgbOffers},
-    fs::{
-        retrieve_auctions_offers, retrieve_public_offers, retrieve_swap_offer_bid,
-        store_auction_offers, store_public_offers, store_swap_bids, RgbPersistenceError,
-    },
-};
-use crate::{structs::AllocationDetail, validators::RGBContext};
 use ::psbt::{serialize::Serialize as PsbtSerialize, Psbt};
 use amplify::{
     confinement::{Confined, U32},
@@ -37,6 +28,16 @@ use std::{
 use strict_encoding::{
     StrictDecode, StrictDeserialize, StrictDumb, StrictEncode, StrictSerialize, StrictType,
 };
+
+use crate::rgb::{
+    constants::{LIB_NAME_BITMASK, RGB20_DERIVATION_INDEX, RGB21_DERIVATION_INDEX},
+    crdt::{LocalRgbAuctions, LocalRgbOfferBid, LocalRgbOffers},
+    fs::{
+        retrieve_auctions_offers, retrieve_public_offers, retrieve_swap_offer_bid,
+        store_auction_offers, store_public_offers, store_swap_bids, RgbPersistenceError,
+    },
+};
+use crate::{structs::AllocationDetail, validators::RGBContext};
 
 type AssetId = String;
 type OfferId = String;
@@ -627,7 +628,7 @@ impl RgbAuctionSwaps {
                 }
             }
 
-            offer.seller_address = PsbtSerialize::serialize(&psbt).to_hex();
+            offer.seller_psbt = PsbtSerialize::serialize(&psbt).to_hex();
             collection_updated.push(offer);
         }
 
@@ -715,6 +716,17 @@ pub async fn get_public_offer(offer_id: OfferId) -> Result<RgbOfferSwap, RgbOffe
     };
 
     Ok(offer)
+}
+
+pub async fn get_next_auction_offer(
+    bundle_id: &str,
+) -> Result<Option<RgbOfferSwap>, RgbOfferErrors> {
+    let file_name = format!("bundle:{bundle_id}");
+
+    let LocalRgbAuctions { rgb_offers, .. } = retrieve_auctions_offers(bundle_id, &file_name)
+        .await
+        .map_err(RgbOfferErrors::IO)?;
+    Ok(rgb_offers.current_offer())
 }
 
 pub async fn get_auction_offer(
@@ -1238,9 +1250,6 @@ impl PsbtSwapEx<PsbtV0> for PsbtV0 {
         new_psbt.proprietary.extend(other.proprietary);
         new_psbt.unknown.extend(other.unknown);
 
-        // TODO: Make more tests!
-        // new_psbt.inputs.remove(0);
-        // new_psbt.inputs.insert(0, other.inputs.remove(0));
         new_psbt.inputs.extend(other.inputs);
 
         let current_outputs = new_psbt.outputs.clone();
@@ -1262,11 +1271,6 @@ impl PsbtSwapEx<PsbtV0> for PsbtV0 {
         new_psbt.unsigned_tx.lock_time =
             cmp::max(new_psbt.unsigned_tx.lock_time, other.unsigned_tx.lock_time);
 
-        // new_psbt.unsigned_tx.input.remove(0);
-        // new_psbt
-        //     .unsigned_tx
-        //     .input
-        //     .insert(0, other.unsigned_tx.input.remove(0));
         new_psbt.unsigned_tx.input.extend(other.unsigned_tx.input);
 
         let current_outputs = new_psbt.unsigned_tx.output.clone();

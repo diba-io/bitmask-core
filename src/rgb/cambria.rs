@@ -1,7 +1,7 @@
-use crate::rgb::structs::{RgbAccountV0, RgbAccountV1};
+use crate::rgb::structs::{
+    RgbAccountV0, RgbAccountV1, RgbTransferV0, RgbTransferV1, RgbTransfersV0, RgbTransfersV1,
+};
 use postcard::from_bytes;
-
-use super::structs::{RgbTransferV0, RgbTransferV1, RgbTransfersV0, RgbTransfersV1};
 
 #[derive(Debug, Clone, Eq, PartialEq, Display, From, Error)]
 #[display(doc_comments)]

@@ -5,24 +5,20 @@ use postcard::{from_bytes, to_allocvec};
 use rgbstd::{persistence::Stock, stl::LIB_ID_RGB};
 use strict_encoding::{StrictDeserialize, StrictSerialize};
 
-use crate::carbonado::{auctions_retrieve, auctions_store, marketplace_store};
-use crate::rgb::crdt::{LocalRgbAccount, LocalRgbOffers, RawRgbAccount};
-
-use crate::rgb::swap::{RgbBids, RgbOffers};
 use crate::{
-    carbonado::{marketplace_retrieve, retrieve, store},
+    carbonado::{
+        auctions_retrieve, auctions_store, marketplace_retrieve, marketplace_store, retrieve, store,
+    },
     rgb::{
-        cambria::{ModelVersion, RgbAccountVersions},
+        cambria::{ModelVersion, RgbAccountVersions, RgbtransferVersions},
         constants::RGB_STRICT_TYPE_VERSION,
-        crdt::LocalRgbOfferBid,
-        structs::RgbAccountV1,
+        crdt::{
+            LocalRgbAccount, LocalRgbAuctions, LocalRgbOfferBid, LocalRgbOffers, RawRgbAccount,
+        },
+        structs::{RgbAccountV1, RgbTransfersV1},
+        swap::{RgbAuctionSwaps, RgbBidSwap, RgbBids, RgbOffers, RgbPublicSwaps},
     },
 };
-
-use super::cambria::RgbtransferVersions;
-use super::crdt::LocalRgbAuctions;
-use super::structs::RgbTransfersV1;
-use super::swap::{RgbAuctionSwaps, RgbBidSwap, RgbPublicSwaps};
 
 const RGB_ACCOUNT_VERSION: [u8; 3] = *b"v10";
 const RGB_TRANSFER_VERSION: [u8; 3] = *b"v10";

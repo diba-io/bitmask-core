@@ -12,10 +12,8 @@ use std::{
 
 use crate::rgb::{
     structs::{RgbAccountV0, RgbAccountV1},
-    swap::{RgbBidSwap, RgbPublicSwaps},
+    swap::{RgbAuctionSwaps, RgbBidSwap, RgbPublicSwaps},
 };
-
-use super::swap::RgbAuctionSwaps;
 
 #[derive(Debug, Clone, Eq, PartialEq, Display, From, Error)]
 #[display(doc_comments)]
