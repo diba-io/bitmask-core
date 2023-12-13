@@ -2,13 +2,7 @@
 #![cfg(feature = "server")]
 #![cfg(not(target_arch = "wasm32"))]
 use std::{
-    env,
-    fs::OpenOptions,
-    io::ErrorKind,
-    net::SocketAddr,
-    path,
-    str::FromStr,
-    time::{Duration, Instant},
+    env, fs::OpenOptions, io::ErrorKind, net::SocketAddr, path, str::FromStr, time::Instant,
 };
 
 use amplify::hex::FromHex;
@@ -54,6 +48,7 @@ use bitmask_core::{
         SelfIssueRequest, SignPsbtRequest, WatcherRequest,
     },
 };
+use chrono::{Duration, Local, Timelike};
 use log::{debug, error, info};
 use tokio::{fs, time::sleep};
 use tower_http::cors::CorsLayer;
@@ -739,21 +734,39 @@ async fn csv_metrics() -> Result<impl IntoResponse, AppError> {
     Ok((StatusCode::OK, [("content-type", "text/csv")], metrics_csv))
 }
 
-async fn init_metrics() -> Result<()> {
+async fn periodic_metrics() -> Result<()> {
     let path = env::var("CARBONADO_DIR").unwrap_or("/tmp/bitmaskd/carbonado".to_owned());
     let dir = path::Path::new(&path);
 
     info!("Starting metrics collection...");
-    let duration = Instant::now();
+    let now = Instant::now();
 
     metrics::init(dir).await?;
 
-    let duration = Instant::now() - duration;
+    let duration = Instant::now() - now;
 
     info!(
         "Finished metrics collection. Took: {} seconds",
         duration.as_secs_f32()
     );
+
+    // Get the current local time
+    let now = Local::now();
+
+    // Calculate the remaining time until midnight
+    let until_midnight = Duration::seconds(
+        (23 - now.hour()) as i64 * 3600
+            + (59 - now.minute()) as i64 * 60
+            + (60 - now.second()) as i64
+            + 120,
+    );
+
+    // Sleep until midnight
+    println!("Sleeping for {:?} seconds", until_midnight.num_seconds());
+    sleep(std::time::Duration::from_secs(
+        until_midnight.num_seconds() as u64
+    ))
+    .await;
 
     Ok(())
 }
@@ -821,8 +834,10 @@ async fn main() -> Result<()> {
             .route("/regtest/send/:address/:amount", get(send_coins));
     } else {
         tokio::spawn(async {
-            if let Err(e) = init_metrics().await {
-                error!("Error in periodic metrics: {e}");
+            loop {
+                if let Err(e) = periodic_metrics().await {
+                    error!("Error in periodic metrics: {e}");
+                }
             }
         });
     }
