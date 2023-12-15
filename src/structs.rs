@@ -1643,7 +1643,7 @@ pub struct PublicRgbOfferResponse {
     /// Bitcoin Price
     bitcoin_price: u64,
     /// Initial Offer PSBT
-    offer_psbt: String,
+    offer_psbt: Option<String>,
 }
 
 impl From<RgbOfferSwap> for PublicRgbOfferResponse {
@@ -1653,7 +1653,7 @@ impl From<RgbOfferSwap> for PublicRgbOfferResponse {
             offer_id: value.offer_id,
             asset_amount: value.asset_amount,
             bitcoin_price: value.bitcoin_price,
-            offer_pub: value.public,
+            offer_pub: value.pub_key,
             offer_psbt: value.seller_psbt,
         }
     }
@@ -1732,7 +1732,7 @@ impl From<RgbOffer> for RgbOfferDetail {
         Self {
             contract_id: value.contract_id,
             offer_id: value.offer_id,
-            offer_status: value.offer_status.to_string(),
+            offer_status: value.status.to_string(),
             asset_amount: value.asset_amount,
             bitcoin_price: value.bitcoin_price,
         }
@@ -1763,7 +1763,7 @@ impl From<RgbBid> for RgbBidDetail {
             contract_id: value.contract_id,
             offer_id: value.offer_id,
             bid_id: value.bid_id,
-            bid_status: value.bid_status.to_string(),
+            bid_status: value.status.to_string(),
             asset_amount: value.asset_amount,
             bitcoin_price: value.bitcoin_amount,
         }

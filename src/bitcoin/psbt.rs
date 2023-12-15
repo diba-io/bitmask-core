@@ -75,7 +75,6 @@ pub async fn publish_psbt(
     let fee_amount = psbt.fee_amount().expect("fee amount on PSBT is known");
     let tx = psbt.extract_tx();
     debug!("tx:", &serialize(&tx.clone()).to_hex());
-    println!("tx: {}", &serialize(&tx.clone()).to_hex());
     let blockchain = get_blockchain().await;
     blockchain
         .broadcast(&tx)

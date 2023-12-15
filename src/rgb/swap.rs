@@ -1,5 +1,4 @@
 #![allow(deprecated)]
-use ::psbt::{serialize::Serialize as PsbtSerialize, Psbt};
 use amplify::{
     confinement::{Confined, U32},
     hex::{FromHex, ToHex},
@@ -7,10 +6,10 @@ use amplify::{
 };
 use autosurgeon::{reconcile, Hydrate, Reconcile};
 use baid58::{Baid58ParseError, FromBaid58, ToBaid58};
-use bitcoin::{psbt::Psbt as PsbtV0, OutPoint};
+use bitcoin::psbt::Psbt as PsbtV0;
 use bitcoin_30::secp256k1::{ecdh::SharedSecret, PublicKey, Secp256k1, SecretKey};
 use bitcoin_scripts::address::AddressCompat;
-use bp::{Outpoint, Txid};
+use bp::Txid;
 use core::fmt::Display;
 use garde::Validate;
 
@@ -30,7 +29,7 @@ use strict_encoding::{
 };
 
 use crate::rgb::{
-    constants::{LIB_NAME_BITMASK, RGB20_DERIVATION_INDEX, RGB21_DERIVATION_INDEX},
+    constants::LIB_NAME_BITMASK,
     crdt::{LocalRgbAuctions, LocalRgbOfferBid, LocalRgbOffers},
     fs::{
         retrieve_auctions_offers, retrieve_public_offers, retrieve_swap_offer_bid,
@@ -107,11 +106,15 @@ pub struct RgbOffer {
     #[garde(length(min = 0, max = 100))]
     pub offer_id: OfferId,
     #[garde(skip)]
-    pub offer_status: RgbOrderStatus,
+    pub status: RgbOrderStatus,
     #[garde(ascii)]
     pub contract_id: AssetId,
     #[garde(ascii)]
     pub iface: String,
+    #[garde(skip)]
+    pub strategy: RgbSwapStrategy,
+    #[garde(ascii)]
+    pub pub_key: String,
     #[garde(ascii)]
     pub terminal: String,
     #[garde(range(min = u64::MIN, max = u64::MAX))]
@@ -121,13 +124,9 @@ pub struct RgbOffer {
     #[garde(range(min = u64::MIN, max = u64::MAX))]
     pub bitcoin_price: u64,
     #[garde(ascii)]
-    pub seller_psbt: String,
-    #[garde(ascii)]
     pub seller_address: String,
     #[garde(ascii)]
-    pub public: String,
-    #[garde(skip)]
-    pub strategy: RgbSwapStrategy,
+    pub seller_psbt: String,
     #[garde(skip)]
     pub expire_at: Option<i64>,
     #[garde(skip)]
@@ -137,6 +136,10 @@ pub struct RgbOffer {
 }
 
 impl RgbOffer {
+    pub fn is_fill(self) -> bool {
+        self.status == RgbOrderStatus::Fill
+    }
+
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn new(
         secret: String,
@@ -156,7 +159,7 @@ impl RgbOffer {
         let secp = Secp256k1::new();
         let secret = hex::decode(secret).expect("cannot decode hex sk in new RgbOffer");
         let secret_key = SecretKey::from_slice(&secret).expect("error parsing sk in new RgbOffer");
-        let public_key = PublicKey::from_secret_key(&secp, &secret_key);
+        let pub_key = PublicKey::from_secret_key(&secp, &secret_key).to_hex();
 
         let mut asset_utxos: Vec<String> = allocations.into_iter().map(|a| a.utxo).collect();
         asset_utxos.sort();
@@ -173,7 +176,7 @@ impl RgbOffer {
 
         RgbOffer {
             offer_id: order_id.to_string(),
-            offer_status: RgbOrderStatus::Open,
+            status: RgbOrderStatus::Open,
             contract_id,
             iface,
             asset_amount,
@@ -181,7 +184,7 @@ impl RgbOffer {
             bitcoin_price,
             seller_psbt: psbt,
             seller_address: seller_address.to_string(),
-            public: public_key.to_hex(),
+            pub_key,
             expire_at,
             terminal,
             strategy,
@@ -209,13 +212,13 @@ pub struct RgbOfferSwap {
     #[garde(range(min = u64::MIN, max = u64::MAX))]
     pub bitcoin_price: u64,
     #[garde(ascii)]
-    pub seller_psbt: String,
-    #[garde(ascii)]
     pub seller_address: String,
-    #[garde(ascii)]
-    pub public: String,
     #[garde(skip)]
     pub strategy: RgbSwapStrategy,
+    #[garde(ascii)]
+    pub pub_key: String,
+    #[garde(ascii)]
+    pub seller_psbt: Option<String>,
     #[garde(skip)]
     pub bundle_id: Option<String>,
     #[garde(skip)]
@@ -232,7 +235,7 @@ impl From<RgbOffer> for RgbOfferSwap {
             bitcoin_price,
             seller_psbt,
             seller_address,
-            public,
+            pub_key,
             asset_precision,
             strategy,
             expire_at,
@@ -240,19 +243,25 @@ impl From<RgbOffer> for RgbOfferSwap {
             ..
         } = value;
 
+        let seller_psbt = if seller_psbt.is_empty() {
+            None
+        } else {
+            Some(seller_psbt)
+        };
+
         Self {
             offer_id,
+            strategy,
             contract_id,
             iface,
             asset_amount,
+            asset_precision,
             bitcoin_price,
             seller_psbt,
             seller_address,
-            public,
-            strategy,
-            asset_precision,
-            expire_at,
+            pub_key,
             bundle_id,
+            expire_at,
         }
     }
 }
@@ -265,10 +274,12 @@ pub struct RgbBid {
     #[garde(length(min = 0, max = 100))]
     pub bid_id: BidId,
     #[garde(skip)]
-    pub bid_status: RgbOrderStatus,
+    pub status: RgbOrderStatus,
     #[garde(ascii)]
     #[garde(length(min = 0, max = 100))]
     pub offer_id: OfferId,
+    #[garde(ascii)]
+    pub pub_key: String,
     #[garde(skip)]
     pub contract_id: AssetId,
     #[garde(skip)]
@@ -280,11 +291,9 @@ pub struct RgbBid {
     #[garde(range(min = u64::MIN, max = u64::MAX))]
     pub bitcoin_amount: u64,
     #[garde(ascii)]
-    pub buyer_psbt: String,
-    #[garde(ascii)]
     pub buyer_invoice: String,
     #[garde(ascii)]
-    pub public: String,
+    pub buyer_psbt: Option<String>,
     #[garde(skip)]
     pub transfer_id: Option<String>,
     #[garde(skip)]
@@ -294,6 +303,10 @@ pub struct RgbBid {
 }
 
 impl RgbBid {
+    pub fn is_fill(self) -> bool {
+        self.status == RgbOrderStatus::Fill
+    }
+
     pub(crate) fn new(
         secret: String,
         offer_id: OfferId,
@@ -306,7 +319,7 @@ impl RgbBid {
         let secp = Secp256k1::new();
         let secret = hex::decode(secret).expect("cannot decode hex sk in new RgbBid");
         let secret_key = SecretKey::from_slice(&secret).expect("error parsing sk in new RgbBid");
-        let public_key = PublicKey::from_secret_key(&secp, &secret_key);
+        let pub_key = PublicKey::from_secret_key(&secp, &secret_key).to_hex();
 
         let mut allocations = bitcoin_utxos;
         allocations.sort();
@@ -323,13 +336,13 @@ impl RgbBid {
 
         RgbBid {
             bid_id: order_id.to_string(),
-            bid_status: RgbOrderStatus::Open,
+            status: RgbOrderStatus::Open,
             offer_id,
             contract_id,
             asset_amount,
             asset_precision,
             bitcoin_amount: bitcoin_price,
-            public: public_key.to_hex(),
+            pub_key,
             ..Default::default()
         }
     }
@@ -346,6 +359,8 @@ pub struct RgbBidSwap {
     #[garde(length(min = 0, max = 100))]
     pub offer_id: OfferId,
     #[garde(ascii)]
+    pub pub_key: String,
+    #[garde(ascii)]
     #[garde(length(min = 0, max = 100))]
     pub iface: String,
     #[garde(skip)]
@@ -357,11 +372,9 @@ pub struct RgbBidSwap {
     #[garde(range(min = u64::MIN, max = u64::MAX))]
     pub bitcoin_amount: u64,
     #[garde(ascii)]
-    pub buyer_psbt: String,
-    #[garde(ascii)]
     pub buyer_invoice: String,
-    #[garde(ascii)]
-    pub public: String,
+    #[garde(skip)]
+    pub buyer_psbt: Option<String>,
     #[garde(skip)]
     pub transfer_id: Option<String>,
     #[garde(skip)]
@@ -369,11 +382,11 @@ pub struct RgbBidSwap {
     #[garde(skip)]
     pub swap_psbt: Option<String>,
     #[garde(skip)]
-    pub tap_outpoint: Option<String>,
+    pub swap_outpoint: Option<String>,
     #[garde(skip)]
-    pub tap_amount: Option<u64>,
+    pub swap_amount: Option<u64>,
     #[garde(skip)]
-    pub tap_commit: Option<String>,
+    pub swap_commit: Option<String>,
 }
 
 impl From<RgbBid> for RgbBidSwap {
@@ -387,7 +400,7 @@ impl From<RgbBid> for RgbBidSwap {
             bitcoin_amount,
             buyer_psbt,
             buyer_invoice,
-            public,
+            pub_key,
             transfer_id,
             transfer,
             iface,
@@ -405,7 +418,7 @@ impl From<RgbBid> for RgbBidSwap {
             bitcoin_amount,
             buyer_psbt,
             buyer_invoice,
-            public,
+            pub_key,
             transfer_id,
             transfer,
             swap_psbt,
@@ -426,7 +439,7 @@ pub struct PublicRgbBid {
     #[garde(range(min = u64::MIN, max = u64::MAX))]
     pub bitcoin_amount: u64,
     #[garde(ascii)]
-    pub public: String,
+    pub pub_key: String,
 }
 
 impl From<RgbBidSwap> for PublicRgbBid {
@@ -435,7 +448,7 @@ impl From<RgbBidSwap> for PublicRgbBid {
             bid_id,
             asset_amount,
             bitcoin_amount,
-            public,
+            pub_key,
             ..
         } = value;
 
@@ -443,7 +456,7 @@ impl From<RgbBidSwap> for PublicRgbBid {
             bid_id,
             asset_amount,
             bitcoin_amount,
-            public,
+            pub_key,
         }
     }
 }
@@ -590,64 +603,17 @@ pub struct RgbAuctionSwaps {
 }
 
 impl RgbAuctionSwaps {
-    pub fn is_current_offer(self, offer_id: OfferId) -> bool {
-        if let Some(offer) = self.items.first() {
-            offer.offer_id.eq(&offer_id)
-        } else {
-            false
-        }
+    pub fn get_offer(self, bundle_id: String, offer_id: String) -> Option<RgbOfferSwap> {
+        self.items.into_iter().find(|x| {
+            x.bundle_id.clone().unwrap_or_default() == bundle_id && x.offer_id == offer_id
+        })
     }
 
-    pub fn current_offer(self) -> Option<RgbOfferSwap> {
-        self.items.first().cloned()
-    }
-
-    pub fn next_offer(mut self, offer_id: OfferId, outpoint: Outpoint) -> Self {
-        let mut offer_collection = self.items.clone();
-
-        if let Some(position) = offer_collection.iter().position(|x| x.offer_id == offer_id) {
-            self.bids.remove(&offer_id);
-            offer_collection.remove(position);
-        }
-
-        let mut collection_updated = vec![];
-        for mut offer in offer_collection {
-            let RgbOfferSwap { seller_psbt, .. } = offer.clone();
-            let mut psbt = Psbt::from_str(&seller_psbt).expect("invalid psbt hex format");
-
-            for (index, input) in psbt.clone().inputs.into_iter().enumerate() {
-                if input
-                    .bip32_derivation
-                    .first_key_value()
-                    .map(|(_, src)| src)
-                    .or_else(|| {
-                        input
-                            .tap_key_origins
-                            .first_key_value()
-                            .map(|(_, (_, src))| src)
-                    })
-                    .and_then(|(_, src)| src.into_iter().rev().nth(1))
-                    .copied()
-                    .map(u32::from)
-                    .filter(|index| {
-                        *index == RGB20_DERIVATION_INDEX || *index == RGB21_DERIVATION_INDEX
-                    })
-                    .is_some()
-                {
-                    let prev_txid =
-                        bitcoin::Txid::from_str(&outpoint.txid.to_hex()).expect("invalid tx id");
-                    let prev_out = OutPoint::new(prev_txid, outpoint.vout.into_u32());
-                    psbt.inputs[index].previous_outpoint = prev_out;
-                    break;
-                }
-            }
-
-            offer.seller_psbt = PsbtSerialize::serialize(&psbt).to_hex();
-            collection_updated.push(offer);
-        }
-
-        self.items = collection_updated;
-        self
+    pub fn get_offers(self, bundle_id: String) -> Vec<RgbOfferSwap> {
+        self.items
+            .into_iter()
+            .filter(|x| x.bundle_id.clone().unwrap_or_default() == bundle_id)
+            .collect()
     }
 
     pub fn save_bid(mut self, offer_id: OfferId, bid: RgbBidSwap) -> Self {
@@ -732,17 +698,6 @@ pub async fn get_public_offer(offer_id: OfferId) -> Result<RgbOfferSwap, RgbOffe
     Ok(offer)
 }
 
-pub async fn get_next_auction_offer(
-    bundle_id: &str,
-) -> Result<Option<RgbOfferSwap>, RgbOfferErrors> {
-    let file_name = format!("bundle:{bundle_id}");
-
-    let LocalRgbAuctions { rgb_offers, .. } = retrieve_auctions_offers(bundle_id, &file_name)
-        .await
-        .map_err(RgbOfferErrors::IO)?;
-    Ok(rgb_offers.current_offer())
-}
-
 pub async fn get_auction_offer(
     bundle_id: &str,
     offer_id: OfferId,
@@ -753,11 +708,7 @@ pub async fn get_auction_offer(
         .await
         .map_err(RgbOfferErrors::IO)?;
 
-    if !rgb_offers.clone().is_current_offer(offer_id.clone()) {
-        return Err(RgbOfferErrors::NoOffer(offer_id));
-    }
-
-    Ok(rgb_offers.current_offer())
+    Ok(rgb_offers.get_offer(bundle_id.to_owned(), offer_id.clone()))
 }
 
 pub async fn get_public_bid(
@@ -800,7 +751,11 @@ pub async fn get_swap_bids_by_offer(
 
     let mut swap_bids = vec![];
     for bid in public_bids {
-        let PublicRgbBid { bid_id, public, .. } = bid.clone();
+        let PublicRgbBid {
+            bid_id,
+            pub_key: public,
+            ..
+        } = bid.clone();
         let secret = hex::decode(sk).map_err(|op| RgbOfferErrors::Keys(op.to_string()))?;
         let secret_key =
             SecretKey::from_slice(&secret).map_err(|op| RgbOfferErrors::Keys(op.to_string()))?;
@@ -832,7 +787,7 @@ pub async fn get_swap_bid_by_seller(
     let secret_key =
         SecretKey::from_slice(&secret).map_err(|op| RgbOfferErrors::Keys(op.to_string()))?;
     let public_key =
-        PublicKey::from_str(&bid.public).map_err(|op| RgbOfferErrors::Keys(op.to_string()))?;
+        PublicKey::from_str(&bid.pub_key).map_err(|op| RgbOfferErrors::Keys(op.to_string()))?;
 
     let share_sk = SharedSecret::new(&public_key, &secret_key);
     let share_sk = share_sk.display_secret().to_string();
@@ -852,7 +807,9 @@ pub async fn get_swap_bid_by_buyer(
     bid_id: BidId,
 ) -> Result<RgbBidSwap, RgbOfferErrors> {
     let RgbOfferSwap {
-        expire_at, public, ..
+        expire_at,
+        pub_key: public,
+        ..
     } = get_public_offer(offer_id.clone()).await?;
 
     let secret = hex::decode(sk).map_err(|op| RgbOfferErrors::Keys(op.to_string()))?;
@@ -874,9 +831,23 @@ pub async fn get_swap_bid_by_buyer(
 }
 
 pub async fn get_auction_highest_bids(
-    _bundle_id: String,
+    bundle_id: String,
 ) -> Result<Vec<RgbBidSwap>, RgbOfferErrors> {
-    Ok(vec![])
+    let file_name = format!("bundle:{bundle_id}");
+    let LocalRgbAuctions { rgb_offers, .. } = retrieve_auctions_offers(&bundle_id, &file_name)
+        .await
+        .map_err(RgbOfferErrors::IO)?;
+
+    let mut highest_bids = vec![];
+    for RgbOfferSwap { offer_id, .. } in rgb_offers.clone().get_offers(bundle_id) {
+        if let Some(bids) = rgb_offers.bids.get(&offer_id).cloned() {
+            if let Some(bid) = bids.iter().max_by_key(|x| x.bitcoin_amount).cloned() {
+                highest_bids.push(bid);
+            }
+        };
+    }
+
+    Ok(highest_bids)
 }
 
 pub async fn get_auction_highest_bid(
@@ -889,7 +860,11 @@ pub async fn get_auction_highest_bid(
         .await
         .map_err(RgbOfferErrors::IO)?;
 
-    if !rgb_offers.clone().is_current_offer(offer_id.clone()) {
+    if rgb_offers
+        .clone()
+        .get_offer(bundle_id.to_owned(), offer_id.clone())
+        .is_none()
+    {
         return Err(RgbOfferErrors::NoOffer(offer_id.clone()));
     }
 
@@ -989,7 +964,9 @@ pub async fn publish_swap_bid(
 
     let share_sk = SharedSecret::new(&public_key, &secret_key);
     let share_sk = share_sk.display_secret().to_string();
+
     let file_name = format!("{offer_id}-{bid_id}");
+
     let LocalRgbOfferBid { version, .. } =
         retrieve_swap_offer_bid(&share_sk, &file_name, expire_at)
             .await
@@ -1026,6 +1003,10 @@ pub async fn publish_auction_offers(new_offers: Vec<RgbOfferSwap>) -> Result<(),
     reconcile(&mut current_version, rgb_offers.clone())
         .map_err(|op| RgbOfferErrors::AutoMerge(op.to_string()))?;
 
+    store_auction_offers(&bundle_id, &file_name, current_version.save())
+        .await
+        .map_err(RgbOfferErrors::IO)?;
+
     publish_public_offers(new_offers).await?;
     Ok(())
 }
@@ -1053,43 +1034,6 @@ pub async fn publish_auction_bid(new_bid: RgbBidSwap) -> Result<(), RgbOfferErro
     store_auction_offers(&bundle_id, &file_name, local_copy.save())
         .await
         .map_err(RgbOfferErrors::IO)?;
-
-    Ok(())
-}
-
-pub async fn next_auction_offer(
-    offer: RgbOfferSwap,
-    outpoint: Outpoint,
-) -> Result<(), RgbOfferErrors> {
-    let RgbOfferSwap {
-        offer_id,
-        bundle_id,
-        ..
-    } = offer.clone();
-    let bundle_id = bundle_id.unwrap_or_default();
-    let file_name = format!("bundle:{bundle_id}");
-
-    let LocalRgbAuctions {
-        rgb_offers,
-        version,
-    } = retrieve_auctions_offers(&bundle_id, &file_name)
-        .await
-        .map_err(RgbOfferErrors::IO)?;
-
-    let mut local_copy = automerge::AutoCommit::load(&version)
-        .map_err(|op| RgbOfferErrors::AutoMerge(op.to_string()))?;
-
-    let rgb_offers = rgb_offers.next_offer(offer_id.clone(), outpoint);
-    reconcile(&mut local_copy, rgb_offers.clone())
-        .map_err(|op| RgbOfferErrors::AutoMerge(op.to_string()))?;
-
-    store_auction_offers(&bundle_id, &file_name, local_copy.save())
-        .await
-        .map_err(RgbOfferErrors::IO)?;
-
-    if let Some(new_offer) = rgb_offers.current_offer() {
-        publish_public_offer(new_offer).await?;
-    }
 
     Ok(())
 }
@@ -1181,7 +1125,7 @@ pub async fn complete_offer(
             .position(|x| x.transfer_id.unwrap_or_default() == transfer_id)
         {
             let mut offer = my_offers.swap_remove(position);
-            offer.offer_status = RgbOrderStatus::Fill;
+            offer.status = RgbOrderStatus::Fill;
 
             offer_filled = Some(offer.clone());
             my_offers.insert(position, offer);
@@ -1206,7 +1150,7 @@ pub async fn complete_bid(
             .position(|x| x.transfer_id.unwrap_or_default() == transfer_id)
         {
             let mut bid = my_bids.swap_remove(position);
-            bid.bid_status = RgbOrderStatus::Fill;
+            bid.status = RgbOrderStatus::Fill;
 
             bid_filled = Some(bid.clone());
             my_bids.insert(position, bid);
