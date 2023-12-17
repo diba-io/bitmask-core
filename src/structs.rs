@@ -1619,6 +1619,32 @@ impl From<RgbOfferSwap> for RgbAuctionOfferResponse {
 
 #[derive(Clone, Serialize, Deserialize, Debug, Display, Default)]
 #[serde(rename_all = "camelCase")]
+#[display("{bundle_id}")]
+pub struct RgbAuctionFinishResponse {
+    /// Bundle ID
+    pub bundle_id: String,
+    /// New Change Outpoint
+    pub outpoint: String,
+    /// Sold Items
+    pub sold: BTreeMap<String, RgbSwapItem>,
+    /// Reamining Items
+    pub remaining: BTreeMap<String, RgbSwapItem>,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug, Display, Default)]
+#[serde(rename_all = "camelCase")]
+#[display("{contract_id}:{contract_amount}")]
+pub struct RgbSwapItem {
+    /// Contract ID
+    pub contract_id: String,
+    /// Iface
+    pub iface: String,
+    /// Final Consig
+    pub contract_amount: String,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug, Display, Default)]
+#[serde(rename_all = "camelCase")]
 #[display("{offers:?}")]
 pub struct PublicRgbOffersResponse {
     /// Public Offers
