@@ -52,7 +52,8 @@ mod server {
 
         let (body, _encode_info) = carbonado::file::encode(&sk, Some(&pk), input, level, meta)?;
         let filepath = handle_file(&pk_hex, name, body.len()).await?;
-        fs::write(filepath, body).await?;
+        fs::write(&filepath, body).await?;
+        metrics::update(&filepath).await?;
         Ok(())
     }
 
@@ -79,7 +80,8 @@ mod server {
 
         let (body, _encode_info) = carbonado::file::encode(&sk, Some(&pk), input, level, meta)?;
         let filepath = handle_file(&pk_hex, name, body.len()).await?;
-        fs::write(filepath.clone(), body.clone()).await?;
+        fs::write(&filepath, body.clone()).await?;
+        metrics::update(&filepath).await?;
         Ok((filepath, body))
     }
 

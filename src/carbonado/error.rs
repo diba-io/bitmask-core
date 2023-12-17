@@ -31,4 +31,6 @@ pub enum CarbonadoError {
     WrongNostrPublicKey,
     /// Debug: {0}
     Debug(String),
+    /// Error: {0}
+    AnyhowError(#[from] anyhow::Error),
 }

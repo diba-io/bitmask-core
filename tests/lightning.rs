@@ -192,6 +192,7 @@ pub async fn check_payment_test() -> Result<()> {
     Ok(())
 }
 
+#[ignore = "we're not using Deezy LN swaps, so we can disable them in tests"]
 #[tokio::test]
 pub async fn swap_btc_ln_test() -> Result<()> {
     init_logging("lightning=warn");
@@ -213,6 +214,7 @@ pub async fn swap_btc_ln_test() -> Result<()> {
     Ok(())
 }
 
+#[ignore = "we're not using Deezy LN swaps, so we can disable them in tests"]
 #[tokio::test]
 pub async fn swap_ln_btc_test() -> Result<()> {
     init_logging("lightning=warn");
