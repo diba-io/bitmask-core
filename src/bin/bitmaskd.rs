@@ -474,7 +474,7 @@ async fn co_store(
         },
     }
 
-    metrics::update(&filepath).await?;
+    // metrics::update(&filepath).await?;
 
     Ok((StatusCode::OK, TypedHeader(cc), "Success"))
 }
