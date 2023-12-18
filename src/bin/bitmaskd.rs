@@ -744,6 +744,7 @@ async fn csv_metrics() -> Result<impl IntoResponse, AppError> {
 async fn init_metrics() -> Result<()> {
     let dir = env::var("CARBONADO_DIR").unwrap_or("/tmp/bitmaskd/carbonado".to_owned());
     let dir = path::Path::new(&dir);
+    fs::create_dir_all(dir).await?;
 
     info!("Starting metrics collection...");
     let duration = Instant::now();
@@ -821,13 +822,13 @@ async fn main() -> Result<()> {
         app = app
             .route("/regtest/block", get(new_block))
             .route("/regtest/send/:address/:amount", get(send_coins));
-    } else {
-        tokio::spawn(async {
-            if let Err(e) = init_metrics().await {
-                error!("Error in init metrics: {e}");
-            }
-        });
     }
+
+    tokio::spawn(async {
+        if let Err(e) = init_metrics().await {
+            error!("Error in init metrics: {e}");
+        }
+    });
 
     let app = app.layer(CorsLayer::permissive());
     let addr = SocketAddr::from(([0, 0, 0, 0], 7070));
