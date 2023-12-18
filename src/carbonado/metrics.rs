@@ -66,7 +66,10 @@ static METRICS_DB: Lazy<Db> = Lazy::new(|| {
                 "Trouble opening Sled keystore: {}. Using a temporary in-memory database.",
                 e
             );
-            Config::default().temporary(true).open().unwrap()
+            Config::default()
+                .temporary(true)
+                .open()
+                .expect("temporary sled db")
         })
 });
 
@@ -491,8 +494,6 @@ pub async fn update(path: &Path) -> Result<()> {
         }
     }
 
-    let dir = env::var("CARBONADO_DIR").unwrap_or("/tmp/bitmaskd/carbonado".to_owned());
-
     // Write metrics to disk as a backup
     fs::write(&format!("{dir}/metrics.json"), &json(&metrics).await?).await?;
     fs::write(&format!("{dir}/metrics.csv"), &csv(&metrics).await).await?;
@@ -522,7 +523,7 @@ pub async fn csv(metrics: &MetricsData) -> String {
                 metrics
                     .wallets_by_network
                     .get(NETWORK_BITCOIN)
-                    .expect("network is defined")
+                    .unwrap_or(&0)
                     .to_string(),
             );
             line.push(metrics.bytes.to_string());
@@ -534,7 +535,7 @@ pub async fn csv(metrics: &MetricsData) -> String {
                 metrics
                     .wallets_by_network
                     .get(NETWORK_TESTNET)
-                    .expect("network is defined")
+                    .unwrap_or(&0)
                     .to_string(),
             );
             line.push("".to_owned());
@@ -546,7 +547,7 @@ pub async fn csv(metrics: &MetricsData) -> String {
                 metrics
                     .wallets_by_network
                     .get(NETWORK_SIGNET)
-                    .expect("network is defined")
+                    .unwrap_or(&0)
                     .to_string(),
             );
             line.push("".to_owned());
@@ -558,7 +559,7 @@ pub async fn csv(metrics: &MetricsData) -> String {
                 metrics
                     .wallets_by_network
                     .get(NETWORK_REGTEST)
-                    .expect("network is defined")
+                    .unwrap_or(&0)
                     .to_string(),
             );
             line.push("".to_owned());
@@ -570,7 +571,7 @@ pub async fn csv(metrics: &MetricsData) -> String {
                 metrics
                     .wallets_by_network
                     .get(NETWORK_TOTAL)
-                    .expect("total is defined")
+                    .unwrap_or(&0)
                     .to_string(),
             );
             line.push("".to_owned());
@@ -582,7 +583,7 @@ pub async fn csv(metrics: &MetricsData) -> String {
                 metrics
                     .wallets_by_network
                     .get(NETWORK_RGB_STOCKS)
-                    .expect("rgb_stocks is defined")
+                    .unwrap_or(&0)
                     .to_string(),
             );
             line.push("".to_owned());
@@ -594,7 +595,7 @@ pub async fn csv(metrics: &MetricsData) -> String {
                 metrics
                     .wallets_by_network
                     .get(NETWORK_RGB_TRANSFER_FILES)
-                    .expect("rgb_transfer_files is defined")
+                    .unwrap_or(&0)
                     .to_string(),
             );
             line.push("".to_owned());
