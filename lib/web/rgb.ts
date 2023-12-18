@@ -935,8 +935,29 @@ export interface PublicRgbOfferResponse {
   /// Bitcoin Price
   bitcoinPrice: bigint;
   /// Initial Offer PSBT
-  offerPsbt: string;
+  offerPsbt?: string;
 }
+
+export interface RgbAuctionFinishResponse {
+  /// Bundle ID
+  bundle_id: string,
+  /// New Change Outpoint
+  outpoint: string,
+  /// Sold Items
+  sold: Map<string, RgbSwapItem>,
+  /// Reamining Items
+  remaining: Map<string, RgbSwapItem>,
+}
+
+export interface RgbSwapItem {
+  /// Contract ID
+  contractId: string,
+  /// Iface
+  iface: string,
+  /// Final Consig
+  contractAmount: string,
+}
+
 
 export interface PublicRgbBidResponse {
   /// Bid ID
