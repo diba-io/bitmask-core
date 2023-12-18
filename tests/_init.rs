@@ -3,9 +3,9 @@
 use anyhow::Result;
 use bitmask_core::regtest::init_fs;
 
-#[tokio::test]
-pub async fn init() -> Result<()> {
-    init_fs().await?;
+#[test]
+pub fn _init() -> Result<()> {
+    init_fs()?;
 
     Ok(())
 }

@@ -107,7 +107,7 @@ jobs:
           RUST_BACKTRACE: 1
 
       - name: RGB Test Init
-        run: cargo test --locked --features server --test init -- init --nocapture --test-threads 1
+        run: cargo test --locked --features server --test _init -- _init --nocapture --test-threads 1
 
       - name: RGB Tests
         run: cargo test --locked --features server --test rgb -- rgb --nocapture --test-threads 1
