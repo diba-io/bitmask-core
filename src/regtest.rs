@@ -1,6 +1,19 @@
 #![cfg(not(target_arch = "wasm32"))]
-use std::env;
-use std::process::{Command, Stdio};
+use std::{
+    env, path,
+    process::{Command, Stdio},
+};
+
+use anyhow::Result;
+use tokio::fs;
+
+pub async fn init_fs() -> Result<()> {
+    let dir = env::var("CARBONADO_DIR").unwrap_or("/tmp/bitmaskd/carbonado".to_owned());
+    let dir = path::Path::new(&dir);
+    fs::create_dir_all(dir).await?;
+
+    Ok(())
+}
 
 pub fn send_coins(address: &str, amount: &str) {
     let path = env::current_dir().expect("oh no!");
