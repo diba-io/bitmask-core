@@ -120,6 +120,7 @@ esplora_block = { version = "0.5.0", package = "esplora-client", default-feature
     "blocking",
 ] }
 inflate = "0.4.5"
+sled = "0.34.7"
 tower-http = { version = "0.4.4", features = ["cors"], optional = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
