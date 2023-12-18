@@ -157,6 +157,12 @@ export const createOffer = async (
 ): Promise<RgbOfferResponse> =>
   JSON.parse(await BMC.create_offer(nostrHexSk, request));
 
+export const createAuction = async (
+  nostrHexSk: string,
+  request: RgbAuctionBidRequest
+): Promise<RgbAuctionBidResponse> =>
+  JSON.parse(await BMC.create_auction(nostrHexSk, request));
+
 export const createBid = async (
   nostrHexSk: string,
   request: RgbBidRequest
@@ -168,6 +174,15 @@ export const createSwap = async (
   request: RgbSwapRequest
 ): Promise<RgbSwapResponse> =>
   JSON.parse(await BMC.create_swap(nostrHexSk, request));
+
+export const finishAuction = async (
+  nostrHexSk: string,
+  request: string
+): Promise<RgbAuctionOfferResponse[]> =>
+  JSON.parse(await BMC.finish_auction(nostrHexSk, request));
+
+export const listAuctions = async (): Promise<RgbOffersResponse> =>
+  JSON.parse(await BMC.list_auctions());
 
 export const directSwap = async (
   nostrHexSk: string,
