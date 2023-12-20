@@ -161,7 +161,7 @@ export const createAuction = async (
   nostrHexSk: string,
   request: RgbAuctionBidRequest
 ): Promise<RgbAuctionBidResponse> =>
-  JSON.parse(await BMC.create_auction(nostrHexSk, request));
+  JSON.parse(await BMC.create_auction_bid(nostrHexSk, request));
 
 export const createBid = async (
   nostrHexSk: string,
