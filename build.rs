@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, fs};
+use std::{collections::BTreeMap, env, fs, path};
 
 use anyhow::Result;
 use rgbstd::{
@@ -53,6 +53,30 @@ const ASSETS_BIDS: &str = "bitmask-asset_bids.c15";
 const MARKETPLACE_OFFERS: &str = "bitmask-marketplace_public_offers.c15";
 const MARKETPLACE_BIDS: &str = "bitmask-marketplace_public_bids.c15";
 const NETWORK: &str = "bitcoin"; // Only mainnet is tracked, no monetary incentive to upgrade testnet assets
+
+#[derive(Serialize, Deserialize, Default)]
+pub struct MetricsData {
+    bytes: u64,
+    bytes_by_day: BTreeMap<String, u64>,
+    bitcoin_wallets_by_day: BTreeMap<String, usize>,
+    signet_wallets_by_day: BTreeMap<String, usize>,
+    testnet_wallets_by_day: BTreeMap<String, usize>,
+    regtest_wallets_by_day: BTreeMap<String, usize>,
+    wallets_by_network: BTreeMap<String, usize>,
+}
+
+pub fn init_fs() -> Result<()> {
+    let dir = env::var("CARBONADO_DIR").unwrap_or("/tmp/bitmaskd/carbonado".to_owned());
+    let dir = path::Path::new(&dir);
+
+    fs::create_dir_all(dir)?;
+    fs::write(
+        dir.join("metrics.json"),
+        serde_json::to_string_pretty(&MetricsData::default())?,
+    )?;
+
+    Ok(())
+}
 
 fn main() -> Result<()> {
     // lib ids
@@ -157,6 +181,8 @@ fn main() -> Result<()> {
     let toml = toml::to_string(&doc)?;
 
     fs::write(FILE_HASHES_FILE, toml)?;
+
+    init_fs()?;
 
     Ok(())
 }

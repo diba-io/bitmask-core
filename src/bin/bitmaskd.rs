@@ -774,7 +774,8 @@ async fn send_coins(
 }
 
 async fn json_metrics() -> Result<impl IntoResponse, AppError> {
-    let metrics_json = metrics::json().await?;
+    let dir = env::var("CARBONADO_DIR").unwrap_or("/tmp/bitmaskd/carbonado".to_owned());
+    let metrics_json = fs::read_to_string(&format!("{dir}/metrics.json")).await?;
 
     Ok((
         StatusCode::OK,
@@ -784,14 +785,16 @@ async fn json_metrics() -> Result<impl IntoResponse, AppError> {
 }
 
 async fn csv_metrics() -> Result<impl IntoResponse, AppError> {
-    let metrics_csv = metrics::csv().await;
+    let dir = env::var("CARBONADO_DIR").unwrap_or("/tmp/bitmaskd/carbonado".to_owned());
+    let metrics_csv = fs::read_to_string(&format!("{dir}/metrics.csv")).await?;
 
     Ok((StatusCode::OK, [("content-type", "text/csv")], metrics_csv))
 }
 
 async fn init_metrics() -> Result<()> {
-    let path = env::var("CARBONADO_DIR").unwrap_or("/tmp/bitmaskd/carbonado".to_owned());
-    let dir = path::Path::new(&path);
+    let dir = env::var("CARBONADO_DIR").unwrap_or("/tmp/bitmaskd/carbonado".to_owned());
+    let dir = path::Path::new(&dir);
+    fs::create_dir_all(dir).await?;
 
     info!("Starting metrics collection...");
     let duration = Instant::now();
@@ -881,13 +884,13 @@ async fn main() -> Result<()> {
         app = app
             .route("/regtest/block", get(new_block))
             .route("/regtest/send/:address/:amount", get(send_coins));
-    } else {
-        tokio::spawn(async {
-            if let Err(e) = init_metrics().await {
-                error!("Error in periodic metrics: {e}");
-            }
-        });
     }
+
+    tokio::spawn(async {
+        if let Err(e) = init_metrics().await {
+            error!("Error in init metrics: {e}");
+        }
+    });
 
     let app = app.layer(CorsLayer::permissive());
     let addr = SocketAddr::from(([0, 0, 0, 0], 7070));

@@ -1,6 +1,25 @@
 #![cfg(not(target_arch = "wasm32"))]
-use std::env;
-use std::process::{Command, Stdio};
+use std::{
+    env, fs, path,
+    process::{Command, Stdio},
+};
+
+use anyhow::Result;
+
+use crate::carbonado::metrics::MetricsData;
+
+pub fn init_fs() -> Result<()> {
+    let dir = env::var("CARBONADO_DIR").unwrap_or("/tmp/bitmaskd/carbonado".to_owned());
+    let dir = path::Path::new(&dir);
+
+    fs::create_dir_all(dir)?;
+    fs::write(
+        dir.join("metrics.json"),
+        serde_json::to_string_pretty(&MetricsData::default())?,
+    )?;
+
+    Ok(())
+}
 
 pub fn send_coins(address: &str, amount: &str) {
     let path = env::current_dir().expect("oh no!");
