@@ -157,7 +157,7 @@ export const createOffer = async (
 ): Promise<RgbOfferResponse> =>
   JSON.parse(await BMC.create_offer(nostrHexSk, request));
 
-export const createAuction = async (
+export const createAuctionBid = async (
   nostrHexSk: string,
   request: RgbAuctionBidRequest
 ): Promise<RgbAuctionBidResponse> =>
