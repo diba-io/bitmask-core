@@ -876,7 +876,7 @@ pub mod rgb {
     }
 
     #[wasm_bindgen]
-    pub fn create_auction(nostr_hex_sk: String, request: JsValue) -> Promise {
+    pub fn create_auction_bid(nostr_hex_sk: String, request: JsValue) -> Promise {
         set_panic_hook();
 
         future_to_promise(async move {
