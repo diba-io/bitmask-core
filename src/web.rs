@@ -9,8 +9,9 @@ use crate::rgb::structs::ContractAmount;
 use crate::structs::{
     AcceptRequest, FullIssueRequest, FullRgbTransferRequest, ImportRequest, InvoiceRequest,
     IssueMediaRequest, IssueRequest, MediaRequest, PsbtRequest, PublishPsbtRequest, ReIssueRequest,
-    RgbBidRequest, RgbOfferRequest, RgbRemoveTransferRequest, RgbSaveTransferRequest,
-    RgbSwapRequest, RgbTransferRequest, SecretString, SignPsbtRequest, WatcherRequest,
+    RgbAuctionBidRequest, RgbBidRequest, RgbOfferRequest, RgbRemoveTransferRequest,
+    RgbSaveTransferRequest, RgbSwapRequest, RgbTransferRequest, SecretString, SignPsbtRequest,
+    WatcherRequest,
 };
 
 pub fn set_panic_hook() {
@@ -875,6 +876,21 @@ pub mod rgb {
     }
 
     #[wasm_bindgen]
+    pub fn create_auction_bid(nostr_hex_sk: String, request: JsValue) -> Promise {
+        set_panic_hook();
+
+        future_to_promise(async move {
+            let bid_req: RgbAuctionBidRequest = serde_wasm_bindgen::from_value(request).unwrap();
+            match crate::rgb::create_auction_bid(&nostr_hex_sk, bid_req).await {
+                Ok(result) => Ok(JsValue::from_string(
+                    serde_json::to_string(&result).unwrap(),
+                )),
+                Err(err) => Err(JsValue::from_string(err.to_string())),
+            }
+        })
+    }
+
+    #[wasm_bindgen]
     pub fn create_bid(nostr_hex_sk: String, request: JsValue) -> Promise {
         set_panic_hook();
 
@@ -904,6 +920,34 @@ pub mod rgb {
         })
     }
 
+    #[wasm_bindgen]
+    pub fn finish_auction(nostr_hex_sk: String, request: JsValue) -> Promise {
+        set_panic_hook();
+
+        future_to_promise(async move {
+            let bundle_id: String = serde_wasm_bindgen::from_value(request).unwrap();
+            match crate::rgb::finish_auction_offers(&nostr_hex_sk, bundle_id).await {
+                Ok(result) => Ok(JsValue::from_string(
+                    serde_json::to_string(&result).unwrap(),
+                )),
+                Err(err) => Err(JsValue::from_string(err.to_string())),
+            }
+        })
+    }
+
+    #[wasm_bindgen]
+    pub fn list_auctions() -> Promise {
+        set_panic_hook();
+
+        future_to_promise(async move {
+            match crate::rgb::list_auctions().await {
+                Ok(result) => Ok(JsValue::from_string(
+                    serde_json::to_string(&result).unwrap(),
+                )),
+                Err(err) => Err(JsValue::from_string(err.to_string())),
+            }
+        })
+    }
     #[wasm_bindgen]
     pub fn direct_swap(nostr_hex_sk: String, request: JsValue) -> Promise {
         set_panic_hook();

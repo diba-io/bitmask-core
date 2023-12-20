@@ -157,6 +157,12 @@ export const createOffer = async (
 ): Promise<RgbOfferResponse> =>
   JSON.parse(await BMC.create_offer(nostrHexSk, request));
 
+export const createAuctionBid = async (
+  nostrHexSk: string,
+  request: RgbAuctionBidRequest
+): Promise<RgbAuctionBidResponse> =>
+  JSON.parse(await BMC.create_auction_bid(nostrHexSk, request));
+
 export const createBid = async (
   nostrHexSk: string,
   request: RgbBidRequest
@@ -168,6 +174,15 @@ export const createSwap = async (
   request: RgbSwapRequest
 ): Promise<RgbSwapResponse> =>
   JSON.parse(await BMC.create_swap(nostrHexSk, request));
+
+export const finishAuction = async (
+  nostrHexSk: string,
+  request: string
+): Promise<RgbAuctionOfferResponse[]> =>
+  JSON.parse(await BMC.finish_auction(nostrHexSk, request));
+
+export const listAuctions = async (): Promise<RgbOffersResponse> =>
+  JSON.parse(await BMC.list_auctions());
 
 export const directSwap = async (
   nostrHexSk: string,
@@ -935,8 +950,29 @@ export interface PublicRgbOfferResponse {
   /// Bitcoin Price
   bitcoinPrice: bigint;
   /// Initial Offer PSBT
-  offerPsbt: string;
+  offerPsbt?: string;
 }
+
+export interface RgbAuctionFinishResponse {
+  /// Bundle ID
+  bundle_id: string,
+  /// New Change Outpoint
+  outpoint: string,
+  /// Sold Items
+  sold: Map<string, RgbSwapItem>,
+  /// Reamining Items
+  remaining: Map<string, RgbSwapItem>,
+}
+
+export interface RgbSwapItem {
+  /// Contract ID
+  contractId: string,
+  /// Iface
+  iface: string,
+  /// Final Consig
+  contractAmount: string,
+}
+
 
 export interface PublicRgbBidResponse {
   /// Bid ID
