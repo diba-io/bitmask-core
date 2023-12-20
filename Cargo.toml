@@ -120,6 +120,7 @@ esplora_block = { version = "0.5.0", package = "esplora-client", default-feature
     "blocking",
 ] }
 inflate = "0.4.5"
+sled = "0.34.7"
 tower-http = { version = "0.4.4", features = ["cors"], optional = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
@@ -134,7 +135,8 @@ anyhow = "1.0.71"
 blake3 = "1.4.1"
 rgb-std = { version = "0.10.2" }
 serde = "1.0.189"
-toml = { version = "0.7.8", features = ["preserve_order"] }
+serde_json = "1.0.107"
+toml = { version = "0.8.0", features = ["preserve_order"] }
 
 [patch.crates-io]
 # Remove after merge and release https://github.com/BP-WG/bitcoin_foundation/pull/20
