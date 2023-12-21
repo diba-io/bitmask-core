@@ -31,7 +31,7 @@ pub struct WalletData {
     pub utxos: Vec<String>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct WalletTransaction {
     pub txid: Txid,
@@ -40,6 +40,8 @@ pub struct WalletTransaction {
     pub fee: Option<u64>,
     pub confirmed: bool,
     pub confirmation_time: Option<BlockTime>,
+    pub vsize: usize,
+    pub fee_rate: f32,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]

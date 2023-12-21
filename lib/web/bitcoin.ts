@@ -200,6 +200,8 @@ export interface WalletTransaction {
   fee: number;
   confirmed: boolean;
   confirmationTime: ConfirmationTime;
+  vsize: number;
+  feeRate: number;
 }
 
 export interface WalletBalance {

@@ -286,13 +286,20 @@ pub async fn get_wallet_data(
 
     let transactions: Vec<WalletTransaction> = transactions
         .into_iter()
-        .map(|tx| WalletTransaction {
-            txid: tx.txid,
-            received: tx.received,
-            sent: tx.sent,
-            fee: tx.fee,
-            confirmed: tx.confirmation_time.is_some(),
-            confirmation_time: tx.confirmation_time,
+        .map(|tx| {
+            let vsize = tx.transaction.expect("transaction exists").vsize();
+            let fee_rate = tx.fee.expect("tx fee exists") as f32 / vsize as f32;
+
+            WalletTransaction {
+                txid: tx.txid,
+                received: tx.received,
+                sent: tx.sent,
+                fee: tx.fee,
+                confirmed: tx.confirmation_time.is_some(),
+                confirmation_time: tx.confirmation_time,
+                vsize,
+                fee_rate,
+            }
         })
         .collect();
 
