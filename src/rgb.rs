@@ -123,8 +123,8 @@ use self::{
         get_swap_bid_by_seller, get_swap_bids_by_offer, publish_auction_bid,
         publish_auction_offers, publish_public_bid, publish_public_offer, publish_swap_bid,
         remove_public_offers, update_transfer_bid, update_transfer_offer, PsbtSwapEx,
-        RgbAuctionStrategy, RgbBid, RgbBidSwap, RgbOffer, RgbOfferErrors, RgbOfferOptions,
-        RgbOfferSwap, RgbSwapStrategy,
+        RgbAuctionStrategy, RgbAuctionSwaps, RgbBid, RgbBidSwap, RgbOffer, RgbOfferErrors,
+        RgbOfferOptions, RgbOfferSwap, RgbSwapStrategy,
     },
     transfer::{extract_transfer, AcceptTransferError, NewInvoiceError, NewPaymentError},
     wallet::{
@@ -1910,9 +1910,9 @@ pub async fn finish_auction_offers(
         return Err(RgbSwapError::NoBundle(bundle_id));
     }
 
-    let auction = auction.unwrap_or_default();
+    let RgbAuctionSwaps { strategy, .. } = auction.unwrap_or_default();
     let offers = my_offers.get_offers(bundle_id.clone());
-    let bids = match auction.strategy {
+    let bids = match strategy {
         RgbAuctionStrategy::Auction => get_auction_highest_bids(bundle_id.clone())
             .await
             .map_err(RgbSwapError::Auction)?,
@@ -1921,17 +1921,38 @@ pub async fn finish_auction_offers(
             .map_err(RgbSwapError::Auction)?,
     };
 
+    let offer_ids: Vec<_> = offers.clone().into_iter().map(|x| x.offer_id).collect();
+    let mut all_bids = vec![];
+
     let mut final_psbt: Option<PsbtV0> = none!();
-    for bid in bids.clone() {
-        if let Some(offer) = offers
-            .clone()
-            .into_iter()
-            .find(|x| x.offer_id == bid.offer_id)
-        {
-            let seller_part = Psbt::from_str(&offer.seller_psbt)
+    for (offer_id, bids) in bids {
+        if !offer_ids.contains(&offer_id) {
+            continue;
+        }
+
+        let RgbOffer {
+            seller_psbt,
+            asset_amount,
+            ..
+        } = offers
+            .iter()
+            .find(|x| x.offer_id == offer_id)
+            .unwrap()
+            .clone();
+
+        let mut total_claim = 0;
+        for bid in bids {
+            if total_claim >= asset_amount {
+                break;
+            }
+
+            total_claim += bid.asset_amount;
+            all_bids.push(bid.clone());
+
+            let seller_part = Psbt::from_str(&seller_psbt)
                 .map_err(|op| RgbSwapError::WrongPsbtSeller(op.to_string()))?;
 
-            let swap_part = if let Some(buyer_psbt) = bid.buyer_psbt {
+            let swap_part = if let Some(buyer_psbt) = bid.buyer_psbt.clone() {
                 let buyer_part = Psbt::from_str(&buyer_psbt)
                     .map_err(|op| RgbSwapError::WrongPsbtBuyer(op.to_string()))?;
 
@@ -1961,13 +1982,14 @@ pub async fn finish_auction_offers(
         bundle_id: bundle_id.clone(),
         ..Default::default()
     };
+
     if let Some(RgbBidSwap {
         iface,
         buyer_invoice,
         ..
-    }) = bids.clone().get(0)
+    }) = all_bids.clone().get(0)
     {
-        let all_invoices = bids
+        let all_invoices = all_bids
             .clone()
             .into_iter()
             .skip(1)
@@ -2014,7 +2036,7 @@ pub async fn finish_auction_offers(
         .map_err(|op| RgbSwapError::WrongPsbtFinal(op.to_string()))?;
 
         resp.outpoint = outpoint.clone();
-        for mut bid in bids.clone() {
+        for mut bid in all_bids.clone() {
             let RgbBidSwap {
                 pub_key: counter_party_key,
                 buyer_invoice,
@@ -2080,7 +2102,11 @@ pub async fn finish_auction_offers(
         ..
     } in offers.into_iter().clone()
     {
-        if let Some(bid) = bids.clone().into_iter().find(|x| x.offer_id == offer_id) {
+        if let Some(bid) = all_bids
+            .clone()
+            .into_iter()
+            .find(|x| x.offer_id == offer_id)
+        {
             let remaining = offer_amount - bid.asset_amount;
             let contract_amount =
                 ContractAmount::new(bid.asset_amount, bid.asset_precision).to_string();

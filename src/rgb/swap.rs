@@ -886,42 +886,42 @@ pub async fn get_swap_bid_by_buyer(
     Ok(rgb_bid)
 }
 
-pub async fn get_auction_fifo_bids(bundle_id: String) -> Result<Vec<RgbBidSwap>, RgbOfferErrors> {
-    let file_name = format!("bundle:{bundle_id}");
-    let LocalRgbAuctions { rgb_offers, .. } = retrieve_auctions_offers(&bundle_id, &file_name)
-        .await
-        .map_err(RgbOfferErrors::IO)?;
-
-    let mut first_bids = vec![];
-    for RgbOfferSwap { offer_id, .. } in rgb_offers.clone().get_offers(bundle_id) {
-        if let Some(bids) = rgb_offers.bids.get(&offer_id).cloned() {
-            if let Some(bid) = bids.first() {
-                first_bids.push(bid.clone());
-            }
-        };
-    }
-
-    Ok(first_bids)
-}
-
 pub async fn get_auction_highest_bids(
     bundle_id: String,
-) -> Result<Vec<RgbBidSwap>, RgbOfferErrors> {
+) -> Result<BTreeMap<OfferId, Vec<RgbBidSwap>>, RgbOfferErrors> {
     let file_name = format!("bundle:{bundle_id}");
     let LocalRgbAuctions { rgb_offers, .. } = retrieve_auctions_offers(&bundle_id, &file_name)
         .await
         .map_err(RgbOfferErrors::IO)?;
 
-    let mut highest_bids = vec![];
+    let mut highest_bids = bmap! {};
     for RgbOfferSwap { offer_id, .. } in rgb_offers.clone().get_offers(bundle_id) {
         if let Some(bids) = rgb_offers.bids.get(&offer_id).cloned() {
             if let Some(bid) = bids.iter().max_by_key(|x| x.bitcoin_amount).cloned() {
-                highest_bids.push(bid);
+                highest_bids.insert(offer_id, vec![bid]);
             }
         };
     }
 
     Ok(highest_bids)
+}
+
+pub async fn get_auction_fifo_bids(
+    bundle_id: String,
+) -> Result<BTreeMap<OfferId, Vec<RgbBidSwap>>, RgbOfferErrors> {
+    let file_name = format!("bundle:{bundle_id}");
+    let LocalRgbAuctions { rgb_offers, .. } = retrieve_auctions_offers(&bundle_id, &file_name)
+        .await
+        .map_err(RgbOfferErrors::IO)?;
+
+    let mut first_bids = bmap! {};
+    for RgbOfferSwap { offer_id, .. } in rgb_offers.clone().get_offers(bundle_id) {
+        if let Some(bids) = rgb_offers.bids.get(&offer_id).cloned() {
+            first_bids.insert(offer_id, bids);
+        };
+    }
+
+    Ok(first_bids)
 }
 
 pub async fn get_auction_highest_bid(
