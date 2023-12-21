@@ -630,7 +630,7 @@ pub async fn bump_fee(
     descriptor: &SecretString,
     change_descriptor: &SecretString,
     broadcast: bool,
-) -> Result<TransactionDetails, BitcoinError> {
+) -> Result<TransactionData, BitcoinError> {
     let txid = Txid::from_str(&txid)?;
 
     let wallet = get_wallet(descriptor, Some(change_descriptor)).await?;
@@ -643,6 +643,12 @@ pub async fn bump_fee(
         builder.finish()?
     };
 
+    let vsize = details
+        .transaction
+        .as_ref()
+        .expect("transaction exists")
+        .vsize();
+
     if broadcast {
         let _finalized = wallet
             .lock()
@@ -654,8 +660,11 @@ pub async fn bump_fee(
 
         let sent = tx.output.iter().fold(0, |sum, output| output.value + sum);
 
+        let txid = tx.txid();
+        let vsize = tx.vsize();
+
         let details = TransactionDetails {
-            txid: tx.txid(),
+            txid,
             transaction: Some(tx),
             received: 0,
             sent,
@@ -663,8 +672,16 @@ pub async fn bump_fee(
             confirmation_time: None,
         };
 
-        Ok(details)
+        Ok(TransactionData {
+            details,
+            vsize,
+            fee_rate,
+        })
     } else {
-        Ok(details)
+        Ok(TransactionData {
+            details,
+            vsize,
+            fee_rate,
+        })
     }
 }
