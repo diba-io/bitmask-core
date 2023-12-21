@@ -189,7 +189,7 @@ async fn import_test_wallet() {
     let tx_data: TransactionData = json_parse(&tx_details);
 
     assert!(
-        tx_data.confirmation_time.is_none(),
+        tx_data.details.confirmation_time.is_none(),
         "latest transaction hasn't been confirmed yet"
     );
 }
