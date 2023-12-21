@@ -25,7 +25,8 @@ async fn migration_v4() -> Result<()> {
     let wallet = decrypt_wallet(
         &SecretString(ENCRYPTION_PASSWORD.to_owned()),
         &SecretString(ENCRYPTED_DESCRIPTOR_04.to_owned()),
-    );
+    )
+    .await;
 
     assert!(wallet.is_err(), "Importing an old descriptor should error");
 
@@ -44,7 +45,8 @@ async fn migration_v4() -> Result<()> {
     let wallet = decrypt_wallet(
         &SecretString(ENCRYPTION_PASSWORD.to_owned()),
         &upgraded_descriptor,
-    )?;
+    )
+    .await?;
 
     assert_eq!(
         wallet.public.xpub, "tpubD6NzVbkrYhZ4Xxrh54Ew5kjkagEfUhS3aCNqRJmUuNfnTXhK4LGXyUzZ5kxgn8f2txjnFtypnoYfRQ9Y8P2nhSNXffxVKutJgxNPxgmwpUR",
@@ -65,7 +67,8 @@ async fn migration_v5() -> Result<()> {
     let wallet = decrypt_wallet(
         &SecretString(ENCRYPTION_PASSWORD.to_owned()),
         &SecretString(ENCRYPTED_DESCRIPTOR_05.to_owned()),
-    );
+    )
+    .await;
 
     assert!(wallet.is_err(), "Importing an old descriptor should error");
 
@@ -84,7 +87,8 @@ async fn migration_v5() -> Result<()> {
     let wallet = decrypt_wallet(
         &SecretString(ENCRYPTION_PASSWORD.to_owned()),
         &upgraded_descriptor,
-    )?;
+    )
+    .await?;
 
     assert_eq!(
         wallet.public.xpub, "tpubD6NzVbkrYhZ4XJmEMNjxuARFrP5kME8ndqpk9M2QeqtuTv2kTrm87a93Td47bHRRCrSSVvVEu3trvwthVswtPNwK2Kyc9PpudxC1MZrPuNL",

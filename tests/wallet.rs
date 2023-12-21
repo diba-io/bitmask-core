@@ -50,7 +50,7 @@ async fn create_wallet() -> Result<()> {
     info!("Create wallet");
     let hash = hash_password(&SecretString(ENCRYPTION_PASSWORD.to_owned()));
     let encrypted_descriptors = new_wallet(&hash, &SecretString(SEED_PASSWORD.to_owned())).await?;
-    let decrypted_wallet = decrypt_wallet(&hash, &encrypted_descriptors)?;
+    let decrypted_wallet = decrypt_wallet(&hash, &encrypted_descriptors).await?;
 
     let main_btc_wallet = get_wallet_data(
         &SecretString(decrypted_wallet.private.btc_descriptor_xprv.clone()),
@@ -81,14 +81,14 @@ async fn import_wallet() -> Result<()> {
     let main_mnemonic = SecretString(env::var("TEST_WALLET_SEED")?);
     let hash0 = hash_password(&SecretString(ENCRYPTION_PASSWORD.to_owned()));
     let encrypted_descriptors = encrypt_wallet(&main_mnemonic, &hash0, &seed_password).await?;
-    let _main_vault = decrypt_wallet(&hash0, &encrypted_descriptors)?;
+    let _main_vault = decrypt_wallet(&hash0, &encrypted_descriptors).await?;
 
     info!("Try once more");
     let hash1 = hash_password(&SecretString(ENCRYPTION_PASSWORD.to_owned()));
     assert_eq!(hash0.0, hash1.0, "hashes match");
 
     let encrypted_descriptors = encrypt_wallet(&main_mnemonic, &hash1, &seed_password).await?;
-    let main_vault = decrypt_wallet(&hash1, &encrypted_descriptors)?;
+    let main_vault = decrypt_wallet(&hash1, &encrypted_descriptors).await?;
 
     let main_btc_wallet = get_wallet_data(
         &SecretString(main_vault.private.btc_descriptor_xprv.clone()),
@@ -116,7 +116,7 @@ async fn get_wallet_balance() -> Result<()> {
     let seed_password = SecretString(SEED_PASSWORD.to_owned());
     let hash = hash_password(&SecretString(ENCRYPTION_PASSWORD.to_owned()));
     let encrypted_descriptors = encrypt_wallet(&main_mnemonic, &hash, &seed_password).await?;
-    let main_vault = decrypt_wallet(&hash, &encrypted_descriptors)?;
+    let main_vault = decrypt_wallet(&hash, &encrypted_descriptors).await?;
 
     let btc_wallet = get_wallet_data(
         &SecretString(main_vault.private.btc_descriptor_xprv.clone()),
@@ -144,7 +144,7 @@ async fn wrong_network() -> Result<()> {
     let hash = hash_password(&SecretString(ENCRYPTION_PASSWORD.to_owned()));
     let encrypted_descriptors = encrypt_wallet(&main_mnemonic, &hash, &seed_password).await?;
 
-    let main_vault = decrypt_wallet(&hash, &encrypted_descriptors)?;
+    let main_vault = decrypt_wallet(&hash, &encrypted_descriptors).await?;
 
     let result = send_sats(
         &SecretString(main_vault.private.btc_descriptor_xprv.to_owned()),

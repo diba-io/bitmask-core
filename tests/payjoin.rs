@@ -31,7 +31,7 @@ async fn payjoin() -> Result<()> {
     )
     .await?;
 
-    let vault = decrypt_wallet(&hash, &encrypted_descriptors)?;
+    let vault = decrypt_wallet(&hash, &encrypted_descriptors).await?;
 
     let wallet = get_wallet_data(
         &SecretString(vault.private.btc_descriptor_xprv.clone()),

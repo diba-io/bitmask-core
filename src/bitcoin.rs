@@ -135,7 +135,7 @@ pub fn hash_password(password: &SecretString) -> SecretString {
     hash
 }
 
-pub fn decrypt_wallet(
+pub async fn decrypt_wallet(
     hash: &SecretString,
     encrypted_descriptors: &SecretString,
 ) -> Result<DecryptedWalletData, BitcoinError> {
@@ -163,6 +163,13 @@ pub fn decrypt_wallet(
         DecryptedWalletData::decrypt_owned(&encrypted_message, &SharedKey::from_array(shared_key))?;
 
     shared_key.zeroize();
+
+    // Recompute keys from mnemonic
+    let decrypted_wallet_data = save_mnemonic(
+        &SecretString(decrypted_wallet_data.mnemonic.to_owned()),
+        &SecretString("".to_string()),
+    )
+    .await?;
 
     Ok(decrypted_wallet_data)
 }

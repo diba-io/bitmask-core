@@ -144,7 +144,9 @@ pub mod bitcoin {
             match crate::bitcoin::decrypt_wallet(
                 &SecretString(hash),
                 &SecretString(encrypted_descriptors),
-            ) {
+            )
+            .await
+            {
                 Ok(result) => Ok(JsValue::from_string(
                     serde_json::to_string(&result).unwrap(),
                 )),
