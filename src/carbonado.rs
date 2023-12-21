@@ -309,7 +309,7 @@ mod client {
     use gloo_net::http::Request;
     use gloo_utils::errors::JsError;
 
-    use crate::constants::CARBONADO_ENDPOINT;
+    use crate::constants::{BITMASK_ENDPOINT, CARBONADO_ENDPOINT};
 
     fn js_to_error(js_value: JsValue) -> CarbonadoError {
         CarbonadoError::JsError(js_to_js_error(js_value))
@@ -421,7 +421,7 @@ mod client {
     ) -> Result<(), CarbonadoError> {
         let body = Arc::new(input.to_vec());
         let network = NETWORK.read().await.to_string();
-        let endpoints = CARBONADO_ENDPOINT.read().await.to_string();
+        let endpoints = BITMASK_ENDPOINT.read().await.to_string();
         let endpoints: Vec<&str> = endpoints.split(',').collect();
         let requests = Array::new();
 
@@ -563,7 +563,7 @@ mod client {
         name: &str,
     ) -> Result<(Vec<u8>, Option<Vec<u8>>), CarbonadoError> {
         let network = NETWORK.read().await.to_string();
-        let endpoints = CARBONADO_ENDPOINT.read().await.to_string();
+        let endpoints = BITMASK_ENDPOINT.read().await.to_string();
         let endpoints: Vec<&str> = endpoints.split(',').collect();
 
         let requests = Array::new();
