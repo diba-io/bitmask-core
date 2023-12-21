@@ -9,7 +9,7 @@ use bitmask_core::rgb::structs::ContractAmount;
 use bitmask_core::web::constants::sleep;
 use bitmask_core::{
     debug, info,
-    rgb::{prefetch::prefetch_resolver_txs, resolvers::ExplorerResolver},
+    rgb::{prefetch::prefetch_resolver_txs, resolvers::ExplorerResolver, swap::RgbSwapStrategy},
     structs::{
         AssetType, BatchRgbTransferResponse, ContractResponse, ContractsResponse,
         DecryptedWalletData, FullIssueRequest, FullRgbTransferRequest, FundVaultDetails,
@@ -279,7 +279,7 @@ async fn create_transfer_swap_flow() {
             change_terminal: "/20/1".to_string(),
             bitcoin_changes: vec![],
             expire_at: Some(expire_at),
-            presig: false,
+            strategy: RgbSwapStrategy::HotSwap,
         };
         let sender_swap_req = serde_wasm_bindgen::to_value(&sender_swap_req).expect("");
 

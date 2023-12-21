@@ -1,7 +1,7 @@
-use crate::rgb::structs::{RgbAccountV0, RgbAccountV1};
+use crate::rgb::structs::{
+    RgbAccountV0, RgbAccountV1, RgbTransferV0, RgbTransferV1, RgbTransfersV0, RgbTransfersV1,
+};
 use postcard::from_bytes;
-
-use super::structs::{RgbTransferV0, RgbTransferV1, RgbTransfersV0, RgbTransfersV1};
 
 #[derive(Debug, Clone, Eq, PartialEq, Display, From, Error)]
 #[display(doc_comments)]
@@ -38,7 +38,7 @@ impl From<String> for RgbAccountVersions {
     fn from(value: String) -> Self {
         match value.to_lowercase().as_str() {
             "v0" | "0" | "rgbst161" | "" => RgbAccountVersions::V0(RgbAccountV0::default()),
-            "v1" | "1" => RgbAccountVersions::V1(RgbAccountV1::default()),
+            "v10" | "v1" | "1" => RgbAccountVersions::V1(RgbAccountV1::default()),
             _ => RgbAccountVersions::Unknown,
         }
     }
@@ -96,7 +96,7 @@ impl From<String> for RgbtransferVersions {
     fn from(value: String) -> Self {
         match value.to_lowercase().as_str() {
             "v0" | "0" | "rgbst161" | "" => RgbtransferVersions::V0(RgbTransfersV0::default()),
-            "v1" | "1" => RgbtransferVersions::V1(RgbTransfersV1::default()),
+            "v10" | "v1" | "1" => RgbtransferVersions::V1(RgbTransfersV1::default()),
             _ => RgbtransferVersions::Unknown,
         }
     }

@@ -173,6 +173,12 @@ export interface TransactionDetails extends Transaction {
 }
 
 export interface TransactionData {
+  details: TransactionDataDetails;
+  vsize: number;
+  feeRate: number;
+}
+
+export interface TransactionDataDetails {
   transaction?: Transaction;
   txid: string;
   received: number;

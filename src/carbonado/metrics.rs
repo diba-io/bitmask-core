@@ -1,18 +1,18 @@
 #![cfg(not(target_arch = "wasm32"))]
 use std::{
-    collections::{BTreeMap, BTreeSet},
+    collections::BTreeMap,
     env,
     path::{Path, PathBuf},
-    sync::Arc,
     time::SystemTime,
 };
 
 use anyhow::{anyhow, Result};
 use chrono::{DateTime, Duration, NaiveDate, Utc};
-use log::debug;
+use log::{debug, error};
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
-use tokio::{fs, sync::RwLock};
+use sled::{Config, Db, Mode};
+use tokio::fs;
 use walkdir::WalkDir;
 
 #[derive(Serialize, Deserialize, Default)]
@@ -47,12 +47,34 @@ const NETWORK_TOTAL: &str = "total";
 const NETWORK_RGB_STOCKS: &str = "rgb_stocks";
 const NETWORK_RGB_TRANSFER_FILES: &str = "rgb_transfer_files";
 
-static METRICS_DATA: Lazy<Arc<RwLock<MetricsData>>> = Lazy::new(Default::default);
-static METRICS_SET: Lazy<Arc<RwLock<BTreeSet<PathBuf>>>> = Lazy::new(Default::default);
+const DB_PATHS: &str = "PATHS";
+const DB_DAYS: &str = "DAYS";
+
+static METRICS_DB: Lazy<Db> = Lazy::new(|| {
+    Config::default()
+        .path(
+            PathBuf::from(
+                env::var("CARBONADO_DIR").unwrap_or("/tmp/bitmaskd/carbonado".to_owned()),
+            )
+            .join("metrics_sled_kv"),
+        )
+        .mode(Mode::HighThroughput) // Since this uses Tor, disk IO will not be a bottleneck
+        .compression_factor(19)
+        .open()
+        .unwrap_or_else(|e| {
+            error!(
+                "Trouble opening Sled keystore: {}. Using a temporary in-memory database.",
+                e
+            );
+            Config::default()
+                .temporary(true)
+                .open()
+                .expect("temporary sled db")
+        })
+});
 
 pub async fn init(dir: &Path) -> Result<()> {
-    let mut metrics = METRICS_DATA.write().await;
-    let mut dataset = METRICS_SET.write().await;
+    let mut metrics = MetricsData::default();
 
     metrics
         .wallets_by_network
@@ -85,7 +107,9 @@ pub async fn init(dir: &Path) -> Result<()> {
         let day_created = metadata.created()?;
         let day = round_datetime_to_day(day_created.into());
 
-        dataset.insert(entry.path().to_path_buf());
+        METRICS_DB
+            .open_tree(DB_PATHS)?
+            .insert(entry.path().to_str().unwrap_or("ERROR").as_bytes(), &[1])?;
 
         if metadata.is_file() {
             metrics.bytes += metadata.len();
@@ -264,20 +288,27 @@ pub async fn init(dir: &Path) -> Result<()> {
         }
     }
 
+    let dir = env::var("CARBONADO_DIR").unwrap_or("/tmp/bitmaskd/carbonado".to_owned());
+
+    fs::write(&format!("{dir}/metrics.json"), &json(&metrics).await?).await?;
+    fs::write(&format!("{dir}/metrics.csv"), &csv(&metrics).await).await?;
+
     Ok(())
 }
 
 pub async fn update(path: &Path) -> Result<()> {
     debug!("Updating metrics with {path:?}");
 
-    let mut metrics = METRICS_DATA.write().await;
-    let mut dataset = METRICS_SET.write().await;
-
-    if dataset.get(path).is_some() {
+    if METRICS_DB
+        .open_tree(DB_PATHS)?
+        .contains_key(path.to_str().unwrap_or("ERROR").as_bytes())?
+    {
         debug!("Path already present");
         return Ok(());
     } else {
-        dataset.insert(path.to_path_buf());
+        METRICS_DB
+            .open_tree(DB_PATHS)?
+            .insert(path.to_str().unwrap_or("ERROR").as_bytes(), &[1])?;
     }
 
     let filename = path
@@ -287,9 +318,102 @@ pub async fn update(path: &Path) -> Result<()> {
         .to_string();
     let metadata = path.metadata()?;
     let day_created = metadata.created()?;
+    let day_prior = day_created
+        .checked_sub(Duration::days(1).to_std()?)
+        .expect("day exists");
+    let day_prior = round_datetime_to_day(day_prior.into());
     let day = round_datetime_to_day(day_created.into());
 
+    let first_of_day = if METRICS_DB
+        .open_tree(DB_DAYS)?
+        .contains_key(day.as_bytes())?
+    {
+        debug!("Day already present");
+        false
+    } else {
+        METRICS_DB
+            .open_tree(DB_DAYS)?
+            .insert(day.as_bytes(), &[1])?;
+        true
+    };
+
+    let dir = env::var("CARBONADO_DIR").unwrap_or("/tmp/bitmaskd/carbonado".to_owned());
+    let mut metrics: MetricsData =
+        serde_json::from_str(&fs::read_to_string(format!("{dir}/metrics.json")).await?)?;
+
     if metadata.is_file() {
+        if first_of_day {
+            let bytes_day_prior = {
+                metrics
+                    .bytes_by_day
+                    .get(&day_prior)
+                    .unwrap_or(&0)
+                    .to_owned()
+            };
+
+            metrics
+                .bytes_by_day
+                .entry(day.clone())
+                .and_modify(|b| *b += bytes_day_prior)
+                .or_insert(bytes_day_prior);
+
+            let bitcoin_wallets_day_prior = {
+                metrics
+                    .bitcoin_wallets_by_day
+                    .get(&day_prior)
+                    .unwrap_or(&0)
+                    .to_owned()
+            };
+
+            metrics
+                .bitcoin_wallets_by_day
+                .entry(day.clone())
+                .and_modify(|w| *w += bitcoin_wallets_day_prior)
+                .or_insert(bitcoin_wallets_day_prior);
+
+            let testnet_wallets_day_prior = {
+                metrics
+                    .testnet_wallets_by_day
+                    .get(&day_prior)
+                    .unwrap_or(&0)
+                    .to_owned()
+            };
+
+            metrics
+                .testnet_wallets_by_day
+                .entry(day.clone())
+                .and_modify(|w| *w += testnet_wallets_day_prior)
+                .or_insert(testnet_wallets_day_prior);
+
+            let signet_wallets_day_prior = {
+                metrics
+                    .signet_wallets_by_day
+                    .get(&day_prior)
+                    .unwrap_or(&0)
+                    .to_owned()
+            };
+
+            metrics
+                .signet_wallets_by_day
+                .entry(day.clone())
+                .and_modify(|w| *w += signet_wallets_day_prior)
+                .or_insert(signet_wallets_day_prior);
+
+            let regtest_wallets_day_prior = {
+                metrics
+                    .regtest_wallets_by_day
+                    .get(&day_prior)
+                    .unwrap_or(&0)
+                    .to_owned()
+            };
+
+            metrics
+                .regtest_wallets_by_day
+                .entry(day.clone())
+                .and_modify(|w| *w += regtest_wallets_day_prior)
+                .or_insert(regtest_wallets_day_prior);
+        }
+
         metrics.bytes += metadata.len();
 
         *metrics.bytes_by_day.entry(day.clone()).or_insert(0) += metadata.len();
@@ -370,16 +494,14 @@ pub async fn update(path: &Path) -> Result<()> {
         }
     }
 
-    let dir = env::var("CARBONADO_DIR").unwrap_or("/tmp/bitmaskd/carbonado".to_owned());
-
     // Write metrics to disk as a backup
-    fs::write(&format!("{dir}/metrics.csv"), &csv().await).await?;
-    fs::write(&format!("{dir}/metrics.json"), &json().await?).await?;
+    fs::write(&format!("{dir}/metrics.json"), &json(&metrics).await?).await?;
+    fs::write(&format!("{dir}/metrics.csv"), &csv(&metrics).await).await?;
 
     Ok(())
 }
 
-pub async fn csv() -> String {
+pub async fn csv(metrics: &MetricsData) -> String {
     let mut lines = vec![vec![
         "Wallet".to_owned(),
         "Wallet Count".to_owned(),
@@ -392,8 +514,6 @@ pub async fn csv() -> String {
         "Bytes by Day".to_owned(),
     ]];
 
-    let metrics = METRICS_DATA.read().await;
-
     for (day, bitcoin_wallets) in metrics.bitcoin_wallets_by_day.iter() {
         let mut line = vec![];
 
@@ -403,7 +523,7 @@ pub async fn csv() -> String {
                 metrics
                     .wallets_by_network
                     .get(NETWORK_BITCOIN)
-                    .expect("network is defined")
+                    .unwrap_or(&0)
                     .to_string(),
             );
             line.push(metrics.bytes.to_string());
@@ -415,7 +535,7 @@ pub async fn csv() -> String {
                 metrics
                     .wallets_by_network
                     .get(NETWORK_TESTNET)
-                    .expect("network is defined")
+                    .unwrap_or(&0)
                     .to_string(),
             );
             line.push("".to_owned());
@@ -427,7 +547,7 @@ pub async fn csv() -> String {
                 metrics
                     .wallets_by_network
                     .get(NETWORK_SIGNET)
-                    .expect("network is defined")
+                    .unwrap_or(&0)
                     .to_string(),
             );
             line.push("".to_owned());
@@ -439,7 +559,7 @@ pub async fn csv() -> String {
                 metrics
                     .wallets_by_network
                     .get(NETWORK_REGTEST)
-                    .expect("network is defined")
+                    .unwrap_or(&0)
                     .to_string(),
             );
             line.push("".to_owned());
@@ -451,7 +571,7 @@ pub async fn csv() -> String {
                 metrics
                     .wallets_by_network
                     .get(NETWORK_TOTAL)
-                    .expect("total is defined")
+                    .unwrap_or(&0)
                     .to_string(),
             );
             line.push("".to_owned());
@@ -463,7 +583,7 @@ pub async fn csv() -> String {
                 metrics
                     .wallets_by_network
                     .get(NETWORK_RGB_STOCKS)
-                    .expect("rgb_stocks is defined")
+                    .unwrap_or(&0)
                     .to_string(),
             );
             line.push("".to_owned());
@@ -475,7 +595,7 @@ pub async fn csv() -> String {
                 metrics
                     .wallets_by_network
                     .get(NETWORK_RGB_TRANSFER_FILES)
-                    .expect("rgb_transfer_files is defined")
+                    .unwrap_or(&0)
                     .to_string(),
             );
             line.push("".to_owned());
@@ -519,10 +639,8 @@ pub async fn csv() -> String {
     lines.join("\n")
 }
 
-pub async fn json() -> Result<String> {
-    let metrics = METRICS_DATA.read().await;
-
-    Ok(serde_json::to_string_pretty(&*metrics)?)
+pub async fn json(metrics: &MetricsData) -> Result<String> {
+    Ok(serde_json::to_string_pretty(metrics)?)
 }
 
 fn round_datetime_to_day(datetime: DateTime<Utc>) -> String {

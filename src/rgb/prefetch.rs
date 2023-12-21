@@ -31,8 +31,8 @@ use std::{collections::BTreeMap, str::FromStr};
 use strict_encoding::StrictDeserialize;
 use wallet::onchain::ResolveTx;
 
-use super::resolvers::ExploreClientExtError;
-use super::structs::MediaMetadata;
+use crate::rgb::resolvers::ExploreClientExtError;
+use crate::rgb::structs::MediaMetadata;
 
 #[cfg(not(target_arch = "wasm32"))]
 pub async fn prefetch_resolver_rgb(

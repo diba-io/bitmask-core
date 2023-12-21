@@ -157,6 +157,12 @@ export const createOffer = async (
 ): Promise<RgbOfferResponse> =>
   JSON.parse(await BMC.create_offer(nostrHexSk, request));
 
+export const createAuctionBid = async (
+  nostrHexSk: string,
+  request: RgbAuctionBidRequest
+): Promise<RgbAuctionBidResponse> =>
+  JSON.parse(await BMC.create_auction_bid(nostrHexSk, request));
+
 export const createBid = async (
   nostrHexSk: string,
   request: RgbBidRequest
@@ -168,6 +174,15 @@ export const createSwap = async (
   request: RgbSwapRequest
 ): Promise<RgbSwapResponse> =>
   JSON.parse(await BMC.create_swap(nostrHexSk, request));
+
+export const finishAuction = async (
+  nostrHexSk: string,
+  request: string
+): Promise<RgbAuctionOfferResponse[]> =>
+  JSON.parse(await BMC.finish_auction(nostrHexSk, request));
+
+export const listAuctions = async (): Promise<RgbOffersResponse> =>
+  JSON.parse(await BMC.list_auctions());
 
 export const directSwap = async (
   nostrHexSk: string,
@@ -432,15 +447,15 @@ export interface InvoiceResponse {
 
 export interface PsbtRequest {
   /// Asset UTXOs
-  asset_inputs: PsbtInputRequest[];
+  assetInputs: PsbtInputRequest[];
   /// Asset Descriptor Change
-  asset_descriptor_change: string;
+  assetDescriptorChange: string;
   /// Asset Terminal Change (default: /10/0)
-  asset_terminal_change: string;
+  assetTerminalChange: string;
   /// Bitcoin UTXOs
-  bitcoin_inputs: PsbtInputRequest[];
+  bitcoinInputs: PsbtInputRequest[];
   /// Bitcoin Change Addresses (format: {address}:{amount})
-  bitcoin_changes: string[];
+  bitcoinChanges: string[];
   /// Bitcoin Fee
   fee: PsbtFeeRequest;
   /// Allow RBF
@@ -453,11 +468,11 @@ interface PsbtInputRequest {
   /// Asset or Bitcoin UTXO
   utxo: string;
   /// Asset or Bitcoin UTXO Terminal (ex. /0/0)
-  utxo_terminal: string;
+  utxoTerminal: string;
   /// Asset or Bitcoin Tweak
   tapret?: string;
   /// Asset or Bitcoin Tweak
-  sigh_hash?: PsbtSigHashRequest;
+  sighHash?: PsbtSigHashRequest;
 }
 
 interface PsbtSigHashRequest {
@@ -748,7 +763,7 @@ export interface RgbTransferDetail {
 }
 
 export interface TxStatus {
-  not_found?: any;
+  notFound?: any;
   error?: string;
   mempool?: any;
   block?: number;
@@ -793,8 +808,66 @@ export interface RgbOfferRequest {
   changeTerminal: string;
   /// Bitcoin Change Addresses (format: {address}:{amount})
   bitcoinChanges: string[];
-  presig: boolean;
-  expire_at?: number;
+  strategy: RgbSwapStrategy;
+  expireAt?: number;
+}
+
+export interface RgbSwapStrategy {
+  auction?: string,
+  p2p?: string,
+  hotswap?: string,
+}
+export interface RgbAuctionOfferRequest {
+  signKeys: string[],
+
+  /// List of Offers
+  offers: RgbOfferRequest[],
+}
+
+export interface RgbAuctionBidRequest {
+  /// The Offer ID
+  offerId: string,
+  /// Asset Amount
+  assetAmount: string,
+  /// Universal Descriptor
+  descriptor: string,
+  /// Bitcoin Terminal Change
+  changeTerminal: string,
+  /// Descriptors to Sign
+  signKeys: string[],
+  /// Bitcoin Fee
+  fee: PsbtFeeRequest,
+}
+
+export interface RgbAuctionBidResponse {
+  /// The Bid ID
+  bidId: string,
+  /// The Offer ID
+  offerId: string,
+  /// Fee Value
+  feeValue: number,
+}
+
+export interface RgbMatchResponse {
+    /// Transfer ID
+    consigId: string,
+    /// Offer ID
+    offerId: string,
+    /// Bid ID
+    bidId: string,
+}
+
+export interface RgbAuctionOfferResponse {
+  /// Offer ID
+  offerId: string,
+  /// Contract ID
+  contractId: string,
+  /// Asset/Contract Amount
+  assetAmount: number,
+  /// Bitcoin Price
+  bitcoinPrice: number,
+  /// Bundle ID
+  bundleId: string,
 }
 
 export interface RgbOfferResponse {
@@ -810,6 +883,8 @@ export interface RgbOfferResponse {
   sellerAddress: string;
   /// Seller PSBT (encoded in base64)
   sellerPsbt: string;
+  /// Bundle ID (collection)
+  bundleId?: string,
 }
 
 export interface RgbBidRequest {
@@ -875,8 +950,29 @@ export interface PublicRgbOfferResponse {
   /// Bitcoin Price
   bitcoinPrice: bigint;
   /// Initial Offer PSBT
-  offerPsbt: string;
+  offerPsbt?: string;
 }
+
+export interface RgbAuctionFinishResponse {
+  /// Bundle ID
+  bundle_id: string,
+  /// New Change Outpoint
+  outpoint: string,
+  /// Sold Items
+  sold: Map<string, RgbSwapItem>,
+  /// Reamining Items
+  remaining: Map<string, RgbSwapItem>,
+}
+
+export interface RgbSwapItem {
+  /// Contract ID
+  contractId: string,
+  /// Iface
+  iface: string,
+  /// Final Consig
+  contractAmount: string,
+}
+
 
 export interface PublicRgbBidResponse {
   /// Bid ID

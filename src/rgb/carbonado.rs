@@ -5,26 +5,23 @@ use postcard::{from_bytes, to_allocvec};
 use rgbstd::{persistence::Stock, stl::LIB_ID_RGB};
 use strict_encoding::{StrictDeserialize, StrictSerialize};
 
-use crate::carbonado::server_store;
-use crate::rgb::crdt::{LocalRgbAccount, LocalRgbOffers, RawRgbAccount};
-
-use crate::rgb::swap::{RgbBids, RgbOffers};
 use crate::{
-    carbonado::{retrieve, server_retrieve, store},
+    carbonado::{
+        auctions_retrieve, auctions_store, marketplace_retrieve, marketplace_store, retrieve, store,
+    },
     rgb::{
-        cambria::{ModelVersion, RgbAccountVersions},
+        cambria::{ModelVersion, RgbAccountVersions, RgbtransferVersions},
         constants::RGB_STRICT_TYPE_VERSION,
-        crdt::LocalRgbOfferBid,
-        structs::RgbAccountV1,
+        crdt::{
+            LocalRgbAccount, LocalRgbAuctions, LocalRgbOfferBid, LocalRgbOffers, RawRgbAccount,
+        },
+        structs::{RgbAccountV1, RgbTransfersV1},
+        swap::{RgbAuctionSwaps, RgbBidSwap, RgbBids, RgbOffers, RgbPublicSwaps},
     },
 };
 
-use super::cambria::RgbtransferVersions;
-use super::structs::RgbTransfersV1;
-use super::swap::{PublicRgbOffers, RgbBidSwap};
-
-const RGB_ACCOUNT_VERSION: [u8; 2] = *b"v1";
-const RGB_TRANSFER_VERSION: [u8; 2] = *b"v1";
+const RGB_ACCOUNT_VERSION: [u8; 3] = *b"v10";
+const RGB_TRANSFER_VERSION: [u8; 3] = *b"v10";
 
 #[derive(Debug, Clone, Eq, PartialEq, Display, From, Error)]
 #[display(doc_comments)]
@@ -331,7 +328,7 @@ pub async fn cdrt_retrieve_wallets(sk: &str, name: &str) -> Result<LocalRgbAccou
 
     if data.is_empty() {
         Ok(LocalRgbAccount {
-            doc: automerge::AutoCommit::new().save(),
+            version: automerge::AutoCommit::new().save(),
             rgb_account: RgbAccountV1::default(),
         })
     } else {
@@ -362,7 +359,7 @@ pub async fn cdrt_retrieve_wallets(sk: &str, name: &str) -> Result<LocalRgbAccou
         .map_err(|op| StorageError::CarbonadoWrite(name.to_string(), op.to_string()))?;
 
         Ok(LocalRgbAccount {
-            doc: fork_version.save(),
+            version: fork_version.save(),
             rgb_account,
         })
     }
@@ -376,17 +373,17 @@ pub async fn retrieve_public_offers(name: &str) -> Result<LocalRgbOffers, Storag
     let main_name = &format!("{hashed_name}.c15");
     let original_name = &format!("{hashed_name}-diff.c15");
 
-    let (data, _) = server_retrieve(main_name)
+    let (data, _) = marketplace_retrieve(main_name)
         .await
         .map_err(|op| StorageError::CarbonadoRetrieve(name.to_string(), op.to_string()))?;
     if data.is_empty() {
         Ok(LocalRgbOffers {
-            doc: automerge::AutoCommit::new().save(),
-            rgb_offers: PublicRgbOffers::default(),
+            version: automerge::AutoCommit::new().save(),
+            rgb_offers: RgbPublicSwaps::default(),
         })
     } else {
         let mut original_version = automerge::AutoCommit::new();
-        let rgb_offers: PublicRgbOffers = from_bytes(&data)
+        let rgb_offers: RgbPublicSwaps = from_bytes(&data)
             .map_err(|op| StorageError::StrictRetrieve(name.to_string(), op.to_string()))?;
 
         reconcile(&mut original_version, rgb_offers.clone())
@@ -394,7 +391,7 @@ pub async fn retrieve_public_offers(name: &str) -> Result<LocalRgbOffers, Storag
 
         let mut fork_version = original_version.fork();
 
-        server_store(
+        marketplace_store(
             original_name,
             &fork_version.save(),
             Some(RGB_STRICT_TYPE_VERSION.to_vec()),
@@ -403,7 +400,52 @@ pub async fn retrieve_public_offers(name: &str) -> Result<LocalRgbOffers, Storag
         .map_err(|op| StorageError::CarbonadoWrite(name.to_string(), op.to_string()))?;
 
         Ok(LocalRgbOffers {
-            doc: fork_version.save(),
+            version: fork_version.save(),
+            rgb_offers,
+        })
+    }
+}
+
+pub async fn retrieve_auctions_offers(
+    bundle_id: &str,
+    name: &str,
+) -> Result<LocalRgbAuctions, StorageError> {
+    let hashed_name = blake3::hash(format!("{LIB_ID_RGB}-{name}").as_bytes())
+        .to_hex()
+        .to_lowercase();
+
+    let main_name = &format!("{hashed_name}.c15");
+    let original_name = &format!("{hashed_name}-diff.c15");
+
+    let (data, _) = auctions_retrieve(bundle_id, main_name)
+        .await
+        .map_err(|op| StorageError::CarbonadoRetrieve(name.to_string(), op.to_string()))?;
+    if data.is_empty() {
+        Ok(LocalRgbAuctions {
+            version: automerge::AutoCommit::new().save(),
+            rgb_offers: RgbAuctionSwaps::default(),
+        })
+    } else {
+        let mut original_version = automerge::AutoCommit::new();
+        let rgb_offers: RgbAuctionSwaps = from_bytes(&data)
+            .map_err(|op| StorageError::StrictRetrieve(name.to_string(), op.to_string()))?;
+
+        reconcile(&mut original_version, rgb_offers.clone())
+            .map_err(|op| StorageError::Reconcile(name.to_string(), op.to_string()))?;
+
+        let mut fork_version = original_version.fork();
+
+        auctions_store(
+            bundle_id,
+            original_name,
+            &fork_version.save(),
+            Some(RGB_STRICT_TYPE_VERSION.to_vec()),
+        )
+        .await
+        .map_err(|op| StorageError::CarbonadoWrite(name.to_string(), op.to_string()))?;
+
+        Ok(LocalRgbAuctions {
+            version: fork_version.save(),
             rgb_offers,
         })
     }
@@ -417,7 +459,7 @@ pub async fn store_public_offers(name: &str, changes: &[u8]) -> Result<(), Stora
     let main_name = &format!("{hashed_name}.c15");
     let original_name = &format!("{hashed_name}-diff.c15");
 
-    let (original_bytes, _) = server_retrieve(original_name)
+    let (original_bytes, _) = marketplace_retrieve(original_name)
         .await
         .map_err(|op| StorageError::CarbonadoRetrieve(name.to_string(), op.to_string()))?;
 
@@ -431,14 +473,56 @@ pub async fn store_public_offers(name: &str, changes: &[u8]) -> Result<(), Stora
         .merge(&mut fork_version)
         .map_err(|op| StorageError::MergeWrite(name.to_string(), op.to_string()))?;
 
-    let public_offers: PublicRgbOffers = hydrate(&original_version).unwrap();
+    let public_offers: RgbPublicSwaps = hydrate(&original_version).unwrap();
 
     let data = to_allocvec(&public_offers)
         .map_err(|op| StorageError::StrictWrite(name.to_string(), op.to_string()))?;
 
-    server_store(main_name, &data, Some(RGB_STRICT_TYPE_VERSION.to_vec()))
+    marketplace_store(main_name, &data, Some(RGB_STRICT_TYPE_VERSION.to_vec()))
         .await
         .map_err(|op| StorageError::CarbonadoWrite(name.to_string(), op.to_string()))?;
+
+    Ok(())
+}
+
+pub async fn store_auction_offers(
+    bundle_id: &str,
+    name: &str,
+    changes: &[u8],
+) -> Result<(), StorageError> {
+    let hashed_name = blake3::hash(format!("{LIB_ID_RGB}-{name}").as_bytes())
+        .to_hex()
+        .to_lowercase();
+
+    let main_name = &format!("{hashed_name}.c15");
+    let original_name = &format!("{hashed_name}-diff.c15");
+
+    let (original_bytes, _) = auctions_retrieve(bundle_id, original_name)
+        .await
+        .map_err(|op| StorageError::CarbonadoRetrieve(name.to_string(), op.to_string()))?;
+
+    let mut original_version = automerge::AutoCommit::load(&original_bytes)
+        .map_err(|op| StorageError::ForkRead(name.to_string(), op.to_string()))?;
+
+    let mut fork_version = automerge::AutoCommit::load(changes)
+        .map_err(|op| StorageError::ChangesRetrieve(name.to_string(), op.to_string()))?;
+
+    original_version
+        .merge(&mut fork_version)
+        .map_err(|op| StorageError::MergeWrite(name.to_string(), op.to_string()))?;
+
+    let auction_offers: RgbAuctionSwaps = hydrate(&original_version).unwrap();
+    let data = to_allocvec(&auction_offers)
+        .map_err(|op| StorageError::StrictWrite(name.to_string(), op.to_string()))?;
+
+    auctions_store(
+        bundle_id,
+        main_name,
+        &data,
+        Some(RGB_STRICT_TYPE_VERSION.to_vec()),
+    )
+    .await
+    .map_err(|op| StorageError::CarbonadoWrite(name.to_string(), op.to_string()))?;
 
     Ok(())
 }
@@ -464,7 +548,7 @@ pub async fn retrieve_swap_offer_bid(
         .map_err(|op| StorageError::CarbonadoRetrieve(name.to_string(), op.to_string()))?;
     if data.is_empty() {
         Ok(LocalRgbOfferBid {
-            doc: automerge::AutoCommit::new().save(),
+            version: automerge::AutoCommit::new().save(),
             rgb_bid: RgbBidSwap::default(),
         })
     } else {
@@ -488,7 +572,7 @@ pub async fn retrieve_swap_offer_bid(
         .map_err(|op| StorageError::CarbonadoWrite(name.to_string(), op.to_string()))?;
 
         Ok(LocalRgbOfferBid {
-            doc: fork_version.save(),
+            version: fork_version.save(),
             rgb_bid: rgb_offer_bid,
         })
     }
@@ -511,7 +595,7 @@ pub async fn store_swap_offer_bid(
     let main_name = &format!("{hashed_name}.c15");
     let original_name = &format!("{hashed_name}-diff.c15");
 
-    let (original_bytes, _) = server_retrieve(original_name)
+    let (original_bytes, _) = marketplace_retrieve(original_name)
         .await
         .map_err(|op| StorageError::CarbonadoRetrieve(name.to_string(), op.to_string()))?;
 

@@ -7,6 +7,8 @@ pub const RGB_OLDEST_VERSION: [u8; 8] = [0; 8];
 pub const RGB_STRICT_TYPE_VERSION: [u8; 8] = *b"rgbst161";
 pub const RGB_DEFAULT_FETCH_LIMIT: u32 = 10;
 pub const BITCOIN_DEFAULT_FETCH_LIMIT: u32 = 20;
+pub const RGB20_DERIVATION_INDEX: u32 = 20;
+pub const RGB21_DERIVATION_INDEX: u32 = 21;
 
 // General Errors
 #[cfg(target_arch = "wasm32")]

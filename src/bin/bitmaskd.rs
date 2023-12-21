@@ -25,7 +25,7 @@ use axum::{
 use bitcoin_30::secp256k1::{ecdh::SharedSecret, PublicKey, SecretKey};
 use bitmask_core::{
     bitcoin::{save_mnemonic, sign_and_publish_psbt_file},
-    carbonado::{handle_file, metrics, server_retrieve, server_store, store},
+    carbonado::{handle_file, marketplace_retrieve, marketplace_store, metrics, store},
     constants::{
         get_marketplace_nostr_key, get_marketplace_seed, get_network, get_udas_utxo, switch_network,
     },
@@ -474,7 +474,7 @@ async fn co_store(
         },
     }
 
-    metrics::update(&filepath).await?;
+    // metrics::update(&filepath).await?;
 
     Ok((StatusCode::OK, TypedHeader(cc), "Success"))
 }
@@ -527,7 +527,7 @@ async fn co_server_store(
     body: Bytes,
 ) -> Result<impl IntoResponse, AppError> {
     info!("POST /carbonado/server/{name}, {} bytes", body.len());
-    let (filepath, encoded) = server_store(&name, &body, None).await?;
+    let (filepath, encoded) = marketplace_store(&name, &body, None).await?;
 
     match OpenOptions::new()
         .read(true)
@@ -627,7 +627,7 @@ async fn co_metadata(
 async fn co_server_retrieve(Path(name): Path<String>) -> Result<impl IntoResponse, AppError> {
     info!("GET /server/{name}");
 
-    let result = server_retrieve(&name).await;
+    let result = marketplace_retrieve(&name).await;
     let cc = CacheControl::new().with_no_cache();
 
     match result {
@@ -687,6 +687,56 @@ async fn rgb_proxy_media_data_save(
     Ok((StatusCode::OK, Json(resp)))
 }
 
+async fn rgb_auction_get_offer(
+    Path(offer_id): Path<String>,
+    Json(_request): Json<String>,
+) -> Result<impl IntoResponse, AppError> {
+    info!("GET /auction/{offer_id}");
+    Ok((StatusCode::OK, Json("")))
+}
+
+async fn rgb_auction_create_offer(
+    TypedHeader(_auth): TypedHeader<Authorization<Bearer>>,
+    Path(offer_id): Path<String>,
+    Json(_request): Json<String>,
+) -> Result<impl IntoResponse, AppError> {
+    info!("POST /auction/{offer_id}");
+    Ok((StatusCode::OK, Json("")))
+}
+
+async fn rgb_auction_destroy_offer(
+    TypedHeader(_auth): TypedHeader<Authorization<Bearer>>,
+    Path(offer_id): Path<String>,
+) -> Result<impl IntoResponse, AppError> {
+    info!("DELETE /auction/{offer_id}");
+    Ok((StatusCode::OK, Json("")))
+}
+
+async fn rgb_auction_get_bid(
+    Path((offer_id, bid_id)): Path<(String, String)>,
+    Json(_request): Json<String>,
+) -> Result<impl IntoResponse, AppError> {
+    info!("GET /auction/{offer_id}/{bid_id}");
+    Ok((StatusCode::OK, Json("")))
+}
+
+async fn rgb_auction_create_bid(
+    TypedHeader(_auth): TypedHeader<Authorization<Bearer>>,
+    Path((offer_id, bid_id)): Path<(String, String)>,
+    Json(_request): Json<String>,
+) -> Result<impl IntoResponse, AppError> {
+    info!("POST /auction/{offer_id}/{bid_id}");
+    Ok((StatusCode::OK, Json("")))
+}
+
+async fn rgb_auction_destroy_bid(
+    TypedHeader(_auth): TypedHeader<Authorization<Bearer>>,
+    Path((offer_id, bid_id)): Path<(String, String)>,
+) -> Result<impl IntoResponse, AppError> {
+    info!("DELETE /auction/{offer_id}/{bid_id}");
+    Ok((StatusCode::OK, Json("")))
+}
+
 const BMC_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 async fn status() -> Result<impl IntoResponse, AppError> {
@@ -724,7 +774,8 @@ async fn send_coins(
 }
 
 async fn json_metrics() -> Result<impl IntoResponse, AppError> {
-    let metrics_json = metrics::json().await?;
+    let dir = env::var("CARBONADO_DIR").unwrap_or("/tmp/bitmaskd/carbonado".to_owned());
+    let metrics_json = fs::read_to_string(&format!("{dir}/metrics.json")).await?;
 
     Ok((
         StatusCode::OK,
@@ -734,14 +785,16 @@ async fn json_metrics() -> Result<impl IntoResponse, AppError> {
 }
 
 async fn csv_metrics() -> Result<impl IntoResponse, AppError> {
-    let metrics_csv = metrics::csv().await;
+    let dir = env::var("CARBONADO_DIR").unwrap_or("/tmp/bitmaskd/carbonado".to_owned());
+    let metrics_csv = fs::read_to_string(&format!("{dir}/metrics.csv")).await?;
 
     Ok((StatusCode::OK, [("content-type", "text/csv")], metrics_csv))
 }
 
 async fn init_metrics() -> Result<()> {
-    let path = env::var("CARBONADO_DIR").unwrap_or("/tmp/bitmaskd/carbonado".to_owned());
-    let dir = path::Path::new(&path);
+    let dir = env::var("CARBONADO_DIR").unwrap_or("/tmp/bitmaskd/carbonado".to_owned());
+    let dir = path::Path::new(&dir);
+    fs::create_dir_all(dir).await?;
 
     info!("Starting metrics collection...");
     let duration = Instant::now();
@@ -809,6 +862,18 @@ async fn main() -> Result<()> {
         .route("/proxy/media-metadata", post(rgb_proxy_media_data_save))
         .route("/proxy/media-metadata/:id", get(rgb_proxy_media_retrieve))
         .route("/proxy/media/:id", get(rgb_proxy_metadata_retrieve))
+        .route("/auctions/:offer_id", get(rgb_auction_get_offer))
+        .route("/auctions/:offer_id", post(rgb_auction_create_offer))
+        .route("/auctions/:offer_id", delete(rgb_auction_destroy_offer))
+        .route("/auctions/:offer_id/bid/:bid_id", get(rgb_auction_get_bid))
+        .route(
+            "/auctions/:offer_id/bid/:bid_id",
+            post(rgb_auction_create_bid),
+        )
+        .route(
+            "/auction/:offer_id/bid/:bid_id",
+            delete(rgb_auction_destroy_bid),
+        )
         .route("/metrics.json", get(json_metrics))
         .route("/metrics.csv", get(csv_metrics));
 
@@ -819,13 +884,13 @@ async fn main() -> Result<()> {
         app = app
             .route("/regtest/block", get(new_block))
             .route("/regtest/send/:address/:amount", get(send_coins));
-    } else {
-        tokio::spawn(async {
-            if let Err(e) = init_metrics().await {
-                error!("Error in periodic metrics: {e}");
-            }
-        });
     }
+
+    tokio::spawn(async {
+        if let Err(e) = init_metrics().await {
+            error!("Error in init metrics: {e}");
+        }
+    });
 
     let app = app.layer(CorsLayer::permissive());
     let addr = SocketAddr::from(([0, 0, 0, 0], 7070));

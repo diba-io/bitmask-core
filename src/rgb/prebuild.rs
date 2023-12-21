@@ -27,7 +27,7 @@ use crate::{
 
 use crate::rgb::{
     constants::{BITCOIN_DEFAULT_FETCH_LIMIT, RGB_DEFAULT_FETCH_LIMIT},
-    contract::export_contract,
+    contract::{export_boilerplate, export_contract},
     fs::RgbPersistenceError,
     prefetch::prefetch_resolver_txs,
     prefetch::{
@@ -35,16 +35,14 @@ use crate::rgb::{
     },
     psbt::estimate_fee,
     resolvers::ExplorerResolver,
-    structs::AddressAmount,
-    structs::RgbExtractTransfer,
+    structs::{AddressAmount, ContractAmount, RgbExtractTransfer},
+    swap::RgbSwapStrategy,
     swap::{get_public_offer, RgbBid, RgbOfferSwap},
     transfer::extract_transfer,
     wallet::sync_wallet,
     wallet::{get_address, next_utxos},
     RgbSwapError, SaveTransferError, TransferError,
 };
-
-use super::{contract::export_boilerplate, structs::ContractAmount};
 
 pub const DUST_LIMIT_SATOSHI: u64 = 546;
 
@@ -423,6 +421,7 @@ pub async fn prebuild_seller_swap(
         iface: iface_name,
         contract_amount: target_amount,
         bitcoin_changes,
+        strategy,
         ..
     } = request;
 
@@ -513,15 +512,13 @@ pub async fn prebuild_seller_swap(
     let mut assets_allocs = vec![];
 
     let mut total_asset_bitcoin_unspend: u64 = 0;
-    for alloc in allocations.iter() {
-        // // TODO: Make more tests!
-        // let sig_hash = if assets_inputs.len() <= 0 {
-        //     PsbtSigHashRequest::NonePlusAnyoneCanPay
-        // } else {
-        //     PsbtSigHashRequest::NonePlusAnyoneCanPay
-        // };
-        let sig_hash = PsbtSigHashRequest::NonePlusAnyoneCanPay;
 
+    let asset_sig_hash = match strategy {
+        RgbSwapStrategy::Auction => PsbtSigHashRequest::NonePlusAnyoneCanPay,
+        RgbSwapStrategy::P2P | RgbSwapStrategy::HotSwap => PsbtSigHashRequest::NonePlusAnyoneCanPay,
+    };
+
+    for alloc in allocations.iter() {
         match alloc.value {
             AllocationValue::Value(alloc_value) => {
                 if asset_total >= target_amount {
@@ -532,7 +529,7 @@ pub async fn prebuild_seller_swap(
                     descriptor: universal_desc.clone(),
                     utxo: alloc.utxo.clone(),
                     utxo_terminal: alloc.derivation.to_string(),
-                    sigh_hash: Some(sig_hash),
+                    sigh_hash: Some(asset_sig_hash.clone()),
                     tapret: None,
                 };
                 if !assets_inputs
@@ -540,10 +537,6 @@ pub async fn prebuild_seller_swap(
                     .into_iter()
                     .any(|x: PsbtInputRequest| x.utxo == alloc.utxo)
                 {
-                    // let mut empty_input = input.clone();
-                    // empty_input.sigh_hash = Some(PsbtSigHashRequest::None);
-
-                    // assets_inputs.push(empty_input);
                     assets_inputs.push(input);
                     assets_allocs.push(alloc.clone());
                     total_asset_bitcoin_unspend += asset_unspent_utxos
@@ -564,7 +557,7 @@ pub async fn prebuild_seller_swap(
                     descriptor: universal_desc.clone(),
                     utxo: alloc.utxo.clone(),
                     utxo_terminal: alloc.derivation.to_string(),
-                    sigh_hash: Some(sig_hash),
+                    sigh_hash: Some(asset_sig_hash),
                     tapret: None,
                 };
                 if !assets_inputs
@@ -590,70 +583,80 @@ pub async fn prebuild_seller_swap(
         }
     }
 
-    // Get All Bitcoin UTXOs
-    let total_bitcoin_spend: u64 = bitcoin_changes
-        .clone()
-        .into_iter()
-        .map(|x| {
-            let recipient = AddressAmount::from_str(&x).expect("invalid address amount format");
-            recipient.amount
-        })
-        .sum();
-    let mut bitcoin_inputs = vec![];
-
-    let bitcoin_indexes = [0, 1];
-    for bitcoin_index in bitcoin_indexes {
-        sync_wallet(bitcoin_index, rgb_wallet, resolver);
-        prefetch_resolver_utxos(
-            bitcoin_index,
-            rgb_wallet,
-            resolver,
-            Some(BITCOIN_DEFAULT_FETCH_LIMIT),
-        )
-        .await;
-        prefetch_resolver_user_utxo_status(bitcoin_index, rgb_wallet, resolver, false).await;
-
-        let mut unspent_utxos =
-            next_utxos(bitcoin_index, rgb_wallet.clone(), resolver).map_err(|_| {
-                RgbSwapError::IO(RgbPersistenceError::RetrieveRgbAccount("".to_string()))
-            })?;
-
-        all_unspents.append(&mut unspent_utxos);
-    }
-
-    let mut bitcoin_total = total_asset_bitcoin_unspend;
-    let total_spendable = total_bitcoin_spend;
-
-    for utxo in all_unspents {
-        if bitcoin_total > total_spendable {
-            break;
-        } else {
-            let TerminalPath { app, index } = utxo.derivation.terminal;
-            let btc_input = PsbtInputRequest {
-                descriptor: universal_desc.clone(),
-                utxo: utxo.outpoint.to_string(),
-                utxo_terminal: format!("/{app}/{index}"),
-                sigh_hash: Some(PsbtSigHashRequest::NonePlusAnyoneCanPay),
-                tapret: None,
-            };
-            if !bitcoin_inputs
+    let (bitcoin_inputs, change_value) = match strategy {
+        RgbSwapStrategy::P2P | RgbSwapStrategy::HotSwap => {
+            // Get All Bitcoin UTXOs
+            let total_bitcoin_spend: u64 = bitcoin_changes
                 .clone()
                 .into_iter()
-                .any(|x: PsbtInputRequest| x.utxo == utxo.outpoint.to_string())
-            {
-                bitcoin_inputs.push(btc_input);
-                bitcoin_total += utxo.amount;
-            }
-        }
-    }
+                .map(|x| {
+                    let recipient =
+                        AddressAmount::from_str(&x).expect("invalid address amount format");
+                    recipient.amount
+                })
+                .sum();
+            let mut bitcoin_inputs = vec![];
 
-    let change_value = bitcoin_total - total_spendable;
-    if bitcoin_total < total_spendable {
-        return Err(RgbSwapError::Inflation {
-            input: bitcoin_total,
-            output: total_spendable,
-        });
-    }
+            let bitcoin_indexes = [0, 1];
+            for bitcoin_index in bitcoin_indexes {
+                sync_wallet(bitcoin_index, rgb_wallet, resolver);
+                prefetch_resolver_utxos(
+                    bitcoin_index,
+                    rgb_wallet,
+                    resolver,
+                    Some(BITCOIN_DEFAULT_FETCH_LIMIT),
+                )
+                .await;
+                prefetch_resolver_user_utxo_status(bitcoin_index, rgb_wallet, resolver, false)
+                    .await;
+
+                let mut unspent_utxos = next_utxos(bitcoin_index, rgb_wallet.clone(), resolver)
+                    .map_err(|_| {
+                        RgbSwapError::IO(RgbPersistenceError::RetrieveRgbAccount("".to_string()))
+                    })?;
+
+                all_unspents.append(&mut unspent_utxos);
+            }
+
+            let mut bitcoin_total = total_asset_bitcoin_unspend;
+            let total_spendable = total_bitcoin_spend;
+
+            let bitcoin_sigh_hash = PsbtSigHashRequest::NonePlusAnyoneCanPay;
+            for utxo in all_unspents {
+                if bitcoin_total > total_spendable {
+                    break;
+                } else {
+                    let TerminalPath { app, index } = utxo.derivation.terminal;
+                    let btc_input = PsbtInputRequest {
+                        descriptor: universal_desc.clone(),
+                        utxo: utxo.outpoint.to_string(),
+                        utxo_terminal: format!("/{app}/{index}"),
+                        sigh_hash: Some(bitcoin_sigh_hash.clone()),
+                        tapret: None,
+                    };
+                    if !bitcoin_inputs
+                        .clone()
+                        .into_iter()
+                        .any(|x: PsbtInputRequest| x.utxo == utxo.outpoint.to_string())
+                    {
+                        bitcoin_inputs.push(btc_input);
+                        bitcoin_total += utxo.amount;
+                    }
+                }
+            }
+
+            let change_value = bitcoin_total - total_spendable;
+            if bitcoin_total < total_spendable {
+                return Err(RgbSwapError::Inflation {
+                    input: bitcoin_total,
+                    output: total_spendable,
+                });
+            }
+
+            (bitcoin_inputs, change_value)
+        }
+        RgbSwapStrategy::Auction => (vec![], total_asset_bitcoin_unspend),
+    };
 
     Ok((
         assets_allocs,

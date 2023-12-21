@@ -154,7 +154,7 @@ pub fn pay_invoice(
         PSBT::deserialize(&psbt).map_err(|err| NewPaymentError::WrongPSBT(err.to_string()))?;
 
     let transfers = stock
-        .process(invoice, &mut psbt_final, CloseMethod::TapretFirst, options)
+        .pay_all(invoice, &mut psbt_final, CloseMethod::TapretFirst, options)
         .map_err(|err| NewPaymentError::NoPay(err.to_string()))?;
 
     let psbt_file = Psbt::from_str(&PSBT::serialize(&psbt_final).to_hex())

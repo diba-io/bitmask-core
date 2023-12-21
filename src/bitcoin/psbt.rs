@@ -9,6 +9,9 @@ use crate::{
 
 #[derive(Error, Debug)]
 pub enum BitcoinPsbtError {
+    /// Could not broadcast PSBT
+    #[error("Could not broadcast PSBT")]
+    CouldNotBroadcastPsbt(String),
     /// Could not finalize when signing PSBT
     #[error("Could not finalize when signing PSBT")]
     CouldNotFinalizePsbt,
@@ -46,7 +49,7 @@ pub async fn multi_sign_psbt(
 
     let mut sign_count = 0;
     for wallet in wallets {
-        wallet.lock().await.sign(
+        let sign = wallet.lock().await.sign(
             &mut psbt,
             SignOptions {
                 allow_all_sighashes: true,
@@ -55,7 +58,10 @@ pub async fn multi_sign_psbt(
             },
         )?;
 
-        sign_count += 1;
+        if sign {
+            sign_count += 1;
+        }
+
         debug!(format!("PSBT Sign: ({sign_count}/{total_wallets})"));
     }
 
@@ -70,7 +76,10 @@ pub async fn publish_psbt(
     let tx = psbt.extract_tx();
     debug!("tx:", &serialize(&tx.clone()).to_hex());
     let blockchain = get_blockchain().await;
-    blockchain.broadcast(&tx).await?;
+    blockchain
+        .broadcast(&tx)
+        .await
+        .map_err(|op| BitcoinPsbtError::CouldNotBroadcastPsbt(op.to_string()))?;
 
     let txid = tx.txid();
     let tx = blockchain.get_tx(&txid).await?;
