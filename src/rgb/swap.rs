@@ -28,13 +28,16 @@ use strict_encoding::{
     StrictDecode, StrictDeserialize, StrictDumb, StrictEncode, StrictSerialize, StrictType,
 };
 
-use crate::rgb::{
-    constants::LIB_NAME_BITMASK,
-    crdt::{LocalRgbAuctions, LocalRgbOfferBid, LocalRgbOffers},
-    fs::{
-        retrieve_auctions_offers, retrieve_public_offers, retrieve_swap_offer_bid,
-        store_auction_offers, store_public_offers, store_swap_bids, RgbPersistenceError,
+use crate::{
+    rgb::{
+        constants::LIB_NAME_BITMASK,
+        crdt::{LocalRgbAuctions, LocalRgbOfferBid, LocalRgbOffers},
+        fs::{
+            retrieve_auctions_offers, retrieve_public_offers, retrieve_swap_offer_bid,
+            store_auction_offers, store_public_offers, store_swap_bids, RgbPersistenceError,
+        },
     },
+    structs::PsbtFeeRequest,
 };
 use crate::{structs::AllocationDetail, validators::RGBContext};
 
@@ -79,22 +82,56 @@ pub enum RgbSwapStrategy {
     P2P,
     #[serde(rename = "hotswap")]
     HotSwap,
+    #[serde(rename = "airdrop")]
+    Airdrop,
+}
+
+#[derive(
+    Clone, Eq, PartialEq, Serialize, Deserialize, Debug, Default, Reconcile, Hydrate, Display,
+)]
+#[serde(rename_all = "camelCase")]
+#[display(inner)]
+pub enum RgbAuctionStrategy {
+    #[default]
+    #[serde(rename = "auction")]
+    Auction,
+    #[serde(rename = "airdrop")]
+    Airdrop { max_claim: String },
 }
 
 #[derive(Clone, Debug, Display, Default, Error)]
 #[display(doc_comments)]
 pub struct RgbOfferOptions {
     pub bundle_id: Option<String>,
+    pub max_claim: Option<u64>,
+    pub fee_airdrop: Option<PsbtFeeRequest>,
 }
 
 impl RgbOfferOptions {
-    pub fn with_bundle_id(secret: String) -> Self {
+    pub fn new(secret: String) -> Self {
         let secp = Secp256k1::new();
         let secret = hex::decode(secret).expect("cannot decode hex sk in new RgbOffer");
         let secret_key = SecretKey::from_slice(&secret).expect("error parsing sk in new RgbOffer");
         let public_key = PublicKey::from_secret_key(&secp, &secret_key);
         let bundle_id = Some(public_key.to_hex());
-        Self { bundle_id }
+        Self {
+            bundle_id,
+            fee_airdrop: None,
+            max_claim: None,
+        }
+    }
+
+    pub fn new_airdrop(secret: String, fee: PsbtFeeRequest, max: u64) -> Self {
+        let secp = Secp256k1::new();
+        let secret = hex::decode(secret).expect("cannot decode hex sk in new RgbOffer");
+        let secret_key = SecretKey::from_slice(&secret).expect("error parsing sk in new RgbOffer");
+        let public_key = PublicKey::from_secret_key(&secp, &secret_key);
+        let bundle_id = Some(public_key.to_hex());
+        Self {
+            bundle_id,
+            fee_airdrop: Some(fee),
+            max_claim: Some(max),
+        }
     }
 }
 
@@ -132,6 +169,8 @@ pub struct RgbOffer {
     #[garde(skip)]
     pub bundle_id: Option<String>,
     #[garde(skip)]
+    pub max_claim: Option<u64>,
+    #[garde(skip)]
     pub transfer_id: Option<String>,
 }
 
@@ -155,6 +194,7 @@ impl RgbOffer {
         strategy: RgbSwapStrategy,
         expire_at: Option<i64>,
         bundle_id: Option<String>,
+        max_claim: Option<u64>,
     ) -> Self {
         let secp = Secp256k1::new();
         let secret = hex::decode(secret).expect("cannot decode hex sk in new RgbOffer");
@@ -189,6 +229,7 @@ impl RgbOffer {
             terminal,
             strategy,
             bundle_id,
+            max_claim,
             ..Default::default()
         }
     }
@@ -222,6 +263,8 @@ pub struct RgbOfferSwap {
     #[garde(skip)]
     pub bundle_id: Option<String>,
     #[garde(skip)]
+    pub max_claim: Option<u64>,
+    #[garde(skip)]
     pub expire_at: Option<i64>,
 }
 
@@ -240,6 +283,7 @@ impl From<RgbOffer> for RgbOfferSwap {
             strategy,
             expire_at,
             bundle_id,
+            max_claim,
             ..
         } = value;
 
@@ -262,6 +306,7 @@ impl From<RgbOffer> for RgbOfferSwap {
             pub_key,
             bundle_id,
             expire_at,
+            max_claim,
         }
     }
 }
@@ -598,6 +643,7 @@ impl RgbPublicSwaps {
 #[derive(Clone, Serialize, Deserialize, Reconcile, Hydrate, Default, Debug)]
 pub struct RgbAuctionSwaps {
     pub bundle_id: String,
+    pub strategy: RgbAuctionStrategy,
     pub items: Vec<RgbOfferSwap>,
     pub bids: BTreeMap<OfferId, Vec<RgbBidSwap>>,
 }
@@ -696,6 +742,16 @@ pub async fn get_public_offer(offer_id: OfferId) -> Result<RgbOfferSwap, RgbOffe
     };
 
     Ok(offer)
+}
+
+pub async fn get_auction(bundle_id: &str) -> Result<Option<RgbAuctionSwaps>, RgbOfferErrors> {
+    let file_name = format!("bundle:{bundle_id}");
+
+    let LocalRgbAuctions { rgb_offers, .. } = retrieve_auctions_offers(bundle_id, &file_name)
+        .await
+        .map_err(RgbOfferErrors::IO)?;
+
+    Ok(Some(rgb_offers))
 }
 
 pub async fn get_auction_offer(
@@ -828,6 +884,24 @@ pub async fn get_swap_bid_by_buyer(
             .map_err(RgbOfferErrors::IO)?;
 
     Ok(rgb_bid)
+}
+
+pub async fn get_auction_fifo_bids(bundle_id: String) -> Result<Vec<RgbBidSwap>, RgbOfferErrors> {
+    let file_name = format!("bundle:{bundle_id}");
+    let LocalRgbAuctions { rgb_offers, .. } = retrieve_auctions_offers(&bundle_id, &file_name)
+        .await
+        .map_err(RgbOfferErrors::IO)?;
+
+    let mut first_bids = vec![];
+    for RgbOfferSwap { offer_id, .. } in rgb_offers.clone().get_offers(bundle_id) {
+        if let Some(bids) = rgb_offers.bids.get(&offer_id).cloned() {
+            if let Some(bid) = bids.first() {
+                first_bids.push(bid.clone());
+            }
+        };
+    }
+
+    Ok(first_bids)
 }
 
 pub async fn get_auction_highest_bids(
@@ -984,7 +1058,10 @@ pub async fn publish_swap_bid(
     Ok(())
 }
 
-pub async fn publish_auction_offers(new_offers: Vec<RgbOfferSwap>) -> Result<(), RgbOfferErrors> {
+pub async fn publish_auction_offers(
+    strategy: RgbAuctionStrategy,
+    new_offers: Vec<RgbOfferSwap>,
+) -> Result<(), RgbOfferErrors> {
     let RgbOfferSwap { bundle_id, .. } = new_offers[0].clone();
     let bundle_id = bundle_id.unwrap_or_default();
     let file_name = format!("bundle:{bundle_id}");
@@ -1000,6 +1077,8 @@ pub async fn publish_auction_offers(new_offers: Vec<RgbOfferSwap>) -> Result<(),
         .map_err(|op| RgbOfferErrors::AutoMerge(op.to_string()))?;
 
     rgb_offers = rgb_offers.save_offers(new_offers.clone());
+    rgb_offers.strategy = strategy;
+
     reconcile(&mut current_version, rgb_offers.clone())
         .map_err(|op| RgbOfferErrors::AutoMerge(op.to_string()))?;
 

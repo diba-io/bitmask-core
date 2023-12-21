@@ -44,6 +44,8 @@ use crate::rgb::{
     RgbSwapError, SaveTransferError, TransferError,
 };
 
+use super::swap::RgbOfferOptions;
+
 pub const DUST_LIMIT_SATOSHI: u64 = 546;
 
 pub async fn prebuild_transfer_asset(
@@ -386,6 +388,7 @@ pub async fn prebuild_transfer_asset(
 
 pub async fn prebuild_seller_swap(
     request: RgbOfferRequest,
+    options: RgbOfferOptions,
     stock: &mut Stock,
     rgb_wallet: &mut RgbWallet,
     resolver: &mut ExplorerResolver,
@@ -513,11 +516,7 @@ pub async fn prebuild_seller_swap(
 
     let mut total_asset_bitcoin_unspend: u64 = 0;
 
-    let asset_sig_hash = match strategy {
-        RgbSwapStrategy::Auction => PsbtSigHashRequest::NonePlusAnyoneCanPay,
-        RgbSwapStrategy::P2P | RgbSwapStrategy::HotSwap => PsbtSigHashRequest::NonePlusAnyoneCanPay,
-    };
-
+    let asset_sig_hash = PsbtSigHashRequest::NonePlusAnyoneCanPay;
     for alloc in allocations.iter() {
         match alloc.value {
             AllocationValue::Value(alloc_value) => {
@@ -584,7 +583,7 @@ pub async fn prebuild_seller_swap(
     }
 
     let (bitcoin_inputs, change_value) = match strategy {
-        RgbSwapStrategy::P2P | RgbSwapStrategy::HotSwap => {
+        RgbSwapStrategy::P2P | RgbSwapStrategy::HotSwap | RgbSwapStrategy::Airdrop => {
             // Get All Bitcoin UTXOs
             let total_bitcoin_spend: u64 = bitcoin_changes
                 .clone()
@@ -619,7 +618,16 @@ pub async fn prebuild_seller_swap(
             }
 
             let mut bitcoin_total = total_asset_bitcoin_unspend;
-            let total_spendable = total_bitcoin_spend;
+            let total_spendable = match (strategy, options.fee_airdrop) {
+                (RgbSwapStrategy::Airdrop, Some(fee)) => match fee {
+                    PsbtFeeRequest::Value(fee_value) => {
+                        total_bitcoin_spend + fee_value + DUST_LIMIT_SATOSHI
+                    }
+                    PsbtFeeRequest::FeeRate(_) => return Err(RgbSwapError::NoAirdropFee),
+                },
+                (RgbSwapStrategy::Airdrop, None) => return Err(RgbSwapError::NoAirdropFee),
+                _ => total_bitcoin_spend,
+            };
 
             let bitcoin_sigh_hash = PsbtSigHashRequest::NonePlusAnyoneCanPay;
             for utxo in all_unspents {

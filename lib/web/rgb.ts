@@ -157,12 +157,6 @@ export const createOffer = async (
 ): Promise<RgbOfferResponse> =>
   JSON.parse(await BMC.create_offer(nostrHexSk, request));
 
-export const createAuctionBid = async (
-  nostrHexSk: string,
-  request: RgbAuctionBidRequest
-): Promise<RgbAuctionBidResponse> =>
-  JSON.parse(await BMC.create_auction_bid(nostrHexSk, request));
-
 export const createBid = async (
   nostrHexSk: string,
   request: RgbBidRequest
@@ -175,11 +169,24 @@ export const createSwap = async (
 ): Promise<RgbSwapResponse> =>
   JSON.parse(await BMC.create_swap(nostrHexSk, request));
 
+export const createAuctionOffer = async (
+  nostrHexSk: string,
+  request: RgbAuctionOfferRequest
+): Promise<RgbAuctionBidResponse> =>
+  JSON.parse(await BMC.create_auction_offers(nostrHexSk, request));
+
+
+export const createAuctionBid = async (
+  nostrHexSk: string,
+  request: RgbAuctionBidRequest
+): Promise<RgbAuctionBidResponse> =>
+  JSON.parse(await BMC.create_auction_bid(nostrHexSk, request));
+
 export const finishAuction = async (
   nostrHexSk: string,
   request: string
 ): Promise<RgbAuctionOfferResponse[]> =>
-  JSON.parse(await BMC.finish_auction(nostrHexSk, request));
+  JSON.parse(await BMC.finish_auction_offers(nostrHexSk, request));
 
 export const listAuctions = async (): Promise<RgbOffersResponse> =>
   JSON.parse(await BMC.list_auctions());
@@ -817,11 +824,38 @@ export interface RgbSwapStrategy {
   p2p?: string,
   hotswap?: string,
 }
+
+export interface RgbAuctionStrategy {
+  auction?: string,
+  airdrop?: string,
+}
+
 export interface RgbAuctionOfferRequest {
+  offers: RgbOfferRequest[],
+
   signKeys: string[],
 
-  /// List of Offers
-  offers: RgbOfferRequest[],
+  strategy: RgbAuctionStrategy,
+
+  fee?: PsbtFeeRequest
+}
+
+export interface RgbOfferUpdateRequest {
+  /// The Contract ID
+  contract_id: string,
+  /// The Offer ID
+  offer_id: string,
+  // Swap PSBT
+  offer_psbt: string
+}
+
+export interface RgbOfferUpdateResponse {
+  /// The Contract ID
+  contract_id: string,
+  /// The Offer ID
+  offer_id: string,
+  /// Updated?
+  updated: boolean
 }
 
 export interface RgbAuctionBidRequest {
