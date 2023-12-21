@@ -40,7 +40,7 @@ use crate::{
     structs::{
         DecryptedWalletData, EncryptedWalletDataV04, FundVaultDetails, PublishPsbtRequest,
         PublishedPsbtResponse, SatsInvoice, SecretString, SignPsbtRequest, SignedPsbtResponse,
-        WalletData, WalletTransaction,
+        TransactionData, WalletData, WalletTransaction,
     },
     trace,
 };
@@ -341,13 +341,13 @@ pub async fn send_sats(
     destination: &str, // bip21 uri or address
     amount: u64,
     fee_rate: Option<f32>,
-) -> Result<TransactionDetails, BitcoinError> {
+) -> Result<TransactionData, BitcoinError> {
     use payjoin::UriExt;
 
     let wallet = get_wallet(descriptor, Some(change_descriptor)).await?;
     let fee_rate = fee_rate.map(FeeRate::from_sat_per_vb);
 
-    let transaction = match payjoin::Uri::try_from(destination) {
+    let details = match payjoin::Uri::try_from(destination) {
         Ok(uri) => {
             let address = uri.address.clone();
             validate_address(&address).await?;
@@ -370,7 +370,18 @@ pub async fn send_sats(
         }
     };
 
-    Ok(transaction)
+    let vsize = details
+        .transaction
+        .as_ref()
+        .expect("transaction exists")
+        .vsize();
+    let fee_rate = details.fee.expect("fee is present on tx") as f32 / vsize as f32;
+
+    Ok(TransactionData {
+        details,
+        vsize,
+        fee_rate,
+    })
 }
 
 pub async fn fund_vault(
@@ -537,7 +548,7 @@ pub async fn drain_wallet(
     descriptor: &SecretString,
     change_descriptor: Option<&SecretString>,
     fee_rate: Option<f32>,
-) -> Result<TransactionDetails, BitcoinError> {
+) -> Result<TransactionData, BitcoinError> {
     let address = Address::from_str(destination)?;
     validate_address(&address).await?;
     debug!(format!("Create drain wallet tx to: {address:#?}"));
@@ -593,7 +604,18 @@ pub async fn drain_wallet(
             "Drain wallet transaction submitted with details: {details:#?}"
         ));
 
-        Ok(details)
+        let vsize = details
+            .transaction
+            .as_ref()
+            .expect("transaction exists")
+            .vsize();
+        let fee_rate = details.fee.expect("fee is present on tx") as f32 / vsize as f32;
+
+        Ok(TransactionData {
+            details,
+            vsize,
+            fee_rate,
+        })
     } else {
         Err(BitcoinError::DrainWalletNoTxDetails)
     }

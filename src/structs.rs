@@ -42,6 +42,14 @@ pub struct WalletTransaction {
     pub confirmation_time: Option<BlockTime>,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct TransactionData {
+    pub details: TransactionDetails,
+    pub vsize: usize,
+    pub fee_rate: f32,
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, Zeroize, ZeroizeOnDrop, Display, Default)]
 #[display(inner)]
 pub struct SecretString(pub String);

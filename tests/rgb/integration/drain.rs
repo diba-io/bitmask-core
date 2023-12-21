@@ -49,11 +49,11 @@ pub async fn drain() -> Result<()> {
     .await?;
 
     assert_eq!(
-        drain_wallet_details.received, 0,
+        drain_wallet_details.details.received, 0,
         "received no funds in this transaction"
     );
     assert_eq!(
-        drain_wallet_details.sent + drain_wallet_details.fee.expect("fee present"),
+        drain_wallet_details.details.sent + drain_wallet_details.details.fee.expect("fee present"),
         30_000_000,
         "received 0.3 tBTC"
     );
