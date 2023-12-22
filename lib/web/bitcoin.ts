@@ -134,7 +134,7 @@ export interface Vault {
   public: PublicWalletData;
 }
 
-export interface Transaction {
+export interface Transaction extends WalletTransaction {
   amount: number;
   asset?: string;
   assetType: string;

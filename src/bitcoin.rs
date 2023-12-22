@@ -273,7 +273,7 @@ pub async fn get_wallet_data(
     let mut transactions = wallet
         .lock()
         .await
-        .list_transactions(false)
+        .list_transactions(true)
         .unwrap_or_default();
     trace!(format!("transactions: {transactions:#?}"));
 
@@ -287,7 +287,10 @@ pub async fn get_wallet_data(
     let transactions: Vec<WalletTransaction> = transactions
         .into_iter()
         .map(|tx| {
-            let vsize = tx.transaction.expect("transaction exists").vsize();
+            let vsize = match &tx.transaction {
+                Some(tx_details) => tx_details.vsize(),
+                None => 1,
+            };
             let fee_rate = tx.fee.expect("tx fee exists") as f32 / vsize as f32;
 
             WalletTransaction {
@@ -380,11 +383,10 @@ pub async fn send_sats(
         }
     };
 
-    let vsize = details
-        .transaction
-        .as_ref()
-        .expect("transaction exists")
-        .vsize();
+    let vsize = match &details.transaction {
+        Some(tx_details) => tx_details.vsize(),
+        None => 1,
+    };
     let fee_rate = details.fee.expect("fee is present on tx") as f32 / vsize as f32;
 
     Ok(TransactionData {
@@ -614,11 +616,10 @@ pub async fn drain_wallet(
             "Drain wallet transaction submitted with details: {details:#?}"
         ));
 
-        let vsize = details
-            .transaction
-            .as_ref()
-            .expect("transaction exists")
-            .vsize();
+        let vsize = match &details.transaction {
+            Some(tx_details) => tx_details.vsize(),
+            None => 1,
+        };
         let fee_rate = details.fee.expect("fee is present on tx") as f32 / vsize as f32;
 
         Ok(TransactionData {
@@ -641,7 +642,10 @@ pub async fn bump_fee(
     let txid = Txid::from_str(&txid)?;
 
     let wallet = get_wallet(descriptor, Some(change_descriptor)).await?;
-    sync_wallet(&wallet).await?;
+
+    if broadcast {
+        sync_wallet(&wallet).await?;
+    }
 
     let (mut psbt, details) = {
         let wallet_lock = wallet.lock().await;
@@ -650,45 +654,34 @@ pub async fn bump_fee(
         builder.finish()?
     };
 
-    let vsize = details
-        .transaction
-        .as_ref()
-        .expect("transaction exists")
-        .vsize();
+    let _finalized = wallet
+        .lock()
+        .await
+        .sign(&mut psbt, SignOptions::default())?;
+    let tx = psbt.extract_tx();
 
     if broadcast {
-        let _finalized = wallet
-            .lock()
-            .await
-            .sign(&mut psbt, SignOptions::default())?;
-        let tx = psbt.extract_tx();
         let blockchain = get_blockchain().await;
         blockchain.broadcast(&tx).await?;
-
-        let sent = tx.output.iter().fold(0, |sum, output| output.value + sum);
-
-        let txid = tx.txid();
-        let vsize = tx.vsize();
-
-        let details = TransactionDetails {
-            txid,
-            transaction: Some(tx),
-            received: 0,
-            sent,
-            fee: details.fee,
-            confirmation_time: None,
-        };
-
-        Ok(TransactionData {
-            details,
-            vsize,
-            fee_rate,
-        })
-    } else {
-        Ok(TransactionData {
-            details,
-            vsize,
-            fee_rate,
-        })
     }
+
+    let sent = tx.output.iter().fold(0, |sum, output| output.value + sum);
+
+    let txid = tx.txid();
+    let vsize = tx.vsize();
+
+    let details = TransactionDetails {
+        txid,
+        transaction: Some(tx),
+        received: 0,
+        sent,
+        fee: details.fee,
+        confirmation_time: None,
+    };
+
+    Ok(TransactionData {
+        details,
+        vsize,
+        fee_rate,
+    })
 }
