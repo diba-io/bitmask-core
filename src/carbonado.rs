@@ -9,19 +9,24 @@ pub mod error;
 pub mod metrics;
 
 #[cfg(not(target_arch = "wasm32"))]
-pub use server::{handle_file, retrieve, retrieve_metadata, server_retrieve, server_store, store};
+pub use server::{
+    auctions_retrieve, auctions_store, handle_file, marketplace_retrieve, marketplace_store,
+    retrieve, retrieve_metadata, store,
+};
 
 #[cfg(not(target_arch = "wasm32"))]
 mod server {
-    use crate::constants::get_marketplace_nostr_key;
+    use crate::constants::{get_coordinator_nostr_key, get_marketplace_nostr_key};
 
     use super::*;
 
     use std::{
         io::{Error, ErrorKind},
         path::PathBuf,
+        str::FromStr,
     };
 
+    use bitcoin_30::secp256k1::ecdh::SharedSecret;
     use tokio::fs;
 
     pub async fn store(
@@ -48,11 +53,11 @@ mod server {
         let (body, _encode_info) = carbonado::file::encode(&sk, Some(&pk), input, level, meta)?;
         let filepath = handle_file(&pk_hex, name, body.len()).await?;
         fs::write(&filepath, body).await?;
-        metrics::update(&filepath).await?;
+        // metrics::update(&filepath).await?;
         Ok(())
     }
 
-    pub async fn server_store(
+    pub async fn marketplace_store(
         name: &str,
         input: &[u8],
         metadata: Option<Vec<u8>>,
@@ -76,7 +81,44 @@ mod server {
         let (body, _encode_info) = carbonado::file::encode(&sk, Some(&pk), input, level, meta)?;
         let filepath = handle_file(&pk_hex, name, body.len()).await?;
         fs::write(&filepath, body.clone()).await?;
-        metrics::update(&filepath).await?;
+        // metrics::update(&filepath).await?;
+        Ok((filepath, body))
+    }
+
+    pub async fn auctions_store(
+        bundle_id: &str,
+        name: &str,
+        input: &[u8],
+        metadata: Option<Vec<u8>>,
+    ) -> Result<(PathBuf, Vec<u8>), CarbonadoError> {
+        let coordinator_key: String = get_coordinator_nostr_key().await;
+
+        let level = 15;
+        let coordinator_sk = hex::decode(coordinator_key)?;
+        let coordinator_secret_key = SecretKey::from_slice(&coordinator_sk)?;
+        let bundle_public_key =
+            PublicKey::from_str(bundle_id).map_err(|_| CarbonadoError::WrongNostrPublicKey)?;
+
+        let share_sk = SharedSecret::new(&bundle_public_key, &coordinator_secret_key);
+        let share_sk = share_sk.display_secret().to_string();
+
+        let sk = hex::decode(share_sk)?;
+        let secret_key = SecretKey::from_slice(&sk)?;
+        let public_key = PublicKey::from_secret_key_global(&secret_key);
+
+        let pk = public_key.serialize();
+        let pk_hex = public_key.to_hex();
+
+        let mut meta: Option<[u8; 8]> = default!();
+        if let Some(metadata) = metadata {
+            let mut inner: [u8; 8] = default!();
+            inner[..metadata.len()].copy_from_slice(&metadata);
+            meta = Some(inner);
+        }
+
+        let (body, _encode_info) = carbonado::file::encode(&sk, Some(&pk), input, level, meta)?;
+        let filepath = handle_file(&pk_hex, name, body.len()).await?;
+        fs::write(filepath.clone(), body.clone()).await?;
         Ok((filepath, body))
     }
 
@@ -122,12 +164,50 @@ mod server {
         Ok((Vec::new(), None))
     }
 
-    pub async fn server_retrieve(name: &str) -> Result<(Vec<u8>, Option<Vec<u8>>), CarbonadoError> {
+    pub async fn marketplace_retrieve(
+        name: &str,
+    ) -> Result<(Vec<u8>, Option<Vec<u8>>), CarbonadoError> {
         let marketplace_key: String = get_marketplace_nostr_key().await;
 
         let sk = hex::decode(marketplace_key)?;
         let secret_key = SecretKey::from_slice(&sk)?;
         let public_key = PublicKey::from_secret_key_global(&secret_key);
+        let pk = public_key.to_hex();
+
+        let mut final_name = name.to_string();
+        let network = NETWORK.read().await.to_string();
+        let networks = ["bitcoin", "testnet", "signet", "regtest"];
+        if !networks.into_iter().any(|x| name.contains(x)) {
+            final_name = format!("{network}-{name}");
+        }
+
+        let filepath = handle_file(&pk, &final_name, 0).await?;
+        if let Ok(bytes) = fs::read(filepath).await {
+            let (header, decoded) = carbonado::file::decode(&sk, &bytes)?;
+            return Ok((decoded, header.metadata.map(|m| m.to_vec())));
+        }
+
+        Ok((Vec::new(), None))
+    }
+
+    pub async fn auctions_retrieve(
+        bundle_id: &str,
+        name: &str,
+    ) -> Result<(Vec<u8>, Option<Vec<u8>>), CarbonadoError> {
+        let coordinator_key: String = get_coordinator_nostr_key().await;
+
+        let coordinator_sk = hex::decode(coordinator_key)?;
+        let coordinator_secret_key = SecretKey::from_slice(&coordinator_sk)?;
+        let bundle_public_key =
+            PublicKey::from_str(bundle_id).map_err(|_| CarbonadoError::WrongNostrPublicKey)?;
+
+        let share_sk = SharedSecret::new(&bundle_public_key, &coordinator_secret_key);
+        let share_sk = share_sk.display_secret().to_string();
+
+        let sk = hex::decode(share_sk)?;
+        let secret_key = SecretKey::from_slice(&sk)?;
+        let public_key = PublicKey::from_secret_key_global(&secret_key);
+
         let pk = public_key.to_hex();
 
         let mut final_name = name.to_string();
@@ -212,7 +292,10 @@ mod server {
 }
 
 #[cfg(target_arch = "wasm32")]
-pub use client::{retrieve, retrieve_metadata, server_retrieve, server_store, store};
+pub use client::{
+    auctions_retrieve, auctions_store, marketplace_retrieve, marketplace_store, retrieve,
+    retrieve_metadata, store,
+};
 
 #[cfg(target_arch = "wasm32")]
 mod client {
@@ -226,7 +309,7 @@ mod client {
     use gloo_net::http::Request;
     use gloo_utils::errors::JsError;
 
-    use crate::constants::CARBONADO_ENDPOINT;
+    use crate::constants::{BITMASK_ENDPOINT, CARBONADO_ENDPOINT};
 
     fn js_to_error(js_value: JsValue) -> CarbonadoError {
         CarbonadoError::JsError(js_to_js_error(js_value))
@@ -298,7 +381,7 @@ mod client {
         }
     }
 
-    pub async fn server_store(
+    pub async fn marketplace_store(
         name: &str,
         input: &[u8],
         _metadata: Option<Vec<u8>>,
@@ -311,6 +394,39 @@ mod client {
 
         for endpoint in endpoints {
             let url = format!("{endpoint}/server/{network}-{name}");
+            let fetch_fn = future_to_promise(fetch_post(url, body.clone()));
+            requests.push(&fetch_fn);
+        }
+
+        let results = JsFuture::from(Promise::all_settled(&JsValue::from(requests)))
+            .await
+            .map_err(js_to_error)?;
+
+        info!(format!("Store results: {results:?}"));
+
+        let results = serde_wasm_bindgen::from_value::<Vec<PostStorePromiseResult>>(results)?;
+        let success = results.iter().any(|result| result.value == 200.0);
+        if success {
+            Ok(())
+        } else {
+            Err(CarbonadoError::AllEndpointsFailed)
+        }
+    }
+
+    pub async fn auctions_store(
+        bundle_id: &str,
+        name: &str,
+        input: &[u8],
+        _metadata: Option<Vec<u8>>,
+    ) -> Result<(), CarbonadoError> {
+        let body = Arc::new(input.to_vec());
+        let network = NETWORK.read().await.to_string();
+        let endpoints = BITMASK_ENDPOINT.read().await.to_string();
+        let endpoints: Vec<&str> = endpoints.split(',').collect();
+        let requests = Array::new();
+
+        for endpoint in endpoints {
+            let url = format!("{endpoint}/auction/{bundle_id}/{network}-{name}");
             let fetch_fn = future_to_promise(fetch_post(url, body.clone()));
             requests.push(&fetch_fn);
         }
@@ -418,7 +534,9 @@ mod client {
         Ok((Vec::new(), None))
     }
 
-    pub async fn server_retrieve(name: &str) -> Result<(Vec<u8>, Option<Vec<u8>>), CarbonadoError> {
+    pub async fn marketplace_retrieve(
+        name: &str,
+    ) -> Result<(Vec<u8>, Option<Vec<u8>>), CarbonadoError> {
         let network = NETWORK.read().await.to_string();
         let endpoints = CARBONADO_ENDPOINT.read().await.to_string();
         let endpoints: Vec<&str> = endpoints.split(',').collect();
@@ -426,6 +544,31 @@ mod client {
         let requests = Array::new();
         for endpoint in endpoints.iter() {
             let url = format!("{endpoint}/server/{network}-{name}");
+            let fetch_fn = future_to_promise(fetch_get_byte_array(url));
+            requests.push(&fetch_fn);
+        }
+
+        let result = JsFuture::from(Promise::any(&JsValue::from(requests)))
+            .await
+            .map_err(js_to_error)?;
+
+        let array = Uint8Array::from(result);
+        let encoded = array.to_vec();
+
+        Ok((encoded.to_vec(), None))
+    }
+
+    pub async fn auctions_retrieve(
+        bundle_id: &str,
+        name: &str,
+    ) -> Result<(Vec<u8>, Option<Vec<u8>>), CarbonadoError> {
+        let network = NETWORK.read().await.to_string();
+        let endpoints = BITMASK_ENDPOINT.read().await.to_string();
+        let endpoints: Vec<&str> = endpoints.split(',').collect();
+
+        let requests = Array::new();
+        for endpoint in endpoints.iter() {
+            let url = format!("{endpoint}/auction/{bundle_id}/{network}-{name}");
             let fetch_fn = future_to_promise(fetch_get_byte_array(url));
             requests.push(&fetch_fn);
         }

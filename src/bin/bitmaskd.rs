@@ -25,7 +25,10 @@ use axum::{
 use bitcoin_30::secp256k1::{ecdh::SharedSecret, PublicKey, SecretKey};
 use bitmask_core::{
     bitcoin::{save_mnemonic, sign_and_publish_psbt_file},
-    carbonado::{handle_file, metrics, server_retrieve, server_store, store},
+    carbonado::{
+        auctions_retrieve, auctions_store, handle_file, marketplace_retrieve, marketplace_store,
+        metrics, store,
+    },
     constants::{
         get_marketplace_nostr_key, get_marketplace_seed, get_network, get_udas_utxo, switch_network,
     },
@@ -34,11 +37,12 @@ use bitmask_core::{
         proxy_media_data_store, proxy_media_retrieve, proxy_metadata_retrieve,
     },
     rgb::{
-        accept_transfer, clear_watcher as rgb_clear_watcher, create_invoice, create_psbt,
-        create_watcher, full_transfer_asset, get_contract, import as rgb_import, issue_contract,
-        list_contracts, list_interfaces, list_schemas, list_transfers as list_rgb_transfers,
-        reissue_contract, remove_transfer as remove_rgb_transfer,
-        save_transfer as save_rgb_transfer,
+        accept_transfer,
+        carbonado::retrieve_auctions_offers,
+        clear_watcher as rgb_clear_watcher, create_invoice, create_psbt, create_watcher,
+        full_transfer_asset, get_contract, import as rgb_import, issue_contract, list_contracts,
+        list_interfaces, list_schemas, list_transfers as list_rgb_transfers, reissue_contract,
+        remove_transfer as remove_rgb_transfer, save_transfer as save_rgb_transfer,
         structs::{
             RgbProxyConsigCarbonadoReq, RgbProxyConsigFileReq, RgbProxyConsigUpload,
             RgbProxyMediaCarbonadoReq, RgbProxyMediaFileReq,
@@ -474,7 +478,7 @@ async fn co_store(
         },
     }
 
-    metrics::update(&filepath).await?;
+    // metrics::update(&filepath).await?;
 
     Ok((StatusCode::OK, TypedHeader(cc), "Success"))
 }
@@ -527,7 +531,7 @@ async fn co_server_store(
     body: Bytes,
 ) -> Result<impl IntoResponse, AppError> {
     info!("POST /carbonado/server/{name}, {} bytes", body.len());
-    let (filepath, encoded) = server_store(&name, &body, None).await?;
+    let (filepath, encoded) = marketplace_store(&name, &body, None).await?;
 
     match OpenOptions::new()
         .read(true)
@@ -627,7 +631,7 @@ async fn co_metadata(
 async fn co_server_retrieve(Path(name): Path<String>) -> Result<impl IntoResponse, AppError> {
     info!("GET /server/{name}");
 
-    let result = server_retrieve(&name).await;
+    let result = marketplace_retrieve(&name).await;
     let cc = CacheControl::new().with_no_cache();
 
     match result {
@@ -685,6 +689,71 @@ async fn rgb_proxy_media_data_save(
     } = request;
     let resp = proxy_media_data_store(media, encode).await?;
     Ok((StatusCode::OK, Json(resp)))
+}
+
+async fn rgb_retrieve_auction(
+    Path((bundle_id, name)): Path<(String, String)>,
+) -> Result<impl IntoResponse, AppError> {
+    info!("GET /auction/{bundle_id}");
+
+    let result = auctions_retrieve(&bundle_id, &name).await;
+    let cc = CacheControl::new().with_no_cache();
+    match result {
+        Ok((bytes, _)) => {
+            debug!("read {0} bytes.", bytes.len());
+            Ok((StatusCode::OK, TypedHeader(cc), bytes))
+        }
+        Err(e) => {
+            debug!("file read error {0} .Details: {1}.", name, e.to_string());
+            Ok((StatusCode::OK, TypedHeader(cc), Vec::<u8>::new()))
+        }
+    }
+}
+
+async fn rgb_store_auction(
+    Path((bundle_id, name)): Path<(String, String)>,
+    body: Bytes,
+) -> Result<impl IntoResponse, AppError> {
+    info!("POST /auction/{bundle_id}");
+    let (filepath, encoded) = auctions_store(&bundle_id, &name, &body, None).await?;
+
+    match OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .open(&filepath)
+    {
+        Ok(file) => {
+            let present_header = match carbonado::file::Header::try_from(&file) {
+                Ok(header) => header,
+                _ => carbonado::file::Header::try_from(&body)?,
+            };
+            let present_len = present_header.encoded_len - present_header.padding_len;
+            debug!("present_len: {present_len}");
+            let resp = fs::write(&filepath, &encoded).await;
+            debug!("file override status {}", resp.is_ok());
+        }
+        Err(err) => match err.kind() {
+            ErrorKind::NotFound => {
+                debug!("no file found, writing 0 bytes.");
+                fs::write(&filepath, &body).await?;
+            }
+            _ => {
+                error!("error in POST /carbonado/server/{name}: {err}");
+                return Err(err.into());
+            }
+        },
+    }
+
+    let cc = CacheControl::new().with_no_cache();
+    Ok((StatusCode::OK, TypedHeader(cc)))
+}
+
+async fn rgb_destroy_auction(
+    Path((bundle_id, _name)): Path<(String, String)>,
+) -> Result<impl IntoResponse, AppError> {
+    info!("DELETE /auction/{bundle_id}");
+    Ok((StatusCode::OK, Json("")))
 }
 
 const BMC_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -812,6 +881,9 @@ async fn main() -> Result<()> {
         .route("/proxy/media-metadata", post(rgb_proxy_media_data_save))
         .route("/proxy/media-metadata/:id", get(rgb_proxy_media_retrieve))
         .route("/proxy/media/:id", get(rgb_proxy_metadata_retrieve))
+        .route("/auction/:bundle_id/:name", get(rgb_retrieve_auction))
+        .route("/auction/:bundle_id/:name", post(rgb_store_auction))
+        .route("/auction/:bundle_id/:name", delete(rgb_destroy_auction))
         .route("/metrics.json", get(json_metrics))
         .route("/metrics.csv", get(csv_metrics));
 

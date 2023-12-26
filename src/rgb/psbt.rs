@@ -262,7 +262,7 @@ pub fn extract_output_commit(psbt: Psbt) -> Result<(Outpoint, u64, Vec<u8>), Dbc
     }
 }
 
-pub fn save_tap_commit_str(
+pub fn save_rgb_commit_str(
     outpoint: &str,
     amount: u64,
     commit: &str,
@@ -278,10 +278,10 @@ pub fn save_tap_commit_str(
 
     let commit = Vec::<u8>::from_hex(commit).expect("invalid tap commit parse");
 
-    save_tap_commit(outpoint, amount, commit, terminal, wallet);
+    save_rgb_commit(outpoint, amount, commit, terminal, wallet);
 }
 
-pub fn save_tap_commit(
+pub fn save_rgb_commit(
     outpoint: Outpoint,
     amount: u64,
     commit: Vec<u8>,
@@ -313,7 +313,7 @@ pub fn save_tap_commit(
     wallet.utxos.insert(Utxo {
         amount,
         outpoint,
-        status: MiningStatus::Mempool,
+        status: MiningStatus::Blockchain(666),
         derivation: DeriveInfo::with(terminal.app, terminal.index, Some(tap_commit.clone())),
     });
     wallet.descr = RgbDescr::Tapret(tapret);
