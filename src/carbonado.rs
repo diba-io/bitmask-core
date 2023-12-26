@@ -309,7 +309,7 @@ mod client {
     use gloo_net::http::Request;
     use gloo_utils::errors::JsError;
 
-    use crate::constants::CARBONADO_ENDPOINT;
+    use crate::constants::{BITMASK_ENDPOINT, CARBONADO_ENDPOINT};
 
     fn js_to_error(js_value: JsValue) -> CarbonadoError {
         CarbonadoError::JsError(js_to_js_error(js_value))
@@ -414,12 +414,36 @@ mod client {
     }
 
     pub async fn auctions_store(
-        _bundle_id: &str,
-        _name: &str,
-        _input: &[u8],
+        bundle_id: &str,
+        name: &str,
+        input: &[u8],
         _metadata: Option<Vec<u8>>,
     ) -> Result<(), CarbonadoError> {
-        todo!()
+        let body = Arc::new(input.to_vec());
+        let network = NETWORK.read().await.to_string();
+        let endpoints = BITMASK_ENDPOINT.read().await.to_string();
+        let endpoints: Vec<&str> = endpoints.split(',').collect();
+        let requests = Array::new();
+
+        for endpoint in endpoints {
+            let url = format!("{endpoint}/auction/{bundle_id}/{network}-{name}");
+            let fetch_fn = future_to_promise(fetch_post(url, body.clone()));
+            requests.push(&fetch_fn);
+        }
+
+        let results = JsFuture::from(Promise::all_settled(&JsValue::from(requests)))
+            .await
+            .map_err(js_to_error)?;
+
+        info!(format!("Store results: {results:?}"));
+
+        let results = serde_wasm_bindgen::from_value::<Vec<PostStorePromiseResult>>(results)?;
+        let success = results.iter().any(|result| result.value == 200.0);
+        if success {
+            Ok(())
+        } else {
+            Err(CarbonadoError::AllEndpointsFailed)
+        }
     }
 
     pub async fn retrieve_metadata(sk: &str, name: &str) -> Result<FileMetadata, CarbonadoError> {
@@ -535,10 +559,28 @@ mod client {
     }
 
     pub async fn auctions_retrieve(
-        _bundle_id: &str,
-        _name: &str,
+        bundle_id: &str,
+        name: &str,
     ) -> Result<(Vec<u8>, Option<Vec<u8>>), CarbonadoError> {
-        todo!()
+        let network = NETWORK.read().await.to_string();
+        let endpoints = BITMASK_ENDPOINT.read().await.to_string();
+        let endpoints: Vec<&str> = endpoints.split(',').collect();
+
+        let requests = Array::new();
+        for endpoint in endpoints.iter() {
+            let url = format!("{endpoint}/auction/{bundle_id}/{network}-{name}");
+            let fetch_fn = future_to_promise(fetch_get_byte_array(url));
+            requests.push(&fetch_fn);
+        }
+
+        let result = JsFuture::from(Promise::any(&JsValue::from(requests)))
+            .await
+            .map_err(js_to_error)?;
+
+        let array = Uint8Array::from(result);
+        let encoded = array.to_vec();
+
+        Ok((encoded.to_vec(), None))
     }
 
     async fn fetch_post(url: String, body: Arc<Vec<u8>>) -> Result<JsValue, JsValue> {

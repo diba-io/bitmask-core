@@ -14,7 +14,7 @@ use rgbstd::interface::rgb21::Allocation as AllocationUDA;
 use crate::{
     rgb::{
         structs::MediaMetadata,
-        swap::{PublicRgbBid, RgbBid, RgbOffer, RgbOfferSwap, RgbSwapStrategy},
+        swap::{PublicRgbBid, RgbAuctionStrategy, RgbBid, RgbOffer, RgbOfferSwap, RgbSwapStrategy},
     },
     validators::{
         verify_descriptor, verify_media_request, verify_rgb_invoice, verify_tapret_seal,
@@ -1359,12 +1359,17 @@ impl UtxoSpentStatus {
 #[serde(rename_all = "camelCase")]
 #[display(doc_comments)]
 pub struct RgbAuctionOfferRequest {
+    #[garde(dive)]
+    pub offers: Vec<RgbOfferRequest>,
+
     #[garde(skip)]
     pub sign_keys: Vec<SecretString>,
 
-    /// List of Offers
+    #[garde(skip)]
+    pub strategy: RgbAuctionStrategy,
+
     #[garde(dive)]
-    pub offers: Vec<RgbOfferRequest>,
+    pub fee: Option<PsbtFeeRequest>,
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug, Display, Default, Validate)]
