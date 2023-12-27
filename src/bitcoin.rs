@@ -636,12 +636,12 @@ pub async fn bump_fee(
     txid: String,
     fee_rate: f32,
     descriptor: &SecretString,
-    change_descriptor: &SecretString,
+    change_descriptor: Option<&SecretString>,
     broadcast: bool,
 ) -> Result<TransactionData, BitcoinError> {
     let txid = Txid::from_str(&txid)?;
 
-    let wallet = get_wallet(descriptor, Some(change_descriptor)).await?;
+    let wallet = get_wallet(descriptor, change_descriptor).await?;
 
     if broadcast {
         sync_wallet(&wallet).await?;

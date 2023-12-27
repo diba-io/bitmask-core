@@ -1,6 +1,4 @@
 #![cfg(not(target_arch = "wasm32"))]
-use std::str::FromStr;
-
 use anyhow::Result;
 use bdk::{
     database::MemoryDatabase,
@@ -9,12 +7,12 @@ use bdk::{
     SignOptions, SyncOptions,
 };
 use bitcoin::{secp256k1::Secp256k1, Network, Txid};
-use bitcoin_hashes::hex::{Case, DisplayHex};
 use bitmask_core::{
     bitcoin::{bump_fee, get_blockchain, new_mnemonic, sign_and_publish_psbt_file},
     rgb::{get_contract, structs::ContractAmount},
     structs::{PsbtFeeRequest, PsbtResponse, SecretString, SignPsbtRequest},
 };
+use std::str::FromStr;
 
 use crate::rgb::integration::utils::{
     create_new_psbt_v2, issuer_issue_contract_v2, send_some_coins, UtxoFilter,
@@ -165,10 +163,8 @@ pub async fn create_bdk_rbf_transaction() -> Result<()> {
     let (mut psbt, _) = builder.finish()?;
 
     let _ = user_wallet_data.sign(&mut psbt, SignOptions::default())?;
-    // println!("{:#?}", signed);
 
     let tx = psbt.extract_tx();
-
     blockchain.broadcast(&tx).await?;
 
     user_wallet_data
@@ -176,8 +172,6 @@ pub async fn create_bdk_rbf_transaction() -> Result<()> {
         .await?;
 
     let txs = user_wallet_data.list_transactions(false)?;
-    // println!("{:#?}", txs);
-
     assert_eq!(2, txs.len());
 
     let tx_1_utxos: Vec<String> = tx
@@ -188,10 +182,10 @@ pub async fn create_bdk_rbf_transaction() -> Result<()> {
         .collect();
 
     bump_fee(
-        tx.txid().to_hex_string(Case::Lower),
+        tx.txid().to_string(),
         5.0,
         &SecretString(user_keys.private.btc_descriptor_xprv.to_owned()),
-        &SecretString(user_keys.private.btc_change_descriptor_xprv.to_owned()),
+        None,
         true,
     )
     .await?;
@@ -201,8 +195,6 @@ pub async fn create_bdk_rbf_transaction() -> Result<()> {
         .await?;
 
     let txs = user_wallet_data.list_transactions(false)?;
-    // println!("{:#?}", txs);
-
     assert_eq!(2, txs.len());
 
     let tx_2_utxos: Vec<String> = tx
@@ -211,8 +203,8 @@ pub async fn create_bdk_rbf_transaction() -> Result<()> {
         .map(|u| u.previous_output.to_string())
         .collect();
 
-    println!("tx 1 utxos: {:#?}", tx_1_utxos);
-    println!("tx 2 utxos: {:#?}", tx_2_utxos);
+    // println!("tx 1 utxos: {:#?}", tx_1_utxos);
+    // println!("tx 2 utxos: {:#?}", tx_2_utxos);
     assert_eq!(tx_1_utxos, tx_2_utxos);
 
     Ok(())
