@@ -377,17 +377,18 @@ pub mod bitcoin {
         txid: String,
         fee_rate: f32,
         descriptor: String,
-        change_descriptor: String,
+        change_descriptor: Option<String>,
         broadcast: bool,
     ) -> Promise {
         set_panic_hook();
 
         future_to_promise(async move {
+            let change_descriptor = change_descriptor.map(SecretString);
             match crate::bitcoin::bump_fee(
                 txid,
                 fee_rate,
                 &SecretString(descriptor),
-                &SecretString(change_descriptor),
+                change_descriptor.as_ref(),
                 broadcast,
             )
             .await

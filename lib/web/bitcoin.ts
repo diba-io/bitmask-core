@@ -95,9 +95,9 @@ export const drainWallet = async (
 export const bumpFee = async (
   txid: string,
   feeRate: number,
+  broadcast: boolean,
   descriptor: string,
-  changeDescriptor: string,
-  broadcast: boolean
+  changeDescriptor?: string,
 ): Promise<TransactionData> =>
   JSON.parse(
     await BMC.bump_fee(txid, feeRate, descriptor, changeDescriptor, broadcast)
