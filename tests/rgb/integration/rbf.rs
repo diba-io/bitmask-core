@@ -9,8 +9,9 @@ use bdk::{
     SignOptions, SyncOptions,
 };
 use bitcoin::{secp256k1::Secp256k1, Network, Txid};
+use bitcoin_hashes::hex::{Case, DisplayHex};
 use bitmask_core::{
-    bitcoin::{get_blockchain, new_mnemonic, sign_and_publish_psbt_file},
+    bitcoin::{bump_fee, get_blockchain, new_mnemonic, sign_and_publish_psbt_file},
     rgb::{get_contract, structs::ContractAmount},
     structs::{PsbtFeeRequest, PsbtResponse, SecretString, SignPsbtRequest},
 };
@@ -131,7 +132,6 @@ pub async fn create_simple_rbf_bitcoin_transfer() -> Result<()> {
     Ok(())
 }
 
-#[ignore = "No longer necessary, this is a simple test to rbf with bdk"]
 #[tokio::test]
 pub async fn create_bdk_rbf_transaction() -> Result<()> {
     // 1. Initial Setup
@@ -149,6 +149,7 @@ pub async fn create_bdk_rbf_transaction() -> Result<()> {
     let user_address = user_wallet_data.get_address(AddressIndex::New)?;
     send_some_coins(&user_address.address.to_string(), "1").await;
 
+    // 2. Send sats
     user_wallet_data
         .sync(&blockchain, SyncOptions::default())
         .await?;
@@ -186,16 +187,14 @@ pub async fn create_bdk_rbf_transaction() -> Result<()> {
         .map(|u| u.previous_output.to_string())
         .collect();
 
-    let (mut psbt, ..) = {
-        let mut builder = user_wallet_data.build_fee_bump(tx.txid())?;
-        builder.fee_rate(bdk::FeeRate::from_sat_per_vb(5.0));
-        builder.finish()?
-    };
-
-    let _ = user_wallet_data.sign(&mut psbt, SignOptions::default())?;
-    let tx = psbt.extract_tx();
-    let blockchain = get_blockchain().await;
-    blockchain.broadcast(&tx).await?;
+    bump_fee(
+        tx.txid().to_hex_string(Case::Lower),
+        5.0,
+        &SecretString(user_keys.private.btc_descriptor_xprv.to_owned()),
+        &SecretString(user_keys.private.btc_change_descriptor_xprv.to_owned()),
+        true,
+    )
+    .await?;
 
     user_wallet_data
         .sync(&blockchain, SyncOptions::default())
@@ -212,8 +211,8 @@ pub async fn create_bdk_rbf_transaction() -> Result<()> {
         .map(|u| u.previous_output.to_string())
         .collect();
 
-    // println!("{:#?}", tx_1_utxos);
-    // println!("{:#?}", tx_2_utxos);
+    println!("tx 1 utxos: {:#?}", tx_1_utxos);
+    println!("tx 2 utxos: {:#?}", tx_2_utxos);
     assert_eq!(tx_1_utxos, tx_2_utxos);
 
     Ok(())
