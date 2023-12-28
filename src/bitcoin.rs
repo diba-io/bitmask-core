@@ -5,7 +5,7 @@ use ::psbt::Psbt;
 use amplify::hex::ToHex;
 use argon2::Argon2;
 use bdk::{wallet::AddressIndex, FeeRate, LocalUtxo, SignOptions, TransactionDetails};
-use bitcoin::{consensus::encode, psbt::PartiallySignedTransaction};
+use bitcoin::{consensus::encode, psbt::PartiallySignedTransaction, Txid};
 use rand::{rngs::StdRng, Rng, SeedableRng};
 use serde_encrypt::{
     serialize::impls::BincodeSerializer, shared_key::SharedKey, traits::SerdeEncryptSharedKey,
@@ -40,7 +40,7 @@ use crate::{
     structs::{
         DecryptedWalletData, EncryptedWalletDataV04, FundVaultDetails, PublishPsbtRequest,
         PublishedPsbtResponse, SatsInvoice, SecretString, SignPsbtRequest, SignedPsbtResponse,
-        WalletData, WalletTransaction,
+        TransactionData, WalletData, WalletTransaction,
     },
     trace,
 };
@@ -113,6 +113,9 @@ pub enum BitcoinError {
     /// PSBT decode error
     #[error(transparent)]
     BitcoinPsbtDecodeError(#[from] bitcoin::consensus::encode::Error),
+    /// Txid parse error
+    #[error(transparent)]
+    TxidParseError(#[from] bitcoin::hashes::hex::Error),
 }
 
 /// Bitcoin Wallet Operations
@@ -270,7 +273,7 @@ pub async fn get_wallet_data(
     let mut transactions = wallet
         .lock()
         .await
-        .list_transactions(false)
+        .list_transactions(true)
         .unwrap_or_default();
     trace!(format!("transactions: {transactions:#?}"));
 
@@ -283,13 +286,23 @@ pub async fn get_wallet_data(
 
     let transactions: Vec<WalletTransaction> = transactions
         .into_iter()
-        .map(|tx| WalletTransaction {
-            txid: tx.txid,
-            received: tx.received,
-            sent: tx.sent,
-            fee: tx.fee,
-            confirmed: tx.confirmation_time.is_some(),
-            confirmation_time: tx.confirmation_time,
+        .map(|tx| {
+            let vsize = match &tx.transaction {
+                Some(tx_details) => tx_details.vsize(),
+                None => 1,
+            };
+            let fee_rate = tx.fee.expect("tx fee exists") as f32 / vsize as f32;
+
+            WalletTransaction {
+                txid: tx.txid,
+                received: tx.received,
+                sent: tx.sent,
+                fee: tx.fee,
+                confirmed: tx.confirmation_time.is_some(),
+                confirmation_time: tx.confirmation_time,
+                vsize,
+                fee_rate,
+            }
         })
         .collect();
 
@@ -341,13 +354,13 @@ pub async fn send_sats(
     destination: &str, // bip21 uri or address
     amount: u64,
     fee_rate: Option<f32>,
-) -> Result<TransactionDetails, BitcoinError> {
+) -> Result<TransactionData, BitcoinError> {
     use payjoin::UriExt;
 
     let wallet = get_wallet(descriptor, Some(change_descriptor)).await?;
     let fee_rate = fee_rate.map(FeeRate::from_sat_per_vb);
 
-    let transaction = match payjoin::Uri::try_from(destination) {
+    let details = match payjoin::Uri::try_from(destination) {
         Ok(uri) => {
             let address = uri.address.clone();
             validate_address(&address).await?;
@@ -370,7 +383,17 @@ pub async fn send_sats(
         }
     };
 
-    Ok(transaction)
+    let vsize = match &details.transaction {
+        Some(tx_details) => tx_details.vsize(),
+        None => 1,
+    };
+    let fee_rate = details.fee.expect("fee is present on tx") as f32 / vsize as f32;
+
+    Ok(TransactionData {
+        details,
+        vsize,
+        fee_rate,
+    })
 }
 
 pub async fn fund_vault(
@@ -537,7 +560,7 @@ pub async fn drain_wallet(
     descriptor: &SecretString,
     change_descriptor: Option<&SecretString>,
     fee_rate: Option<f32>,
-) -> Result<TransactionDetails, BitcoinError> {
+) -> Result<TransactionData, BitcoinError> {
     let address = Address::from_str(destination)?;
     validate_address(&address).await?;
     debug!(format!("Create drain wallet tx to: {address:#?}"));
@@ -593,8 +616,72 @@ pub async fn drain_wallet(
             "Drain wallet transaction submitted with details: {details:#?}"
         ));
 
-        Ok(details)
+        let vsize = match &details.transaction {
+            Some(tx_details) => tx_details.vsize(),
+            None => 1,
+        };
+        let fee_rate = details.fee.expect("fee is present on tx") as f32 / vsize as f32;
+
+        Ok(TransactionData {
+            details,
+            vsize,
+            fee_rate,
+        })
     } else {
         Err(BitcoinError::DrainWalletNoTxDetails)
     }
+}
+
+pub async fn bump_fee(
+    txid: String,
+    fee_rate: f32,
+    descriptor: &SecretString,
+    change_descriptor: Option<&SecretString>,
+    broadcast: bool,
+) -> Result<TransactionData, BitcoinError> {
+    let txid = Txid::from_str(&txid)?;
+
+    let wallet = get_wallet(descriptor, change_descriptor).await?;
+
+    if broadcast {
+        sync_wallet(&wallet).await?;
+    }
+
+    let (mut psbt, details) = {
+        let wallet_lock = wallet.lock().await;
+        let mut builder = wallet_lock.build_fee_bump(txid)?;
+        builder.fee_rate(FeeRate::from_sat_per_vb(fee_rate));
+        builder.finish()?
+    };
+
+    let _finalized = wallet
+        .lock()
+        .await
+        .sign(&mut psbt, SignOptions::default())?;
+    let tx = psbt.extract_tx();
+
+    if broadcast {
+        let blockchain = get_blockchain().await;
+        blockchain.broadcast(&tx).await?;
+    }
+
+    let sent = tx.output.iter().fold(0, |sum, output| output.value + sum);
+
+    let txid = tx.txid();
+    let vsize = tx.vsize();
+
+    let details = TransactionDetails {
+        txid,
+        transaction: Some(tx),
+        received: 0,
+        sent,
+        fee: details.fee,
+        confirmation_time: None,
+    };
+
+    Ok(TransactionData {
+        details,
+        vsize,
+        fee_rate,
+    })
 }

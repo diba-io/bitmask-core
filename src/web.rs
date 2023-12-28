@@ -295,6 +295,56 @@ pub mod bitcoin {
     }
 
     #[wasm_bindgen]
+    pub fn fund_vault(
+        descriptor: String,
+        change_descriptor: String,
+        asset_address: String,
+        uda_address: String,
+        fee_rate: Option<f32>,
+    ) -> Promise {
+        set_panic_hook();
+
+        future_to_promise(async move {
+            match crate::bitcoin::fund_vault(
+                &SecretString(descriptor),
+                &SecretString(change_descriptor),
+                &asset_address,
+                &uda_address,
+                fee_rate,
+            )
+            .await
+            {
+                Ok(result) => Ok(JsValue::from_string(
+                    serde_json::to_string(&result).unwrap(),
+                )),
+                Err(err) => Err(JsValue::from_string(err.to_string())),
+            }
+        })
+    }
+
+    #[wasm_bindgen]
+    pub fn get_assets_vault(
+        rgb_assets_descriptor_xpub: String,
+        rgb_udas_descriptor_xpub: String,
+    ) -> Promise {
+        set_panic_hook();
+
+        future_to_promise(async move {
+            match crate::bitcoin::get_assets_vault(
+                &SecretString(rgb_assets_descriptor_xpub),
+                &SecretString(rgb_udas_descriptor_xpub),
+            )
+            .await
+            {
+                Ok(result) => Ok(JsValue::from_string(
+                    serde_json::to_string(&result).unwrap(),
+                )),
+                Err(err) => Err(JsValue::from_string(err.to_string())),
+            }
+        })
+    }
+
+    #[wasm_bindgen]
     pub fn drain_wallet(
         destination: String,
         descriptor: String,
@@ -323,44 +373,23 @@ pub mod bitcoin {
     }
 
     #[wasm_bindgen]
-    pub fn fund_vault(
+    pub fn bump_fee(
+        txid: String,
+        fee_rate: f32,
         descriptor: String,
-        change_descriptor: String,
-        asset_address_1: String,
-        uda_address_1: String,
-        fee_rate: Option<f32>,
+        change_descriptor: Option<String>,
+        broadcast: bool,
     ) -> Promise {
         set_panic_hook();
 
         future_to_promise(async move {
-            match crate::bitcoin::fund_vault(
-                &SecretString(descriptor),
-                &SecretString(change_descriptor),
-                &asset_address_1,
-                &uda_address_1,
+            let change_descriptor = change_descriptor.map(SecretString);
+            match crate::bitcoin::bump_fee(
+                txid,
                 fee_rate,
-            )
-            .await
-            {
-                Ok(result) => Ok(JsValue::from_string(
-                    serde_json::to_string(&result).unwrap(),
-                )),
-                Err(err) => Err(JsValue::from_string(err.to_string())),
-            }
-        })
-    }
-
-    #[wasm_bindgen]
-    pub fn get_assets_vault(
-        rgb_assets_descriptor_xpub: String,
-        rgb_udas_descriptor_xpub: String,
-    ) -> Promise {
-        set_panic_hook();
-
-        future_to_promise(async move {
-            match crate::bitcoin::get_assets_vault(
-                &SecretString(rgb_assets_descriptor_xpub),
-                &SecretString(rgb_udas_descriptor_xpub),
+                &SecretString(descriptor),
+                change_descriptor.as_ref(),
+                broadcast,
             )
             .await
             {

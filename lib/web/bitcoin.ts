@@ -57,16 +57,6 @@ export const sendSats = async (
     await BMC.send_sats(descriptor, changeDescriptor, address, amount, feeRate)
   );
 
-export const drainWallet = async (
-  destination: string,
-  descriptor: string,
-  changeDescriptor?: string,
-  feeRate?: number
-): Promise<TransactionData> =>
-  JSON.parse(
-    await BMC.drain_wallet(destination, descriptor, changeDescriptor, feeRate)
-  );
-
 export const fundVault = async (
   descriptor: string,
   changeDescriptor: string,
@@ -90,6 +80,27 @@ export const getAssetsVault = async (
 ): Promise<FundVaultDetails> =>
   JSON.parse(
     await BMC.get_assets_vault(rgbAssetsDescriptorXpub, rgbUdasDescriptorXpub)
+  );
+
+export const drainWallet = async (
+  destination: string,
+  descriptor: string,
+  changeDescriptor?: string,
+  feeRate?: number
+): Promise<TransactionData> =>
+  JSON.parse(
+    await BMC.drain_wallet(destination, descriptor, changeDescriptor, feeRate)
+  );
+
+export const bumpFee = async (
+  txid: string,
+  feeRate: number,
+  broadcast: boolean,
+  descriptor: string,
+  changeDescriptor?: string,
+): Promise<TransactionData> =>
+  JSON.parse(
+    await BMC.bump_fee(txid, feeRate, descriptor, changeDescriptor, broadcast)
   );
 
 // Core type interfaces based on structs defined within the bitmask-core Rust crate:
@@ -123,7 +134,7 @@ export interface Vault {
   public: PublicWalletData;
 }
 
-export interface Transaction {
+export interface Transaction extends WalletTransaction {
   amount: number;
   asset?: string;
   assetType: string;
@@ -162,6 +173,12 @@ export interface TransactionDetails extends Transaction {
 }
 
 export interface TransactionData {
+  details: TransactionDataDetails;
+  vsize: number;
+  feeRate: number;
+}
+
+export interface TransactionDataDetails {
   transaction?: Transaction;
   txid: string;
   received: number;
@@ -183,6 +200,8 @@ export interface WalletTransaction {
   fee: number;
   confirmed: boolean;
   confirmationTime: ConfirmationTime;
+  vsize: number;
+  feeRate: number;
 }
 
 export interface WalletBalance {

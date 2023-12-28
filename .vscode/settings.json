@@ -5,8 +5,8 @@
   "files.autoSave": "onFocusChange",
   "files.insertFinalNewline": true,
   "files.trimTrailingWhitespace": true,
-  "rust-analyzer.cargo.features": "all", // Enable only for desktop
   "rust-analyzer.check.allTargets": true,
+  "rust-analyzer.cargo.features": "all", // Enable only for desktop
   // "rust-analyzer.cargo.target": "wasm32-unknown-unknown", // Enable only for web
   // "rust-analyzer.check.noDefaultFeatures": true, // Enable for web
   // "rust-analyzer.runnables.extraArgs": ["--release"], // Enable for web

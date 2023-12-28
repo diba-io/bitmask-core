@@ -1,7 +1,7 @@
 #![cfg(target_arch = "wasm32")]
 use bitmask_core::{
     debug, info,
-    structs::{DecryptedWalletData, SecretString, TransactionDetails, WalletData},
+    structs::{DecryptedWalletData, SecretString, TransactionData, WalletData},
     web::{
         bitcoin::{
             decrypt_wallet, encrypt_wallet, get_wallet_data, hash_password, new_wallet, send_sats,
@@ -186,10 +186,10 @@ async fn import_test_wallet() {
     .await;
 
     info!("Parse tx_details");
-    let tx_data: TransactionDetails = json_parse(&tx_details);
+    let tx_data: TransactionData = json_parse(&tx_details);
 
     assert!(
-        tx_data.confirmation_time.is_none(),
+        tx_data.details.confirmation_time.is_none(),
         "latest transaction hasn't been confirmed yet"
     );
 }

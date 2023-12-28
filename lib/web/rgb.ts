@@ -819,10 +819,10 @@ export interface RgbOfferRequest {
   expireAt?: number;
 }
 
-export interface RgbSwapStrategy {
-  auction?: string,
-  p2p?: string,
-  hotswap?: string,
+export enum RgbSwapStrategy {
+  Auction = "auction",
+  P2P = "p2p",
+  HotSwap = "hotswap",
 }
 
 export interface RgbAuctionStrategy {
