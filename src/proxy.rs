@@ -95,7 +95,9 @@ mod server {
             let (id, source) = match encode {
                 MediaEncode::Base64 => {
                     let source = base64::encode(&content);
-                    let id = blake3::hash(&content).to_hex().to_string();
+                    let id = blake3::hash(blake3::hash(&content).as_bytes())
+                        .to_hex()
+                        .to_string();
                     (id, source)
                 }
                 MediaEncode::Sha2 => {
@@ -105,7 +107,7 @@ mod server {
                 }
                 MediaEncode::Blake3 => {
                     let source = blake3::hash(&content).to_hex().to_string();
-                    let id = source.clone();
+                    let id = source.to_string();
                     (id, source)
                 }
             };
@@ -113,7 +115,7 @@ mod server {
             let metadata = MediaMetadata::new(&id, &media.ty, &media.uri, &source);
 
             // Store File
-            let attachment_id = blake3::hash(source.as_bytes()).to_hex().to_lowercase();
+            let attachment_id = id;
             let file_req = RgbProxyMediaFileReq {
                 params: RgbProxyMedia {
                     attachment_id: attachment_id.clone(),
@@ -134,6 +136,7 @@ mod server {
                 file_name: metadata_id.clone(),
                 bytes: metadata_content,
             };
+
             proxy_media_store(file_req).await?;
 
             Ok(metadata)

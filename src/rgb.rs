@@ -1987,7 +1987,7 @@ pub async fn finish_auction_offers(
         iface,
         buyer_invoice,
         ..
-    }) = all_bids.clone().get(0)
+    }) = all_bids.clone().first()
     {
         let all_invoices = all_bids
             .clone()

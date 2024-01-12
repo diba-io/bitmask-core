@@ -383,3 +383,23 @@ async fn create_uda_with_medias() {
     let issue_resp: JsValue = resolve(full_issue_contract(issuer_sk.to_string(), issue_req)).await;
     let issuer_resp: IssueResponse = json_parse(&issue_resp);
 }
+
+#[wasm_bindgen_test]
+#[allow(unused_assignments)]
+async fn import_attachments_into_proxy() {
+    set_panic_hook();
+    info!("Import Attachments (Static Files Media) on the RGB Proxy");
+    let media_item = MediaItemRequest {
+        ty: "image/svg+xml".to_string(),
+        uri: "https://www.torproject.org/static/images/yec-2023/main-illo.svg".to_string(),
+    };
+    let import_media_req = MediaRequest {
+        preview: Some(media_item.clone()),
+        media: Some(media_item.clone()),
+        attachments: vec![media_item.clone()],
+    };
+
+    let import_media_req = serde_wasm_bindgen::to_value(&import_media_req).expect("");
+    let import_media_resp: JsValue = resolve(import_uda_data(import_media_req)).await;
+    let import_media_resp: MediaResponse = json_parse(&import_media_resp);
+}

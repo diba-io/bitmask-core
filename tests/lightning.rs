@@ -109,7 +109,7 @@ pub async fn get_balance_test() -> Result<()> {
     thread::sleep(time::Duration::from_secs(1));
     if let AuthResponse::Result { refresh: _, token } = response {
         let accounts = get_balance(&token).await?;
-        let btc_account = accounts.get(0).unwrap();
+        let btc_account = accounts.first().unwrap();
         assert_eq!(btc_account.balance, "0");
     }
 
