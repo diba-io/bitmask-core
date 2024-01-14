@@ -95,7 +95,10 @@ fn get_descriptor(
 fn xprv_desc(xprv: &ExtendedPrivKey, path: &str, change: u32) -> Result<String, BitcoinKeysError> {
     let xprv = get_descriptor(xprv, path, change)?;
 
+    #[cfg(not(feature = "segwit"))]
     Ok(format!("tr({xprv})"))
+    #[cfg(feature = "segwit")]
+    Ok(format!("wpkh({xprv})"))
 }
 
 fn xpub_desc(xprv: &ExtendedPrivKey, path: &str, change: u32) -> Result<String, BitcoinKeysError> {
@@ -103,7 +106,10 @@ fn xpub_desc(xprv: &ExtendedPrivKey, path: &str, change: u32) -> Result<String, 
     let xprv = get_descriptor(xprv, path, change)?;
     let xpub = xprv.to_public(&secp)?;
 
-    Ok(format!("tr({xpub})"))
+    #[cfg(not(feature = "segwit"))]
+    Ok(format!("tr({xprv})"))
+    #[cfg(feature = "segwit")]
+    Ok(format!("wpkh({xprv})"))
 }
 
 fn watcher_xpub(
@@ -245,7 +251,11 @@ pub async fn get_marketplace_descriptor() -> Result<Option<SecretString>, Bitcoi
     };
 
     let desc_xpub = DescriptorPublicKey::XPub(desc).to_string();
-    let tap = format!("tr({desc_xpub}/*)");
 
-    Ok(Some(SecretString(tap)))
+    #[cfg(not(feature = "segwit"))]
+    let desc_str = format!("tr({desc_xpub}/*)");
+    #[cfg(feature = "segwit")]
+    let desc_str = format!("wpkh({desc_xpub}/*)");
+
+    Ok(Some(SecretString(desc_str)))
 }
