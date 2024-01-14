@@ -90,8 +90,15 @@ pub async fn get_udas_utxo() -> String {
 }
 
 // Descriptor strings
+#[cfg(not(feature = "segwit"))]
 pub const BTC_MAINNET_PATH: &str = "m/86h/0h/0h";
+#[cfg(not(feature = "segwit"))]
 pub const BTC_TESTNET_PATH: &str = "m/86h/1h/0h";
+#[cfg(feature = "segwit")]
+pub const BTC_MAINNET_PATH: &str = "m/84h/0h/0h";
+#[cfg(feature = "segwit")]
+pub const BTC_TESTNET_PATH: &str = "m/84h/1h/0h";
+
 pub static BTC_PATH: Lazy<RwLock<String>> = Lazy::new(|| {
     RwLock::new(if dot_env("BITCOIN_NETWORK") == "bitcoin" {
         BTC_MAINNET_PATH.to_owned()

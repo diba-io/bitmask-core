@@ -1,12 +1,16 @@
 use std::str::FromStr;
 
+#[cfg(feature = "segwit")]
+use bdk::miniscript::Segwitv0;
+#[cfg(not(feature = "segwit"))]
+use bdk::miniscript::Tap;
 use bdk::{
     bitcoin::{
         secp256k1::Secp256k1,
         util::bip32::{ChildNumber, DerivationPath, ExtendedPrivKey, ExtendedPubKey, KeySource},
     },
     keys::{DerivableKey, DescriptorKey, DescriptorKey::Secret as SecretDesc, DescriptorSecretKey},
-    miniscript::{descriptor::DescriptorKeyParseError, Tap},
+    miniscript::descriptor::DescriptorKeyParseError,
 };
 use bip39::{Language, Mnemonic};
 use bitcoin::{KeyPair, Network};
@@ -70,7 +74,13 @@ fn get_descriptor(
     let deriv_descriptor = DerivationPath::from_str(path)?;
     let derived_xprv = &xprv.derive_priv(&secp, &deriv_descriptor)?;
     let origin: KeySource = (xprv.fingerprint(&secp), deriv_descriptor);
+    #[cfg(not(feature = "segwit"))]
     let derived_xprv_desc_key: DescriptorKey<Tap> = derived_xprv.into_descriptor_key(
+        Some(origin),
+        DerivationPath::default().child(ChildNumber::from_normal_idx(change)?),
+    )?;
+    #[cfg(feature = "segwit")]
+    let derived_xprv_desc_key: DescriptorKey<Segwitv0> = derived_xprv.into_descriptor_key(
         Some(origin),
         DerivationPath::default().child(ChildNumber::from_normal_idx(change)?),
     )?;
