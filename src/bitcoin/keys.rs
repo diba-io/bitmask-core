@@ -96,9 +96,11 @@ fn xprv_desc(xprv: &ExtendedPrivKey, path: &str, change: u32) -> Result<String, 
     let xprv = get_descriptor(xprv, path, change)?;
 
     #[cfg(not(feature = "segwit"))]
-    Ok(format!("tr({xprv})"))
+    let desc = format!("tr({xprv})");
     #[cfg(feature = "segwit")]
-    Ok(format!("wpkh({xprv})"))
+    let desc = format!("wpkh({xprv})");
+
+    Ok(desc)
 }
 
 fn xpub_desc(xprv: &ExtendedPrivKey, path: &str, change: u32) -> Result<String, BitcoinKeysError> {
@@ -107,9 +109,11 @@ fn xpub_desc(xprv: &ExtendedPrivKey, path: &str, change: u32) -> Result<String, 
     let xpub = xprv.to_public(&secp)?;
 
     #[cfg(not(feature = "segwit"))]
-    Ok(format!("tr({xprv})"))
+    let desc = format!("tr({xprv})");
     #[cfg(feature = "segwit")]
-    Ok(format!("wpkh({xprv})"))
+    let desc = format!("wpkh({xprv})");
+
+    Ok(desc)
 }
 
 fn watcher_xpub(
