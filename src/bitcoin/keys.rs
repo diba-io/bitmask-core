@@ -109,9 +109,9 @@ fn xpub_desc(xprv: &ExtendedPrivKey, path: &str, change: u32) -> Result<String, 
     let xpub = xprv.to_public(&secp)?;
 
     #[cfg(not(feature = "segwit"))]
-    let desc = format!("tr({xprv})");
+    let desc = format!("tr({xpub})");
     #[cfg(feature = "segwit")]
-    let desc = format!("wpkh({xprv})");
+    let desc = format!("wpkh({xpub})");
 
     Ok(desc)
 }
