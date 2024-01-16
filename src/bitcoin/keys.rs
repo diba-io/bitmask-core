@@ -1,12 +1,16 @@
 use std::str::FromStr;
 
+#[cfg(feature = "segwit")]
+use bdk::miniscript::Segwitv0;
+#[cfg(not(feature = "segwit"))]
+use bdk::miniscript::Tap;
 use bdk::{
     bitcoin::{
         secp256k1::Secp256k1,
         util::bip32::{ChildNumber, DerivationPath, ExtendedPrivKey, ExtendedPubKey, KeySource},
     },
     keys::{DerivableKey, DescriptorKey, DescriptorKey::Secret as SecretDesc, DescriptorSecretKey},
-    miniscript::{descriptor::DescriptorKeyParseError, Tap},
+    miniscript::descriptor::DescriptorKeyParseError,
 };
 use bip39::{Language, Mnemonic};
 use bitcoin::{KeyPair, Network};
@@ -70,7 +74,13 @@ fn get_descriptor(
     let deriv_descriptor = DerivationPath::from_str(path)?;
     let derived_xprv = &xprv.derive_priv(&secp, &deriv_descriptor)?;
     let origin: KeySource = (xprv.fingerprint(&secp), deriv_descriptor);
+    #[cfg(not(feature = "segwit"))]
     let derived_xprv_desc_key: DescriptorKey<Tap> = derived_xprv.into_descriptor_key(
+        Some(origin),
+        DerivationPath::default().child(ChildNumber::from_normal_idx(change)?),
+    )?;
+    #[cfg(feature = "segwit")]
+    let derived_xprv_desc_key: DescriptorKey<Segwitv0> = derived_xprv.into_descriptor_key(
         Some(origin),
         DerivationPath::default().child(ChildNumber::from_normal_idx(change)?),
     )?;
@@ -85,7 +95,12 @@ fn get_descriptor(
 fn xprv_desc(xprv: &ExtendedPrivKey, path: &str, change: u32) -> Result<String, BitcoinKeysError> {
     let xprv = get_descriptor(xprv, path, change)?;
 
-    Ok(format!("tr({xprv})"))
+    #[cfg(not(feature = "segwit"))]
+    let desc = format!("tr({xprv})");
+    #[cfg(feature = "segwit")]
+    let desc = format!("wpkh({xprv})");
+
+    Ok(desc)
 }
 
 fn xpub_desc(xprv: &ExtendedPrivKey, path: &str, change: u32) -> Result<String, BitcoinKeysError> {
@@ -93,7 +108,12 @@ fn xpub_desc(xprv: &ExtendedPrivKey, path: &str, change: u32) -> Result<String, 
     let xprv = get_descriptor(xprv, path, change)?;
     let xpub = xprv.to_public(&secp)?;
 
-    Ok(format!("tr({xpub})"))
+    #[cfg(not(feature = "segwit"))]
+    let desc = format!("tr({xpub})");
+    #[cfg(feature = "segwit")]
+    let desc = format!("wpkh({xpub})");
+
+    Ok(desc)
 }
 
 fn watcher_xpub(
@@ -235,7 +255,11 @@ pub async fn get_marketplace_descriptor() -> Result<Option<SecretString>, Bitcoi
     };
 
     let desc_xpub = DescriptorPublicKey::XPub(desc).to_string();
-    let tap = format!("tr({desc_xpub}/*)");
 
-    Ok(Some(SecretString(tap)))
+    #[cfg(not(feature = "segwit"))]
+    let desc_str = format!("tr({desc_xpub}/*)");
+    #[cfg(feature = "segwit")]
+    let desc_str = format!("wpkh({desc_xpub}/*)");
+
+    Ok(Some(SecretString(desc_str)))
 }

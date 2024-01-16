@@ -24,6 +24,7 @@ required-features = ["server"]
 all = []
 default = []
 web = []
+segwit = []
 server = ["tokio/full", "tower-http/cors"]
 
 [dependencies]
