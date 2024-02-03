@@ -10,7 +10,7 @@ use bitmask_core::{
 
 #[tokio::test]
 pub async fn taproot() -> Result<()> {
-    init_logging("nostr_tests=debug");
+    init_logging("taproot=debug");
 
     const MNEMONIC: &str =
         "empty faculty salute fortune select asthma attract question violin movie smile erupt half step lion deposit render stumble double mobile fossil height usual topple";
@@ -34,6 +34,12 @@ pub async fn taproot() -> Result<()> {
         decrypted_wallet.public.btc_descriptor_xpub,
         "tr([496f1ccc/86'/0'/0']xpub6CBkARCPxmbRjaxzHxC38e9sKUVtMTRFqBYUFdXAHFBpeQzJz6mYSaQ1qSvCrNzYUNuvpD9FS6fmK9YowdCxaiCUSpjzNm5hvV2JxEodZ1q/0/*)",
         "correct taproot xpub descriptor is derived from mnemonic"
+    );
+
+    assert_eq!(
+        decrypted_wallet.public.xpub,
+        "xpub6CBkARCPxmbRjaxzHxC38e9sKUVtMTRFqBYUFdXAHFBpeQzJz6mYSaQ1qSvCrNzYUNuvpD9FS6fmK9YowdCxaiCUSpjzNm5hvV2JxEodZ1q",
+        "correct taproot xpub is derived from mnemonic"
     );
 
     assert_eq!(
