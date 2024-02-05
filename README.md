@@ -14,7 +14,7 @@ Core functionality for the BitMask wallet - <https://bitmask.app>
 - [bdk](https://github.com/bitcoindevkit/bdk) - Bitcoin Dev Kit
 - [rgb-wallet](https://github.com/RGB-WG/rgb-wallet) - RGB Wallet
 - [wasm-pack](https://github.com/rustwasm/wasm-pack) - WebAssembly
-- [lndhubx](https://lndhubx.kollider.xyz) - Custodial Lightning
+- [lndhubx](https://github.com/kolliderhq/lndhub) - Custodial Lightning
 - [nostr-sdk](https://github.com/rust-nostr/nostr) - Nostr SDK
 - [carbonado](https://github.com/diba-io/carbonado) - Carbonado e2ee decentralized storage
 
@@ -47,12 +47,6 @@ Parts of this application are built with conditional compilation statements for 
 
 `cargo clippy --target wasm32-unknown-unknown --no-default-features --release`
 
-## Release
-
-Upon a new release, follow these steps:
-
-1. Run `cargo update` to update to latest deps.
-1. Run `cargo +nightly udeps` to see if there are any unused dependencies.
 
 ## Docker
 
@@ -64,7 +58,7 @@ For running bitmask-core tests in Regtest Mode, please follow the steps below:
 2. Up and running Docker containers: `docker-compose up -d node1 bitmaskd`.
 3. Load the command line: `source .commands`
 4. Download and install BDK cli: `cargo install bdk-cli`. We will use BDK to generate the mnemonic.
-5. Generate a new mnemonic: `bdk-cli generate`.
+5. Generate a new mnemonic: `bdk-cli key generate -e 12`.
 6. Create an environment variable called **TEST_WALLET_SEED** with mnemonic generated in the **step 5** (only wasm32).
 7. Run the test to get main address for bitcoin and rgb: `cargo test --test wallet -- create_wallet --exact`.
 8. Load your wallet in the bitcoin node: `node1 loadwallet default`.
@@ -77,6 +71,14 @@ For running bitmask-core tests in Regtest Mode, please follow the steps below:
 ### Running the tests
 
 Running the tests: `cargo test --test-threads 1`
+
+## Updating
+
+Upon a new release, follow these steps:
+
+1. Run `cargo update` to update to latest deps.
+1. Run `cargo +nightly udeps` to see if there are any unused dependencies.
+
 
 ### Troubleshooting
 
