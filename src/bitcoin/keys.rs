@@ -210,7 +210,7 @@ pub async fn get_mnemonic(
     };
 
     let public = PublicWalletData {
-        xpub: xpub.to_string(),
+        xpub: watcher_xpub.clone(),
         xpubkh,
         watcher_xpub,
         btc_descriptor_xpub,
