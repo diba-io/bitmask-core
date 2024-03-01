@@ -75,7 +75,9 @@ pub struct Account {
 /// Pay Invoice request
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PayInvoiceRequest {
-    pub payment_request: String,
+    pub payment_request: Option<String>,
+    pub recipient: Option<String>,
+    pub amount: Option<u32>,
 }
 
 /// Lightning transaction
@@ -225,7 +227,28 @@ pub async fn pay_invoice(payment_request: &str, token: &str) -> Result<PayInvoic
     let endpoint = LNDHUB_ENDPOINT.read().await;
     let url = format!("{endpoint}/payinvoice");
     let req = PayInvoiceRequest {
-        payment_request: payment_request.to_string(),
+        payment_request: Some(payment_request.to_string()),
+        recipient: None,
+        amount: None,
+    };
+    let response = post_json_auth(&url, &Some(req), Some(token)).await?;
+    let response: PayInvoiceResponse = serde_json::from_str(&response)?;
+
+    Ok(response)
+}
+
+/// Pay a lightning address
+pub async fn pay_ln_address(
+    ln_address: &str,
+    amount: u32,
+    token: &str,
+) -> Result<PayInvoiceResponse> {
+    let endpoint = LNDHUB_ENDPOINT.read().await;
+    let url = format!("{endpoint}/payinvoice");
+    let req = PayInvoiceRequest {
+        payment_request: None,
+        recipient: Some(ln_address.to_string()),
+        amount: Some(amount),
     };
     let response = post_json_auth(&url, &Some(req), Some(token)).await?;
     let response: PayInvoiceResponse = serde_json::from_str(&response)?;
