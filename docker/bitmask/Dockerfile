@@ -1,5 +1,5 @@
 # Builder
-FROM rust:1.70-slim-buster AS builder
+FROM rust:1.69-slim-buster AS builder
 ARG BUILDER_DIR=/srv/bitmask
 ARG BUILDER_SRC=/opt/src/bitmask
 
@@ -12,8 +12,14 @@ COPY . .
 
 RUN cargo install --locked --features server --path . --root ${BUILDER_DIR}
 
+#ARG path
+#ENV  CARBONADO_DIR $path
+#ENV CARBONADO_DIR=/data/bitmaskd/carbonado/
+
 # Runtime
-FROM rust:1.70-slim-buster AS runtime
+FROM rust:1.69-slim-buster AS runtime
+
+ENV CARBONADO_DIR=/data/bitmaskd/carbonado/
 
 ARG BUILDER_DIR=/srv/bitmask
 ARG BIN_DIR=/usr/local/bin
